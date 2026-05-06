@@ -1,6 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+    <script>
+        (function() {
+            // Immediate Redirect to mobile
+            if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth <= 768) {
+                window.location.replace('mobile/legal.html' + window.location.hash);
+            }
+            // Immediate Theme Detection
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const bgColor = savedTheme === 'dark' ? '#0f0012' : '#f8fafc';
+            document.write('<style>html,body{background-color:' + bgColor + ' !important;}</style>');
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Legal Information - Rasumi Group</title>
@@ -12,13 +26,21 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800;900&display=swap" rel="stylesheet">
+    <!-- Redirect to mobile version if on mobile device -->
+    <script>
+        if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth <= 768) {
+            const hash = window.location.hash;
+            window.location.replace('mobile/legal.html' + hash);
+        }
+    </script>
     <style>
         /* Re-enable full-page snapping for legal sections */
-        body, html {
+        body,
+        html {
             overflow: hidden !important;
             height: 100% !important;
         }
-        
+
         .legal-section-page {
             height: 100vh;
             display: flex;
@@ -40,20 +62,25 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: flex-start; /* Start from top to allow scrolling */
+            justify-content: flex-start;
+            /* Start from top to allow scrolling */
             align-items: center;
             padding: 120px 10% 40px;
             scroll-snap-align: start;
             scroll-snap-stop: always;
             background: var(--white);
             transition: background 0.3s;
-            overflow-y: auto; /* Scroll within section if text is long */
-            scrollbar-width: none; /* Firefox */
-            -ms-overflow-style: none; /* IE and Edge */
+            overflow-y: auto;
+            /* Scroll within section if text is long */
+            scrollbar-width: none;
+            /* Firefox */
+            -ms-overflow-style: none;
+            /* IE and Edge */
         }
 
         .legal-section-page::-webkit-scrollbar {
-            display: none; /* Chrome, Safari and Opera */
+            display: none;
+            /* Chrome, Safari and Opera */
         }
 
         [data-theme="dark"] .legal-section-page {
@@ -108,6 +135,7 @@
         }
     </style>
 </head>
+
 <body data-theme="light">
 
     <nav id="navbar" class="scrolled">
@@ -143,8 +171,13 @@
         <section class="legal-section-page" id="terms">
             <div class="legal-inner">
                 <h2>Terms & Conditions</h2>
-                <p>By accessing, browsing, or using this website, you acknowledge that you have read, understood, and agreed to be legally bound by these Terms & Conditions, which are structured in alignment with recognized corporate governance, risk management, and compliance best practices.</p>
-                <p>This website is owned and operated by Rasumi Group (Rasumi Medipharma Sdn Bhd) and is intended strictly as a corporate informational platform. All content is provided solely for general informational purposes for stakeholders, partners, affiliated institutions, and relevant regulatory authorities.</p>
+                <p>By accessing, browsing, or using this website, you acknowledge that you have read, understood, and
+                    agreed to be legally bound by these Terms & Conditions, which are structured in alignment with
+                    recognized corporate governance, risk management, and compliance best practices.</p>
+                <p>This website is owned and operated by Rasumi Group (Rasumi Medipharma Sdn Bhd) and is intended
+                    strictly as a corporate informational platform. All content is provided solely for general
+                    informational purposes for stakeholders, partners, affiliated institutions, and relevant regulatory
+                    authorities.</p>
                 <p>Nothing on this website shall be interpreted as:</p>
                 <ul>
                     <li>A legally binding agreement or contractual offer</li>
@@ -153,19 +186,22 @@
                 </ul>
 
                 <h3>Compliance & Governance Alignment</h3>
-                <p>Rasumi Group maintains internal policies and controls aligned with internationally recognized standards, including but not limited to:</p>
+                <p>Rasumi Group maintains internal policies and controls aligned with internationally recognized
+                    standards, including but not limited to:</p>
                 <ul>
                     <li>Information security management principles (e.g., ISO/IEC 27001)</li>
                     <li>Quality management frameworks (e.g., ISO 9001)</li>
                     <li>Risk management practices (e.g., ISO 31000)</li>
                 </ul>
-                <p>These Terms are designed to reflect a controlled, risk-aware, and compliance-driven digital environment.</p>
+                <p>These Terms are designed to reflect a controlled, risk-aware, and compliance-driven digital
+                    environment.</p>
 
                 <h3>User Obligations & Acceptable Use</h3>
                 <p>Users agree to comply with all applicable laws and must not:</p>
                 <ul>
                     <li>Attempt unauthorized access to systems, networks, or data repositories</li>
-                    <li>Conduct vulnerability scanning, penetration testing, or exploitation activities without explicit authorization</li>
+                    <li>Conduct vulnerability scanning, penetration testing, or exploitation activities without explicit
+                        authorization</li>
                     <li>Deploy automated extraction tools (bots, scrapers, crawlers) without prior consent</li>
                     <li>Interfere with system integrity, availability, or security controls</li>
                     <li>Use this website for unlawful, fraudulent, or misleading purposes</li>
@@ -173,19 +209,25 @@
                 <p>Any violation may trigger security response procedures, logging, and potential legal escalation.</p>
 
                 <h3>System Integrity & Availability</h3>
-                <p>This website is maintained under controlled operational conditions; however, Rasumi Group does not guarantee uninterrupted availability. Maintenance, upgrades, or security controls may result in temporary service limitations.</p>
+                <p>This website is maintained under controlled operational conditions; however, Rasumi Group does not
+                    guarantee uninterrupted availability. Maintenance, upgrades, or security controls may result in
+                    temporary service limitations.</p>
 
                 <h3>Intellectual Property & Control</h3>
-                <p>All content is governed under strict intellectual property controls. Unauthorized reproduction, redistribution, or modification is prohibited and may constitute a breach of applicable laws.</p>
+                <p>All content is governed under strict intellectual property controls. Unauthorized reproduction,
+                    redistribution, or modification is prohibited and may constitute a breach of applicable laws.</p>
 
                 <h3>Limitation of Liability</h3>
-                <p>To the maximum extent permitted under Malaysian law, Rasumi Group disclaims liability for direct or indirect damages, system interruptions, or reliance on informational content.</p>
+                <p>To the maximum extent permitted under Malaysian law, Rasumi Group disclaims liability for direct or
+                    indirect damages, system interruptions, or reliance on informational content.</p>
 
                 <h3>Audit & Monitoring</h3>
-                <p>System usage may be monitored, logged, and reviewed for security, compliance, and audit purposes in accordance with internal governance policies.</p>
+                <p>System usage may be monitored, logged, and reviewed for security, compliance, and audit purposes in
+                    accordance with internal governance policies.</p>
 
                 <h3>Governing Law</h3>
-                <p>These Terms shall be governed under the laws of Malaysia, with disputes subject to Malaysian jurisdiction.</p>
+                <p>These Terms shall be governed under the laws of Malaysia, with disputes subject to Malaysian
+                    jurisdiction.</p>
             </div>
         </section>
 
@@ -193,14 +235,18 @@
         <section class="legal-section-page" id="privacy">
             <div class="legal-inner">
                 <h2>Privacy Policy</h2>
-                <p>Rasumi Group (Rasumi Medipharma Sdn Bhd) implements data protection practices aligned with the Personal Data Protection Act 2010 (PDPA) of Malaysia and structured in accordance with internationally recognized information security and privacy management frameworks.</p>
-                
+                <p>Rasumi Group (Rasumi Medipharma Sdn Bhd) implements data protection practices aligned with the
+                    Personal Data Protection Act 2010 (PDPA) of Malaysia and structured in accordance with
+                    internationally recognized information security and privacy management frameworks.</p>
+
                 <h3>Data Protection Framework</h3>
-                <p>Our approach incorporates principles consistent with ISO/IEC 27001 (ISMS), ISO/IEC 27701 (PIMS), and data minimization principles.</p>
-                
+                <p>Our approach incorporates principles consistent with ISO/IEC 27001 (ISMS), ISO/IEC 27701 (PIMS), and
+                    data minimization principles.</p>
+
                 <h3>Data Collection Policy</h3>
-                <p>This website operates under a minimal data collection model. We do <strong>NOT</strong> collect sensitive health records, provide online medical services, or engage in unauthorized profiling.</p>
-                
+                <p>This website operates under a minimal data collection model. We do <strong>NOT</strong> collect
+                    sensitive health records, provide online medical services, or engage in unauthorized profiling.</p>
+
                 <h3>Types of Data Processed</h3>
                 <ul>
                     <li>Voluntarily provided contact information</li>
@@ -209,19 +255,24 @@
                 </ul>
 
                 <h3>Purpose Limitation</h3>
-                <p>All collected data is strictly used for corporate communication, inquiry handling, system security, and non-sensitive performance analytics.</p>
+                <p>All collected data is strictly used for corporate communication, inquiry handling, system security,
+                    and non-sensitive performance analytics.</p>
 
                 <h3>Data Security Controls</h3>
-                <p>Rasumi Group applies appropriate safeguards, including access control, secure storage, and anomaly detection to prevent unauthorized disclosure.</p>
+                <p>Rasumi Group applies appropriate safeguards, including access control, secure storage, and anomaly
+                    detection to prevent unauthorized disclosure.</p>
 
                 <h3>User Rights & Compliance</h3>
-                <p>Subject to PDPA provisions, users may request access to their personal data, correction of inaccuracies, or withdrawal of consent.</p>
+                <p>Subject to PDPA provisions, users may request access to their personal data, correction of
+                    inaccuracies, or withdrawal of consent.</p>
 
                 <h3>Cookies & Tracking Controls</h3>
-                <p>Only essential cookies are used. No behavioral profiling or healthcare-related targeting is implemented.</p>
+                <p>Only essential cookies are used. No behavioral profiling or healthcare-related targeting is
+                    implemented.</p>
 
                 <h3>Advertising Compliance Statement</h3>
-                <p>This website does not utilize personal data for targeted healthcare advertising or sensitive audience segmentation.</p>
+                <p>This website does not utilize personal data for targeted healthcare advertising or sensitive audience
+                    segmentation.</p>
             </div>
         </section>
 
@@ -229,26 +280,35 @@
         <section class="legal-section-page" id="disclaimer">
             <div class="legal-inner">
                 <h2>Website Disclaimer</h2>
-                <p><strong>Regulatory Disclosure & Compliance Statement:</strong> This website is a controlled corporate communication platform for Rasumi Group (Rasumi Medipharma Sdn Bhd), a licensed healthcare logistics and procurement provider collaborating with Yayasan Veteran ATM.</p>
-                <p>All content is strictly informational and aligned with regulatory, compliance, and risk management principles.</p>
+                <p><strong>Regulatory Disclosure & Compliance Statement:</strong> This website is a controlled corporate
+                    communication platform for Rasumi Group (Rasumi Medipharma Sdn Bhd), a licensed healthcare logistics
+                    and procurement provider collaborating with Yayasan Veteran ATM.</p>
+                <p>All content is strictly informational and aligned with regulatory, compliance, and risk management
+                    principles.</p>
 
                 <h3>Non-Clinical & Non-Transactional Nature</h3>
-                <p>This website does <strong>NOT</strong> provide medical advice, facilitate pharmaceutical sales, or operate as an online pharmacy/telehealth service.</p>
+                <p>This website does <strong>NOT</strong> provide medical advice, facilitate pharmaceutical sales, or
+                    operate as an online pharmacy/telehealth service.</p>
 
                 <h3>Regulatory Compliance Alignment</h3>
-                <p>Content is structured to comply with Ministry of Health Malaysia (MOH) regulations, Malaysian pharmaceutical laws, and international digital advertising standards (Meta Ads, Google Ads).</p>
+                <p>Content is structured to comply with Ministry of Health Malaysia (MOH) regulations, Malaysian
+                    pharmaceutical laws, and international digital advertising standards (Meta Ads, Google Ads).</p>
 
                 <h3>Pharmaceutical Control Environment</h3>
-                <p>All pharmaceutical-related operations are executed exclusively within licensed physical facilities, supervised by registered pharmacists, and follow strict SOPs.</p>
+                <p>All pharmaceutical-related operations are executed exclusively within licensed physical facilities,
+                    supervised by registered pharmacists, and follow strict SOPs.</p>
 
                 <h3>Advertising & Content Governance</h3>
-                <p>This website enforces strict content controls to avoid restricted healthcare advertising elements and prevent misleading claims. No content is intended to influence healthcare decisions.</p>
+                <p>This website enforces strict content controls to avoid restricted healthcare advertising elements and
+                    prevent misleading claims. No content is intended to influence healthcare decisions.</p>
 
                 <h3>Risk & Liability Disclaimer</h3>
-                <p>Rasumi Group disclaims all liability for misinterpretation of content or unauthorized reliance on information outside its intended corporate scope.</p>
+                <p>Rasumi Group disclaims all liability for misinterpretation of content or unauthorized reliance on
+                    information outside its intended corporate scope.</p>
 
                 <h3>Security & Monitoring Notice</h3>
-                <p>This website may implement continuous monitoring and security logging. Unauthorized activities may trigger incident response actions.</p>
+                <p>This website may implement continuous monitoring and security logging. Unauthorized activities may
+                    trigger incident response actions.</p>
             </div>
         </section>
 
@@ -256,14 +316,18 @@
         <section class="legal-section-page" id="compliance">
             <div class="legal-inner">
                 <h2>Compliance & Security</h2>
-                
+
                 <h3>Information Security Statement (ISMS Policy)</h3>
-                <p>Rasumi Group (Rasumi Medipharma Sdn Bhd) is committed to maintaining a robust Information Security Management System (ISMS) aligned with internationally recognized standards, including ISO/IEC 27001 principles.</p>
+                <p>Rasumi Group (Rasumi Medipharma Sdn Bhd) is committed to maintaining a robust Information Security
+                    Management System (ISMS) aligned with internationally recognized standards, including ISO/IEC 27001
+                    principles.</p>
                 <p>Our information security objectives are to ensure:</p>
                 <ul>
                     <li><strong>Confidentiality</strong> – Information is accessible only to authorized individuals</li>
-                    <li><strong>Integrity</strong> – Information is accurate, complete, and protected from unauthorized modification</li>
-                    <li><strong>Availability</strong> – Systems and data are accessible when required by authorized users</li>
+                    <li><strong>Integrity</strong> – Information is accurate, complete, and protected from unauthorized
+                        modification</li>
+                    <li><strong>Availability</strong> – Systems and data are accessible when required by authorized
+                        users</li>
                 </ul>
 
                 <h3>Security Governance & Controls</h3>
@@ -277,15 +341,21 @@
                 </ul>
 
                 <h3>Responsible Disclosure / Vulnerability Disclosure Policy (VDP)</h3>
-                <p>Rasumi Group welcomes responsible security research and is committed to maintaining the security and integrity of its systems.</p>
-                <p><strong>Authorized Testing Guidelines:</strong> Security researchers must act in good faith, avoid privacy violations, and immediately cease testing upon discovery of sensitive data exposure.</p>
-                <p><strong>Prohibited Activities:</strong> Social engineering, physical security testing, and Denial-of-service (DoS/DDoS) are strictly prohibited.</p>
+                <p>Rasumi Group welcomes responsible security research and is committed to maintaining the security and
+                    integrity of its systems.</p>
+                <p><strong>Authorized Testing Guidelines:</strong> Security researchers must act in good faith, avoid
+                    privacy violations, and immediately cease testing upon discovery of sensitive data exposure.</p>
+                <p><strong>Prohibited Activities:</strong> Social engineering, physical security testing, and
+                    Denial-of-service (DoS/DDoS) are strictly prohibited.</p>
 
                 <h3>Business Continuity & Incident Response</h3>
-                <p>Aligned with ISO 22301 principles, our approach includes identification of critical functions, impact analysis (BIA), and defined recovery strategies. We maintain an incident response framework designed to detect, contain, and investigate security or operational incidents.</p>
+                <p>Aligned with ISO 22301 principles, our approach includes identification of critical functions, impact
+                    analysis (BIA), and defined recovery strategies. We maintain an incident response framework designed
+                    to detect, contain, and investigate security or operational incidents.</p>
 
                 <h3>Third-Party Vendor Risk Management</h3>
-                <p>We implement controls to ensure that all vendors are assessed prior to engagement and meet minimum security, compliance, and regulatory standards.</p>
+                <p>We implement controls to ensure that all vendors are assessed prior to engagement and meet minimum
+                    security, compliance, and regulatory standards.</p>
             </div>
         </section>
 
@@ -293,7 +363,8 @@
             <div class="footer-grid">
                 <div class="footer-col">
                     <h3 style="color: var(--secondary); font-weight: 900;">RASUMI GROUP</h3>
-                    <p style="color: #9ca3af; margin-top: 1rem;">Your trusted partner in healthcare excellence and operational logistics.</p>
+                    <p style="color: #9ca3af; margin-top: 1rem;">Your trusted partner in healthcare excellence and
+                        operational logistics.</p>
                 </div>
                 <div class="footer-col">
                     <h3>Quick Links</h3>
@@ -309,19 +380,24 @@
                     <ul>
                         <li><img src="assets/images/icons/map_icon.png" class="footer-icon-img" alt="Location">
                             <div>RASUMI MEDIPHARMA Sdn. Bhd.<br>
-                            No 162, Jalan S2 B22,<br>
-                            Pusat Dagangan Seremban 2,<br>
-                            70300 Seremban, N. Sembilan,<br>
-                            Malaysia</div></li>
-                        <li><img src="assets/images/icons/phone_icon.png" class="footer-icon-img" alt="Phone"> 06-601 2918</li>
-                        <li><img src="assets/images/icons/emel_icon.png" class="footer-icon-img" alt="Email"> info@rasumigroup.my</li>
+                                No 162, Jalan S2 B22,<br>
+                                Pusat Dagangan Seremban 2,<br>
+                                70300 Seremban, N. Sembilan,<br>
+                                Malaysia</div>
+                        </li>
+                        <li><img src="assets/images/icons/phone_icon.png" class="footer-icon-img" alt="Phone"> 06-601
+                            2918</li>
+                        <li><img src="assets/images/icons/emel_icon.png" class="footer-icon-img" alt="Email">
+                            info@rasumigroup.my</li>
                     </ul>
                 </div>
                 <div class="footer-col">
                     <h3>Our Location</h3>
                     <div class="map-container">
-                        <iframe src="https://maps.google.com/maps?q=No%20162,%20Jalan%20S2%20B22,%20Pusat%20Dagangan%20Seremban%202&t=&z=15&ie=UTF8&iwloc=&output=embed" 
-                        width="100%" height="200" style="border:0; border-radius: 12px;" allowfullscreen="" loading="lazy"></iframe>
+                        <iframe
+                            src="https://maps.google.com/maps?q=No%20162,%20Jalan%20S2%20B22,%20Pusat%20Dagangan%20Seremban%202&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                            width="100%" height="200" style="border:0; border-radius: 12px;" allowfullscreen=""
+                            loading="lazy"></iframe>
                     </div>
                 </div>
             </div>
@@ -345,7 +421,7 @@
             const hash = window.location.hash;
             const sections = ['terms', 'privacy', 'disclaimer', 'compliance'];
             const container = document.querySelector('.scroll-container');
-            
+
             if (hash && sections.includes(hash.substring(1))) {
                 sections.forEach(id => {
                     const el = document.getElementById(id);
@@ -380,5 +456,5 @@
         document.addEventListener('DOMContentLoaded', filterLegalSections);
     </script>
 </body>
-</html>
 
+</html>

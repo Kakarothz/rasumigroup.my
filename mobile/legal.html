@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- 1. Immediate Redirect & Theme Detection (To avoid white flash) -->
+    <script>
+        (function() {
+            // Immediate Redirect
+            if (!/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && window.innerWidth > 768) {
+                window.location.replace('../legal.html' + window.location.hash);
+            }
+            // Immediate Theme Detection
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const bgColor = savedTheme === 'dark' ? '#0f0012' : '#f8fafc';
+            document.write('<style>html,body{background-color:' + bgColor + ' !important;}</style>');
+        })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legal Information - Rasumi Group</title>
+    <link rel="icon" type="image/png" href="../assets/images/icons/icon.png">
+    <link rel="stylesheet" href="../assets/css/themes.css">
+    <link rel="stylesheet" href="../assets/css/mobile.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body, html {
+            overflow: hidden !important;
+            height: 100% !important;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .scroll-container {
+            height: 100vh;
+            overflow-y: auto !important;
+            scroll-snap-type: none !important;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .scroll-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .legal-section-page {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 100px 20px 20px;
+            background: transparent !important;
+            scroll-snap-align: none !important;
+        }
+
+        .legal-content-wrapper {
+            max-width: 1000px;
+            width: 100%;
+            margin: 0 auto;
+            background: transparent !important;
+            border: none !important;
+        }
+
+        .legal-content-wrapper h2 {
+            color: var(--secondary);
+            margin-bottom: 25px;
+            font-size: 1.8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .legal-content-wrapper h3 {
+            color: var(--primary);
+            margin-top: 2.2rem;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            border-left: 4px solid var(--secondary);
+            padding-left: 15px;
+            font-weight: 700;
+        }
+
+        .legal-content-wrapper p, .legal-content-wrapper li {
+            color: var(--text-dark);
+            line-height: 1.7;
+            margin-bottom: 18px;
+            font-size: 0.95rem;
+        }
+
+        .legal-content-wrapper ul {
+            margin-bottom: 25px;
+            padding-left: 20px;
+        }
+
+        .legal-content-wrapper strong {
+            color: var(--primary);
+        }
+
+        /* Essential spacing for the cloned footer */
+        footer.m-section {
+            margin-top: 60px;
+            scroll-snap-align: none !important;
+        }
+    </style>
+</head>
+<body data-theme="light">
+
+    <nav id="navbar" class="scrolled">
+        <a href="index.html" class="logo">
+            <img src="../assets/images/icons/day_icon.png" alt="Rasumi Logo" class="logo-day">
+            <img src="../assets/images/icons/dark_icon.png" alt="Rasumi Logo" class="logo-dark">
+        </a>
+        <div class="nav-right">
+            <button class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu-overlay" id="mobileMenu">
+        <div class="menu-content">
+            <div class="menu-header">
+                <h3>Menu</h3>
+                <button class="close-menu" id="closeMenu">&times;</button>
+            </div>
+            <div class="menu-item theme-item">
+                <span>Theme</span>
+                <div class="theme-switch-wrapper">
+                    <label class="theme-switch" for="checkbox">
+                        <input type="checkbox" id="checkbox" />
+                        <div class="slider round">
+                            <div class="thumb">
+                                <i class="fas fa-sun sun-icon"></i>
+                                <i class="fas fa-moon moon-icon"></i>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <nav class="menu-links">
+                <a href="index.html#home">Home</a>
+                <a href="index.html#services">Services</a>
+                <a href="index.html#team">Our Team</a>
+                <a href="index.html#management">Executive Management</a>
+                <a href="index.html#network">Service Network</a>
+                <a href="index.html#about">About Us</a>
+                <div class="menu-divider"></div>
+                <a href="#privacy" class="sub-link">Privacy Policy</a>
+                <a href="#disclaimer" class="sub-link">Website Disclaimer</a>
+                <a href="contact.html" class="sub-link">Compliance & Security</a>
+            </nav>
+            <a href="contact.html" class="menu-cta">Partner With Us</a>
+        </div>
+    </div>
+
+    <div class="scroll-container" id="scrollContainer">
+        <!-- Section: Terms & Conditions -->
+        <section class="legal-section-page" id="terms">
+            <div class="legal-content-wrapper">
+                <h2>Terms & Conditions</h2>
+                <p>By accessing, browsing, or using this website, you acknowledge that you have read, understood, and agreed to be legally bound by these Terms & Conditions, which are structured in alignment with recognized corporate governance, risk management, and compliance best practices.</p>
+                <p>This website is owned and operated by Rasumi Group (Rasumi Medipharma Sdn Bhd) and is intended strictly as a corporate informational platform. All content is provided solely for general informational purposes for stakeholders, partners, affiliated institutions, and relevant regulatory authorities.</p>
+                
+                <h3>Compliance & Governance Alignment</h3>
+                <p>Rasumi Group maintains internal policies and controls aligned with internationally recognized standards, including but not limited to:</p>
+                <ul>
+                    <li>Information security management principles (ISO/IEC 27001)</li>
+                    <li>Quality management frameworks (ISO 9001)</li>
+                    <li>Risk management practices (ISO 31000)</li>
+                </ul>
+
+                <h3>User Obligations</h3>
+                <p>Users agree to comply with all applicable laws and must not attempt unauthorized access, conduct vulnerability scanning, or deploy automated extraction tools without prior consent.</p>
+
+                <h3>Governing Law</h3>
+                <p>These Terms shall be governed under the laws of Malaysia, with disputes subject to Malaysian jurisdiction.</p>
+            </div>
+        </section>
+
+        <!-- Section: Privacy Policy -->
+        <section class="legal-section-page" id="privacy">
+            <div class="legal-content-wrapper">
+                <h2>Privacy Policy</h2>
+                <p>Rasumi Group (Rasumi Medipharma Sdn Bhd) implements data protection practices aligned with the Personal Data Protection Act 2010 (PDPA) of Malaysia and structured in accordance with internationally recognized information security and privacy management frameworks.</p>
+                
+                <h3>Data Protection Framework</h3>
+                <p>Our approach incorporates principles consistent with ISO/IEC 27001 (ISMS), ISO/IEC 27701 (PIMS), and data minimization principles.</p>
+                
+                <h3>Types of Data Processed</h3>
+                <ul>
+                    <li>Voluntarily provided contact information</li>
+                    <li>Technical metadata (IP address, device type, logs)</li>
+                    <li>Security-related logs for monitoring</li>
+                </ul>
+
+                <h3>Purpose Limitation</h3>
+                <p>All collected data is strictly used for corporate communication, inquiry handling, system security, and non-sensitive performance analytics.</p>
+
+                <h3>Data Security Controls</h3>
+                <p>Rasumi Group applies appropriate safeguards, including access control, secure storage, and anomaly detection to prevent unauthorized disclosure.</p>
+
+                <h3>User Rights & Compliance</h3>
+                <p>Subject to PDPA provisions, users may request access to their personal data, correction of inaccuracies, or withdrawal of consent.</p>
+            </div>
+        </section>
+
+        <!-- Section: Website Disclaimer -->
+        <section class="legal-section-page" id="disclaimer">
+            <div class="legal-content-wrapper">
+                <h2>Website Disclaimer</h2>
+                <p><strong>Regulatory Disclosure & Compliance Statement:</strong> This website is a controlled corporate communication platform for Rasumi Group (Rasumi Medipharma Sdn Bhd), a licensed healthcare logistics and procurement provider collaborating with Yayasan Veteran ATM.</p>
+                <p>All content is strictly informational and aligned with regulatory, compliance, and risk management principles.</p>
+
+                <h3>Non-Clinical & Non-Transactional Nature</h3>
+                <p>This website does <strong>NOT</strong> provide medical advice, facilitate pharmaceutical sales, or operate as an online pharmacy/telehealth service.</p>
+
+                <h3>Regulatory Compliance Alignment</h3>
+                <p>Content is structured to comply with Ministry of Health Malaysia (MOH) regulations, Malaysian pharmaceutical laws, and international digital advertising standards (Meta Ads, Google Ads).</p>
+
+                <h3>Security & Monitoring Notice</h3>
+                <p>This website may implement continuous monitoring and security logging. Unauthorized activities may trigger incident response actions.</p>
+            </div>
+        </section>
+
+        <!-- Section: Compliance & Security -->
+        <section class="legal-section-page" id="compliance">
+            <div class="legal-content-wrapper">
+                <h2>Compliance & Security</h2>
+                <h3>Information Security (ISMS Policy)</h3>
+                <p>Rasumi Group is committed to maintaining a robust Information Security Management System (ISMS) aligned with ISO/IEC 27001 principles: Confidentiality, Integrity, and Availability.</p>
+                
+                <h3>Security Governance & Controls</h3>
+                <p>We implement a risk-based approach to information security, supported by formalized policies, RBAC, secure system architecture, and continuous monitoring.</p>
+
+                <h3>Responsible Disclosure</h3>
+                <p>Rasumi Group welcomes responsible security research. Prohibited activities include social engineering, physical testing, and Denial-of-service (DoS/DDoS) attacks.</p>
+            </div>
+        </section>
+
+        <!-- 100% CLONE FROM INDEX.HTML -->
+        <footer class="m-section" id="contact">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <h3>RASUMI GROUP</h3>
+                    <p>Your trusted partner in healthcare excellence and operational logistics.</p>
+                </div>
+                <div class="footer-contact">
+                    <h3>Contact Info</h3>
+                    <ul>
+                        <li><i class="fas fa-location-dot"></i> No 162, Jalan S2 B22, Pusat Dagangan Seremban 2, 70300 Seremban, N. Sembilan</li>
+                        <li><i class="fas fa-phone"></i> 06-601 2918</li>
+                        <li><i class="fas fa-envelope"></i> info@rasumi.com.my</li>
+                    </ul>
+                </div>
+                <div class="footer-map">
+                    <h3>Our Location</h3>
+                    <div class="map-container">
+                        <iframe src="https://maps.google.com/maps?q=No%20162,%20Jalan%20S2%20B22,%20Pusat%20Dagangan%20Seremban%202&t=&z=15&ie=UTF8&iwloc=&output=embed" width="100%" height="150" style="border:0; border-radius: 12px;" allowfullscreen="" loading="lazy"></iframe>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>&copy; 2026 Rasumi Group. All Rights Reserved.</span>
+                <div class="footer-legal-links">
+                    <a href="legal.html#terms">Terms & Conditions</a>
+                    <a href="legal.html#privacy">Privacy Policy</a>
+                    <a href="legal.html#disclaimer">Website Disclaimer</a>
+                    <a href="legal.html#compliance">Compliance & Security</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const hamburger = document.getElementById('hamburger');
+        const closeMenu = document.getElementById('closeMenu');
+        const mobileMenu = document.getElementById('mobileMenu');
+        function toggleMenu() { 
+            if(mobileMenu) mobileMenu.classList.toggle('active'); 
+        }
+        if(hamburger) hamburger.addEventListener('click', toggleMenu);
+        if(closeMenu) closeMenu.addEventListener('click', toggleMenu);
+
+        const themeToggle = document.getElementById('checkbox');
+        if(themeToggle) {
+            themeToggle.addEventListener('change', () => {
+                const theme = themeToggle.checked ? 'light' : 'dark';
+                document.body.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+            });
+        }
+
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.body.setAttribute('data-theme', savedTheme);
+        if(themeToggle) themeToggle.checked = (savedTheme === 'light');
+
+        function filterLegal() {
+            const hash = window.location.hash || '#terms';
+            const sections = ['terms', 'privacy', 'disclaimer', 'compliance'];
+            const container = document.getElementById('scrollContainer');
+            
+            sections.forEach(id => {
+                const s = document.getElementById(id);
+                if(s) {
+                    if('#' + id === hash) {
+                        s.style.display = 'flex';
+                    } else {
+                        s.style.display = 'none';
+                    }
+                }
+            });
+            
+            if(container) {
+                container.scrollTo(0,0);
+                container.scrollTop = 0;
+            }
+        }
+        
+        window.addEventListener('hashchange', filterLegal);
+        document.addEventListener('DOMContentLoaded', filterLegal);
+        
+        document.querySelectorAll('.menu-links a, .footer-legal-links a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                const href = link.getAttribute('href');
+                if(href.startsWith('legal.html#') || href.startsWith('#')) {
+                    e.preventDefault();
+                    const targetHash = href.includes('#') ? '#' + href.split('#')[1] : href;
+                    window.location.hash = targetHash;
+                    if(mobileMenu && mobileMenu.classList.contains('active')) {
+                        toggleMenu();
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

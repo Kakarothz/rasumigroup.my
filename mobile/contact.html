@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script>
+        (function () {
+            if (!/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && window.innerWidth > 768) {
+                window.location.replace('../contact/index.html');
+            }
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const bgColor = savedTheme === 'dark' ? '#0f0012' : '#f8fafc';
+            document.write('<style>html,body{background-color:' + bgColor + ' !important;}</style>');
+        })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Partner With Us - Rasumi Group</title>
+    <link rel="icon" type="image/png" href="../assets/images/icons/icon.png">
+    <link rel="stylesheet" href="../assets/css/themes.css">
+    <link rel="stylesheet" href="../assets/css/mobile.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        body,
+        html {
+            overflow: hidden !important;
+            height: 100% !important;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        .scroll-container {
+            height: 100vh;
+            overflow-y: scroll !important;
+            scroll-snap-type: y mandatory !important;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .contact-section {
+            height: 100vh;
+            width: 100%;
+            padding: 60px 5px 0 !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            scroll-snap-align: start !important;
+            scroll-snap-stop: always !important;
+            box-sizing: border-box;
+        }
+
+        .contact-wrapper {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .contact-form-panel {
+            width: 95%;
+            background: var(--glass);
+            padding: 1.2rem 1rem;
+            border-radius: 15px;
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        form {
+            width: 100%;
+        }
+
+        .form-group {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group label {
+            font-size: 0.7rem;
+            margin-bottom: 2px;
+            display: block;
+            color: var(--text-dark);
+            font-weight: 700;
+        }
+
+        .input-wrapper {
+            width: 100%;
+            position: relative;
+        }
+
+        .input-wrapper input,
+        .input-wrapper select,
+        .input-wrapper textarea {
+            width: 100% !important;
+            padding: 8px 10px 8px 34px !important;
+            font-size: 0.8rem !important;
+            height: 34px !important;
+            border-radius: 8px !important;
+            box-sizing: border-box;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-dark);
+        }
+
+        .input-wrapper textarea {
+            height: 200px !important;
+            padding-top: 8px !important;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8rem;
+            color: var(--secondary);
+            pointer-events: none;
+        }
+
+        .textarea-wrapper i {
+            top: 15px !important;
+            transform: none !important;
+        }
+
+        .form-submit-btn {
+            width: 100% !important;
+            padding: 10px !important;
+            font-size: 0.85rem !important;
+            margin-top: 0.4rem !important;
+            height: 40px !important;
+            border-radius: 8px !important;
+        }
+
+        footer.m-section {
+            scroll-snap-align: start !important;
+            scroll-snap-stop: always !important;
+        }
+    </style>
+</head>
+
+<body data-theme="light">
+
+    <!-- Navbar (100% CLONE) -->
+    <nav id="navbar">
+        <a href="index.html" class="logo">
+            <img src="../assets/images/icons/day_icon.png" alt="Rasumi Logo" class="logo-day">
+            <img src="../assets/images/icons/dark_icon.png" alt="Rasumi Logo" class="logo-dark">
+        </a>
+        <div class="nav-right">
+            <button class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu Overlay (100% CLONE) -->
+    <div class="mobile-menu-overlay" id="mobileMenu">
+        <div class="menu-content">
+            <div class="menu-header">
+                <h3>Menu</h3>
+                <button class="close-menu" id="closeMenu">&times;</button>
+            </div>
+
+            <div class="menu-item theme-item">
+                <span>Theme</span>
+                <div class="theme-switch-wrapper">
+                    <label class="theme-switch" for="checkbox">
+                        <input type="checkbox" id="checkbox" />
+                        <div class="slider round">
+                            <div class="thumb">
+                                <i class="fas fa-sun sun-icon"></i>
+                                <i class="fas fa-moon moon-icon"></i>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <nav class="menu-links">
+                <a href="index.html#home">Home</a>
+                <a href="index.html#services">Services</a>
+                <a href="index.html#team">Our Team</a>
+                <a href="index.html#management">Executive Management</a>
+                <a href="index.html#network">Service Network</a>
+                <a href="index.html#about">About Us</a>
+
+                <div class="menu-divider"></div>
+
+                <a href="legal.html#privacy" class="sub-link">Privacy Policy</a>
+                <a href="legal.html#disclaimer" class="sub-link">Website Disclaimer</a>
+                <a href="legal.html#compliance" class="sub-link">Compliance & Security</a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="scroll-container" id="mainScroll">
+        <section class="contact-section">
+            <div class="contact-wrapper">
+                <div style="text-align: center; margin-bottom: 12px;">
+                    <h2 style="font-size: 1.3rem; color: var(--primary); margin:0; font-weight: 900;">Partner With Us
+                    </h2>
+                    <p style="font-size: 0.78rem; color: var(--text-muted); margin:0;">Send your corporate inquiry
+                        below.</p>
+                </div>
+
+                <div class="contact-form-panel">
+                    <form id="contactForm" action="https://api.web3forms.com/submit" method="POST" novalidate>
+                        <input type="hidden" name="access_key" value="YOUR_ACCESS_KEY_HERE">
+
+                        <div class="form-group">
+                            <label>Full Name</label>
+                            <div class="input-wrapper"><i class="fas fa-user"></i><input type="text" name="name"
+                                    placeholder="Your full name" required></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Organisation</label>
+                            <div class="input-wrapper"><i class="fas fa-building"></i><input type="text"
+                                    name="organisation" placeholder="Company / Institution"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Email Address</label>
+                            <div class="input-wrapper"><i class="fas fa-envelope"></i><input type="email" name="email"
+                                    placeholder="you@company.com" required></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Subject</label>
+                            <div class="input-wrapper"><i class="fas fa-tag"></i><select name="inquiry_type" required>
+                                    <option value="" disabled selected>Select type</option>
+                                    <option value="Partnership">Partnership</option>
+                                    <option value="Procurement">Procurement</option>
+                                    <option value="General">General Inquiry</option>
+                                </select></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Message</label>
+                            <div class="input-wrapper textarea-wrapper"><i class="fas fa-comment-dots"></i><textarea
+                                    name="message" placeholder="Describe your inquiry..." required></textarea></div>
+                        </div>
+                        <button type="submit" class="form-submit-btn" id="submitBtn"><span><i
+                                    class="fas fa-paper-plane"></i> &nbsp;Send Inquiry</span></button>
+                        <div class="form-feedback success" id="formSuccess"
+                            style="display:none; font-size: 0.8rem; margin-top: 5px; color: #4caf50;"><i
+                                class="fas fa-circle-check"></i> <span>Sent!</span></div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <footer class="m-section" id="contact">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <h3>RASUMI GROUP</h3>
+                    <p>Your trusted partner in healthcare excellence and operational logistics.</p>
+                </div>
+                <div class="footer-contact">
+                    <h3>Contact Info</h3>
+                    <ul>
+                        <li><i class="fas fa-location-dot"></i> No 162, Jalan S2 B22, Pusat Dagangan Seremban 2, 70300
+                            Seremban, N. Sembilan</li>
+                        <li><i class="fas fa-phone"></i> 06-601 2918</li>
+                        <li><i class="fas fa-envelope"></i> info@rasumi.com.my</li>
+                    </ul>
+                </div>
+                <div class="footer-map">
+                    <h3>Our Location</h3>
+                    <div class="map-container">
+                        <iframe
+                            src="https://maps.google.com/maps?q=No%20162,%20Jalan%20S2%20B22,%20Pusat%20Dagangan%20Seremban%202&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                            width="100%" height="150" style="border:0; border-radius: 12px;" allowfullscreen=""
+                            loading="lazy"></iframe>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span>&copy; 2026 Rasumi Group. All Rights Reserved.</span>
+                <div class="footer-legal-links">
+                    <a href="../legal.html#terms">Terms & Conditions</a>
+                    <a href="../legal.html#privacy">Privacy Policy</a>
+                    <a href="../legal.html#disclaimer">Website Disclaimer</a>
+                    <a href="../legal.html#compliance">Compliance & Security</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="../assets/js/main.js"></script>
+    <script src="../assets/js/mobile.js"></script>
+    <script src="../assets/js/form.js"></script>
+    <script>
+        // Set body theme on load to sync with main.js
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.body.setAttribute('data-theme', savedTheme);
+        const container = document.getElementById('mainScroll');
+        if (container) { container.scrollTo(0, 0); }
+    </script>
+</body>
+
+</html>
