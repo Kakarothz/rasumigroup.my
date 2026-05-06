@@ -1,0 +1,37 @@
+/* ============================================
+   RASUMI GROUP — DESIGN TOKENS & THEME VARIABLES
+   Extracted from style.css. Do not add component styles here.
+   ============================================ */
+
+:root {
+    --primary: #8e24aa;
+    /* Magenta Purple */
+    --secondary: #d81b60;
+    /* Dark Pink Magenta */
+    --accent: #f06292;
+    /* Light Magenta */
+    --bg-light: #fdf4ff;
+    --text-dark: #2d0031;
+    --text-muted: #6a1b9a;
+    --white: #ffffff;
+    --glass: rgba(255, 255, 255, 0.4);
+    --glass-border: rgba(255, 255, 255, 0.5);
+    --shadow: 0 8px 32px 0 rgba(142, 36, 170, 0.15);
+    --neon: transparent;
+    --section-pad-v: 100px;
+    --section-pad-h: 5%;
+}
+
+[data-theme="dark"] {
+    --primary: #f06292;
+    --secondary: #ff80ab;
+    --bg-light: #0f0012;
+    /* Very dark purple */
+    --text-dark: #fce4ec;
+    --text-muted: #f8bbd0;
+    --white: #ffffff;
+    --glass: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --shadow: 0 8px 32px 0 rgba(216, 27, 96, 0.3);
+    --neon: 0 0 15px rgba(216, 27, 96, 0.8), 0 0 5px rgba(216, 27, 96, 0.5);
+}

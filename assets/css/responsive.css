@@ -1,0 +1,229 @@
+/* ============================================
+   RASUMI GROUP — RESPONSIVE / MEDIA QUERIES
+   ============================================ */
+
+@media (max-width: 768px) {
+
+    /* === GLOBAL SECTION RESETS === */
+    section, .team, .specialists-section, .network, footer {
+        height: auto !important;
+        min-height: 100vh;
+        padding: 80px 5% 40px !important;
+        scroll-snap-align: none;
+    }
+
+    .scroll-container {
+        scroll-snap-type: none !important;
+    }
+
+    .team::before, .specialists-section::before, .network::before {
+        background-attachment: scroll !important;
+        opacity: 0.1 !important;
+    }
+
+    /* === NAVBAR === */
+    .nav-links {
+        display: none;
+    }
+
+    .nav-right {
+        display: flex;
+    }
+
+    .nav-cta {
+        display: none;
+    }
+
+    /* === HERO === */
+    .hero h1 {
+        font-size: 2rem;
+    }
+
+    .hero p {
+        font-size: 0.95rem;
+    }
+
+    .hero-btns {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .hero-btns .cta-btn {
+        margin-left: 0 !important;
+        width: 100%;
+        text-align: center;
+    }
+
+    /* === SERVICES === */
+    .services-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .service-card {
+        padding: 1.2rem;
+    }
+
+    /* === TEAM GROUP PHOTO === */
+    .group-photo {
+        width: 100% !important;
+        max-height: 45vh !important;
+    }
+
+    /* === EXECUTIVE MANAGEMENT (BOD) === */
+    .bod-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .bod-card {
+        padding: 1.5rem;
+        min-height: auto;
+    }
+
+    .bod-card img {
+        width: 100px;
+        height: 100px;
+    }
+
+    .team-card h4 {
+        font-size: 0.78rem;
+        min-height: unset;
+    }
+
+    .team-card .role {
+        font-size: 0.72rem;
+        min-height: unset;
+        margin-bottom: 0.3rem;
+    }
+
+    .team-card .desc {
+        font-size: 0.7rem;
+    }
+
+    /* === SPECIALISTS MARQUEE === */
+    .marquee-card {
+        min-width: 130px;
+        padding: 0.75rem;
+    }
+
+    .marquee-card img {
+        width: 60px;
+        height: 60px;
+    }
+
+    /* === NETWORK GRID === */
+    .network-grid {
+        display: flex;
+        flex-direction: column;
+        height: auto !important;
+        gap: 1rem;
+        perspective: none;
+    }
+
+    .branch-card {
+        position: relative !important;
+        width: 100% !important;
+        left: 0 !important;
+        top: 0 !important;
+        height: auto !important;
+        min-height: 80px;
+        padding: 1.2rem !important;
+        transform: none !important;
+        border-radius: 15px;
+    }
+
+    .branch-card:not(.coming-soon):hover {
+        height: auto !important;
+        transform: none !important;
+        padding: 1.2rem !important;
+    }
+
+    .branch-card iframe {
+        height: 200px;
+        margin-top: 1rem;
+    }
+
+    /* === ABOUT === */
+    .about {
+        flex-direction: column;
+        padding: 60px 5% 40px;
+        overflow-y: auto;
+    }
+
+    .about-img {
+        width: 100%;
+        max-height: 30vh;
+        overflow: hidden;
+    }
+
+    .about-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .about-content h2 {
+        font-size: 1.8rem !important;
+    }
+
+    .about-content p {
+        font-size: 0.85rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
+    }
+
+    .stat-item h3 {
+        font-size: 1.4rem;
+    }
+
+    /* === FOOTER === */
+    .footer-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .footer-legal-links {
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .footer-bottom-content {
+        flex-direction: column;
+        gap: 0.75rem;
+        text-align: center;
+    }
+
+    /* === SECTION HEADERS === */
+    .section-header h2 {
+        font-size: 1.6rem;
+    }
+
+    .section-header p {
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 480px) {
+
+    .bod-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .network-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .hero h1 {
+        font-size: 1.6rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+}
