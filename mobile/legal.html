@@ -287,13 +287,13 @@
         if(themeToggle) {
             themeToggle.addEventListener('change', () => {
                 const theme = themeToggle.checked ? 'light' : 'dark';
-                document.body.setAttribute('data-theme', theme);
+                document.documentElement.setAttribute('data-theme', theme);
                 localStorage.setItem('theme', theme);
             });
         }
 
         const savedTheme = localStorage.getItem('theme') || 'light';
-        document.body.setAttribute('data-theme', savedTheme);
+        document.documentElement.setAttribute('data-theme', savedTheme);
         if(themeToggle) themeToggle.checked = (savedTheme === 'light');
 
         function filterLegal() {
