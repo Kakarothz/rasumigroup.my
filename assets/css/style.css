@@ -339,7 +339,7 @@ body {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    opacity: 0.15;
+    opacity: 0.30;
     z-index: 0;
     pointer-events: none;
 }
@@ -446,7 +446,8 @@ body {
 
 .about-partner-seal {
     flex-shrink: 0;
-    margin-left: 3rem; /* Paksa jarak 3rem dari teks */
+    margin-left: 3rem;
+    /* Paksa jarak 3rem dari teks */
 }
 
 .about-partner-seal img {
@@ -457,9 +458,17 @@ body {
 }
 
 @keyframes sealPulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
 
 .about-partner-seal .logo-dark {
@@ -611,7 +620,7 @@ footer {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    opacity: 0.15;
+    opacity: 0.30;
     z-index: 0;
     pointer-events: none;
 }
@@ -622,7 +631,7 @@ footer {
 
 [data-theme="dark"] .team::before {
     background-image: url('../images/bg/dark_team.jpeg');
-    opacity: 0.12;
+    opacity: 0.30;
 }
 
 .team>* {
@@ -854,7 +863,7 @@ input:checked+.slider .moon-icon {
 .specialists-section {
     height: 100vh;
     min-height: unset;
-    padding: var(--section-pad-v) 0;
+    padding: 0;
     background: #f8fafc;
     display: flex;
     flex-direction: column;
@@ -873,10 +882,10 @@ input:checked+.slider .moon-icon {
     left: 0;
     right: 0;
     bottom: 0;
-    background-size: cover;
+    background-size: 100% 100%;
     background-position: center;
     background-repeat: no-repeat;
-    opacity: 0.15;
+    opacity: 0.30;
     z-index: 0;
     pointer-events: none;
 }
@@ -887,7 +896,7 @@ input:checked+.slider .moon-icon {
 
 [data-theme="dark"] .specialists-section::before {
     background-image: url('../images/bg/dark_operations.jpeg');
-    opacity: 0.12;
+    opacity: 0.30;
     /* Slightly lower for dark mode depth */
 }
 
@@ -923,13 +932,19 @@ input:checked+.slider .moon-icon {
 }
 
 .marquee-card {
-    flex: 0 0 280px;
-    min-height: auto !important;
+    flex: 0 0 250px;
+    height: 320px;
+    border-radius: 18px !important;
+    padding: 1.5rem 0.8rem 0 !important;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
 }
 
 .marquee-card img {
-    width: 130px !important;
-    height: 130px !important;
+    width: 180px !important;
+    height: 180px !important;
+    margin-bottom: 1.5rem;
 }
 
 @keyframes marquee {
@@ -974,7 +989,7 @@ input:checked+.slider .moon-icon {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    opacity: 0.15;
+    opacity: 0.30;
     z-index: 0;
     pointer-events: none;
 }
