@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.style.transform = `scale(${scale})`;
                 
                 // Cek Mode (Neon hanya jelas di Dark Mode)
-                const isDark = document.body.getAttribute('data-theme') === 'dark';
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
                 if (isDark) {
                     card.style.boxShadow = `0 0 ${blur}px rgba(216, 27, 96, ${0.2 + (0.3 * progress)})`;
                     card.style.borderColor = `rgba(216, 27, 96, ${progress})`;
