@@ -148,18 +148,21 @@ body {
     /* Sembunyi di luar skrin */
     width: 80%;
     height: 100%;
-    background: rgba(255, 255, 255, 0.4); /* Lebih telus */
+    background: rgba(255, 255, 255, 0.4);
+    /* Lebih telus */
     backdrop-filter: blur(25px);
     -webkit-backdrop-filter: blur(25px);
     z-index: 2000;
     transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1);
-    padding: 25px 20px; /* Kurangkan padding */
+    padding: 25px 20px;
+    /* Kurangkan padding */
     border-left: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 [data-theme="dark"] .mobile-menu-overlay {
-    background: rgba(15, 0, 18, 0.4); /* Lebih telus */
+    background: rgba(15, 0, 18, 0.4);
+    /* Lebih telus */
     border-left: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -177,7 +180,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 25px; /* Kurangkan margin */
+    margin-bottom: 25px;
+    /* Kurangkan margin */
     padding-bottom: 12px;
     border-bottom: 1px solid var(--glass-border);
 }
@@ -212,7 +216,8 @@ body {
 .menu-links {
     display: flex;
     flex-direction: column;
-    gap: 16px; /* Jarak lebih rapat */
+    gap: 16px;
+    /* Jarak lebih rapat */
     margin-bottom: 25px;
 }
 
@@ -236,10 +241,12 @@ body {
 }
 
 .sub-link {
-    font-size: 0.85rem !important; /* Kecilkan sikit lagi */
+    font-size: 0.85rem !important;
+    /* Kecilkan sikit lagi */
     opacity: 0.7;
     font-weight: 500 !important;
-    margin-top: -5px; /* Rapatkan lagi */
+    margin-top: -5px;
+    /* Rapatkan lagi */
 }
 
 [data-theme="light"] .menu-divider {
@@ -257,7 +264,8 @@ body {
     font-weight: 700;
     font-size: 0.9rem;
     box-shadow: 0 10px 20px rgba(142, 36, 170, 0.2);
-    margin-top: auto; /* Tolak ke bawah */
+    margin-top: auto;
+    /* Tolak ke bawah */
     flex-shrink: 0;
 }
 
@@ -279,7 +287,8 @@ body {
 }
 
 .slider {
-    background: linear-gradient(to bottom, #003366, #0052d4); /* Night */
+    background: linear-gradient(to bottom, #003366, #0052d4);
+    /* Night */
     bottom: 0;
     cursor: pointer;
     left: 0;
@@ -293,7 +302,8 @@ body {
 }
 
 .thumb {
-    background: linear-gradient(145deg, #00c6ff, #0072ff); /* Night thumb */
+    background: linear-gradient(145deg, #00c6ff, #0072ff);
+    /* Night thumb */
     bottom: 4px;
     height: 18px;
     left: 4px;
@@ -304,36 +314,43 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.4);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.4);
 }
 
 .thumb i {
     font-size: 10px;
     color: white;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     position: absolute;
     transition: .3s;
 }
 
-.sun-icon { opacity: 0; transform: rotate(-90deg) scale(0); }
-.moon-icon { opacity: 1; transform: rotate(0) scale(1); }
-
-/* Day State (Checked) */
-input:checked + .slider {
-    background: linear-gradient(to bottom, #ff8a00, #ffc107);
+.sun-icon {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0);
 }
 
-input:checked + .slider .thumb {
-    transform: translateX(24px);
-    background: linear-gradient(145deg, #fff000, #ff9100);
-}
-
-input:checked + .slider .sun-icon {
+.moon-icon {
     opacity: 1;
     transform: rotate(0) scale(1);
 }
 
-input:checked + .slider .moon-icon {
+/* Day State (Checked) */
+input:checked+.slider {
+    background: linear-gradient(to bottom, #ff8a00, #ffc107);
+}
+
+input:checked+.slider .thumb {
+    transform: translateX(24px);
+    background: linear-gradient(145deg, #fff000, #ff9100);
+}
+
+input:checked+.slider .sun-icon {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+}
+
+input:checked+.slider .moon-icon {
     opacity: 0;
     transform: rotate(90deg) scale(0);
 }
@@ -370,7 +387,8 @@ input:checked + .slider .moon-icon {
     content: '';
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.15); /* Kurangkan kepekatan overlay supaya lebih terang */
+    background: rgba(0, 0, 0, 0.15);
+    /* Kurangkan kepekatan overlay supaya lebih terang */
 }
 
 .hero-content {
@@ -449,7 +467,8 @@ input:checked + .slider .moon-icon {
 }
 
 .service-card {
-    background: rgba(255, 255, 255, 0.05); /* Telus */
+    background: rgba(255, 255, 255, 0.05);
+    /* Telus */
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 14px;
     padding: 1rem;
@@ -460,7 +479,8 @@ input:checked + .slider .moon-icon {
 [data-theme="light"] .service-card {
     background: rgba(255, 255, 255, 0.2);
     border-color: rgba(0, 0, 0, 0.05);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06); /* Tambah shadow supaya nampak beza */
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+    /* Tambah shadow supaya nampak beza */
 }
 
 .service-card i {
@@ -482,20 +502,25 @@ input:checked + .slider .moon-icon {
 }
 
 /* === TEAM & MANAGEMENT BACKGROUNDS === */
-.team-combined, .management {
+.team-combined,
+.management {
     position: relative;
     overflow: hidden;
-    background: #f8fafc; /* Latar belakang Light asal */
-    padding-left: 0 !important; /* Remove side padding */
+    background: #f8fafc;
+    /* Latar belakang Light asal */
+    padding-left: 0 !important;
+    /* Remove side padding */
     padding-right: 0 !important;
 }
 
 [data-theme="dark"] .team-combined,
 [data-theme="dark"] .management {
-    background: #0f0012; /* Latar belakang Dark asal */
+    background: #0f0012;
+    /* Latar belakang Dark asal */
 }
 
-.team-combined::before, .management::before {
+.team-combined::before,
+.management::before {
     content: "";
     position: absolute;
     top: 0;
@@ -521,7 +546,8 @@ input:checked + .slider .moon-icon {
     opacity: 0.12;
 }
 
-.team-combined > *, .management > * {
+.team-combined>*,
+.management>* {
     position: relative;
     z-index: 2;
 }
@@ -557,22 +583,26 @@ input:checked + .slider .moon-icon {
 
 .specialists-marquee-wrapper {
     width: 100vw;
-    overflow: visible; /* Biar card yang membesar boleh dilihat */
+    overflow: visible;
+    /* Biar card yang membesar boleh dilihat */
     margin-top: -10px;
     margin-bottom: 10px;
-    padding: 20px 0; /* Beri ruang untuk card membesar tanpa terpotong */
+    padding: 20px 0;
+    /* Beri ruang untuk card membesar tanpa terpotong */
 }
 
 .marquee-row {
     width: 100%;
-    overflow: visible; /* Penting: supaya scale tidak terpotong */
+    overflow: visible;
+    /* Penting: supaya scale tidak terpotong */
 }
 
 .marquee-track {
     display: flex;
     gap: 1.5rem;
     width: max-content;
-    animation: marqueeRTL 35s linear infinite !important; /* Perlahankan lagi kepada 35s */
+    animation: marqueeRTL 35s linear infinite !important;
+    /* Perlahankan lagi kepada 35s */
 }
 
 @keyframes marqueeRTL {
@@ -588,7 +618,8 @@ input:checked + .slider .moon-icon {
 .marquee-card {
     min-width: 150px;
     max-width: 150px;
-    background: rgba(255, 255, 255, 0.05); /* Telus */
+    background: rgba(255, 255, 255, 0.05);
+    /* Telus */
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 20px;
     padding: 1rem 0.6rem;
@@ -599,7 +630,8 @@ input:checked + .slider .moon-icon {
     flex-shrink: 0;
     backdrop-filter: blur(8px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    transition: box-shadow 0.4s ease, border-color 0.4s ease, background 0.4s ease; /* JANGAN letak transform di sini */
+    transition: box-shadow 0.4s ease, border-color 0.4s ease, background 0.4s ease;
+    /* JANGAN letak transform di sini */
 }
 
 [data-theme="light"] .marquee-card {
@@ -614,23 +646,27 @@ input:checked + .slider .moon-icon {
 }
 
 .marquee-card img {
-    width: 100px; /* Besarkan gambar */
+    width: 100px;
+    /* Besarkan gambar */
     height: 100px;
     border-radius: 50%;
-    margin-bottom: 0.6rem; /* Rapatkan sikit dengan nama */
+    margin-bottom: 0.6rem;
+    /* Rapatkan sikit dengan nama */
     object-fit: cover;
     border: 3px solid var(--secondary);
 }
 
 .marquee-card h4 {
-    font-size: 0.82rem; /* Selaraskan saiz tulisan */
+    font-size: 0.82rem;
+    /* Selaraskan saiz tulisan */
     margin-bottom: 0.2rem;
     color: var(--primary);
     line-height: 1.2;
 }
 
 .marquee-card p {
-    font-size: 0.68rem; /* Selaraskan saiz tulisan */
+    font-size: 0.68rem;
+    /* Selaraskan saiz tulisan */
     color: var(--text-muted);
     margin: 0;
     line-height: 1.3;
@@ -689,7 +725,8 @@ input:checked + .slider .moon-icon {
     max-width: 82vw !important;
     height: auto;
     min-height: 480px !important;
-    background: rgba(255, 255, 255, 0.05); /* Telus */
+    background: rgba(255, 255, 255, 0.05);
+    /* Telus */
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 28px;
     padding: 2.5rem 1.5rem;
@@ -706,11 +743,13 @@ input:checked + .slider .moon-icon {
 [data-theme="light"] .bod-card {
     background: rgba(255, 255, 255, 0.2);
     border-color: rgba(0, 0, 0, 0.05);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08); /* Kekalkan shadow lightmode */
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    /* Kekalkan shadow lightmode */
 }
 
 [data-theme="dark"] .bod-card {
-    box-shadow: 0 0 10px rgba(216, 27, 96, 0.4); /* Neon 10px nightmode */
+    box-shadow: 0 0 10px rgba(216, 27, 96, 0.4);
+    /* Neon 10px nightmode */
     border-color: rgba(216, 27, 96, 0.3);
 }
 
@@ -718,12 +757,13 @@ input:checked + .slider .moon-icon {
 
 .bod-card .img-wrapper {
     margin-bottom: 1.2rem;
-    width: 180px; /* Besarkan kontena gambar */
+    width: 180px;
+    /* Besarkan kontena gambar */
     height: 180px;
     border-radius: 50%;
     overflow: hidden;
     border: 4px solid var(--primary);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
 .bod-card img {
@@ -761,7 +801,8 @@ input:checked + .slider .moon-icon {
 
 /* === NETWORK === */
 .network {
-    background: #f8fafc; /* Original Light background */
+    background: #f8fafc;
+    /* Original Light background */
     position: relative;
     overflow: hidden;
     justify-content: flex-start;
@@ -771,7 +812,8 @@ input:checked + .slider .moon-icon {
 }
 
 [data-theme="dark"] .network {
-    background: #0f0012; /* Original Dark background */
+    background: #0f0012;
+    /* Original Dark background */
 }
 
 .network::before {
@@ -798,7 +840,7 @@ input:checked + .slider .moon-icon {
     opacity: 0.12;
 }
 
-.network > * {
+.network>* {
     position: relative;
     z-index: 2;
 }
@@ -810,15 +852,18 @@ input:checked + .slider .moon-icon {
 .network-grid {
     display: flex;
     flex-direction: column;
-    gap: 12px; /* Besarkan jarak supaya memanjang ke bawah */
+    gap: 12px;
+    /* Besarkan jarak supaya memanjang ke bawah */
     width: 100%;
     max-width: 92%;
-    flex: 1; /* Ambil ruang yang ada */
+    flex: 1;
+    /* Ambil ruang yang ada */
     justify-content: flex-start;
 }
 
 .branch-card {
-    background: rgba(255, 255, 255, 0.05); /* Telus */
+    background: rgba(255, 255, 255, 0.05);
+    /* Telus */
     border: 1px solid rgba(255, 255, 255, 0.1);
     padding: 18px 20px;
     border-radius: 14px;
@@ -832,17 +877,20 @@ input:checked + .slider .moon-icon {
 }
 
 [data-theme="light"] .branch-card {
-    background: rgba(255, 255, 255, 0.7); /* Kekalkan sikit warna putih untuk legibility branch */
+    background: rgba(255, 255, 255, 0.7);
+    /* Kekalkan sikit warna putih untuk legibility branch */
     border-color: rgba(0, 0, 0, 0.05);
 }
 
 [data-theme="dark"] .branch-card {
-    box-shadow: 0 0 10px rgba(216, 27, 96, 0.3); /* Neon 10px darkmode */
+    box-shadow: 0 0 10px rgba(216, 27, 96, 0.3);
+    /* Neon 10px darkmode */
 }
 
 [data-theme="light"] .branch-card {
     background: #ffffff;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* Shadow lightmode */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    /* Shadow lightmode */
 }
 
 .branch-card h4 {
@@ -858,8 +906,10 @@ input:checked + .slider .moon-icon {
     opacity: 0.6;
 }
 
-.branch-card p, .map-link {
-    display: none; /* Sembunyikan alamat dan map */
+.branch-card p,
+.map-link {
+    display: none;
+    /* Sembunyikan alamat dan map */
 }
 
 .branch-card.coming-soon {
@@ -874,8 +924,9 @@ input:checked + .slider .moon-icon {
     position: relative;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    padding: 40px 6% !important; /* Kurangkan padding section */
+    justify-content: flex-start;
+    padding: 80px 6% !important;
+    /* Naikkan content ke atas */
     overflow: hidden;
     height: 100vh;
 }
@@ -886,7 +937,8 @@ input:checked + .slider .moon-icon {
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 1; /* Di belakang */
+    z-index: 1;
+    /* Di belakang */
     border-radius: 0;
 }
 
@@ -894,122 +946,188 @@ input:checked + .slider .moon-icon {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    opacity: 0.5; /* 50% opacity */
+    opacity: 0.5;
+    /* 50% opacity */
+    filter: blur(2px);
+    /* Efek blur 5% */
+    transform: scale(1.1);
+    /* Scale sikit supaya tepi tak nampak kosong sebab blur */
 }
 
 /* Tambah overlay gelap sikit untuk mudahkan baca text dalam Night Mode */
 [data-theme="dark"] .about::before {
     content: '';
     position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     background: rgba(0, 0, 0, 0.4);
     z-index: 2;
 }
 
 .about-content {
     position: relative;
-    z-index: 3; /* Di atas sekali */
-    text-align: center;
+    z-index: 3;
+    /* Di atas sekali */
+    text-align: left;
 }
 
 .about-content h2 {
-    font-size: 1.6rem; /* Selaraskan saiz dengan section lain */
+    font-size: 1.6rem;
+    /* Selaraskan saiz dengan section lain */
     font-weight: 800;
     color: var(--secondary);
     margin-bottom: 0.8rem;
+    text-align: left;
 }
 
 .about-content p {
     font-size: 0.82rem;
-    line-height: 1.3; /* Rapatkan jarak baris */
-    margin-bottom: 0.5rem; /* Kurangkan jarak antara perenggan */
+    line-height: 1.3;
+    /* Rapatkan jarak baris */
+    margin-bottom: 0.5rem;
+    /* Kurangkan jarak antara perenggan */
 }
 
 /* Khas untuk pembacaan di atas image background */
-[data-theme="dark"] .about-content p, 
+[data-theme="dark"] .about-content p,
 [data-theme="dark"] .stat-item p,
 [data-theme="dark"] .about-features li {
     color: #ffffff;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8); /* Shadow supaya jelas */
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    /* Shadow supaya jelas */
 }
 
 [data-theme="light"] .about-content p,
 [data-theme="light"] .stat-item p,
 [data-theme="light"] .about-features li {
-    color: #000000; /* Tukar ke hitam */
+    color: #000000;
+    /* Tukar ke hitam */
     font-weight: 500;
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5); /* Shadow nipis */
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+    /* Shadow nipis */
 }
 
 [data-theme="light"] .about-content h2 {
-    color: var(--primary); /* Kekalkan warna header asal */
+    color: var(--primary);
+    /* Kekalkan warna header asal */
 }
 
 .stats-grid {
     display: flex;
-    flex-direction: column;
-    gap: 0.4rem; /* Kurangkan jarak antara kotak */
-    margin: 0.8rem auto;
+    flex-direction: row;
+    gap: 0.5rem;
+    margin: 1.2rem 0;
     width: 100%;
-    max-width: 280px;
 }
 
 .stat-item {
-    background: rgba(255, 255, 255, 0.05); /* Sangat telus */
+    background: rgba(255, 255, 255, 0.05);
+    /* Sangat telus */
     border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 0.5rem 1.2rem;
+    padding: 0.8rem 0.4rem;
     border-radius: 12px;
     backdrop-filter: blur(8px);
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    width: 100%;
+    justify-content: center;
+    flex: 1;
+    min-width: 0;
 }
 
 [data-theme="light"] .stat-item {
-    background: rgba(255, 255, 255, 0.15); /* Telus sikit untuk light mode */
+    background: rgba(255, 255, 255, 0.15);
+    /* Telus sikit untuk light mode */
     border-color: rgba(0, 0, 0, 0.05);
 }
 
 .stat-item h3 {
-    font-size: 1.4rem;
+    font-size: 1.2rem;
     font-weight: 900;
     color: var(--secondary);
     margin: 0;
 }
 
 .stat-item p {
-    font-size: 0.85rem !important;
-    margin: 0 !important;
+    font-size: 0.65rem !important;
+    margin: 2px 0 0 !important;
     font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.partner-text {
+    width: 100%;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--secondary);
+    margin-top: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.partner-logo {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.partner-logo img {
+    height: 60px;
+    width: auto;
+    object-fit: contain;
+    animation: logoPulse 2s infinite ease-in-out;
+}
+
+@keyframes logoPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.partner-logo .logo-dark {
+    display: none;
+}
+
+[data-theme="dark"] .partner-logo .logo-day {
+    display: none;
+}
+
+[data-theme="dark"] .partner-logo .logo-dark {
+    display: block;
+    filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.8));
 }
 
 .about-features {
     list-style: none;
     padding: 0;
-    margin: 1rem auto 0;
+    margin: 1.2rem 0 0;
     display: flex;
     flex-direction: column;
     gap: 0.8rem;
-    align-items: center;
+    align-items: flex-start;
     width: 100%;
-    max-width: 280px;
 }
 
 .about-features li {
     font-size: 0.85rem;
     display: flex;
-    align-items: center; /* Selaraskan icon & text */
+    align-items: center;
+    /* Selaraskan icon & text */
     gap: 0.75rem;
     text-align: left;
     width: 100%;
 }
 
 .about-features li i {
-    color: var(--secondary); /* Warna menyerlah untuk icon */
+    color: var(--secondary);
+    /* Warna menyerlah untuk icon */
     font-size: 1rem;
-    width: 24px; /* Lebar tetap supaya text selari */
+    width: 24px;
+    /* Lebar tetap supaya text selari */
     text-align: center;
 }
 
@@ -1022,12 +1140,13 @@ input:checked + .slider .moon-icon {
 /* Night Mode Text Optimization */
 [data-theme="dark"] .about-features li {
     color: #ffffff;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
 /* === FOOTER === */
 footer.m-section {
-    background: #0f172a; /* Warna gelap stabil seperti desktop */
+    background: #0f172a;
+    /* Warna gelap stabil seperti desktop */
     color: #ffffff;
     justify-content: space-between;
     padding: 80px 5% 60px;
@@ -1042,10 +1161,11 @@ footer.m-section {
     width: 100%;
 }
 
-.footer-brand h3, 
-.footer-contact h3, 
+.footer-brand h3,
+.footer-contact h3,
 .footer-map h3 {
-    color: var(--primary) !important; /* Kekalkan warna primary untuk tajuk */
+    color: var(--primary) !important;
+    /* Kekalkan warna primary untuk tajuk */
 }
 
 .footer-brand h3 {
@@ -1109,6 +1229,10 @@ footer.m-section {
     border-radius: 12px;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.map-container iframe {
+    height: 200px !important;
 }
 
 .footer-bottom {
