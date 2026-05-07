@@ -1,7 +1,7 @@
 # Rasumi Group — Corporate Website
 
 ## Project Overview
-Official corporate website for **Rasumi Group (Rasumi Medipharma Sdn Bhd)**, a healthcare logistics and procurement company operating across Malaysia, serving Ministry of Defence healthcare facilities and the private sector since 2006.
+Official corporate website for **Rasumi Group**, an operational logistics and procurement company operating across Malaysia, serving Ministry of Defence professional facilities and the private sector since 2006.
 
 ---
 
@@ -69,7 +69,7 @@ Footer links in all pages point to these anchors directly.
 
 ## Headquarters
 
-**Rasumi Medipharma Sdn Bhd**  
+**Rasumi Group**  
 No 162, Jalan S2 B22, Pusat Dagangan Seremban 2  
 70300 Seremban, Negeri Sembilan  
 📞 06-601 2918  
