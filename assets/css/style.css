@@ -340,6 +340,8 @@ body {
     background-position: center;
     background-repeat: no-repeat;
     opacity: 0.30;
+    filter: blur(4px);
+    transform: scale(1.05);
     z-index: 0;
     pointer-events: none;
 }
@@ -621,6 +623,8 @@ footer {
     background-position: center;
     background-repeat: no-repeat;
     opacity: 0.30;
+    filter: blur(4px);
+    transform: scale(1.05);
     z-index: 0;
     pointer-events: none;
 }
@@ -886,6 +890,8 @@ input:checked+.slider .moon-icon {
     background-position: center;
     background-repeat: no-repeat;
     opacity: 0.30;
+    filter: blur(4px);
+    transform: scale(1.05);
     z-index: 0;
     pointer-events: none;
 }
@@ -990,6 +996,8 @@ input:checked+.slider .moon-icon {
     background-position: center;
     background-repeat: no-repeat;
     opacity: 0.30;
+    filter: blur(4px);
+    transform: scale(1.05);
     z-index: 0;
     pointer-events: none;
 }

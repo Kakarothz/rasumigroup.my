@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <script>
-        (function() {
+        (function () {
             const savedTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
             const bgColor = savedTheme === 'dark' ? '#0f0012' : '#f8fafc';
@@ -11,8 +12,9 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Rasumi Group | Healthcare Solutions & Logistics</title>
-    <meta name="description" content="Rasumi Group provides premium healthcare logistics, corporate procurement, and consultancy services in Malaysia.">
+    <title>Rasumi Group | Specialized Solutions & Logistics</title>
+    <meta name="description"
+        content="Rasumi Group provides operational logistics, corporate procurement, and consultancy services in Malaysia.">
 
     <!-- Redirect desktop users back -->
     <script>
@@ -28,17 +30,18 @@
     <style>
         /* Slide Up Animation Styles */
         @keyframes slideUp {
-            0% { 
-                opacity: 0; 
-                transform: translateY(30px); 
+            0% {
+                opacity: 0;
+                transform: translateY(30px);
             }
-            100% { 
-                opacity: 1; 
-                transform: translateY(0); 
+
+            100% {
+                opacity: 1;
+                transform: translateY(0);
             }
         }
 
-        .hero-content h1, 
+        .hero-content h1,
         .hero-content p {
             opacity: 0;
             animation: slideUp 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
@@ -77,7 +80,7 @@
                 <h3>Menu</h3>
                 <button class="close-menu" id="closeMenu">&times;</button>
             </div>
-            
+
             <!-- Theme Toggle Inside Menu -->
             <div class="menu-item theme-item">
                 <span>Theme</span>
@@ -101,9 +104,9 @@
                 <a href="#management">Executive Management</a>
                 <a href="#network">Service Network</a>
                 <a href="#about">About Us</a>
-                
+
                 <div class="menu-divider"></div>
-                
+
                 <a href="legal.html#privacy" class="sub-link">Privacy Policy</a>
                 <a href="legal.html#disclaimer" class="sub-link">Website Disclaimer</a>
                 <a href="legal.html#compliance" class="sub-link">Compliance & Security</a>
@@ -119,8 +122,9 @@
         <!-- SECTION 1: HERO -->
         <section class="m-section hero" id="home">
             <div class="hero-content">
-                <h1>Empowering Healthcare Through Innovation</h1>
-                <p>Providing seamless logistics, strategic procurement, and operational excellence for medical facilities across Malaysia.</p>
+                <h1>Empowering Industry Through Innovation</h1>
+                <p>Providing seamless logistics, strategic procurement, and operational excellence for professional
+                    facilities across Malaysia.</p>
                 <div class="hero-btns">
                     <a href="#services" class="cta-btn">Our Services</a>
                     <a href="#about" class="cta-btn outline">Learn More</a>
@@ -132,13 +136,13 @@
         <section class="m-section services" id="services">
             <div class="section-header">
                 <h2>Our Core Services</h2>
-                <p>Comprehensive solutions tailored for the modern healthcare landscape.</p>
+                <p>Comprehensive solutions tailored for the modern industrial landscape.</p>
             </div>
             <div class="services-grid">
                 <div class="service-card">
                     <i class="fas fa-truck-ramp-box"></i>
-                    <h3>Healthcare Logistics</h3>
-                    <p>Specialized supply chain management ensuring efficient distribution of medical supplies.</p>
+                    <h3>Operational Logistics</h3>
+                    <p>Specialized supply chain management ensuring efficient distribution of specialized supplies.</p>
                 </div>
                 <div class="service-card">
                     <i class="fas fa-hospital-user"></i>
@@ -148,7 +152,7 @@
                 <div class="service-card">
                     <i class="fas fa-chart-line"></i>
                     <h3>Strategic Consultancy</h3>
-                    <p>Expert operational advice and data-driven insights for healthcare administration.</p>
+                    <p>Expert operational advice and data-driven insights for organizational administration.</p>
                 </div>
             </div>
         </section>
@@ -157,7 +161,7 @@
         <section class="m-section team-combined" id="team">
             <div class="section-header">
                 <h2>Our Leadership & Team</h2>
-                <p>A dedicated team of professionals driving healthcare innovation.</p>
+                <p>A dedicated team of professionals driving industrial innovation.</p>
             </div>
             <div class="team-group-wrapper">
                 <img src="../assets/images/team/staff_group.jpg" alt="Rasumi Team" class="group-photo">
@@ -167,28 +171,92 @@
                 <div class="marquee-row">
                     <div class="marquee-track row-ltr-reverse">
                         <!-- SET 1 -->
-                        <div class="team-card marquee-card"><img src="../assets/images/team/adli.png" alt="Adlishah"><h4>Adlishah Kamal</h4><p>Assistant Branch Manager</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/che_pah.png" alt="Syarifah"><h4>Syarifah Fatin Athirah</h4><p>Branch Manager (FVKL)</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/fathiah.png" alt="Nurul Fathiah"><h4>Nurul Fathiah</h4><p>Operations Logistics Specialist</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/fatehah.png" alt="Nur Fatehah"><h4>Nur Fatehah</h4><p>Healthcare Quality Associate</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/nizam.png" alt="Nizam"><h4>Khairul Nizam</h4><p>Operations Coordinator</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/izzul.png" alt="Izzul"><h4>Izzul Islam</h4><p>Branch Manager (FVT)</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/izat.png" alt="Izat"><h4>Izat</h4><p>Branch Manager (FVL)</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/tadha.png" alt="Tadha"><h4>Muaz Tadha</h4><p>Head of Pharmacists</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/marsya.png" alt="Marsya"><h4>Marsya</h4><p>Branch Manager (FVG)</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/nabihah.png" alt="Nabihah"><h4>Nabihah</h4><p>Technical Operations Specialist</p></div>
-                        
+                        <div class="team-card marquee-card"><img src="../assets/images/team/adli.png" alt="Adlishah">
+                            <h4>Adlishah Kamal</h4>
+                            <p>Assistant Branch Manager</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/che_pah.png" alt="Syarifah">
+                            <h4>Syarifah Fatin Athirah</h4>
+                            <p>Branch Manager (FVKL)</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/fathiah.png"
+                                alt="Nurul Fathiah">
+                            <h4>Nurul Fathiah</h4>
+                            <p>Operations Logistics Specialist</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/fatehah.png"
+                                alt="Nur Fatehah">
+                            <h4>Nur Fatehah</h4>
+                            <p>Quality Control Associate</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/nizam.png" alt="Nizam">
+                            <h4>Khairul Nizam</h4>
+                            <p>Operations Coordinator</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/izzul.png" alt="Izzul">
+                            <h4>Izzul Islam</h4>
+                            <p>Branch Manager (FVT)</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/izat.png" alt="Izat">
+                            <h4>Izat</h4>
+                            <p>Branch Manager (FVL)</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/tadha.png" alt="Tadha">
+                            <h4>Muaz Tadha</h4>
+                            <p>Head of Compliance</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/marsya.png" alt="Marsya">
+                            <h4>Marsya</h4>
+                            <p>Branch Manager (FVG)</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/nabihah.png" alt="Nabihah">
+                            <h4>Nabihah</h4>
+                            <p>Technical Operations Specialist</p>
+                        </div>
+
                         <!-- SET 2 (Salinan Penuh untuk Loop Tanpa Henti) -->
-                        <div class="team-card marquee-card"><img src="../assets/images/team/adli.png" alt="Adlishah"><h4>Adlishah Kamal</h4><p>Assistant Branch Manager</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/che_pah.png" alt="Syarifah"><h4>Syarifah Fatin Athirah</h4><p>Branch Manager (FVKL)</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/fathiah.png" alt="Nurul Fathiah"><h4>Nurul Fathiah</h4><p>Operations Logistics Specialist</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/fatehah.png" alt="Nur Fatehah"><h4>Nur Fatehah</h4><p>Healthcare Quality Associate</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/nizam.png" alt="Nizam"><h4>Khairul Nizam</h4><p>Operations Coordinator</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/izzul.png" alt="Izzul"><h4>Izzul Islam</h4><p>Branch Manager (FVT)</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/izat.png" alt="Izat"><h4>Izat</h4><p>Branch Manager (FVL)</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/tadha.png" alt="Tadha"><h4>Muaz Tadha</h4><p>Head of Pharmacists</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/marsya.png" alt="Marsya"><h4>Marsya</h4><p>Branch Manager (FVG)</p></div>
-                        <div class="team-card marquee-card"><img src="../assets/images/team/nabihah.png" alt="Nabihah"><h4>Nabihah</h4><p>Technical Operations Specialist</p></div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/adli.png" alt="Adlishah">
+                            <h4>Adlishah Kamal</h4>
+                            <p>Assistant Branch Manager</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/che_pah.png" alt="Syarifah">
+                            <h4>Syarifah Fatin Athirah</h4>
+                            <p>Branch Manager (FVKL)</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/fathiah.png"
+                                alt="Nurul Fathiah">
+                            <h4>Nurul Fathiah</h4>
+                            <p>Operations Logistics Specialist</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/fatehah.png"
+                                alt="Nur Fatehah">
+                            <h4>Nur Fatehah</h4>
+                            <p>Quality Control Associate</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/nizam.png" alt="Nizam">
+                            <h4>Khairul Nizam</h4>
+                            <p>Operations Coordinator</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/izzul.png" alt="Izzul">
+                            <h4>Izzul Islam</h4>
+                            <p>Branch Manager (FVT)</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/izat.png" alt="Izat">
+                            <h4>Izat</h4>
+                            <p>Branch Manager (FVL)</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/tadha.png" alt="Tadha">
+                            <h4>Muaz Tadha</h4>
+                            <p>Head of Compliance</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/marsya.png" alt="Marsya">
+                            <h4>Marsya</h4>
+                            <p>Branch Manager (FVG)</p>
+                        </div>
+                        <div class="team-card marquee-card"><img src="../assets/images/team/nabihah.png" alt="Nabihah">
+                            <h4>Nabihah</h4>
+                            <p>Technical Operations Specialist</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -204,53 +272,64 @@
                 <div class="bod-marquee-track">
                     <!-- Set 1 -->
                     <div class="bod-card">
-                        <div class="img-wrapper"><img src="../assets/images/team/dr_sukhilmi.png" alt="Dr. Sukhilmi"></div>
+                        <div class="img-wrapper"><img src="../assets/images/team/dr_sukhilmi.png" alt="Dr. Sukhilmi">
+                        </div>
                         <h4>Kol (B) Dr. Sukhilmi Othman</h4>
                         <p class="role">Managing Director</p>
-                        <p class="desc">Visionary leader with extensive experience in high-level healthcare management. Specializes in strategic planning and long-term healthcare infrastructure development.</p>
+                        <p class="desc">Visionary leader with extensive experience in high-level organizational
+                            management. Specializes in strategic planning and long-term facility infrastructure
+                            development.</p>
                     </div>
                     <div class="bod-card">
                         <div class="img-wrapper"><img src="../assets/images/team/norehan.png" alt="Siti Norehan"></div>
                         <h4>Siti Norehan Malek</h4>
                         <p class="role">Director of Finance</p>
-                        <p class="desc">Expert in healthcare financial planning and medical procurement auditing. Ensures all operational budgets align with healthcare quality standards.</p>
+                        <p class="desc">Expert in organizational financial planning and professional procurement
+                            auditing. Ensures all operational budgets align with high quality standards.</p>
                     </div>
                     <div class="bod-card">
                         <div class="img-wrapper"><img src="../assets/images/team/filzah.png" alt="Filzah"></div>
                         <h4>Filzah Abdul Majid</h4>
                         <p class="role">Operation Director</p>
-                        <p class="desc">Oversees complex healthcare logistics and facility coordination. Expert in healthcare supply chain optimization and medical asset management.</p>
+                        <p class="desc">Oversees complex operational logistics and facility coordination. Expert in
+                            supply chain optimization and professional asset management.</p>
                     </div>
                     <div class="bod-card">
                         <div class="img-wrapper"><img src="../assets/images/team/rahim.png" alt="Abdul Rahim"></div>
                         <h4>Abdul Rahim Ismail</h4>
                         <p class="role">Business Development Director</p>
-                        <p class="desc">Focused on expanding healthcare service networks and building strategic medical partnerships across both public and private sectors.</p>
+                        <p class="desc">Focused on expanding professional service networks and building strategic
+                            medical partnerships across both public and private sectors.</p>
                     </div>
                     <!-- Set 2 — duplicate for seamless loop -->
                     <div class="bod-card">
-                        <div class="img-wrapper"><img src="../assets/images/team/dr_sukhilmi.png" alt="Dr. Sukhilmi"></div>
+                        <div class="img-wrapper"><img src="../assets/images/team/dr_sukhilmi.png" alt="Dr. Sukhilmi">
+                        </div>
                         <h4>Kol (B) Dr. Sukhilmi Othman</h4>
                         <p class="role">Managing Director</p>
-                        <p class="desc">Visionary leader with extensive experience in high-level healthcare management. Specializes in strategic planning and long-term healthcare infrastructure development.</p>
+                        <p class="desc">Visionary leader with extensive experience in high-level healthcare management.
+                            Specializes in strategic planning and long-term healthcare infrastructure development.</p>
                     </div>
                     <div class="bod-card">
                         <div class="img-wrapper"><img src="../assets/images/team/norehan.png" alt="Siti Norehan"></div>
                         <h4>Siti Norehan Malek</h4>
                         <p class="role">Director of Finance</p>
-                        <p class="desc">Expert in healthcare financial planning and medical procurement auditing. Ensures all operational budgets align with healthcare quality standards.</p>
+                        <p class="desc">Expert in healthcare financial planning and medical procurement auditing.
+                            Ensures all operational budgets align with healthcare quality standards.</p>
                     </div>
                     <div class="bod-card">
                         <div class="img-wrapper"><img src="../assets/images/team/filzah.png" alt="Filzah"></div>
                         <h4>Filzah Abdul Majid</h4>
                         <p class="role">Operation Director</p>
-                        <p class="desc">Oversees complex healthcare logistics and facility coordination. Expert in healthcare supply chain optimization and medical asset management.</p>
+                        <p class="desc">Oversees complex healthcare logistics and facility coordination. Expert in
+                            healthcare supply chain optimization and medical asset management.</p>
                     </div>
                     <div class="bod-card">
                         <div class="img-wrapper"><img src="../assets/images/team/rahim.png" alt="Abdul Rahim"></div>
                         <h4>Abdul Rahim Ismail</h4>
                         <p class="role">Business Development Director</p>
-                        <p class="desc">Focused on expanding healthcare service networks and building strategic medical partnerships across both public and private sectors.</p>
+                        <p class="desc">Focused on expanding healthcare service networks and building strategic medical
+                            partnerships across both public and private sectors.</p>
                     </div>
                 </div>
             </div>
@@ -262,17 +341,33 @@
         <section class="m-section network" id="network">
             <div class="section-header">
                 <h2>Our Service Network</h2>
-                <p>Strategically located to provide excellence in healthcare support.</p>
+                <p>Strategically located to provide excellence in operational support.</p>
             </div>
             <div class="network-grid">
-                <div class="branch-card"><h4>HQ SEREMBAN</h4></div>
-                <div class="branch-card"><h4>FARMASI VETERAN HAT.MIZAN</h4></div>
-                <div class="branch-card"><h4>FARMASI VETERAN TERENDAK</h4></div>
-                <div class="branch-card"><h4>FARMASI VETERAN LUMUT</h4></div>
-                <div class="branch-card"><h4>RASUMI SHAH ALAM</h4></div>
-                <div class="branch-card"><h4>FARMASI VETERAN GEMAS</h4></div>
-                <div class="branch-card"><h4>FARMASI VETERAN KK. SABAH</h4></div>
-                <div class="branch-card coming-soon"><h4>COMING SOON</h4></div>
+                <div class="branch-card">
+                    <h4>HQ SEREMBAN</h4>
+                </div>
+                <div class="branch-card">
+                    <h4>DISTRIBUTION HUB HAT.MIZAN</h4>
+                </div>
+                <div class="branch-card">
+                    <h4>DISTRIBUTION HUB TERENDAK</h4>
+                </div>
+                <div class="branch-card">
+                    <h4>DISTRIBUTION HUB LUMUT</h4>
+                </div>
+                <div class="branch-card">
+                    <h4>RASUMI SHAH ALAM</h4>
+                </div>
+                <div class="branch-card">
+                    <h4>DISTRIBUTION HUB GEMAS</h4>
+                </div>
+                <div class="branch-card">
+                    <h4>DISTRIBUTION HUB KK. SABAH</h4>
+                </div>
+                <div class="branch-card coming-soon">
+                    <h4>COMING SOON</h4>
+                </div>
             </div>
         </section>
 
@@ -283,15 +378,30 @@
             </div>
             <div class="about-content">
                 <h2>About Rasumi Group</h2>
-                <p><strong>Rasumi Medipharma Sdn Bhd</strong> is proudly owned in partnership with <strong>Yayasan Veteran ATM</strong>. Founded in 2006, we have grown to become a trusted pillar in the Malaysian healthcare landscape, specializing in the service of Ministry of Defence Healthcare Facilities and the private sector.</p>
-                <p>With over <strong>300,000 transactions</strong> conducted and more than <strong>10,000 patients</strong> served, our commitment to excellence is proven. Our team of 40+ dedicated professionals, including 12 registered pharmacists, ensures that every medical need is met with precision and care.</p>
+                <p><strong>Rasumi Medipharma Sdn Bhd</strong> is proudly owned in partnership with <strong>Yayasan
+                        Veteran ATM</strong>. Founded in 2006, we have grown to become a trusted pillar in the Malaysian
+                    industrial landscape, specializing in the service of Ministry of Defence Professional Facilities and
+                    the private sector.</p>
+                <p>With over <strong>300,000 transactions</strong> conducted and more than <strong>10,000
+                        clients</strong> served, our commitment to excellence is proven. Our team of 40+ dedicated
+                    professionals, including 12 registered compliance experts, ensures that every requirement is met
+                    with precision and care.</p>
                 <div class="stats-grid">
-                    <div class="stat-item"><h3>300k+</h3><p>Transactions</p></div>
-                    <div class="stat-item"><h3>10k+</h3><p>Patients Served</p></div>
-                    <div class="stat-item"><h3>12</h3><p>Pharmacists</p></div>
+                    <div class="stat-item">
+                        <h3>300k+</h3>
+                        <p>Transactions</p>
+                    </div>
+                    <div class="stat-item">
+                        <h3>10k+</h3>
+                        <p>Clients Served</p>
+                    </div>
+                    <div class="stat-item">
+                        <h3>12</h3>
+                        <p>Compliance Experts</p>
+                    </div>
                 </div>
                 <ul class="about-features">
-                    <li><i class="fas fa-user-shield"></i> Serving MINDEF Healthcare Facilities</li>
+                    <li><i class="fas fa-user-shield"></i> Serving MINDEF Professional Facilities</li>
                     <li><i class="fas fa-clock-rotate-left"></i> Excellence Since 2006</li>
                 </ul>
                 <p class="partner-text">Partner of Yayasan Veteran ATM</p>
@@ -307,12 +417,13 @@
             <div class="footer-content">
                 <div class="footer-brand">
                     <h3>RASUMI GROUP</h3>
-                    <p>Your trusted partner in healthcare excellence and operational logistics.</p>
+                    <p>Your trusted partner in professional excellence and operational logistics.</p>
                 </div>
                 <div class="footer-contact">
                     <h3>Contact Info</h3>
                     <ul>
-                        <li><i class="fas fa-location-dot"></i> No 162, Jalan S2 B22, Pusat Dagangan Seremban 2, 70300 Seremban, N. Sembilan</li>
+                        <li><i class="fas fa-location-dot"></i> No 162, Jalan S2 B22, Pusat Dagangan Seremban 2, 70300
+                            Seremban, N. Sembilan</li>
                         <li><i class="fas fa-phone"></i> 06-601 2918</li>
                         <li><i class="fas fa-envelope"></i> info@rasumi.com.my</li>
                     </ul>
@@ -320,7 +431,10 @@
                 <div class="footer-map">
                     <h3>Our Location</h3>
                     <div class="map-container">
-                        <iframe src="https://maps.google.com/maps?q=No%20162,%20Jalan%20S2%20B22,%20Pusat%20Dagangan%20Seremban%202&t=&z=15&ie=UTF8&iwloc=&output=embed" width="100%" height="150" style="border:0; border-radius: 12px;" allowfullscreen="" loading="lazy"></iframe>
+                        <iframe
+                            src="https://maps.google.com/maps?q=No%20162,%20Jalan%20S2%20B22,%20Pusat%20Dagangan%20Seremban%202&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                            width="100%" height="150" style="border:0; border-radius: 12px;" allowfullscreen=""
+                            loading="lazy"></iframe>
                     </div>
                 </div>
             </div>
@@ -340,4 +454,5 @@
     <script src="../assets/js/main.js"></script>
     <script src="../assets/js/mobile.js"></script>
 </body>
+
 </html>
