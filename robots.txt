@@ -1,5 +1,12 @@
 User-agent: *
-Disallow: /backend/
+Disallow: /assets/private/
 Disallow: /config/
-Disallow: /README.md
+Disallow: /backend/
+
+Allow: /
+Allow: /mobile/
+Allow: /assets/images/
+Allow: /assets/css/
+Allow: /assets/js/
+
 Sitemap: https://rasumigroup.my/sitemap.xml
