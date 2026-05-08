@@ -1524,3 +1524,19 @@ input:checked+.slider .moon-icon {
     background: rgba(248, 113, 113, 0.08);
     border-color: rgba(248, 113, 113, 0.2);
 }
+/* === IMAGE PROTECTION === */
+img {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    -khtml-user-drag: none;
+    -moz-user-drag: none;
+    -o-user-drag: none;
+    pointer-events: none;
+}
+
+/* Re-enable pointer events for clickable images */
+a img, .logo img, .nav-cta img, label img {
+    pointer-events: auto;
+}

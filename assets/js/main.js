@@ -81,3 +81,41 @@ function switchTheme(e) {
 if (toggleSwitch) {
     toggleSwitch.addEventListener('change', switchTheme, false);
 }
+
+// ============================================
+// IMAGE PROTECTION — Disable right-click & drag
+// ============================================
+(function protectImages() {
+
+    // Disable right-click on all images
+    document.addEventListener('contextmenu', function(e) {
+        if (e.target.tagName === 'IMG') {
+            e.preventDefault();
+            return false;
+        }
+    });
+
+    // Disable drag on all images
+    document.addEventListener('dragstart', function(e) {
+        if (e.target.tagName === 'IMG') {
+            e.preventDefault();
+            return false;
+        }
+    });
+
+    // Apply CSS protection to all images
+    const style = document.createElement('style');
+    style.innerHTML = \
+        img {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            user-select: none;
+            -webkit-user-drag: none;
+            pointer-events: none;
+        }
+        a img {
+            pointer-events: auto;
+        }\;
+    document.head.appendChild(style);
+
+})();
