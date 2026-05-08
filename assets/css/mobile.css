@@ -377,7 +377,7 @@ input:checked+.slider .moon-icon {
 
 /* === HERO === */
 .hero {
-    background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('../images/bg/mobile_background.png');
+    background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('../images/bg/mobile_background.webp');
     background-size: cover;
     background-position: center;
     text-align: center;
@@ -439,7 +439,7 @@ input:checked+.slider .moon-icon {
 
 /* === SERVICES === */
 .services {
-    background: linear-gradient(rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.4)), url('../images/bg/services_bg.png');
+    background: linear-gradient(rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.4)), url('../images/bg/services_bg.webp');
     background-size: cover;
     background-position: center;
     display: flex;
@@ -451,7 +451,7 @@ input:checked+.slider .moon-icon {
 }
 
 [data-theme="dark"] .services {
-    background: linear-gradient(rgba(15, 0, 18, 0.8), rgba(15, 0, 18, 0.8)), url('../images/bg/services_bg.png');
+    background: linear-gradient(rgba(15, 0, 18, 0.8), rgba(15, 0, 18, 0.8)), url('../images/bg/services_bg.webp');
     background-size: cover;
     background-position: center;
 }
@@ -542,7 +542,7 @@ input:checked+.slider .moon-icon {
 
 [data-theme="dark"] .team-combined::before,
 [data-theme="dark"] .management::before {
-    background-image: url('../images/bg/dark_team.jpeg');
+    background-image: url('../images/bg/dark_team.webp');
     opacity: 0.12;
 }
 
@@ -832,11 +832,11 @@ input:checked+.slider .moon-icon {
 }
 
 [data-theme="light"] .network::before {
-    background-image: url('../images/bg/light_services.jpeg');
+    background-image: url('../images/bg/light_services.webp');
 }
 
 [data-theme="dark"] .network::before {
-    background-image: url('../images/bg/dark_services.jpeg');
+    background-image: url('../images/bg/dark_services.webp');
     opacity: 0.12;
 }
 
@@ -1083,9 +1083,17 @@ input:checked+.slider .moon-icon {
 }
 
 @keyframes logoPulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
 
 .partner-logo .logo-dark {

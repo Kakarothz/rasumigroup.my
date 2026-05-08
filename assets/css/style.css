@@ -111,7 +111,7 @@ nav.scrolled .nav-right a {
 /* Hero Section */
 .hero {
     height: 100vh;
-    background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('../../assets/images/bg/background.png');
+    background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('../../assets/images/bg/background.webp');
     background-size: cover;
     background-position: center;
     display: flex;
@@ -214,7 +214,7 @@ nav.scrolled .nav-cta {
     height: 100vh;
     min-height: unset;
     padding: var(--section-pad-v) var(--section-pad-h);
-    background: linear-gradient(rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.4)), url('../../assets/images/bg/services_bg.png');
+    background: linear-gradient(rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.4)), url('../../assets/images/bg/services_bg.webp');
     background-size: cover;
     background-position: center;
     display: flex;
@@ -227,7 +227,7 @@ nav.scrolled .nav-cta {
 }
 
 [data-theme="dark"] .services {
-    background: linear-gradient(rgba(15, 0, 18, 0.8), rgba(15, 0, 18, 0.8)), url('../../assets/images/bg/services_bg.png');
+    background: linear-gradient(rgba(15, 0, 18, 0.8), rgba(15, 0, 18, 0.8)), url('../../assets/images/bg/services_bg.webp');
     background-size: cover;
     background-position: center;
 }
@@ -347,11 +347,11 @@ body {
 }
 
 [data-theme="light"] .about::before {
-    background-image: url('../images/bg/light_about.png');
+    background-image: url('../images/bg/light_about.webp');
 }
 
 [data-theme="dark"] .about::before {
-    background-image: url('../images/bg/dark_about.png');
+    background-image: url('../images/bg/dark_about.webp');
     opacity: 0.12;
 }
 
@@ -383,6 +383,10 @@ body {
     max-height: calc(100vh - 100px);
     object-fit: cover;
     object-position: bottom;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: high-quality;
+    transform: translateZ(0);
+    backface-visibility: hidden;
 }
 
 .about-content {
@@ -634,7 +638,7 @@ footer {
 }
 
 [data-theme="dark"] .team::before {
-    background-image: url('../images/bg/dark_team.jpeg');
+    background-image: url('../images/bg/dark_team.webp');
     opacity: 0.30;
 }
 
@@ -734,8 +738,8 @@ footer {
 }
 
 .bod-card img {
-    width: 150px;
-    height: 150px;
+    width: 250px;
+    height: 250px;
 }
 
 .team-card h4 {
@@ -873,6 +877,7 @@ input:checked+.slider .moon-icon {
     flex-direction: column;
     justify-content: center;
     overflow: hidden;
+    /* ensure section boundary is maintained */
     scroll-snap-align: start;
     scroll-snap-stop: always;
     position: relative;
@@ -897,11 +902,11 @@ input:checked+.slider .moon-icon {
 }
 
 [data-theme="light"] .specialists-section::before {
-    background-image: url('../images/bg/light_operations.jpeg');
+    background-image: url('../images/bg/light_operations.webp');
 }
 
 [data-theme="dark"] .specialists-section::before {
-    background-image: url('../images/bg/dark_operations.jpeg');
+    background-image: url('../images/bg/dark_operations.webp');
     opacity: 0.30;
     /* Slightly lower for dark mode depth */
 }
@@ -922,13 +927,14 @@ input:checked+.slider .moon-icon {
 
 .marquee-container {
     width: 100%;
-    overflow: hidden;
+    overflow: visible;
+    /* CHANGE from hidden to visible so scaled cards aren't clipped */
     padding: 2rem 0;
 }
 
 .marquee-track {
     display: flex;
-    gap: 2rem;
+    gap: 3rem;
     width: max-content;
     animation: marquee 60s linear infinite;
 }
@@ -945,6 +951,9 @@ input:checked+.slider .moon-icon {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
+    transition: transform 0.08s linear, box-shadow 0.08s linear;
+    transform-origin: center center;
+    will-change: auto;
 }
 
 .marquee-card img {
@@ -1003,11 +1012,11 @@ input:checked+.slider .moon-icon {
 }
 
 [data-theme="light"] .network::before {
-    background-image: url('../images/bg/light_services.jpeg');
+    background-image: url('../images/bg/light_services.webp');
 }
 
 [data-theme="dark"] .network::before {
-    background-image: url('../images/bg/dark_services.jpeg');
+    background-image: url('../images/bg/dark_services.webp');
     opacity: 0.12;
 }
 

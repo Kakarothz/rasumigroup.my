@@ -87,3 +87,98 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start animation
     animate();
 });
+
+// ============================================
+// MARQUEE CARD — CENTER SCALE + NEON GLOW
+// ============================================
+(function initMarqueeScaleEffect() {
+
+    const container = document.querySelector('.scroll-container');
+    const marqueeContainer = document.querySelector('.marquee-container');
+
+    if (!marqueeContainer || !container) return;
+
+    function updateCardScales() {
+        const cards = document.querySelectorAll('.marquee-card');
+        if (!cards.length) return;
+
+        const screenCenterX = window.innerWidth / 2;
+
+        cards.forEach(card => {
+            const rect = card.getBoundingClientRect();
+            const cardCenterX = rect.left + rect.width / 2;
+
+            // Distance from screen center (0 = perfect center)
+            const distance = Math.abs(screenCenterX - cardCenterX);
+
+            // Area in pixels from center where scale stays at maximum (1.15)
+            // 160px width allows 2 cards to be at max scale simultaneously
+            const peakWidth = 160; 
+
+            // Max influence distance — half screen width
+            const maxDistance = window.innerWidth / 2;
+
+            let ratio;
+            if (distance <= peakWidth) {
+                // If inside the peak zone, ratio is 1 (max scale)
+                ratio = 1;
+            } else {
+                // Outside peak zone: ratio decays from 1 to 0
+                ratio = Math.max(0, 1 - (distance - peakWidth) / (maxDistance - peakWidth));
+            }
+
+            // Scale: 1.0 (edge) → 1.15 (center/peak zone)
+            const scale = 1 + (0.15 * ratio);
+
+            // Neon glow intensity: 0 (edge) → full (center)
+            const glowOpacity = ratio;
+            const glowBlur = Math.round(ratio * 30);
+            const glowSpread = Math.round(ratio * 10);
+
+            card.style.transform = `scale(${scale.toFixed(3)})`;
+            card.style.zIndex = Math.round(ratio * 10);
+
+            if (glowOpacity > 0.05) {
+                card.style.boxShadow = `
+                    0 0 ${glowBlur}px rgba(142, 36, 170, ${(glowOpacity * 0.6).toFixed(3)}),
+                    0 0 ${glowSpread}px rgba(194, 0, 120, ${(glowOpacity * 0.4).toFixed(3)}),
+                    0 ${Math.round(ratio * 15)}px ${Math.round(ratio * 30)}px rgba(0,0,0,${(ratio * 0.2).toFixed(3)})
+                `;
+            } else {
+                card.style.boxShadow = 'none';
+            }
+        });
+    }
+
+    // Run on every animation frame for smooth effect
+    let rafId = null;
+    let isVisible = false;
+
+    function loop() {
+        if (!isVisible) return;
+        updateCardScales();
+        rafId = requestAnimationFrame(loop);
+    }
+
+    // Start loop only when specialists section is visible
+    const specialistsSection = document.querySelector('#specialists');
+    if (specialistsSection) {
+        const sectionObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    isVisible = true;
+                    if (!rafId) rafId = requestAnimationFrame(loop);
+                } else {
+                    isVisible = false;
+                    if (rafId) {
+                        cancelAnimationFrame(rafId);
+                        rafId = null;
+                    }
+                }
+            });
+        }, { threshold: 0.2 });
+
+        sectionObserver.observe(specialistsSection);
+    }
+
+})();

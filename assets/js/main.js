@@ -8,13 +8,12 @@ const scrollContainer = document.querySelector('.scroll-container');
 
 if (scrollContainer) {
     const nav = document.getElementById('navbar');
+    let ticking = false;
 
-    // Function to check if we are on a subpage that needs a fixed navbar background
     const checkNavState = () => {
         const path = window.location.pathname;
         const isSubPage = path.includes('/contact/') || path.includes('/about/') || path.includes('/services/') || path.includes('/legal/') || path.includes('legal.html');
 
-        // If it's a sub-page, always show scrolled state. Otherwise (Home Page), toggle based on scroll.
         if (isSubPage) {
             nav.classList.add('scrolled');
         } else {
@@ -24,9 +23,16 @@ if (scrollContainer) {
                 nav.classList.remove('scrolled');
             }
         }
+        ticking = false;
     };
 
-    scrollContainer.addEventListener('scroll', checkNavState);
+    scrollContainer.addEventListener('scroll', () => {
+        if (!ticking) {
+            requestAnimationFrame(checkNavState);
+            ticking = true;
+        }
+    }, { passive: true });
+
     checkNavState(); // Initial check on load
 }
 
