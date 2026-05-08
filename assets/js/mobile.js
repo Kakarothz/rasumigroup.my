@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================
-// IMAGE PROTECTION — Disable right-click & drag
+// IMAGE PROTECTION â€” Disable right-click & drag
 // ============================================
 (function protectImages() {
 
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Apply CSS protection to all images
     const style = document.createElement('style');
-    style.innerHTML = \
+    style.innerHTML = `
         img {
             -webkit-user-select: none;
             -moz-user-select: none;
@@ -144,7 +144,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         a img {
             pointer-events: auto;
-        }\;
+        }
+    `;
     document.head.appendChild(style);
 
 })();

@@ -1,5 +1,5 @@
 // ============================================
-// RASUMI GROUP — MAIN JS
+// RASUMI GROUP â€” MAIN JS
 // Handles: navbar scroll, smooth scroll, theme toggle
 // ============================================
 
@@ -83,7 +83,7 @@ if (toggleSwitch) {
 }
 
 // ============================================
-// IMAGE PROTECTION � Disable right-click & drag
+// IMAGE PROTECTION — Disable right-click & drag
 // ============================================
 (function protectImages() {
 
@@ -105,7 +105,7 @@ if (toggleSwitch) {
 
     // Apply CSS protection to all images
     const style = document.createElement('style');
-    style.innerHTML = \
+    style.innerHTML = `
         img {
             -webkit-user-select: none;
             -moz-user-select: none;
@@ -115,7 +115,8 @@ if (toggleSwitch) {
         }
         a img {
             pointer-events: auto;
-        }\;
+        }
+    `;
     document.head.appendChild(style);
 
 })();
