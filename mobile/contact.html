@@ -9,8 +9,6 @@
             }
             const savedTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
-            const bgColor = savedTheme === 'dark' ? '#0f0012' : '#f8fafc';
-            document.write('<style>html,body{background-color:' + bgColor + ' !important;}</style>');
         })();
     </script>
     <meta charset="UTF-8">

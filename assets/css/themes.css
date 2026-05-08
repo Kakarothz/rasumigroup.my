@@ -35,3 +35,8 @@
     --shadow: 0 8px 32px 0 rgba(216, 27, 96, 0.3);
     --neon: 0 0 15px rgba(216, 27, 96, 0.8), 0 0 5px rgba(216, 27, 96, 0.5);
 }
+
+html, body {
+    background-color: var(--bg-light);
+    transition: background-color 0.3s ease;
+}
