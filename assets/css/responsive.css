@@ -48,6 +48,10 @@
     nav {
         padding: 12px 5%;
     }
+    
+    .logo img {
+        height: 22px !important;
+    }
 
     .nav-links {
         display: none;
