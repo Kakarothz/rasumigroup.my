@@ -1,12 +1,8 @@
 User-agent: *
-Disallow: /assets/private/
-Disallow: /config/
-Disallow: /backend/
+Disallow: /assets/js/
+Disallow: /assets/css/
 
 Allow: /
 Allow: /mobile/
-Allow: /assets/images/
-Allow: /assets/css/
-Allow: /assets/js/
 
 Sitemap: https://rasumigroup.my/sitemap.xml
