@@ -101,7 +101,10 @@
         e.stopPropagation();
         nodesPanel.classList.contains('r-mob-open') ? closeNodes() : openNodes();
       });
+      // Overlay covers only the right side (left:270px in CSS),
+      // so tapping it = tapping outside the panel = close
       overlay.addEventListener('click', closeNodes);
+      overlay.addEventListener('touchstart', closeNodes, { passive: true });
 
       /* ── 2. Patch rSelectNode — close drawer after tap ──────── */
       var _origSelect = window.rSelectNode;

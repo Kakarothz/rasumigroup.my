@@ -153,10 +153,12 @@
 
     #r-mob-overlay {
         position: fixed;
-        inset: 0;
+        top: 0;
+        left: 270px;   /* start AFTER the nodes panel — never blocks panel taps */
+        right: 0;
+        bottom: 0;
         background: rgba(0,0,0,0.45);
         z-index: 7999;
-        /* no blur — keeps background content readable */
     }
 
     /* Hamburger btn for nodes panel */
