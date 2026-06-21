@@ -9,7 +9,6 @@
     <!-- Icons & Fonts -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="mobile.css">
     <style>
         *, *::before, *::after { box-sizing: border-box; }
 
@@ -168,6 +167,8 @@
             background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
         }
     </style>
+    <!-- Mobile overrides — must come AFTER <style> block -->
+    <link rel="stylesheet" href="mobile.css">
 </head>
 <body>
     <div class="bg-grid"></div>

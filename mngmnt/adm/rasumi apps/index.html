@@ -62,6 +62,90 @@
   
   <!-- Rasumi JS will dynamically inject #rasumi-container inside the body -->
   <script src="app.js?v=11"></script>
+
+  <!-- Mobile enhancements — desktop untouched (window.innerWidth guard) -->
+  <script>
+  (function() {
+    if (window.innerWidth > 768) return;
+
+    var nodesPanel, overlay;
+
+    function closeNodes() {
+      if (nodesPanel) nodesPanel.classList.remove('r-mob-open');
+      if (overlay)    overlay.style.display = 'none';
+    }
+
+    function injectMobileUI() {
+      var container = document.getElementById('rasumi-container');
+      nodesPanel = container && container.querySelector('.r-nodes-panel');
+      if (!container || !nodesPanel) return false;
+      if (document.getElementById('r-mob-hamburger')) return true; // already done
+
+      /* ── 1. NODES DRAWER ───────────────────────────────────── */
+      overlay = document.createElement('div');
+      overlay.id = 'r-mob-overlay';
+      container.appendChild(overlay);
+
+      var hNav = container.querySelector('.r-h-nav');
+      var nodesBtn = document.createElement('button');
+      nodesBtn.id = 'r-mob-hamburger';
+      nodesBtn.className = 'r-mob-hamburger';
+      nodesBtn.innerHTML = '<i class="fa-solid fa-server"></i>&nbsp;NODES';
+      if (hNav) hNav.insertBefore(nodesBtn, hNav.firstChild);
+
+      function openNodes() {
+        nodesPanel.classList.add('r-mob-open');
+        overlay.style.display = 'block';
+      }
+      nodesBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        nodesPanel.classList.contains('r-mob-open') ? closeNodes() : openNodes();
+      });
+      overlay.addEventListener('click', closeNodes);
+
+      /* ── 2. Patch rSelectNode — close drawer after tap ──────── */
+      var _origSelect = window.rSelectNode;
+      window.rSelectNode = function(hostname) {
+        if (_origSelect) _origSelect(hostname);
+        closeNodes(); // close drawer so user sees the updated dashboard
+      };
+
+      /* ── 3. "admin monitor" subtitle under brand title ──────── */
+      var brandText = container.querySelector('.brand-text');
+      if (brandText && !brandText.querySelector('.r-mob-subtitle')) {
+        var sub = document.createElement('span');
+        sub.className = 'r-mob-subtitle';
+        sub.textContent = 'admin monitor';
+        brandText.appendChild(sub);
+      }
+
+      /* ── 4. Auto-collapse empty telemetry / health panels ───── */
+      function syncCollapse(el) {
+        if (!el) return;
+        var panel = el.parentElement;
+        while (panel && !panel.classList.contains('r-panel')) panel = panel.parentElement;
+        if (!panel) return;
+        var isEmpty = !!el.querySelector('.r-tele-empty');
+        panel.classList.toggle('r-mob-collapsed', isEmpty);
+      }
+      var emptyObs = new MutationObserver(function() {
+        syncCollapse(document.getElementById('r-tele-body'));
+        syncCollapse(document.getElementById('r-health-body'));
+      });
+      emptyObs.observe(container, { childList: true, subtree: true });
+      // Initial sync in case dashboard already rendered
+      syncCollapse(document.getElementById('r-tele-body'));
+      syncCollapse(document.getElementById('r-health-body'));
+
+      return true;
+    }
+
+    var obs = new MutationObserver(function() {
+      if (injectMobileUI()) obs.disconnect();
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+  })();
+  </script>
   
 </body>
 </html>

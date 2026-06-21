@@ -116,19 +116,26 @@
 
     /* ── HEADER CHROME (badge + logout) ─────────────────────── */
     .user-badge {
-        font-size: 9px;
-        padding: 6px 10px;
-        letter-spacing: 0.5px;
-        top: 12px;
-        left: 12px;
+        display: none;
     }
 
     .btn-logout {
         top: 12px;
         right: 12px;
-        padding: 8px 12px;
-        font-size: 10px;
-        letter-spacing: 0.5px;
+        padding: 8px 10px;
+        border: none;
+        font-size: 0; /* hide text */
+        background: transparent;
+    }
+
+    .btn-logout i {
+        font-size: 18px;
+        color: #ff004c;
+    }
+
+    /* ── HIDE CARD DESCRIPTIONS ──────────────────────────────── */
+    .app-desc {
+        display: none;
     }
 
     /* ── MFA PANEL ───────────────────────────────────────────── */
