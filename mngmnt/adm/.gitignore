@@ -1,0 +1,14 @@
+# Secrets & credentials
+.env
+*.env
+rasumi-apps-firebase-adminsdk.json
+*-adminsdk*.json
+*-serviceaccount*.json
+service-account*.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

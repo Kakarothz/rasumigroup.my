@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPOOLER COMMAND CENTER</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <!-- Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="assets/admin.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- ANTI-FLICKER LOADING LAYER -->
+    <div id="loading-overlay">
+        <span class="loader"></span>
+        <div class="loading-text">Synchronizing Enclave...</div>
+    </div>
+
+    <!-- AUTHENTICATION LAYER -->
+    <div id="auth-container" class="cyber-box hidden">
+        <img src="assets/logo.png" alt="Logo" class="auth-logo">
+        <p class="subtitle">SPOOLER ACCESS</p>
+        <div class="input-group">
+            <input type="email" id="auth-email" placeholder="EMAIL" required>
+        </div>
+        <div class="input-group">
+            <input type="password" id="auth-password" placeholder="PASSWORD" required>
+        </div>
+        <button id="btn-login" class="cyber-btn">INITIALIZE CONNECTION</button>
+        <div id="auth-error" class="error-text"></div>
+    </div>
+
+    <!-- MAIN DASHBOARD -->
+    <div id="dashboard-container" class="hidden">
+        <nav class="top-nav">
+            <div class="nav-brand">
+                <div class="brand-icon"><i class="fa-solid fa-print"></i></div>
+                <div class="brand-text">
+                    <h1>SPOOLER COMMAND CENTER</h1>
+                    <span>CAMSCANNER ADMIN CONSOLE</span>
+                </div>
+                <div class="nav-status-chips">
+                    <span id="stat-online" class="chip success">0 ONLINE</span>
+                    <span id="stat-offline" class="chip error">0 OFFLINE</span>
+                </div>
+            </div>
+            <div class="nav-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search devices, logs, queues...">
+                <span class="hotkey">Ctrl + K</span>
+            </div>
+            <div class="nav-actions">
+                <button class="icon-btn notif-btn" onclick="var p=document.getElementById('nav-dropdown'); if(p) p.classList.add('hidden'); document.getElementById('notif-dropdown').classList.toggle('hidden'); event.stopPropagation();"><i class="fa-regular fa-bell"></i><span class="badge hidden">0</span></button>
+                <button class="icon-btn"><i class="fa-regular fa-circle-question"></i></button>
+                <button class="icon-btn" id="menu-settings"><i class="fa-solid fa-gear"></i></button>
+                <div class="user-profile" id="profile-trigger" style="cursor:pointer">
+                    <img src="https://ui-avatars.com/api/?name=Super+Admin&background=8b5cf6&color=fff" alt="User">
+                    <div class="user-info">
+                        <span class="name">SUPER ADMIN</span>
+                        <span class="role">Super Admin</span>
+                    </div>
+                </div>
+                <!-- DROPDOWN -->
+                <div id="nav-dropdown" class="nav-dropdown hidden" style="z-index:9999">
+                    <div class="dropdown-item" onclick="window.location.href='../../index.html'"><i class="fa-solid fa-house"></i> MAIN MENU</div>
+                    <div class="dropdown-sep"></div>
+                    <div class="dropdown-item" onclick="window.location.href='../../rasumi apps/index.html'"><i class="fa-solid fa-border-all"></i> RASUMI APPS</div>
+                    <div class="dropdown-item" onclick="window.location.href='../../sales report/index.html'"><i class="fa-solid fa-shield-halved"></i> SALES REPORT</div>
+                    <div class="dropdown-item" onclick="window.location.href='index.html'"><i class="fa-solid fa-camera"></i> CAMSCANNER ADMIN</div>
+                    <div class="dropdown-sep"></div>
+                    <div class="dropdown-item" id="menu-profile"><i class="fa-solid fa-user-gear"></i> UPDATE PROFILE</div>
+                    <div class="dropdown-item" style="color:#ff008c" id="menu-logout"><i class="fa-solid fa-power-off"></i> LOG OUT</div>
+                </div>
+                <!-- NOTIFICATION DROPDOWN -->
+                <div id="notif-dropdown" class="nav-dropdown hidden" style="top:46px;right:100px;min-width:300px;padding-bottom:5px;">
+                    <div style="padding:12px 15px;font-size:10px;color:var(--text-muted);border-bottom:1px solid var(--border-color);margin-bottom:5px;">RECENT ALERTS</div>
+                    <div id="notif-dropdown-list" style="padding:10px;font-size:11px;text-align:center;color:var(--text-muted);">No new alerts</div>
+                    <div class="dropdown-sep"></div>
+                    <div class="dropdown-item" style="justify-content:center;color:#ff008c;"><i class="fa-solid fa-arrow-right"></i> View All Alerts</div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="main-layout">
+
+            <!-- LEFT PANEL: DEVICES -->
+            <div class="panel list-panel">
+                <div class="panel-header">
+                    <h3><i class="fa-solid fa-server"></i> ATTACHED NODES</h3>
+                    <button class="icon-btn-small" id="btn-refresh-nodes" title="Refresh Nodes"><i
+                            class="fa-solid fa-rotate"></i></button>
+                </div>
+                <div id="device-list" class="device-grid">
+                    <!-- Devices injected here -->
+                </div>
+            </div>
+
+            <!-- MIDDLE PANEL: TELEMETRY & CONTROLS -->
+            <div class="panel focus-panel">
+                <div class="panel-header">
+                    <h3><i class="fa-solid fa-satellite-dish"></i> ACTIVE TELEMETRY <span id="active-device-name"
+                            class="highlight-text">[NONE]</span></h3>
+                </div>
+
+                <div id="focus-empty" class="empty-state">
+                    <i class="fa-solid fa-crosshairs ghost-icon"></i>
+                    <p>DEVICE REQUIRED</p>
+                </div>
+
+                <div id="focus-content" class="hidden">
+                    <div class="telemetry-grid">
+                        <div class="t-box">
+                            <span class="label">STATUS</span>
+                            <span id="t-status" class="val text-success">IDLE</span>
+                        </div>
+                        <div class="t-box">
+                            <span class="label">LAST BEACON</span>
+                            <span id="t-lastseen" class="val">--:--:--</span>
+                        </div>
+                        <div class="t-box wide">
+                            <span class="label">ATTACHED PRINTER</span>
+                            <span id="t-printer" class="val highlight-text">SEARCHING...</span>
+
+                            <!-- Tactical 5-Slot Gallery Strip -->
+                            <div id="proof-container" class="proof-mini-wrap hidden">
+                                <span class="label">PRINTED HISTORY</span>
+                                <div id="proof-gallery-strip" class="gallery-strip">
+                                    <!-- Dynamic thumbnails injected here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="command-group">
+                        <div class="section-title">COMMAND</div>
+                        <div class="control-grid">
+                            <button class="cmd-btn" id="cmd-restart" title="Restart Agent"><i
+                                    class="fa-solid fa-rotate-right"></i> RESTART DEV</button>
+                            <button class="cmd-btn" id="cmd-forceprint" title="Force Override Print"><i
+                                    class="fa-solid fa-print"></i> FORCE PRINT</button>
+                            <button class="cmd-btn" id="cmd-refresh" title="Refresh UI"><i
+                                    class="fa-solid fa-arrows-rotate"></i> REFRESH</button>
+                            <button class="cmd-btn btn-danger" id="cmd-uninstall" title="Permanent Uninstallation"><i
+                                    class="fa-solid fa-skull-crossbones"></i> UNINSTALL</button>
+                        </div>
+                    </div>
+
+                    <div class="schedule-group">
+                        <div class="section-title">SCHEDULE</div>
+                        <div class="sch-inputs">
+                            <div class="time-field">
+                                <input type="text" id="sch-start" class="cyber-input" value="08:00" maxlength="5" placeholder="HH:MM">
+                                <button class="btn-ap" id="sch-start-ap">AM</button>
+                            </div>
+                            <span class="to-label">TO</span>
+                            <div class="time-field">
+                                <input type="text" id="sch-stop" class="cyber-input" value="16:50" maxlength="5" placeholder="HH:MM">
+                                <button class="btn-ap" id="sch-stop-ap">PM</button>
+                            </div>
+                            <button class="icon-btn-small" id="btn-sync-sch" title="Sync Schedule"><i
+                                    class="fa-solid fa-rotate"></i></button>
+                        </div>
+                    </div>
+
+                    <div id="sys-info-box" class="t-box wide mt-2">
+                        <span class="label">SYSTEM TELEMETRY</span>
+                        <span id="t-sysinfo" class="val" style="font-size:10px; color:var(--text-muted)">AWAITING REQUEST...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL: LOG STREAM -->
+            <div class="panel log-panel">
+                <div class="panel-header">
+                    <h3><i class="fa-solid fa-terminal"></i> LIVE DATA STREAM</h3>
+                </div>
+                <div id="log-terminal" class="terminal-box">
+                    <div class="log-line system">[SYSTEM] Awaiting uplink...</div>
+                </div>
+                <div class="terminal-input-wrap">
+                    <span class="prompt text-glow">root@spooler:~#</span>
+                    <input type="text" id="terminal-input" autocomplete="off" spellcheck="false" placeholder="_">
+                </div>
+                <div id="proof-viewer" class="proof-box hidden">
+                    <div class="proof-header">
+                        <span><i class="fa-solid fa-image"></i> ENLARGED DOCUMENT VIEW</span>
+                        <button id="btn-close-proof" class="icon-btn-small text-error"><i
+                                class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="proof-scroll-container" id="proof-click">
+                        <img id="proof-img" src="" alt="Print Proof">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL (ADMIN INTERNAL) -->
+    <div id="settings-modal" class="modal hidden">
+        <div class="modal-content cyber-box settings-wide">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-user-shield"></i> ENCLAVE SECURITY PROTOCOL (ADMINS)</h3>
+                <button id="btn-close-settings" class="icon-btn text-error"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="modal-body scrollable-body">
+                <!-- Registration Section -->
+                <div class="admin-form-wrap">
+                    <div class="section-title">COMMANDER REGISTRATION</div>
+                    <div class="registration-grid">
+                        <input type="email" id="new-admin-email" placeholder="OPERATOR EMAIL" class="cyber-input">
+                        <div class="pass-input-group">
+                            <input type="text" id="new-admin-pass" placeholder="PASSWORD" class="cyber-input">
+                            <button id="btn-gen-pass" class="icon-btn-small" title="Auto-Generate Secure Password"><i
+                                    class="fa-solid fa-wand-magic-sparkles"></i></button>
+                        </div>
+                        <input type="text" id="new-admin-confirm" placeholder="CONFIRM PASSWORD" class="cyber-input">
+                        <button id="btn-add-admin" class="cyber-btn-small">GRANT ACCESS</button>
+                    </div>
+                </div>
+
+                <hr class="cyber-divider">
+
+                <!-- Admin List Section -->
+                <div class="admin-list-header">
+                    <div class="section-title">ACTIVE OPERATORS</div>
+                    <div class="search-wrap">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="admin-search" placeholder="Filter ID/Role..." class="cyber-input-search">
+                    </div>
+                </div>
+
+                <div class="admin-table-container">
+                    <table class="cyber-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left">ADMIN_ID</th>
+                                <th>AUTH_LVL</th>
+                                <th title="Tactical Clearances Matrix">CLEARANCE</th>
+                                <th title="Date of Commissioning">JOINED</th>
+                                <th title="Last Operational Activity">LAST_ACTIVE</th>
+                                <th>PAYLOAD</th>
+                                <th>PROTOCOL</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-table-body">
+                            <!-- Injected rows here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FULLSCREEN PROOF MODAL (PREMIUM VIEW) -->
+    <div id="fullscreen-proof-modal" class="modal hidden">
+        <div class="fullscreen-img-wrap premium-wrap">
+            <div class="modal-header-minimal">
+                <button id="btn-close-fs" class="btn-minimal-text">CLOSED</button>
+            </div>
+            <div class="fs-portrait-container">
+                <img id="fs-proof-img" src="" class="premium-shadow">
+            </div>
+        </div>
+    </div>
+
+    <!-- PROFILE MODAL -->
+    <div id="profile-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-user-shield"></i> PROFILE COMMAND</h3>
+                <button id="btn-close-profile" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body profile-wrap">
+                <input type="file" id="profile-upload" class="hidden" accept="image/*">
+                <img id="profile-img-display" src="https://ui-avatars.com/api/?name=Admin&background=000&color=f0f"
+                    class="profile-img-big" title="Click to upload new avatar">
+
+                <div class="profile-info">
+                    <div id="p-role" class="role">UNKNOWN</div>
+                    <div id="p-email" class="email">admin@system.local</div>
+                </div>
+
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <span class="label">LAST LOGIN</span>
+                        <span id="stat-last-login" class="val">--:--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label">CMDS SENT</span>
+                        <span id="stat-cmds-sent" class="val">0</span>
+                    </div>
+                </div>
+
+                <div class="profile-actions">
+                    <div class="section-title">SECURITY PROTOCOL</div>
+                    <input type="password" id="p-new-pass" placeholder="NEW PASSWORD">
+                    <input type="password" id="p-confirm-pass" placeholder="CONFIRM NEW PASSWORD">
+                    <button id="btn-update-profile" class="cyber-btn-small w-100">UPDATE ACCOUNT</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CYBER MODAL OVERLAY (HACKER STYLE) -->
+    <div id="cyber-modal-overlay" class="cyber-modal-overlay">
+        <div id="active-cyber-modal" class="cyber-modal">
+            <h2 id="cyber-modal-title">INTERNAL PROTOCOL</h2>
+            <p id="cyber-modal-message">Awaiting further instructions...</p>
+            <div class="cyber-modal-actions">
+                <button id="cyber-modal-cancel" class="cyber-btn-modal">ABORT</button>
+                <button id="cyber-modal-confirm" class="cyber-btn-modal primary">PROCEED</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

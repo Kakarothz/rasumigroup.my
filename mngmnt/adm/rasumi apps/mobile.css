@@ -1,0 +1,459 @@
+/* ============================================================
+   mobile.css — Rasumi Apps Super Admin Console
+   Media queries ONLY. Zero changes to existing desktop styles.
+   All elements preserved — resized / repositioned for mobile.
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+    /* Override hardcoded body overflow:hidden */
+    body.r-body-root {
+        overflow: auto !important;
+        height: auto !important;
+    }
+
+    /* ── ROOT — switch from fixed-app to scrollable page ───── */
+    #rasumi-container {
+        overflow-y: auto;
+        height: auto;
+        min-height: 100vh;
+        --rc-tb-h: auto;
+    }
+
+    /* ── TOPBAR — wrap to 2 rows so nothing is hidden ─────── */
+    #rasumi-container .r-topbar {
+        flex-wrap: wrap;
+        height: auto;
+        min-height: auto;
+        padding: 8px 12px;
+        gap: 6px 10px;
+        row-gap: 6px;
+    }
+
+    /* Brand stays left */
+    #rasumi-container .r-tb-brand {
+        flex: 1;
+        min-width: 0;
+    }
+
+    #rasumi-container .r-brand-name {
+        font-size: 11px;
+        letter-spacing: 0.1em;
+    }
+
+    #rasumi-container .r-brand-sub {
+        font-size: 7px;
+    }
+
+    /* Status chips — smaller */
+    #rasumi-container .r-status-chips {
+        margin-left: 0;
+        gap: 4px;
+    }
+
+    #rasumi-container .r-chip {
+        font-size: 8px;
+        padding: 2px 7px;
+    }
+
+    /* Actions (live dot, clock, back button) — right-aligned */
+    #rasumi-container .r-tb-actions {
+        gap: 8px;
+    }
+
+    #rasumi-container .r-clock {
+        font-size: 10px;
+        min-width: auto;
+    }
+
+    #rasumi-container .r-back-vims {
+        padding: 5px 8px;
+        font-size: 10px;
+    }
+
+    /* Search bar — push to second row, full width */
+    #rasumi-container .r-tb-search {
+        order: 99;
+        flex: 1 1 100%;
+        max-width: 100%;
+        margin: 0;
+    }
+
+    /* ── H-NAV — smaller, still horizontally scrollable ────── */
+    #rasumi-container .r-h-nav {
+        padding: 0 6px;
+    }
+
+    #rasumi-container .r-hn-item {
+        padding: 0 10px;
+        height: 34px;
+        font-size: 10px;
+        gap: 4px;
+    }
+
+    #rasumi-container .r-hn-item i {
+        font-size: 10px;
+    }
+
+    #rasumi-container .r-hn-sep {
+        margin: 0 3px;
+    }
+
+    /* ── BODY WRAP — stack nodes panel above main content ───── */
+    #rasumi-container .r-body-wrap {
+        flex-direction: column;
+        overflow: visible;
+    }
+
+    /* ── NODES PANEL — compact horizontal strip ─────────────── */
+    #rasumi-container .r-nodes-panel {
+        width: 100%;
+        min-width: unset;
+        border-right: none;
+        border-bottom: 1px solid var(--rc-border);
+        overflow: hidden;
+        max-height: none;
+        flex-shrink: 0;
+    }
+
+    /* Node list scrolls horizontally */
+    #rasumi-container .r-np-scroll {
+        display: flex;
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 6px 8px;
+        gap: 6px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Node cards become compact horizontal chips */
+    #rasumi-container .r-node-card {
+        flex-direction: column;
+        min-width: 108px;
+        max-width: 108px;
+        padding: 8px 10px;
+        gap: 5px;
+        align-items: flex-start;
+        flex-shrink: 0;
+        border: 1px solid var(--rc-border);
+        border-radius: 7px;
+    }
+
+    #rasumi-container .r-nc-host {
+        font-size: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 88px;
+    }
+
+    #rasumi-container .r-nc-time {
+        font-size: 8px;
+    }
+
+    #rasumi-container .r-np-foot {
+        font-size: 9px;
+        padding: 7px 10px;
+    }
+
+    /* ── MAIN WRAP — scrollable ─────────────────────────────── */
+    #rasumi-container .r-main-wrap {
+        overflow: visible;
+        min-width: 0;
+    }
+
+    /* ── VIEW AREA ───────────────────────────────────────────── */
+    #rasumi-container .r-view-area {
+        padding: 12px 10px;
+        overflow: visible;
+    }
+
+    /* ── METRIC CARDS — 2 columns ───────────────────────────── */
+    #rasumi-container .r-metric-row {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px;
+    }
+
+    #rasumi-container .r-metric-val {
+        font-size: 20px;
+    }
+
+    #rasumi-container .r-metric-label {
+        font-size: 7px;
+    }
+
+    #rasumi-container .r-metric-sub {
+        font-size: 9px;
+    }
+
+    /* ── KPI ROW — 2 columns ────────────────────────────────── */
+    #rasumi-container .r-kpi-row {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    #rasumi-container .r-kpi-val {
+        font-size: 22px;
+    }
+
+    /* ── GRID ROWS — single column ──────────────────────────── */
+    #rasumi-container .r-mid-row,
+    #rasumi-container .r-bot-row,
+    #rasumi-container .r-charts-row,
+    #rasumi-container .r-dash-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px;
+    }
+
+    /* ── PANELS ─────────────────────────────────────────────── */
+    #rasumi-container .r-panel {
+        padding: 12px 10px;
+    }
+
+    #rasumi-container .r-panel-hdr {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    #rasumi-container .r-panel-title {
+        font-size: 9px;
+    }
+
+    /* ── TABLES — horizontal scroll preserved ───────────────── */
+    #rasumi-container .r-table-wrap {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #rasumi-container .r-table th {
+        padding: 8px;
+        font-size: 8px;
+    }
+
+    #rasumi-container .r-table td {
+        padding: 7px 8px;
+        font-size: 11px;
+    }
+
+    #rasumi-container .r-cell-trunc {
+        max-width: 120px;
+    }
+
+    #rasumi-container .r-cell-wrap {
+        max-width: 180px;
+    }
+
+    /* ── FILTER BAR — stack vertically ─────────────────────── */
+    #rasumi-container .r-filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+
+    /* Prevent iOS font-zoom on input focus */
+    #rasumi-container .r-filter-input,
+    #rasumi-container .r-filter-sel {
+        font-size: 16px;
+        min-width: unset;
+        width: 100%;
+    }
+
+    /* ── FEATURE PILLS ───────────────────────────────────────── */
+    #rasumi-container .r-feat-pills {
+        gap: 4px;
+    }
+
+    #rasumi-container .r-feat-pill {
+        font-size: 10px;
+        padding: 4px 8px;
+        min-width: 70px;
+    }
+
+    /* ── BOT GRID ────────────────────────────────────────────── */
+    #rasumi-container .r-bot-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* ── RUN GROUP ───────────────────────────────────────────── */
+    #rasumi-container .r-run-hdr {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    #rasumi-container .r-run-time {
+        margin-left: 0;
+    }
+
+    #rasumi-container .r-run-actions {
+        margin-left: 0;
+    }
+
+    /* ── CMD ROW ─────────────────────────────────────────────── */
+    #rasumi-container .r-cmd-row {
+        flex-direction: column;
+    }
+
+    #rasumi-container .r-cmd-row .r-filter-input {
+        width: 100%;
+        min-width: unset;
+    }
+
+    #rasumi-container .r-cmd-send {
+        flex-direction: column;
+    }
+
+    /* ── TELEMETRY ───────────────────────────────────────────── */
+    #rasumi-container .r-tele-row {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    #rasumi-container .r-tele-key {
+        min-width: 90px;
+        font-size: 9px;
+    }
+
+    #rasumi-container .r-tele-val {
+        font-size: 10px;
+    }
+
+    #rasumi-container .r-tele-cmds {
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+
+    /* ── HEALTH STATS ────────────────────────────────────────── */
+    #rasumi-container .r-health-stats {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+
+    /* ── DETAIL META ─────────────────────────────────────────── */
+    #rasumi-container .r-detail-meta {
+        gap: 6px 12px;
+        font-size: 11px;
+    }
+
+    /* ── SUMMARY / LOG ROWS ──────────────────────────────────── */
+    #rasumi-container .r-summary-row,
+    #rasumi-container .r-log-summary {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    /* ── BUTTONS ─────────────────────────────────────────────── */
+    #rasumi-container .r-btn-sm {
+        font-size: 10px;
+        padding: 5px 8px;
+    }
+
+    #rasumi-container .r-btn-primary,
+    #rasumi-container .r-btn-warn {
+        font-size: 11px;
+        padding: 8px 12px;
+    }
+
+    /* ── MODAL — near full-screen ────────────────────────────── */
+    #rasumi-container .r-modal-box {
+        width: 96vw;
+        max-height: 88vh;
+    }
+
+    #rasumi-container .r-modal-hdr {
+        font-size: 12px;
+        padding: 12px 14px;
+    }
+
+    #rasumi-container .r-modal-body {
+        padding: 14px;
+    }
+
+    #rasumi-container .r-modal-footer {
+        padding: 12px 14px;
+        flex-wrap: wrap;
+    }
+
+    /* ── TOAST — full width ──────────────────────────────────── */
+    #rasumi-container .r-toasts {
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+    }
+
+    #rasumi-container .r-toast {
+        max-width: 100%;
+    }
+
+    /* ── TERMINAL ────────────────────────────────────────────── */
+    #rasumi-container .r-terminal {
+        height: 130px;
+        font-size: 9px;
+    }
+
+    /* ── CHART BOX ───────────────────────────────────────────── */
+    #rasumi-container .r-chart-box {
+        height: 180px;
+    }
+
+    /* ── ACTIVITY FEED ───────────────────────────────────────── */
+    #rasumi-container .r-act-feed,
+    #rasumi-container .r-cmd-hist-feed,
+    #rasumi-container .r-app-list {
+        max-height: 200px;
+    }
+
+    /* ── ALERT ITEMS ─────────────────────────────────────────── */
+    #rasumi-container .r-alert-item {
+        font-size: 11px;
+        padding: 7px 10px;
+        gap: 8px;
+    }
+
+    /* ── PROFILE MODAL ───────────────────────────────────────── */
+    #rasumi-container [id="r-profile-modal"] > div,
+    #rasumi-container .r-profile-modal-inner {
+        width: 96vw !important;
+        max-height: 90vh !important;
+        overflow-y: auto !important;
+    }
+}
+
+/* ── Extra-small phones (≤ 390px) ──────────────────────────── */
+@media (max-width: 390px) {
+
+    #rasumi-container .r-metric-row {
+        grid-template-columns: 1fr !important;
+    }
+
+    #rasumi-container .r-metric-val {
+        font-size: 18px;
+    }
+
+    #rasumi-container .r-hn-item {
+        padding: 0 8px;
+        font-size: 9px;
+    }
+
+    #rasumi-container .r-node-card {
+        min-width: 92px;
+        max-width: 92px;
+    }
+
+    #rasumi-container .r-kpi-row {
+        grid-template-columns: 1fr;
+    }
+
+    #rasumi-container .r-health-stats {
+        grid-template-columns: 1fr;
+    }
+
+    #rasumi-container .r-topbar {
+        padding: 6px 10px;
+    }
+
+    #rasumi-container .r-brand-name {
+        font-size: 10px;
+    }
+}

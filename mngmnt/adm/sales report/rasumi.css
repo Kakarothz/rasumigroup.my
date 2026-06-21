@@ -1,0 +1,1054 @@
+/* ==========================================================
+   rasumi.css v2.0 — Glassmorphic Style (matches VIMS Console)
+   Scoped entirely under #rasumi-container
+   ========================================================== */
+
+/* ── Variables ───────────────────────────────────────────── */
+#rasumi-container {
+  --rc-bg:        #080c13;
+  --rc-glass:     rgba(10, 14, 23, 0.55);
+  --rc-glass-hi:  rgba(12, 18, 30, 0.72);
+  --rc-blur:      blur(18px);
+  --rc-border:    rgba(255,255,255,0.08);
+  --rc-border-hi: rgba(0,240,255,0.25);
+  --rc-shadow:    0 8px 32px rgba(0,0,0,0.45);
+  --rc-card:      rgba(10, 14, 23, 0.55);
+  --rc-card2:     rgba(8, 11, 20, 0.6);
+
+  --rc-cyan:   #00F0FF;
+  --rc-blue:   #00F0FF;
+  --rc-green:  #10B981;
+  --rc-orange: #F59E0B;
+  --rc-red:    #EF4444;
+  --rc-purple: #B200FF;
+  --rc-yellow: #F59E0B;
+  --rc-pink:   #d900ff;
+  --rc-text:     #E2E8F0;
+  --rc-text-dim: #6B7A8F;
+  --rc-muted:    #4b5263;
+
+  --rc-sb-w:   220px;
+  --rc-tb-h:   58px;
+  --rc-radius: 10px;
+  --rc-font:   'Inter', sans-serif;
+  --rc-mono:   'JetBrains Mono', monospace;
+}
+
+/* ── Root Layout ─────────────────────────────────────────── */
+#rasumi-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 9000;
+  font-family: var(--rc-font);
+  color: var(--rc-text);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+#rasumi-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('assets/background.jpg') center/cover no-repeat;
+  z-index: 0;
+  pointer-events: none;
+}
+
+#rasumi-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 8, 15, 0.78);
+  z-index: 1;
+  pointer-events: none;
+}
+
+#rasumi-container.hidden { display: none !important; }
+
+/* All direct children above the overlays */
+#rasumi-container > * { position: relative; z-index: 2; }
+
+/* ── Scrollbar ───────────────────────────────────────────── */
+#rasumi-container ::-webkit-scrollbar { width: 4px; height: 4px; }
+#rasumi-container ::-webkit-scrollbar-track { background: transparent; }
+#rasumi-container ::-webkit-scrollbar-thumb { background: var(--rc-muted); border-radius: 4px; }
+
+/* ==========================================================
+   TOPBAR (Full-width, VIMS style)
+   ========================================================== */
+#rasumi-container .r-topbar {
+  height: var(--rc-tb-h);
+  min-height: var(--rc-tb-h);
+  background: rgba(6, 10, 18, 0.85);
+  border-bottom: 1px solid var(--rc-border);
+  backdrop-filter: blur(20px);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+/* Brand section */
+#rasumi-container .r-tb-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+#rasumi-container .r-brand-icon {
+  width: 36px;
+  height: 36px;
+  background: rgba(0,240,255,0.1);
+  border: 1px solid rgba(0,240,255,0.3);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--rc-cyan);
+  flex-shrink: 0;
+  box-shadow: 0 0 12px rgba(0,240,255,0.15);
+}
+
+#rasumi-container .r-brand-text { flex-shrink: 0; }
+
+#rasumi-container .r-brand-name {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--rc-cyan);
+  text-shadow: 0 0 10px rgba(0,240,255,0.5);
+  line-height: 1.1;
+}
+
+#rasumi-container .r-brand-sub {
+  font-size: 8px;
+  color: var(--rc-text-dim);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* Status chips */
+#rasumi-container .r-status-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+#rasumi-container .r-chip {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+#rasumi-container .chip-on  { background: rgba(16,185,129,0.12); color: #10B981; border-color: rgba(16,185,129,0.3); }
+#rasumi-container .chip-st  { background: rgba(245,158,11,0.12); color: #F59E0B; border-color: rgba(245,158,11,0.3); }
+#rasumi-container .chip-off { background: rgba(239,68,68,0.12);  color: #EF4444; border-color: rgba(239,68,68,0.3); }
+
+/* Topbar search */
+#rasumi-container .r-tb-search {
+  flex: 1;
+  max-width: 360px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--rc-border);
+  border-radius: 8px;
+  padding: 0 12px;
+  margin: 0 auto;
+}
+
+#rasumi-container .r-tb-search i { color: var(--rc-text-dim); font-size: 11px; }
+
+#rasumi-container .r-tb-search input {
+  background: none;
+  border: none;
+  color: var(--rc-text);
+  font-family: var(--rc-font);
+  font-size: 12px;
+  outline: none;
+  width: 100%;
+  padding: 7px 0;
+}
+#rasumi-container .r-tb-search input::placeholder { color: var(--rc-text-dim); }
+
+/* Topbar right actions */
+#rasumi-container .r-tb-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+#rasumi-container .r-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--rc-green);
+  box-shadow: 0 0 6px var(--rc-green);
+  animation: r-pulse 2s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes r-pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+#rasumi-container .r-clock {
+  font-family: var(--rc-mono);
+  font-size: 12px;
+  color: var(--rc-text-dim);
+  letter-spacing: 0.06em;
+  min-width: 68px;
+  text-align: right;
+}
+
+#rasumi-container .r-back-vims {
+  background: rgba(0,240,255,0.08);
+  border: 1px solid rgba(0,240,255,0.25);
+  color: var(--rc-cyan);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  font-family: var(--rc-font);
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+#rasumi-container .r-back-vims:hover { background: rgba(0,240,255,0.18); }
+
+/* ==========================================================
+   HORIZONTAL NAV BAR (replaces sidebar)
+   ========================================================== */
+#rasumi-container .r-h-nav {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background: rgba(6, 10, 18, 0.78);
+  border-bottom: 1px solid var(--rc-border);
+  backdrop-filter: blur(16px);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  gap: 0;
+}
+#rasumi-container .r-h-nav::-webkit-scrollbar { display: none; }
+
+#rasumi-container .r-hn-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 38px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--rc-text-dim);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+  user-select: none;
+  position: relative;
+}
+#rasumi-container .r-hn-item i { font-size: 11px; flex-shrink: 0; }
+#rasumi-container .r-hn-item:hover { color: var(--rc-text); }
+#rasumi-container .r-hn-item.active { color: var(--rc-cyan); border-bottom-color: var(--rc-cyan); }
+
+#rasumi-container .r-hn-sep {
+  width: 1px; height: 18px;
+  background: var(--rc-border);
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+
+/* Nav badge (used in h-nav items) */
+#rasumi-container .r-nb {
+  margin-left: 3px;
+  background: var(--rc-orange);
+  color: #000;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 8px;
+  min-width: 14px;
+  text-align: center;
+  display: none;
+}
+#rasumi-container .r-nb.warn { background: var(--rc-orange); color: #000; }
+#rasumi-container .r-nb.err  { background: var(--rc-red);    color: #fff; }
+
+/* ==========================================================
+   BODY WRAP (nodes-panel + main)
+   ========================================================== */
+#rasumi-container .r-body-wrap {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ==========================================================
+   NODES PANEL (replaces sidebar — always-visible node list)
+   ========================================================== */
+#rasumi-container .r-nodes-panel {
+  width: 240px;
+  min-width: 240px;
+  background: rgba(6, 10, 18, 0.82);
+  border-right: 1px solid var(--rc-border);
+  backdrop-filter: blur(20px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+#rasumi-container .r-np-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 12px 9px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--rc-text-dim);
+  border-bottom: 1px solid var(--rc-border);
+  flex-shrink: 0;
+}
+#rasumi-container .r-np-title i { color: var(--rc-cyan); font-size: 10px; }
+#rasumi-container .r-np-count {
+  margin-left: auto;
+  font-size: 9px;
+  font-family: var(--rc-mono);
+  color: var(--rc-cyan);
+  background: rgba(0,240,255,0.08);
+  border: 1px solid rgba(0,240,255,0.2);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+#rasumi-container .r-np-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+#rasumi-container .r-np-foot {
+  padding: 9px 12px;
+  border-top: 1px solid var(--rc-border);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+#rasumi-container .r-fb-status { }
+
+/* Sidebar compat shim — keep for device-detail back-compat */
+#rasumi-container .r-sidebar { display: none; }
+
+/* ==========================================================
+   MAIN WRAPPER
+   ========================================================== */
+#rasumi-container .r-main-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* ── View Area ───────────────────────────────────────────── */
+#rasumi-container .r-view-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+}
+
+/* ==========================================================
+   PANELS (glassmorphic)
+   ========================================================== */
+#rasumi-container .r-panel {
+  background: var(--rc-glass);
+  border: 1px solid var(--rc-border);
+  border-radius: var(--rc-radius);
+  padding: 16px;
+  margin-bottom: 14px;
+  backdrop-filter: var(--rc-blur);
+  box-shadow: var(--rc-shadow);
+}
+
+#rasumi-container .r-panel-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+#rasumi-container .r-panel-hdr h3 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--rc-text);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: uppercase;
+}
+#rasumi-container .r-panel-hdr h3 i { color: var(--rc-cyan); }
+
+/* Panel title stripe (VIMS style) */
+#rasumi-container .r-panel-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--rc-cyan);
+  text-transform: uppercase;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--rc-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ==========================================================
+   METRIC CARDS ROW (VIMS style)
+   ========================================================== */
+#rasumi-container .r-metric-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 1300px) { #rasumi-container .r-metric-row { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 800px)  { #rasumi-container .r-metric-row { grid-template-columns: repeat(2, 1fr); } }
+
+#rasumi-container .r-metric-card {
+  background: var(--rc-glass);
+  border: 1px solid var(--rc-border);
+  border-radius: var(--rc-radius);
+  padding: 14px 16px;
+  backdrop-filter: var(--rc-blur);
+  box-shadow: var(--rc-shadow);
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+}
+
+#rasumi-container .r-metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+#rasumi-container .r-metric-card.green::before  { background: var(--rc-green); }
+#rasumi-container .r-metric-card.warn::before   { background: var(--rc-orange); }
+#rasumi-container .r-metric-card.danger::before { background: var(--rc-red); }
+#rasumi-container .r-metric-card.purple::before { background: var(--rc-purple); }
+#rasumi-container .r-metric-card.info::before   { background: var(--rc-cyan); }
+#rasumi-container .r-metric-card.blue::before   { background: var(--rc-cyan); }
+
+#rasumi-container .r-metric-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--rc-text-dim);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+#rasumi-container .r-metric-val {
+  font-size: 26px;
+  font-weight: 700;
+  font-family: var(--rc-mono);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+#rasumi-container .r-metric-card.green  .r-metric-val { color: var(--rc-green); }
+#rasumi-container .r-metric-card.warn   .r-metric-val { color: var(--rc-orange); }
+#rasumi-container .r-metric-card.danger .r-metric-val { color: var(--rc-red); }
+#rasumi-container .r-metric-card.purple .r-metric-val { color: var(--rc-purple); }
+#rasumi-container .r-metric-card.info   .r-metric-val { color: var(--rc-cyan); }
+#rasumi-container .r-metric-card.blue   .r-metric-val { color: var(--rc-cyan); }
+
+#rasumi-container .r-metric-sub {
+  font-size: 10px;
+  color: var(--rc-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#rasumi-container .r-metric-icon {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 24px;
+  opacity: 0.08;
+}
+
+/* Legacy KPI cards */
+#rasumi-container .r-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+#rasumi-container .r-kpi {
+  background: var(--rc-glass);
+  border: 1px solid var(--rc-border);
+  border-radius: var(--rc-radius);
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: var(--rc-blur);
+  box-shadow: var(--rc-shadow);
+  cursor: default;
+}
+#rasumi-container .r-kpi:hover { border-color: var(--rc-border-hi); }
+#rasumi-container .r-kpi.green  { border-left: 3px solid var(--rc-green); }
+#rasumi-container .r-kpi.warn   { border-left: 3px solid var(--rc-orange); }
+#rasumi-container .r-kpi.danger { border-left: 3px solid var(--rc-red); }
+#rasumi-container .r-kpi.purple { border-left: 3px solid var(--rc-purple); }
+#rasumi-container .r-kpi.info   { border-left: 3px solid var(--rc-cyan); }
+#rasumi-container .r-kpi-val {
+  font-size: 28px; font-weight: 700; line-height: 1;
+  font-family: var(--rc-mono); margin-bottom: 4px;
+}
+#rasumi-container .r-kpi.green  .r-kpi-val { color: var(--rc-green); }
+#rasumi-container .r-kpi.warn   .r-kpi-val { color: var(--rc-orange); }
+#rasumi-container .r-kpi.danger .r-kpi-val { color: var(--rc-red); }
+#rasumi-container .r-kpi.purple .r-kpi-val { color: var(--rc-purple); }
+#rasumi-container .r-kpi.info   .r-kpi-val { color: var(--rc-cyan); }
+#rasumi-container .r-kpi-lbl { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; color: var(--rc-text-dim); text-transform: uppercase; }
+#rasumi-container .r-kpi-ico { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 22px; opacity: 0.1; }
+
+/* ==========================================================
+   MAIN GRID ROWS (VIMS layout)
+   ========================================================== */
+
+/* Row 2: 2 columns (nodes moved to side panel) */
+#rasumi-container .r-mid-row {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+@media (max-width: 1100px) { #rasumi-container .r-mid-row { grid-template-columns: 1fr; } }
+
+/* Row 3: 3 columns (sys-tele removed — redundant with Node Health) */
+#rasumi-container .r-bot-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+@media (max-width: 1100px) { #rasumi-container .r-bot-row { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px)  { #rasumi-container .r-bot-row { grid-template-columns: 1fr; } }
+
+/* Row 4: 3 Charts */
+#rasumi-container .r-charts-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+@media (max-width: 1100px) { #rasumi-container .r-charts-row { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px)  { #rasumi-container .r-charts-row { grid-template-columns: 1fr; } }
+
+/* Dashboard old grid */
+#rasumi-container .r-dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+@media (max-width: 1100px) { #rasumi-container .r-dash-grid { grid-template-columns: 1fr; } }
+
+/* ==========================================================
+   NODE LIST (left panel - VIMS "Attached Nodes" style)
+   ========================================================== */
+#rasumi-container .r-node-list { display: flex; flex-direction: column; gap: 4px; }
+
+#rasumi-container .r-node-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  border: 1px solid transparent;
+}
+#rasumi-container .r-node-card:hover { background: rgba(0,240,255,0.06); border-color: rgba(0,240,255,0.15); }
+#rasumi-container .r-node-card.active { background: rgba(0,240,255,0.1); border-color: rgba(0,240,255,0.3); }
+
+#rasumi-container .r-nc-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+#rasumi-container .r-nc-dot.online  { background: var(--rc-green);  box-shadow: 0 0 5px var(--rc-green); }
+#rasumi-container .r-nc-dot.stale   { background: var(--rc-orange); box-shadow: 0 0 5px var(--rc-orange); }
+#rasumi-container .r-nc-dot.offline { background: var(--rc-red);    box-shadow: 0 0 5px var(--rc-red); }
+
+#rasumi-container .r-nc-info { flex: 1; min-width: 0; }
+#rasumi-container .r-nc-host { font-family: var(--rc-mono); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#rasumi-container .r-nc-time { font-size: 9px; color: var(--rc-text-dim); margin-top: 1px; }
+
+#rasumi-container .r-nc-badge {
+  font-size: 8px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.08em; flex-shrink: 0;
+}
+#rasumi-container .r-nc-badge.online  { background: rgba(16,185,129,0.12); color: var(--rc-green);  border: 1px solid rgba(16,185,129,0.25); }
+#rasumi-container .r-nc-badge.stale   { background: rgba(245,158,11,0.12); color: var(--rc-orange); border: 1px solid rgba(245,158,11,0.25); }
+#rasumi-container .r-nc-badge.offline { background: rgba(239,68,68,0.12);  color: var(--rc-red);    border: 1px solid rgba(239,68,68,0.25); }
+
+/* ==========================================================
+   ACTIVE TELEMETRY PANEL
+   ========================================================== */
+#rasumi-container .r-tele-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; height: 180px; color: var(--rc-text-dim); font-size: 12px;
+}
+#rasumi-container .r-tele-empty i { font-size: 28px; opacity: 0.3; }
+
+#rasumi-container .r-tele-row {
+  display: flex; align-items: flex-start; gap: 6px;
+  padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 12px;
+}
+#rasumi-container .r-tele-row:last-child { border-bottom: none; }
+#rasumi-container .r-tele-key  { color: var(--rc-text-dim); min-width: 110px; flex-shrink: 0; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; padding-top: 1px; }
+#rasumi-container .r-tele-val  { color: var(--rc-text); font-family: var(--rc-mono); font-size: 11px; word-break: break-all; }
+
+#rasumi-container .r-tele-cmds { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+
+/* ==========================================================
+   NODE HEALTH BARS (VIMS style)
+   ========================================================== */
+#rasumi-container .r-health-section { margin-bottom: 16px; }
+
+#rasumi-container .r-health-bar-row {
+  margin-bottom: 10px;
+}
+
+#rasumi-container .r-hb-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 4px; font-size: 10px;
+}
+#rasumi-container .r-hb-label { color: var(--rc-text-dim); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+#rasumi-container .r-hb-val   { color: var(--rc-cyan); font-family: var(--rc-mono); font-weight: 700; }
+
+#rasumi-container .r-hb-track {
+  height: 5px; background: rgba(255,255,255,0.07); border-radius: 3px; overflow: hidden;
+}
+#rasumi-container .r-hb-fill {
+  height: 100%; border-radius: 3px; transition: width 0.5s ease;
+}
+#rasumi-container .r-hb-fill.cpu  { background: linear-gradient(90deg, #00F0FF, #00B4CC); }
+#rasumi-container .r-hb-fill.ram  { background: linear-gradient(90deg, #B200FF, #6600CC); }
+#rasumi-container .r-hb-fill.disk { background: linear-gradient(90deg, #F59E0B, #D97706); }
+
+#rasumi-container .r-hb-fill.warn   { background: var(--rc-orange); }
+#rasumi-container .r-hb-fill.danger { background: var(--rc-red); }
+
+#rasumi-container .r-health-stats {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;
+}
+#rasumi-container .r-hs-item {
+  background: rgba(255,255,255,0.03); border: 1px solid var(--rc-border);
+  border-radius: 6px; padding: 8px 10px;
+}
+#rasumi-container .r-hs-lbl { font-size: 8px; color: var(--rc-text-dim); letter-spacing: 0.1em; text-transform: uppercase; }
+#rasumi-container .r-hs-val { font-size: 13px; font-weight: 700; font-family: var(--rc-mono); color: var(--rc-cyan); margin-top: 2px; }
+
+/* ==========================================================
+   LIVE DATA STREAM TERMINAL
+   ========================================================== */
+#rasumi-container .r-terminal {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(0,240,255,0.1);
+  border-radius: 7px;
+  padding: 10px 12px;
+  height: 160px;
+  overflow-y: auto;
+  font-family: var(--rc-mono);
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+#rasumi-container .r-term-line { margin: 0; white-space: pre-wrap; word-break: break-all; }
+#rasumi-container .r-term-line.info   { color: #64748B; }
+#rasumi-container .r-term-line.ok     { color: var(--rc-green); }
+#rasumi-container .r-term-line.warn   { color: var(--rc-orange); }
+#rasumi-container .r-term-line.err    { color: var(--rc-red); }
+#rasumi-container .r-term-line.debug  { color: #94A3B8; }
+#rasumi-container .r-term-line.ts     { color: #475569; }
+
+#rasumi-container .r-term-cursor::after {
+  content: '▋';
+  animation: r-blink 1s step-end infinite;
+  color: var(--rc-cyan);
+}
+@keyframes r-blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ==========================================================
+   SYSTEM TELEMETRY (bottom row panel)
+   ========================================================== */
+#rasumi-container .r-sys-tele-item {
+  margin-bottom: 12px;
+}
+#rasumi-container .r-st-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;
+}
+#rasumi-container .r-st-label { font-size: 9px; color: var(--rc-text-dim); letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; }
+#rasumi-container .r-st-nums  { font-size: 10px; font-family: var(--rc-mono); color: var(--rc-text); }
+#rasumi-container .r-st-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+#rasumi-container .r-st-fill  { height: 100%; border-radius: 3px; transition: width 0.5s; }
+#rasumi-container .r-st-fill.cpu-fill  { background: linear-gradient(90deg,#00F0FF,#0088AA); }
+#rasumi-container .r-st-fill.ram-fill  { background: linear-gradient(90deg,#B200FF,#6600CC); }
+#rasumi-container .r-st-fill.disk-fill { background: linear-gradient(90deg,#F59E0B,#B45309); }
+#rasumi-container .r-st-fill.net-fill  { background: linear-gradient(90deg,#10B981,#059669); }
+
+/* ==========================================================
+   CHART BOX
+   ========================================================== */
+#rasumi-container .r-chart-box {
+  background: var(--rc-glass);
+  border: 1px solid var(--rc-border);
+  border-radius: var(--rc-radius);
+  padding: 14px 16px;
+  backdrop-filter: var(--rc-blur);
+  box-shadow: var(--rc-shadow);
+  height: 200px;
+  display: flex;
+  flex-direction: column;
+}
+
+#rasumi-container .r-chart-box canvas {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ==========================================================
+   RECENT ACTIVITY FEED
+   ========================================================== */
+#rasumi-container .r-act-feed { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+
+#rasumi-container .r-act-item {
+  display: flex; gap: 8px; padding: 7px 9px;
+  background: rgba(255,255,255,0.02); border: 1px solid var(--rc-border);
+  border-radius: 6px; font-size: 11px;
+  transition: background 0.12s;
+}
+#rasumi-container .r-act-item:hover { background: rgba(0,240,255,0.04); }
+
+#rasumi-container .r-act-icon { color: var(--rc-cyan); font-size: 10px; margin-top: 1px; flex-shrink: 0; }
+#rasumi-container .r-act-body { flex: 1; min-width: 0; }
+#rasumi-container .r-act-title { color: var(--rc-text); font-family: var(--rc-mono); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#rasumi-container .r-act-meta  { font-size: 9px; color: var(--rc-text-dim); margin-top: 2px; }
+
+/* ==========================================================
+   COMMAND HISTORY (bottom row)
+   ========================================================== */
+#rasumi-container .r-cmd-hist-feed { display: flex; flex-direction: column; gap: 5px; max-height: 240px; overflow-y: auto; }
+
+#rasumi-container .r-ch-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 9px;
+  background: rgba(255,255,255,0.02); border: 1px solid var(--rc-border);
+  border-radius: 5px; font-size: 11px;
+}
+#rasumi-container .r-ch-cmd  { flex: 1; font-family: var(--rc-mono); font-size: 10px; color: var(--rc-cyan); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#rasumi-container .r-ch-time { font-size: 9px; color: var(--rc-text-dim); flex-shrink: 0; }
+
+/* ==========================================================
+   APP OVERVIEW (bottom row)
+   ========================================================== */
+#rasumi-container .r-app-list { display: flex; flex-direction: column; gap: 5px; max-height: 240px; overflow-y: auto; }
+
+#rasumi-container .r-app-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 9px;
+  background: rgba(255,255,255,0.02); border: 1px solid var(--rc-border);
+  border-radius: 5px; cursor: pointer; transition: background 0.12s;
+}
+#rasumi-container .r-app-row:hover { background: rgba(0,240,255,0.05); }
+#rasumi-container .r-app-ico  { color: var(--rc-cyan); width: 16px; text-align: center; font-size: 11px; flex-shrink: 0; }
+#rasumi-container .r-app-name { flex: 1; font-size: 11px; font-weight: 600; color: var(--rc-text); }
+#rasumi-container .r-app-cnt  { font-size: 9px; color: var(--rc-text-dim); }
+#rasumi-container .r-app-err  { font-size: 9px; color: var(--rc-red); font-weight: 700; }
+
+/* ==========================================================
+   DEVICE MINI (dashboard widget)
+   ========================================================== */
+#rasumi-container .r-device-mini {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: 6px; cursor: pointer; transition: background 0.12s;
+}
+#rasumi-container .r-device-mini:hover { background: rgba(0,240,255,0.06); }
+#rasumi-container .r-dm-host  { flex: 1; font-family: var(--rc-mono); font-size: 11px; }
+#rasumi-container .r-dm-time  { font-size: 10px; color: var(--rc-text-dim); }
+#rasumi-container .r-dm-badge { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.08em; }
+#rasumi-container .r-dm-badge.online  { background: rgba(16,185,129,0.12); color: var(--rc-green); }
+#rasumi-container .r-dm-badge.stale   { background: rgba(245,158,11,0.12);  color: var(--rc-orange); }
+#rasumi-container .r-dm-badge.offline { background: rgba(239,68,68,0.12);   color: var(--rc-red); }
+
+/* ==========================================================
+   BOT CARDS
+   ========================================================== */
+#rasumi-container .r-bot-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;
+}
+#rasumi-container .r-bot-card {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  background: rgba(255,255,255,0.03); border: 1px solid var(--rc-border);
+  border-radius: var(--rc-radius); cursor: pointer; transition: border-color 0.15s;
+}
+#rasumi-container .r-bot-card:hover { border-color: var(--rc-border-hi); }
+#rasumi-container .r-bot-icon { font-size: 20px; color: var(--rc-cyan); width: 36px; text-align: center; }
+#rasumi-container .r-bot-info { flex: 1; min-width: 0; }
+#rasumi-container .r-bot-name { font-size: 12px; font-weight: 700; color: var(--rc-text); }
+#rasumi-container .r-bot-desc { font-size: 10px; color: var(--rc-text-dim); margin-top: 2px; }
+#rasumi-container .r-bot-card .r-nb { margin-left: auto; flex-shrink: 0; }
+
+/* ==========================================================
+   ALERT ITEMS
+   ========================================================== */
+#rasumi-container .r-alert-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 6px; flex-wrap: wrap;
+}
+#rasumi-container .r-alert-item.err  { background: rgba(239,68,68,0.08);  border: 1px solid rgba(239,68,68,0.2);  color: #fca5a5; }
+#rasumi-container .r-alert-item.warn { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); color: #fcd34d; }
+#rasumi-container .r-alert-item.info { background: rgba(0,240,255,0.06);  border: 1px solid var(--rc-border);     color: var(--rc-text); }
+
+/* ==========================================================
+   STATUS DOT
+   ========================================================== */
+#rasumi-container .r-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+#rasumi-container .r-status-dot.online  { background: var(--rc-green);  box-shadow: 0 0 5px var(--rc-green); }
+#rasumi-container .r-status-dot.stale   { background: var(--rc-orange); box-shadow: 0 0 5px var(--rc-orange); }
+#rasumi-container .r-status-dot.offline { background: var(--rc-red);    box-shadow: 0 0 5px var(--rc-red); }
+
+/* ==========================================================
+   FILTER BAR
+   ========================================================== */
+#rasumi-container .r-filter-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+#rasumi-container .r-filter-input {
+  background: rgba(255,255,255,0.04); border: 1px solid var(--rc-border); border-radius: 6px;
+  color: var(--rc-text); font-family: var(--rc-font); font-size: 12px; padding: 6px 10px;
+  outline: none; transition: border-color 0.15s; min-width: 160px;
+}
+#rasumi-container .r-filter-input:focus { border-color: var(--rc-cyan); }
+#rasumi-container .r-filter-input::placeholder { color: var(--rc-text-dim); }
+
+#rasumi-container .r-filter-sel {
+  background: rgba(255,255,255,0.04); border: 1px solid var(--rc-border); border-radius: 6px;
+  color: var(--rc-text); font-family: var(--rc-font); font-size: 12px; padding: 6px 10px;
+  outline: none; cursor: pointer;
+}
+#rasumi-container .r-filter-sel:focus { border-color: var(--rc-cyan); }
+#rasumi-container .r-filter-sel option { background: #0d1117; }
+
+/* ==========================================================
+   BUTTONS
+   ========================================================== */
+#rasumi-container .r-btn-sm {
+  background: rgba(0,240,255,0.08); border: 1px solid rgba(0,240,255,0.25);
+  color: var(--rc-cyan); font-size: 11px; font-weight: 600; padding: 5px 10px;
+  border-radius: 5px; cursor: pointer; font-family: var(--rc-font);
+  transition: background 0.12s; white-space: nowrap;
+}
+#rasumi-container .r-btn-sm:hover { background: rgba(0,240,255,0.18); }
+#rasumi-container .r-btn-sm.warn  { border-color: rgba(245,158,11,0.4); color: var(--rc-orange); background: rgba(245,158,11,0.08); }
+#rasumi-container .r-btn-sm.warn:hover { background: rgba(245,158,11,0.18); }
+
+#rasumi-container .r-btn-primary {
+  background: var(--rc-cyan); border: none; color: #000;
+  font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 6px;
+  cursor: pointer; font-family: var(--rc-font); transition: opacity 0.12s;
+}
+#rasumi-container .r-btn-primary:hover { opacity: 0.85; }
+
+#rasumi-container .r-btn-warn {
+  background: var(--rc-orange); border: none; color: #000;
+  font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 6px;
+  cursor: pointer; font-family: var(--rc-font); transition: opacity 0.12s;
+}
+#rasumi-container .r-btn-warn:hover { opacity: 0.85; }
+
+/* ==========================================================
+   TABLE
+   ========================================================== */
+#rasumi-container .r-table-wrap { overflow-x: auto; border-radius: 6px; border: 1px solid var(--rc-border); }
+#rasumi-container .r-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+#rasumi-container .r-table thead tr { background: rgba(0,240,255,0.04); border-bottom: 1px solid var(--rc-border); }
+#rasumi-container .r-table th { padding: 9px 12px; text-align: left; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; color: var(--rc-text-dim); text-transform: uppercase; white-space: nowrap; }
+#rasumi-container .r-table td { padding: 8px 12px; border-bottom: 1px solid var(--rc-border); vertical-align: middle; max-width: 250px; }
+#rasumi-container .r-table tbody tr:hover { background: rgba(0,240,255,0.04); }
+#rasumi-container .r-table tbody tr:last-child td { border-bottom: none; }
+#rasumi-container .r-cell-trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+#rasumi-container .r-cell-wrap  { max-width: 300px; word-break: break-word; }
+#rasumi-container .r-empty-td   { text-align: center; padding: 24px; color: var(--rc-text-dim); }
+
+/* ==========================================================
+   BADGES
+   ========================================================== */
+#rasumi-container .r-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  padding: 2px 7px; border-radius: 10px; text-transform: uppercase;
+  white-space: nowrap; display: inline-block;
+}
+#rasumi-container .r-badge-ok    { background: rgba(16,185,129,0.12); color: var(--rc-green);  border: 1px solid rgba(16,185,129,0.25); }
+#rasumi-container .r-badge-err   { background: rgba(239,68,68,0.12);  color: var(--rc-red);    border: 1px solid rgba(239,68,68,0.25); }
+#rasumi-container .r-badge-warn  { background: rgba(245,158,11,0.12); color: var(--rc-orange); border: 1px solid rgba(245,158,11,0.25); }
+#rasumi-container .r-badge-info  { background: rgba(0,240,255,0.1);   color: var(--rc-cyan);   border: 1px solid rgba(0,240,255,0.25); }
+#rasumi-container .r-badge-muted { background: rgba(107,114,128,0.15);color: var(--rc-text-dim);border: 1px solid rgba(107,114,128,0.25); }
+#rasumi-container .r-badge-purple{ background: rgba(178,0,255,0.12);  color: #c084fc;          border: 1px solid rgba(178,0,255,0.25); }
+
+/* ==========================================================
+   TAB BAR
+   ========================================================== */
+#rasumi-container .r-tab-bar {
+  display: flex; gap: 2px; border-bottom: 1px solid var(--rc-border);
+  margin: 14px 0 0; overflow-x: auto;
+}
+#rasumi-container .r-tab {
+  padding: 8px 14px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  color: var(--rc-text-dim); cursor: pointer; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; white-space: nowrap; transition: color 0.12s, border-color 0.12s;
+}
+#rasumi-container .r-tab:hover  { color: var(--rc-text); }
+#rasumi-container .r-tab.active { color: var(--rc-cyan); border-bottom-color: var(--rc-cyan); }
+#rasumi-container .r-dd-content { padding-top: 14px; }
+
+#rasumi-container .r-detail-meta {
+  display: flex; flex-wrap: wrap; gap: 12px 24px;
+  padding: 10px 0; font-size: 12px; color: var(--rc-text-dim); margin-bottom: 6px;
+}
+#rasumi-container .r-detail-meta b { color: var(--rc-text); }
+
+/* ==========================================================
+   RUN GROUPS
+   ========================================================== */
+#rasumi-container .r-run-group { border: 1px solid var(--rc-border); border-radius: var(--rc-radius); overflow: hidden; margin-bottom: 12px; background: rgba(255,255,255,0.01); }
+#rasumi-container .r-run-hdr   { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(0,240,255,0.03); border-bottom: 1px solid var(--rc-border); flex-wrap: wrap; }
+#rasumi-container .r-run-id    { font-family: var(--rc-mono); font-size: 11px; color: var(--rc-cyan); }
+#rasumi-container .r-run-time  { font-size: 11px; color: var(--rc-text-dim); margin-left: auto; }
+#rasumi-container .r-run-actions { display: flex; gap: 6px; margin-left: 8px; }
+#rasumi-container .r-run-body  { padding: 10px; }
+
+/* ==========================================================
+   ALERT SECTIONS
+   ========================================================== */
+#rasumi-container .r-alert-section { margin-bottom: 16px; }
+#rasumi-container .r-alert-section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+#rasumi-container .r-alert-section-title.err  { color: var(--rc-red); }
+#rasumi-container .r-alert-section-title.warn { color: var(--rc-orange); }
+
+/* ==========================================================
+   COMMANDS
+   ========================================================== */
+#rasumi-container .r-cmd-section { background: rgba(255,255,255,0.02); border: 1px solid var(--rc-border); border-radius: var(--rc-radius); padding: 14px; margin-bottom: 14px; }
+#rasumi-container .r-cmd-section h4 { font-size: 11px; font-weight: 700; color: var(--rc-text-dim); letter-spacing: 0.1em; margin: 0 0 10px; text-transform: uppercase; }
+#rasumi-container .r-cmd-row { display: flex; gap: 8px; flex-wrap: wrap; }
+#rasumi-container .r-cmd-row .r-filter-input { flex: 1; min-width: 200px; }
+#rasumi-container .r-cmd-send { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
+#rasumi-container .r-cmd-send .r-filter-input { flex: 1; }
+
+/* ==========================================================
+   INFO BOX / LEGEND
+   ========================================================== */
+#rasumi-container .r-info-box {
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px;
+  background: rgba(0,240,255,0.04); border: 1px solid var(--rc-border);
+  border-left: 3px solid var(--rc-cyan); border-radius: var(--rc-radius);
+  font-size: 12px; line-height: 1.6; margin-bottom: 12px; color: var(--rc-text-dim);
+}
+#rasumi-container .r-info-box.warn { border-left-color: var(--rc-orange); background: rgba(245,158,11,0.04); }
+#rasumi-container .r-info-box i { color: var(--rc-cyan); margin-top: 2px; flex-shrink: 0; }
+#rasumi-container .r-info-box.warn i { color: var(--rc-orange); }
+#rasumi-container .r-info-box strong { color: var(--rc-text); }
+#rasumi-container .r-info-box code  { background: rgba(0,240,255,0.1); padding: 1px 5px; border-radius: 3px; font-family: var(--rc-mono); font-size: 11px; color: var(--rc-cyan); }
+
+#rasumi-container .r-legend        { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 0; font-size: 11px; color: var(--rc-text-dim); margin-bottom: 10px; }
+#rasumi-container .r-vims-legend   { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0 12px; font-size: 11px; color: var(--rc-text-dim); }
+#rasumi-container .r-summary-row   { display: flex; align-items: center; gap: 8px; padding: 8px 0 12px; flex-wrap: wrap; }
+#rasumi-container .r-results-count { font-size: 11px; color: var(--rc-text-dim); margin-bottom: 10px; }
+#rasumi-container .r-log-summary   { display: flex; align-items: center; gap: 8px; padding: 8px 0 12px; flex-wrap: wrap; }
+
+/* ==========================================================
+   FIX MODAL
+   ========================================================== */
+#rasumi-container .r-fix-form   { padding: 4px 0; }
+#rasumi-container .r-fix-field  { margin-bottom: 14px; }
+#rasumi-container .r-fix-field label { display: block; font-size: 11px; font-weight: 600; color: var(--rc-text-dim); margin-bottom: 6px; letter-spacing: 0.06em; text-transform: uppercase; }
+#rasumi-container .r-required   { color: var(--rc-red); }
+#rasumi-container .r-textarea   { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--rc-border); border-radius: 6px; color: var(--rc-text); font-family: var(--rc-font); font-size: 12px; padding: 8px 10px; resize: vertical; outline: none; transition: border-color 0.15s; box-sizing: border-box; }
+#rasumi-container .r-textarea:focus { border-color: var(--rc-cyan); }
+
+/* ==========================================================
+   MISC HELPERS
+   ========================================================== */
+#rasumi-container .r-font-mono  { font-family: var(--rc-mono); font-size: 11px; }
+#rasumi-container .r-muted-sm   { font-size: 10px; color: var(--rc-text-dim); }
+#rasumi-container .r-empty      { text-align: center; padding: 30px; color: var(--rc-text-dim); font-size: 13px; }
+#rasumi-container .r-empty i    { display: block; font-size: 24px; margin-bottom: 8px; opacity: 0.4; }
+#rasumi-container .r-loading    { display: flex; align-items: center; gap: 10px; padding: 24px; color: var(--rc-text-dim); font-size: 13px; justify-content: center; }
+#rasumi-container .r-spin       { width: 16px; height: 16px; border: 2px solid var(--rc-border); border-top-color: var(--rc-cyan); border-radius: 50%; animation: r-spin 0.7s linear infinite; display: inline-block; }
+@keyframes r-spin { to { transform: rotate(360deg); } }
+
+/* ==========================================================
+   MODAL
+   ========================================================== */
+#rasumi-container .r-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 10000;
+  display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+}
+#rasumi-container .r-modal-overlay.hidden { display: none !important; }
+#rasumi-container .r-modal-box {
+  background: rgba(10,14,23,0.95); border: 1px solid var(--rc-border-hi); border-radius: 12px;
+  width: 480px; max-width: 95vw; max-height: 80vh; display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(0,240,255,0.04); backdrop-filter: blur(20px);
+}
+#rasumi-container .r-modal-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--rc-border); font-size: 13px; font-weight: 700; color: var(--rc-text); letter-spacing: 0.06em; }
+#rasumi-container .r-modal-x   { background: none; border: none; color: var(--rc-text-dim); cursor: pointer; font-size: 14px; padding: 4px; transition: color 0.12s; }
+#rasumi-container .r-modal-x:hover { color: var(--rc-red); }
+#rasumi-container .r-modal-body   { padding: 18px; overflow-y: auto; flex: 1; }
+#rasumi-container .r-modal-footer { padding: 14px 18px; border-top: 1px solid var(--rc-border); display: flex; gap: 10px; justify-content: flex-end; }
+
+/* ==========================================================
+   TOAST
+   ========================================================== */
+#rasumi-container .r-toasts { position: fixed; bottom: 20px; right: 20px; z-index: 11000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+#rasumi-container .r-toast  { padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 500; background: rgba(10,14,23,0.95); border: 1px solid var(--rc-border); color: var(--rc-text); box-shadow: 0 4px 20px rgba(0,0,0,0.4); animation: r-toast-in 0.25s ease; max-width: 320px; backdrop-filter: blur(16px); }
+#rasumi-container .r-toast.r-toast-out     { animation: r-toast-out 0.4s ease forwards; }
+#rasumi-container .r-toast.r-toast-success { border-color: rgba(16,185,129,0.4); color: var(--rc-green); }
+#rasumi-container .r-toast.r-toast-error   { border-color: rgba(239,68,68,0.4);   color: var(--rc-red); }
+#rasumi-container .r-toast.r-toast-warn    { border-color: rgba(245,158,11,0.4);  color: var(--rc-orange); }
+#rasumi-container .r-toast.r-toast-info    { border-color: var(--rc-border-hi);   color: var(--rc-cyan); }
+@keyframes r-toast-in  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+@keyframes r-toast-out { from{opacity:1} to{opacity:0;transform:translateY(8px)} }
+
+/* ==========================================================
+   CODE / MISC
+   ========================================================== */
+#rasumi-container code { font-family: var(--rc-mono); font-size: 11px; background: rgba(0,240,255,0.08); padding: 1px 5px; border-radius: 3px; color: var(--rc-cyan); }
+#rasumi-container a { color: inherit; }
+#rasumi-container .r-detail-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.06em; }
+#rasumi-container .r-modal-body table tr:hover td { background: rgba(0,240,255,0.04); }
+#rasumi-container .r-fb-status { margin-bottom: 8px; border-radius: 6px; overflow: hidden; }

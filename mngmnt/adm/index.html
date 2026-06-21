@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RASUMI MONITORING HUB</title>
+    <!-- Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <!-- Icons & Fonts -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="mobile.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            margin: 0; padding: 0;
+            background: #0a0a0f url('camscanner/camscanner_admin/assets/background.png') no-repeat center center fixed;
+            background-size: cover;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .bg-grid {
+            position: fixed; inset: 0;
+            background-size: 40px 40px;
+            background-image:
+                linear-gradient(to right,  rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+            z-index: 0; pointer-events: none;
+        }
+
+        .hidden { display: none !important; }
+
+        /* ── Loading overlay ── */
+        #loading-overlay {
+            position: fixed; inset: 0; z-index: 200;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: #0a0a0f;
+        }
+        .loader-ring {
+            width: 48px; height: 48px;
+            border: 3px solid rgba(255,0,140,0.2);
+            border-top-color: #ff008c;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px; letter-spacing: 2px; color: #848d97;
+        }
+
+        /* ── Auth panel ── */
+        #auth-panel {
+            position: fixed; inset: 0; z-index: 100;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .cyber-box {
+            background: rgba(50,75,84,0.3); backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-top: 3px solid #ff008c;
+            padding: 30px; width: 420px; text-align: center;
+            box-shadow: 0 50px 150px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.5);
+            position: relative; z-index: 10;
+        }
+        .auth-logo {
+            max-width: 170px; height: auto; margin-bottom: 5px;
+            filter: drop-shadow(0 0 1px rgba(255,255,255,0.3));
+        }
+        .subtitle {
+            font-size: 10px; color: #848d97; letter-spacing: 2px; margin-bottom: 25px;
+            font-family: 'JetBrains Mono', monospace;
+            animation: glow-pulse 2s infinite ease-in-out;
+        }
+        @keyframes glow-pulse {
+            0%,100% { opacity: 0.6; text-shadow: none; }
+            50%      { opacity: 1; text-shadow: 0 0 8px #fff, 0 0 12px rgba(255,255,255,0.5); color: #fff; }
+        }
+        .input-group { margin-bottom: 15px; }
+        .input-group input {
+            width: 100%; background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff; padding: 12px; outline: none;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px; letter-spacing: 1px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .input-group input:focus {
+            border-color: #ff008c;
+            box-shadow: 0 0 8px rgba(255,0,255,0.4);
+        }
+        .error-text {
+            color: #ff4444; font-size: 11px; margin-top: 10px;
+            font-family: 'JetBrains Mono', monospace; min-height: 16px;
+        }
+
+        /* ── Menu panel ── */
+        #menu-panel {
+            position: fixed; inset: 0; z-index: 100;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+        }
+        .menu-header { text-align: center; margin-bottom: 50px; }
+        .menu-header h1 {
+            font-family: 'Orbitron', sans-serif; font-size: 2.5rem;
+            letter-spacing: 2px; margin: 0;
+            color: #8b5cf6; text-shadow: 0 0 15px rgba(139,92,246,0.5);
+        }
+        .menu-header p { color: #9ca3af; font-size: 1.1rem; margin-top: 10px; }
+
+        .card-container { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; }
+        .app-card {
+            background: rgba(30,30,40,0.6); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px; padding: 40px 30px; width: 260px;
+            text-align: center; cursor: pointer; text-decoration: none; color: #fff;
+            backdrop-filter: blur(10px); display: block;
+            transition: transform 0.3s, background 0.3s, border-color 0.3s, box-shadow 0.3s;
+        }
+        .app-card:hover { transform: translateY(-10px); background: rgba(40,40,55,0.8); }
+        .app-card.rasumi:hover    { border-color: #8b5cf6; box-shadow: 0 10px 30px rgba(139,92,246,0.3); }
+        .app-card.vims:hover      { border-color: #3b82f6; box-shadow: 0 10px 30px rgba(59,130,246,0.3); }
+        .app-card.camscanner:hover { border-color: #ff008c; box-shadow: 0 10px 30px rgba(255,0,140,0.3); }
+        .app-icon { font-size: 3rem; margin-bottom: 20px; }
+        .app-card.rasumi    .app-icon { color: #8b5cf6; }
+        .app-card.vims      .app-icon { color: #3b82f6; }
+        .app-card.camscanner .app-icon { color: #ff008c; }
+        .app-title {
+            font-family: 'Orbitron', sans-serif; font-size: 1.4rem;
+            font-weight: 700; margin-bottom: 10px;
+        }
+        .app-desc { font-size: 0.9rem; color: #9ca3af; line-height: 1.5; }
+
+        /* ── Shared buttons ── */
+        .cyber-btn {
+            width: 100%; background: transparent;
+            border: 1px solid #ff008c; color: #ff008c;
+            padding: 10px; cursor: pointer; font-weight: bold;
+            text-transform: uppercase; font-family: 'JetBrains Mono', monospace;
+            font-size: 12px; letter-spacing: 1px;
+            transition: all 0.2s;
+        }
+        .cyber-btn:hover {
+            background: rgba(255,0,140,0.1); color: #fff;
+            box-shadow: 0 0 15px rgba(255,0,140,0.4), 0 0 2px #ff008c;
+            text-shadow: 0 0 8px #ff008c; transform: translateY(-2px);
+        }
+        .btn-logout {
+            position: fixed; top: 20px; right: 20px; z-index: 110;
+            background: transparent; border: 1px solid #ff004c; color: #ff004c;
+            padding: 10px 20px; cursor: pointer; font-weight: bold;
+            text-transform: uppercase; font-family: 'JetBrains Mono', monospace;
+            font-size: 12px; letter-spacing: 1px; transition: all 0.2s;
+        }
+        .btn-logout:hover {
+            background: rgba(255,0,76,0.1); color: #fff;
+            box-shadow: 0 0 12px rgba(255,0,76,0.4);
+        }
+        .user-badge {
+            position: fixed; top: 20px; left: 20px; z-index: 110;
+            font-family: 'JetBrains Mono', monospace; font-size: 10px;
+            color: #848d97; letter-spacing: 1px; padding: 8px 14px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+
+    <!-- Loading overlay — shown while Firebase resolves auth -->
+    <div id="loading-overlay">
+        <div class="loader-ring"></div>
+        <div class="loader-text">ESTABLISHING UPLINK...</div>
+    </div>
+
+    <!-- Auth panel — login form -->
+    <div id="auth-panel" class="hidden">
+        <div class="cyber-box">
+            <img src="camscanner/camscanner_admin/assets/logo.png" alt="Logo" class="auth-logo" onerror="this.style.display='none'">
+            <p class="subtitle">RASUMI MEDIPHARMA ADMIN ACCESS</p>
+            <div class="input-group">
+                <input type="email" id="auth-email" placeholder="EMAIL" autocomplete="username" required>
+            </div>
+            <div class="input-group">
+                <input type="password" id="auth-password" placeholder="PASSWORD" autocomplete="current-password" required>
+            </div>
+            <button id="btn-login" class="cyber-btn">INITIALIZE CONNECTION</button>
+            <div id="auth-error" class="error-text"></div>
+            <div style="text-align:center;margin-top:10px;">
+                <a id="btn-forgot" href="#" style="font-size:11px;color:#06b6d4;letter-spacing:1px;text-decoration:none;opacity:0.7;">FORGOT PASSWORD?</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Menu panel — shown after auth confirmed + admin_users verified -->
+    <div id="menu-panel" class="hidden">
+        <span class="user-badge" id="user-badge">NODE: --</span>
+        <button class="btn-logout" id="btn-logout">
+            <i class="fa-solid fa-right-from-bracket"></i> LOG OUT
+        </button>
+
+        <div class="menu-header">
+            <h1>RASUMI MONITORING HUB</h1>
+            <p>Master Launcher for Admin Consoles</p>
+        </div>
+
+        <div class="card-container">
+            <a href="rasumi apps/index.html" class="app-card rasumi">
+                <div class="app-icon"><i class="fa-solid fa-layer-group"></i></div>
+                <div class="app-title">RASUMI APPS</div>
+                <div class="app-desc">Main dashboard for Bot Trace, VIBES Monitor, Alerts, and overall fleet health.</div>
+            </a>
+            <a href="sales report/index.html" class="app-card vims">
+                <div class="app-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                <div class="app-title">SALES REPORT</div>
+                <div class="app-desc">Super Admin Console to monitor VIMS scraper nodes, CPU health, and live telemetry.</div>
+            </a>
+            <a href="camscanner/camscanner_admin/index.html" class="app-card camscanner">
+                <div class="app-icon"><i class="fa-solid fa-camera"></i></div>
+                <div class="app-title">CAMSCANNER</div>
+                <div class="app-desc">Manage document scans, API processing, batch splittings, and printer queues.</div>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const SUPA_URL  = 'https://seqlkwdghibmsfkbuwqq.supabase.co';
+        const SUPA_ANON = 'sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp';
+        const supa = supabase.createClient(SUPA_URL, SUPA_ANON);
+
+        const elLoading  = document.getElementById('loading-overlay');
+        const elAuth     = document.getElementById('auth-panel');
+        const elMenu     = document.getElementById('menu-panel');
+        const elError    = document.getElementById('auth-error');
+        const elBadge    = document.getElementById('user-badge');
+        const btnLogin   = document.getElementById('btn-login');
+        const btnLogout  = document.getElementById('btn-logout');
+        const elEmail    = document.getElementById('auth-email');
+        const elPass     = document.getElementById('auth-password');
+
+        // ── Password Recovery panel (injected when admin clicks reset link) ──
+        var recoveryPanel = null;
+
+        function showPasswordRecovery() {
+            if (!recoveryPanel) {
+                recoveryPanel = document.createElement('div');
+                recoveryPanel.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);z-index:999;';
+                recoveryPanel.innerHTML = [
+                    '<div style="background:#0f1117;border:1px solid #374151;border-radius:8px;padding:36px 32px;width:360px;display:flex;flex-direction:column;gap:14px;">',
+                    '  <div style="color:#06b6d4;font-family:Orbitron,sans-serif;font-size:13px;letter-spacing:1px;margin-bottom:4px;">SET NEW PASSWORD</div>',
+                    '  <input id="rec-new-pass" type="password" placeholder="New password (min 6 chars)" style="padding:10px 14px;background:rgba(255,255,255,0.07);border:1px solid #374151;color:#fff;border-radius:4px;outline:none;font-family:inherit;font-size:13px;">',
+                    '  <input id="rec-confirm-pass" type="password" placeholder="Confirm new password" style="padding:10px 14px;background:rgba(255,255,255,0.07);border:1px solid #374151;color:#fff;border-radius:4px;outline:none;font-family:inherit;font-size:13px;">',
+                    '  <div id="rec-error" style="font-size:12px;color:#ef4444;min-height:16px;"></div>',
+                    '  <button id="rec-btn-save" style="padding:12px;background:#06b6d4;color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-family:Orbitron,sans-serif;font-size:12px;letter-spacing:1px;">SAVE PASSWORD</button>',
+                    '</div>'
+                ].join('');
+                document.body.appendChild(recoveryPanel);
+
+                document.getElementById('rec-btn-save').addEventListener('click', async function() {
+                    var np = (document.getElementById('rec-new-pass') || {}).value || '';
+                    var cp = (document.getElementById('rec-confirm-pass') || {}).value || '';
+                    var recErr = document.getElementById('rec-error');
+                    if (!np || np.length < 6) { recErr.textContent = 'Password must be at least 6 characters'; return; }
+                    if (np !== cp) { recErr.textContent = 'Passwords do not match'; return; }
+                    recErr.textContent = '';
+                    this.disabled = true; this.textContent = 'SAVING...';
+                    var r = await supa.auth.updateUser({ password: np });
+                    if (r.error) {
+                        recErr.textContent = 'Error: ' + r.error.message;
+                        this.disabled = false; this.textContent = 'SAVE PASSWORD';
+                    } else {
+                        recErr.style.color = '#06b6d4';
+                        recErr.textContent = 'Password updated successfully. Please log in again.';
+                        await supa.auth.signOut();
+                        setTimeout(function() {
+                            recoveryPanel.style.display = 'none';
+                            showLogin('Password changed. Please log in.');
+                        }, 2000);
+                    }
+                });
+            }
+            recoveryPanel.style.display = 'flex';
+            elLoading.classList.add('hidden');
+            elAuth.classList.add('hidden');
+            elMenu.classList.add('hidden');
+        }
+
+        function showLogin(msg) {
+            elLoading.classList.add('hidden');
+            elMenu.classList.add('hidden');
+            if (recoveryPanel) recoveryPanel.style.display = 'none';
+            var mfaPanel = document.getElementById('mfa-panel');
+            if (mfaPanel) mfaPanel.classList.add('hidden');
+            elAuth.classList.remove('hidden');
+            if (msg) elError.innerText = msg;
+        }
+
+        function showMenu(user) {
+            elLoading.classList.add('hidden');
+            elAuth.classList.add('hidden');
+            elError.innerText = '';
+            if (recoveryPanel) recoveryPanel.style.display = 'none';
+            var mfaPanel = document.getElementById('mfa-panel');
+            if (mfaPanel) mfaPanel.classList.add('hidden');
+            elBadge.innerText = 'NODE: ' + user.email.split('@')[0].toUpperCase();
+            elMenu.classList.remove('hidden');
+        }
+
+        // ── MFA Panel ───────────────────────────────────────────
+        var _mfaFactorId    = null;
+        var _mfaChallengeId = null;
+
+        function _injectMfaPanel() {
+            if (document.getElementById('mfa-panel')) return;
+            var panel = document.createElement('div');
+            panel.id = 'mfa-panel';
+            panel.className = 'hidden';
+            panel.style.cssText = 'position:fixed;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;';
+            panel.innerHTML = [
+                '<div class="cyber-box" style="max-width:380px;">',
+                '  <div style="font-family:Orbitron,sans-serif;font-size:12px;letter-spacing:1px;color:#06b6d4;margin-bottom:20px;"><i class="fa-solid fa-shield-halved"></i> TWO-FACTOR AUTHENTICATION</div>',
+                '  <div style="font-size:11px;color:#848d97;letter-spacing:1px;margin-bottom:20px;">Enter the 6-digit code from your authenticator app</div>',
+                '  <input id="mfa-code" type="text" placeholder="0 0 0 0 0 0" maxlength="6" autocomplete="one-time-code" inputmode="numeric"',
+                '    style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:14px;text-align:center;font-family:JetBrains Mono,monospace;font-size:22px;letter-spacing:8px;outline:none;margin-bottom:14px;">',
+                '  <button id="mfa-btn-verify" class="cyber-btn">VERIFY CODE</button>',
+                '  <div id="mfa-error" class="error-text"></div>',
+                '  <button id="mfa-btn-back" style="margin-top:12px;background:none;border:none;color:#848d97;cursor:pointer;font-size:11px;letter-spacing:1px;font-family:JetBrains Mono,monospace;padding:4px;width:100%;">← Use a different account</button>',
+                '</div>'
+            ].join('');
+            document.body.appendChild(panel);
+
+            document.getElementById('mfa-btn-verify').addEventListener('click', _submitMfaCode);
+            document.getElementById('mfa-code').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') _submitMfaCode();
+            });
+            document.getElementById('mfa-btn-back').addEventListener('click', function() {
+                supa.auth.signOut();
+                showLogin('');
+            });
+        }
+
+        async function _createMfaChallenge() {
+            var { data: factors } = await supa.auth.mfa.listFactors();
+            var totp = factors && factors.totp && factors.totp.filter(function(f) { return f.status === 'verified'; });
+            if (!totp || !totp.length) return;
+            _mfaFactorId = totp[0].id;
+            var { data: ch } = await supa.auth.mfa.challenge({ factorId: _mfaFactorId });
+            if (ch) _mfaChallengeId = ch.id;
+        }
+
+        function showMfaPanel() {
+            _injectMfaPanel();
+            // Reset button state after password step
+            btnLogin.innerText = 'INITIALIZE CONNECTION';
+            btnLogin.disabled  = false;
+            elLoading.classList.add('hidden');
+            elAuth.classList.add('hidden');
+            elMenu.classList.add('hidden');
+            var mfaError = document.getElementById('mfa-error');
+            if (mfaError) mfaError.innerText = '';
+            var mfaCode  = document.getElementById('mfa-code');
+            if (mfaCode)  { mfaCode.value = ''; mfaCode.focus(); }
+            document.getElementById('mfa-panel').classList.remove('hidden');
+            _createMfaChallenge();
+        }
+
+        async function _submitMfaCode() {
+            var codeEl   = document.getElementById('mfa-code');
+            var mfaError = document.getElementById('mfa-error');
+            var mfaBtn   = document.getElementById('mfa-btn-verify');
+            var code = (codeEl ? codeEl.value : '').replace(/\s/g, '');
+            if (!code || code.length < 6) { mfaError.innerText = 'Enter the 6-digit code.'; return; }
+            mfaError.innerText = '';
+            mfaBtn.disabled = true;
+            mfaBtn.innerText = 'VERIFYING...';
+
+            if (!_mfaFactorId || !_mfaChallengeId) {
+                // Challenge not ready yet — try to create one first
+                await _createMfaChallenge();
+                if (!_mfaFactorId || !_mfaChallengeId) {
+                    mfaError.innerText = 'Challenge not ready. Wait a moment and try again.';
+                    mfaBtn.disabled = false; mfaBtn.innerText = 'VERIFY CODE';
+                    return;
+                }
+            }
+
+            var { error } = await supa.auth.mfa.verify({
+                factorId:    _mfaFactorId,
+                challengeId: _mfaChallengeId,
+                code:        code
+            });
+
+            if (error) {
+                mfaError.innerText = '[ERROR] ' + error.message;
+                mfaBtn.disabled = false; mfaBtn.innerText = 'VERIFY CODE';
+                _mfaChallengeId = null;
+                _createMfaChallenge(); // refresh challenge for retry
+            }
+            // onAuthStateChange fires on success → _verifyAndShow → showMenu
+        }
+
+        // ── Auth state handler ──────────────────────────────────
+        var _authResolved = false;
+
+        // Timeout fallback — if onAuthStateChange hasn't resolved in 12s, show login
+        setTimeout(function() {
+            if (!_authResolved) showLogin('Connection timeout. Please check your internet and try again.');
+        }, 12000);
+
+        async function _verifyAndShow(event, session) {
+            _authResolved = true;
+
+            // Admin clicked password reset email link
+            if (event === 'PASSWORD_RECOVERY') {
+                showPasswordRecovery();
+                return;
+            }
+
+            if (!session || !session.user) {
+                showLogin('');
+                return;
+            }
+
+            // Check MFA assurance level — show TOTP panel if aal2 required but not yet reached
+            var { data: aalData } = await supa.auth.mfa.getAuthenticatorAssuranceLevel();
+            if (aalData && aalData.nextLevel === 'aal2' && aalData.currentLevel !== 'aal2') {
+                showMfaPanel();
+                return;
+            }
+
+            var user = session.user;
+
+            // Verify account is provisioned in Supabase admin_users
+            var { data, error } = await supa.from('admin_users')
+                .select('email,is_active')
+                .eq('email', user.email)
+                .single();
+
+            if (error || !data || data.is_active === false) {
+                await supa.auth.signOut();
+                showLogin('[DENIED] Account not provisioned. Contact super admin.');
+                return;
+            }
+
+            showMenu(user);
+        }
+
+        supa.auth.onAuthStateChange(function(event, session) {
+            _verifyAndShow(event, session);
+        });
+
+        // ── Login ───────────────────────────────────────────────
+        btnLogin.addEventListener('click', async () => {
+            const email = elEmail.value.trim();
+            const pass  = elPass.value;
+            if (!email || !pass) return;
+
+            elError.innerText   = '';
+            btnLogin.innerText  = 'AUTHENTICATING...';
+            btnLogin.disabled   = true;
+
+            const { error } = await supa.auth.signInWithPassword({ email, password: pass });
+            if (error) {
+                elError.innerText  = '[ERROR] ' + error.message;
+                btnLogin.innerText = 'INITIALIZE CONNECTION';
+                btnLogin.disabled  = false;
+            }
+            // onAuthStateChange handles success (MFA check in _verifyAndShow)
+        });
+
+        elPass.addEventListener('keydown', e => {
+            if (e.key === 'Enter') btnLogin.click();
+        });
+
+        // ── Forgot Password ─────────────────────────────────────
+        document.getElementById('btn-forgot').addEventListener('click', async e => {
+            e.preventDefault();
+            const email = elEmail.value.trim();
+            if (!email) {
+                elError.innerText = 'Enter your email above first.';
+                return;
+            }
+            // redirectTo: this page — Supabase fires PASSWORD_RECOVERY event on return
+            var redirectTo = window.location.href.split('#')[0];
+            const { error } = await supa.auth.resetPasswordForEmail(email, { redirectTo });
+            if (error) {
+                elError.style.color = '';
+                elError.innerText = '[ERROR] ' + error.message;
+            } else {
+                elError.style.color = '#06b6d4';
+                elError.innerText = 'Reset link sent to your email.';
+                setTimeout(() => { elError.innerText = ''; elError.style.color = ''; }, 6000);
+            }
+        });
+
+        // ── Logout ──────────────────────────────────────────────
+        btnLogout.addEventListener('click', () => {
+            supa.auth.signOut();
+            // onAuthStateChange fires → showLogin()
+        });
+    </script>
+</body>
+</html>

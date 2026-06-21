@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rasumi Apps Super Admin Console</title>
+  <link rel="icon" type="image/png" href="../assets/admin.png">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  
+  <!-- VIMS Base CSS (for top-nav) -->
+  <link rel="stylesheet" href="../sales report/style.css?v=2">
+  <!-- Rasumi CSS (copied from vims_admin/rasumi.css) -->
+  <link rel="stylesheet" href="style.css?v=2">
+  <!-- Mobile responsive overrides -->
+  <link rel="stylesheet" href="mobile.css">
+  
+  <!-- Firebase SDKs (device monitoring bridge for v9.3 machines — NOT for auth) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <!-- Supabase JS SDK (auth + realtime) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+
+  <script>
+    // ── Supabase Auth Guard ──────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', async () => {
+        const _supa = supabase.createClient(
+            'https://seqlkwdghibmsfkbuwqq.supabase.co',
+            'sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp'
+        );
+
+        // Check current session
+        const { data: { session } } = await _supa.auth.getSession();
+        if (!session) {
+            window.location.href = '../index.html';
+            return;
+        }
+
+        // Session valid — launch Rasumi Mode
+        if (typeof window.enterRasumiMode === 'function') {
+            window.enterRasumiMode();
+        } else {
+            setTimeout(() => {
+                if (typeof window.enterRasumiMode === 'function') window.enterRasumiMode();
+            }, 500);
+        }
+
+        // Redirect on sign-out
+        _supa.auth.onAuthStateChange((event, session) => {
+            if (!session) window.location.href = '../index.html';
+        });
+    });
+  </script>
+</head>
+<body style="background: #05080f; margin: 0; overflow: hidden;" class="r-body-root">
+  
+  <!-- Rasumi JS will dynamically inject #rasumi-container inside the body -->
+  <script src="app.js?v=11"></script>
+  
+</body>
+</html>

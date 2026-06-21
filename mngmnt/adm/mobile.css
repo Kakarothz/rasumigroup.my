@@ -1,0 +1,164 @@
+/* ============================================================
+   mobile.css — Rasumi Monitoring Hub (index.html)
+   Media queries ONLY. Zero changes to existing desktop styles.
+   All elements preserved — resized/repositioned for mobile.
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+    /* Allow scroll — override fixed-height body */
+    body {
+        overflow-y: auto;
+        height: auto;
+        min-height: 100vh;
+    }
+
+    /* ── AUTH PANEL ──────────────────────────────────────────── */
+    #auth-panel {
+        align-items: flex-start;
+        padding: 60px 16px 40px;
+        box-sizing: border-box;
+    }
+
+    .cyber-box {
+        width: 100%;
+        max-width: 420px;
+        padding: 26px 18px;
+        box-sizing: border-box;
+    }
+
+    .auth-logo {
+        max-width: 120px;
+    }
+
+    .subtitle {
+        font-size: 9px;
+        letter-spacing: 1.5px;
+    }
+
+    /* Larger tap targets + prevent iOS font zoom on focus */
+    .input-group input {
+        font-size: 16px;
+        padding: 14px 12px;
+    }
+
+    .cyber-btn {
+        padding: 13px;
+        font-size: 12px;
+    }
+
+    /* ── MENU PANEL ──────────────────────────────────────────── */
+    #menu-panel {
+        position: relative;
+        min-height: 100vh;
+        padding: 80px 16px 48px;
+        box-sizing: border-box;
+        justify-content: flex-start;
+    }
+
+    .menu-header {
+        margin-bottom: 28px;
+        padding: 0 4px;
+    }
+
+    .menu-header h1 {
+        font-size: 1.5rem;
+        letter-spacing: 1px;
+    }
+
+    .menu-header p {
+        font-size: 0.9rem;
+    }
+
+    /* Stack cards vertically, full width */
+    .card-container {
+        flex-direction: column;
+        gap: 14px;
+        width: 100%;
+    }
+
+    .app-card {
+        width: 100%;
+        padding: 22px 18px;
+        box-sizing: border-box;
+        border-radius: 12px;
+    }
+
+    /* Disable hover float on touch screens */
+    .app-card:hover {
+        transform: none;
+    }
+
+    .app-icon {
+        font-size: 2.2rem;
+        margin-bottom: 12px;
+    }
+
+    .app-title {
+        font-size: 1.15rem;
+    }
+
+    .app-desc {
+        font-size: 0.85rem;
+    }
+
+    /* ── HEADER CHROME (badge + logout) ─────────────────────── */
+    .user-badge {
+        font-size: 9px;
+        padding: 6px 10px;
+        letter-spacing: 0.5px;
+        top: 12px;
+        left: 12px;
+    }
+
+    .btn-logout {
+        top: 12px;
+        right: 12px;
+        padding: 8px 12px;
+        font-size: 10px;
+        letter-spacing: 0.5px;
+    }
+
+    /* ── MFA PANEL ───────────────────────────────────────────── */
+    #mfa-panel .cyber-box {
+        width: 100%;
+        max-width: 380px;
+        padding: 26px 18px;
+        box-sizing: border-box;
+    }
+
+    /* MFA code input — bigger tap target */
+    #mfa-code {
+        font-size: 20px !important;
+        letter-spacing: 6px !important;
+        padding: 16px !important;
+    }
+
+    /* ── PASSWORD RECOVERY PANEL ─────────────────────────────── */
+    #auth-panel ~ div > div,
+    body > div[style*="position:fixed"] > div {
+        width: 90vw;
+        box-sizing: border-box;
+    }
+}
+
+/* Extra-small phones (≤ 390px) */
+@media (max-width: 390px) {
+
+    .cyber-box {
+        padding: 22px 14px;
+    }
+
+    .menu-header h1 {
+        font-size: 1.2rem;
+    }
+
+    .app-title {
+        font-size: 1rem;
+    }
+
+    .btn-logout {
+        padding: 7px 10px;
+        font-size: 9px;
+    }
+}

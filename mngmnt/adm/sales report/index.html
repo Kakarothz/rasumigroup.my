@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIMS REPORTING CENTER - SUPER ADMIN CONSOLE</title>
+    <script>
+        window.onerror = function (msg, url, line, col, error) {
+            document.body.innerHTML += '<div style="position:fixed;top:0;left:0;z-index:9999;background:red;color:white;padding:20px;font-size:20px;">ERROR: ' + msg + '<br>Line: ' + line + '</div>';
+            return false;
+        };
+        window.addEventListener('unhandledrejection', function (event) {
+            document.body.innerHTML += '<div style="position:fixed;top:50px;left:0;z-index:9999;background:orange;color:white;padding:20px;font-size:20px;">PROMISE ERROR: ' + event.reason + '</div>';
+        });
+    </script>
+    <!-- Firebase SDKs -->
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script crossorigin="anonymous"
+        src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script crossorigin="anonymous" src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+
+    <!-- Chart.js -->
+    <script crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Icons & Fonts -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="assets/admin.png">
+    <link rel="stylesheet" href="style.css?v=5.0">
+    <link rel="stylesheet" href="rasumi.css?v=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- ANTI-FLICKER LOADING LAYER -->
+    <div id="loading-overlay">
+        <span class="loader"></span>
+        <div class="loading-text">Synchronizing Enclave...</div>
+    </div>
+
+    <!-- AUTHENTICATION LAYER -->
+    <div id="auth-container" class="cyber-box hidden">
+        <img src="assets/logo.png" alt="Logo" class="auth-logo" onerror="this.style.display='none'">
+        <p class="subtitle">SPOOLER ACCESS</p>
+        <div class="input-group">
+            <input type="email" id="auth-email" placeholder="EMAIL" required class="cyber-input">
+        </div>
+        <div class="input-group">
+            <input type="password" id="auth-password" placeholder="PASSWORD" required class="cyber-input">
+        </div>
+        <button id="btn-login" class="cyber-btn">INITIALIZE CONNECTION</button>
+        <div id="auth-error" class="error-text"></div>
+    </div>
+
+    <!-- MAIN DASHBOARD -->
+    <div id="dashboard-container" class="hidden">
+
+        <!-- TOP NAVIGATION -->
+        <nav class="top-nav">
+            <div class="nav-brand">
+                <div class="brand-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                <div class="brand-text">
+                    <h1>VIMS REPORTING CENTER</h1>
+                    <span>SUPER ADMIN CONSOLE</span>
+                </div>
+                <div class="nav-status-chips">
+                    <span id="stat-online" class="chip success">0 ONLINE</span>
+                    <span id="stat-offline" class="chip error">0 OFFLINE</span>
+                </div>
+            </div>
+
+            <div class="nav-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search nodes, files, reports, errors, commands...">
+                <span class="hotkey">Ctrl + K</span>
+            </div>
+
+            <div class="nav-actions">
+                <button class="icon-btn notif-btn" id="notif-trigger" onclick="var p=document.getElementById('nav-dropdown'); if(p) p.classList.add('hidden'); document.getElementById('notif-dropdown').classList.toggle('hidden'); event.stopPropagation();"><i class="fa-regular fa-bell"></i><span
+                        id="notif-badge" class="badge hidden">0</span></button>
+                <button class="icon-btn"><i class="fa-regular fa-circle-question"></i></button>
+                <button class="icon-btn" id="menu-settings"><i class="fa-solid fa-gear"></i></button>
+                <div class="user-profile" id="profile-trigger" style="cursor:pointer" onclick="var n=document.getElementById('notif-dropdown'); if(n) n.classList.add('hidden'); document.getElementById('nav-dropdown').classList.toggle('hidden'); event.stopPropagation();">
+                    <img src="https://ui-avatars.com/api/?name=Super+Admin&background=8b5cf6&color=fff" alt="User">
+                    <div class="user-info">
+                        <span class="name">SUPER ADMIN</span>
+                        <span class="role">Super Admin</span>
+                    </div>
+                </div>
+                <!-- DROPDOWN -->
+                <div id="nav-dropdown" class="nav-dropdown hidden" style="z-index:9999">
+                    <div class="dropdown-item" onclick="window.location.href='../index.html'"><i class="fa-solid fa-house"></i> MAIN MENU</div>
+                    <div class="dropdown-sep"></div>
+                    <div class="dropdown-item" onclick="window.location.href='../rasumi apps/index.html'"><i class="fa-solid fa-border-all"></i> RASUMI APPS</div>
+                    <div class="dropdown-item" onclick="window.location.href='index.html'"><i class="fa-solid fa-shield-halved"></i> VIMS REPORT</div>
+                    <div class="dropdown-item" onclick="window.location.href='../camscanner/camscanner_admin/index.html'"><i class="fa-solid fa-camera"></i> CAMSCANNER ADMIN</div>
+                    <div class="dropdown-sep"></div>
+                    <div class="dropdown-item" id="menu-profile"><i class="fa-solid fa-user-gear"></i> UPDATE PROFILE</div>
+                    <div class="dropdown-item text-error" id="menu-logout" onclick="if(window.firebase) firebase.auth().signOut()"><i class="fa-solid fa-power-off"></i> LOG OUT</div>
+                </div>
+
+                <!-- NOTIFICATION DROPDOWN -->
+                <div id="notif-dropdown" class="nav-dropdown hidden" style="top: 46px; right: 100px; min-width: 300px; padding-bottom: 5px;">
+                    <div style="padding: 12px 15px; font-size: 10px; color: var(--text-muted); border-bottom: 1px solid var(--glass-border-hi); margin-bottom: 5px;">RECENT ALERTS</div>
+                    <div id="notif-dropdown-list">
+                        <!-- Dynamic notifications here -->
+                    </div>
+                    <div class="dropdown-sep"></div>
+                    <div class="dropdown-item" style="justify-content: center; color: var(--accent);"><i class="fa-solid fa-arrow-right"></i> View All Alerts</div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- DASHBOARD GRID -->
+        <div class="main-layout">
+
+            <!-- ROW 1: TOP METRICS & ALERTS -->
+            <div class="top-row">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="label">TOTAL ACTIVE NODES</span>
+                        <div class="val-row">
+                            <span class="val" id="metric-active">0</span>
+                            <div class="mini-chart active-chart"><i class="fa-solid fa-chart-line"></i></div>
+                        </div>
+                        <span class="trend success"><i class="fa-solid fa-caret-up"></i> 100% <span class="muted">vs
+                                yesterday</span></span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="label">OFFLINE NODES</span>
+                        <div class="val-row">
+                            <span class="val" id="metric-offline">0</span>
+                            <div class="mini-chart offline-chart"><i class="fa-solid fa-chart-line"></i></div>
+                        </div>
+                        <span class="trend neutral"><i class="fa-solid fa-minus"></i> 0% <span class="muted">vs
+                                yesterday</span></span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="label">REPORTS GENERATED TODAY</span>
+                        <div class="val-row">
+                            <span class="val" id="metric-generated">0</span>
+                            <div class="mini-chart generated-chart"><i class="fa-solid fa-chart-line"></i></div>
+                        </div>
+                        <span class="trend success"><i class="fa-solid fa-caret-up"></i> 36% <span class="muted">vs
+                                yesterday</span></span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="label">FAILED REPORTS</span>
+                        <div class="val-row">
+                            <span class="val" id="metric-failed">0</span>
+                            <div class="mini-chart failed-chart"><i class="fa-solid fa-chart-line"></i></div>
+                        </div>
+                        <span class="trend error"><i class="fa-solid fa-caret-down"></i> 100% <span class="muted">vs
+                                yesterday</span></span>
+                    </div>
+                    <div class="metric-card time-card">
+                        <span class="label">LAST SYNC TIME</span>
+                        <div class="val-row">
+                            <span class="val clock-val" id="metric-sync">--:--:--</span>
+                            <div class="clock-icon"><i class="fa-regular fa-clock"></i></div>
+                        </div>
+                        <span class="trend muted">Today</span>
+                    </div>
+                </div>
+
+                <div class="alerts-panel-wrapper">
+                    <div class="alerts-panel" id="alerts-panel-box">
+                        <div class="panel-header alert-header">
+                            <h3><i class="fa-solid fa-triangle-exclamation text-error"></i> CRITICAL ALERTS</h3>
+                            <span id="critical-alerts-badge" class="badge-error hidden">0</span>
+                        </div>
+                        <div id="critical-alerts-list" class="alerts-list">
+                            <!-- Dynamic alerts injected here -->
+                        </div>
+                        <button class="btn-link" id="btn-view-all-alerts">View All Alerts <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ROW 2: MAIN WORKSPACE -->
+            <div class="middle-row">
+
+                <!-- COL 1: ATTACHED NODES -->
+                <div class="panel nodes-panel">
+                    <div class="panel-header">
+                        <h3>ATTACHED NODES</h3>
+                        <button class="icon-btn-small" id="btn-refresh-nodes"><i
+                                class="fa-solid fa-arrows-rotate"></i></button>
+                    </div>
+                    <div id="device-list" class="node-list">
+                        <!-- Devices injected here -->
+                    </div>
+                </div>
+
+                <!-- COL 2: ACTIVE TELEMETRY -->
+                <div class="panel telemetry-panel">
+                    <div class="panel-header">
+                        <h3><i class="fa-solid fa-satellite-dish"></i> ACTIVE TELEMETRY <span id="active-device-name"
+                                class="highlight-text">[NONE]</span></h3>
+                    </div>
+
+                    <div id="focus-empty" class="empty-state">
+                        <i class="fa-solid fa-crosshairs ghost-icon"></i>
+                        <p>SELECT A NODE</p>
+                    </div>
+
+                    <div id="focus-content" class="hidden focus-content">
+                        <div class="telemetry-top">
+                            <div class="t-box">
+                                <span class="label">STATUS</span>
+                                <span id="t-status" class="val text-success">IDLE</span>
+                            </div>
+                            <div class="t-box">
+                                <span class="label">LAST BEACON</span>
+                                <span class="val" id="t-lastseen">--:--:--</span>
+                            </div>
+                        </div>
+
+                        <div class="t-box wide mt-3">
+                            <span class="label">LAST REPORT STATUS</span>
+                            <div class="report-status-details">
+                                <div class="rs-item"><i class="fa-regular fa-clock"></i> <span id="rs-time">TIME:
+                                        --</span></div>
+                                <div class="rs-item"><i class="fa-regular fa-folder-open"></i> <span id="rs-path"
+                                        class="text-truncate">PATH: --</span></div>
+                                <div class="rs-item"><i class="fa-solid fa-file-excel text-success"></i> <span
+                                        id="rs-xlsx">XLSX: --</span></div>
+                                <div class="rs-item"><i class="fa-solid fa-file-pdf text-error"></i> <span
+                                        id="rs-pdf">PDF: --</span></div>
+                            </div>
+                        </div>
+
+                        <div class="command-group mt-4">
+                            <span class="label">COMMAND</span>
+                            <div class="cmd-buttons">
+                                <button class="cmd-btn" id="cmd-restart"><i class="fa-solid fa-rotate-right"></i>
+                                    RESTART DEV</button>
+                                <button class="cmd-btn" id="cmd-stop"><i class="fa-solid fa-stop"></i> STOP
+                                    AGENT</button>
+                                <button class="cmd-btn primary" id="cmd-forceprint"><i class="fa-solid fa-bolt"></i>
+                                    FORCE REPORT</button>
+                                <button class="cmd-btn" id="cmd-refresh"><i class="fa-solid fa-arrows-rotate"></i>
+                                    REFRESH</button>
+                                <button class="cmd-btn danger" id="cmd-uninstall"><i class="fa-solid fa-skull"></i>
+                                    UNINSTALL</button>
+                            </div>
+                        </div>
+
+                        <div class="auto-report-group mt-4">
+                            <span class="label">AUTO REPORT TIME</span>
+                            <div class="time-input-wrap">
+                                <input type="text" id="sch-start" value="04:50" maxlength="5" class="time-input-field"
+                                    placeholder="HH:MM">
+                                <button class="ampm-btn" id="sch-start-ap">PM</button>
+                                <button class="icon-btn-small" id="btn-sync-sch"><i
+                                        class="fa-solid fa-arrows-rotate"></i></button>
+                            </div>
+                            <span id="sch-display" class="time-display text-success" style="display:none">04:50</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COL 3: NODE HEALTH & LIVE DATA -->
+                <div class="panel health-log-panel">
+                    <div class="node-health">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-heart-pulse"></i> NODE HEALTH</h3>
+                            <span class="status-ok">All Systems Normal</span>
+                        </div>
+                        <div class="hm-node">
+                            <span class="hm-name" id="hm-name">NONE</span>
+                            <div class="bar-row"><span>CPU Usage</span>
+                                <div class="bar-bg">
+                                    <div class="bar-fill cpu" id="bar-cpu" style="width: 0%"></div>
+                                </div><span class="pct" id="pct-cpu">0%</span>
+                            </div>
+                            <div class="bar-row"><span>RAM Usage</span>
+                                <div class="bar-bg">
+                                    <div class="bar-fill ram" id="bar-ram" style="width: 0%"></div>
+                                </div><span class="pct" id="pct-ram">0%</span>
+                            </div>
+                            <div class="bar-row"><span>Disk Usage (C:)</span>
+                                <div class="bar-bg">
+                                    <div class="bar-fill disk" id="bar-disk" style="width: 0%"></div>
+                                </div><span class="pct" id="pct-disk">0%</span>
+                            </div>
+                            <div class="bar-row"><span>Network Latency</span><span class="pct right" id="pct-net">0
+                                    ms</span></div>
+                            <div class="bar-row"><span>Uptime</span><span class="pct right" id="pct-up">--</span></div>
+                        </div>
+                    </div>
+
+                    <div class="live-stream mt-3">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-chart-line"></i> LIVE DATA STREAM</h3>
+                            <div class="stream-actions">
+                                <button class="icon-btn-small"><i class="fa-solid fa-filter"></i></button>
+                                <button class="icon-btn-small"><i class="fa-solid fa-expand"></i></button>
+                            </div>
+                        </div>
+                        <div id="log-terminal" class="terminal-box">
+                            <div class="log-line system">[SYSTEM] Awaiting uplink...</div>
+                        </div>
+                        <div class="terminal-input-wrap">
+                            <span class="prompt">root@spooler:~#</span>
+                            <input type="text" id="terminal-input" autocomplete="off" spellcheck="false"
+                                placeholder="_">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ROW 3: SYSTEM INFO, RECENT ACT, HISTORY, DOWNLOADS -->
+            <div class="row-4-cols">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>SYSTEM TELEMETRY</h3>
+                    </div>
+                    <div class="sys-tel-content">
+                        <div class="sys-os"><i class="fa-brands fa-windows text-info"></i> <span
+                                id="sys-os-name">Windows 10</span></div>
+                        <div class="sys-bars">
+                            <div class="sys-bar">
+                                <div class="sys-bar-labels">
+                                    <i class="fa-solid fa-memory text-info"></i> RAM <span id="sys-ram-val">0 /
+                                        0GB</span>
+                                    <span class="pct text-success" id="sys-ram-pct">0%</span>
+                                </div>
+                                <div class="bar-bg">
+                                    <div class="bar-fill ram" id="sys-ram-bar" style="width:0%"></div>
+                                </div>
+                            </div>
+                            <div class="sys-bar">
+                                <div class="sys-bar-labels">
+                                    <i class="fa-solid fa-microchip text-muted"></i> CPU
+                                    <span class="pct text-success" id="sys-cpu-pct">0%</span>
+                                </div>
+                                <div class="bar-bg">
+                                    <div class="bar-fill cpu" id="sys-cpu-bar" style="width:0%"></div>
+                                </div>
+                            </div>
+                            <div class="sys-bar">
+                                <div class="sys-bar-labels">
+                                    <i class="fa-solid fa-hard-drive text-muted"></i> DISK (C:) <span
+                                        id="sys-disk-val">0 / 0GB</span>
+                                    <span class="pct text-success" id="sys-disk-pct">0%</span>
+                                </div>
+                                <div class="bar-bg">
+                                    <div class="bar-fill disk" id="sys-disk-bar" style="width:0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="sys-uptime">
+                            <i class="fa-regular fa-clock"></i> UPTIME
+                            <span class="val" id="sys-up-val">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>RECENT ACTIVITY</h3>
+                    </div>
+                    <div class="activity-list" id="activity-list">
+                        <!-- Populated by JS -->
+                        <div class="empty-msg">No recent activity</div>
+                    </div>
+                    <button class="btn-link mt-auto">View All Activity <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>COMMAND HISTORY</h3>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>TIME</th>
+                                <th>USER</th>
+                                <th>NODE</th>
+                                <th>COMMAND</th>
+                                <th>RESULT</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cmd-history-tbody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                    <button class="btn-link mt-auto">View All History <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>DOWNLOAD CENTER (LATEST)</h3>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>FILE NAME</th>
+                                <th>NODE</th>
+                                <th>SIZE</th>
+                                <th>DATE</th>
+                                <th>ACTION</th>
+                            </tr>
+                        </thead>
+                        <tbody id="downloads-tbody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                    <button class="btn-link mt-auto">View All Downloads <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+
+            <!-- ROW 4: CHARTS -->
+            <div class="row-charts">
+                <div class="panel span-2">
+                    <div class="panel-header">
+                        <h3>SYSTEM RESOURCES (24H)</h3>
+                    </div>
+                    <div class="charts-grid">
+                        <div class="chart-box">
+                            <div class="chart-header"><span>CPU Usage</span><span class="text-success">Avg: 18%</span>
+                            </div>
+                            <canvas id="cpuChart" height="60"></canvas>
+                        </div>
+                        <div class="chart-box">
+                            <div class="chart-header"><span>RAM Usage</span><span class="text-purple">Avg: 48%</span>
+                            </div>
+                            <canvas id="ramChart" height="60"></canvas>
+                        </div>
+                        <div class="chart-box">
+                            <div class="chart-header"><span>Disk Usage</span><span class="text-info">Avg: 51%</span>
+                            </div>
+                            <canvas id="diskChart" height="60"></canvas>
+                        </div>
+                        <div class="chart-box">
+                            <div class="chart-header"><span>Network I/O</span><span class="text-warning">Avg: 12
+                                    MB/s</span></div>
+                            <canvas id="netChart" height="60"></canvas>
+                        </div>
+                    </div>
+                    <button class="btn-link mt-2">View Full Graphs <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+
+            <!-- ROW 5: BOTTOM WIDGETS -->
+            <div class="row-4-cols bottom-widgets">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>AGENT VERSION MANAGER</h3>
+                    </div>
+                    <div class="version-info">
+                        <span class="label">Current Version:</span> <span class="val" id="global-version">--</span>
+                    </div>
+                    <div class="version-stats">
+                        <div class="v-stat"><i class="fa-solid fa-circle-check text-success"></i> Updated <span
+                                id="v-upd">0</span></div>
+                        <div class="v-stat"><i class="fa-solid fa-triangle-exclamation text-warning"></i> Pending <span
+                                id="v-pen">0</span></div>
+                        <div class="v-stat"><i class="fa-solid fa-skull-crossbones text-error"></i> Failed <span
+                                id="v-fail">0</span></div>
+                    </div>
+                    <button class="btn-link mt-auto">View Details <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>NOTIFICATION CENTER</h3>
+                    </div>
+                    <div class="notif-stats">
+                        <div class="n-stat success"><i class="fa-regular fa-circle-check"></i> <span
+                                class="num">0</span><span class="lbl">Success</span></div>
+                        <div class="n-stat warning"><i class="fa-solid fa-triangle-exclamation"></i> <span
+                                class="num">0</span><span class="lbl">Warning</span></div>
+                        <div class="n-stat error"><i class="fa-solid fa-circle-xmark"></i> <span
+                                class="num">0</span><span class="lbl">Error</span></div>
+                        <div class="n-stat info"><i class="fa-solid fa-circle-info"></i> <span class="num">0</span><span
+                                class="lbl">Info</span></div>
+                    </div>
+                    <button class="btn-link mt-auto">View All Notifications <i
+                            class="fa-solid fa-arrow-right"></i></button>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>SECURITY MONITORING</h3>
+                    </div>
+                    <div class="sec-stats">
+                        <div class="s-stat"><span>FAILED LOGINS</span><span class="val">0</span><span class="lbl">Last
+                                24h</span></div>
+                        <div class="s-stat"><span>UNKNOWN DEVICES</span><span class="val">0</span><span class="lbl">Last
+                                24h</span></div>
+                        <div class="s-stat"><span>AGENT TAMPERING</span><span class="val">0</span><span class="lbl">Last
+                                24h</span></div>
+                        <div class="s-stat"><span>UNAUTHORIZED COMMAND</span><span class="val">0</span><span
+                                class="lbl">Last 24h</span></div>
+                    </div>
+                    <button class="btn-link mt-auto">View Security Logs <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>USER & ACCESS CONTROL</h3>
+                    </div>
+                    <div class="usr-stats">
+                        <div class="u-stat"><span>TOTAL USERS</span><span class="val">0</span></div>
+                        <div class="u-stat"><span>ADMIN</span><span class="val">0</span></div>
+                        <div class="u-stat"><span>OPERATOR</span><span class="val">0</span></div>
+                        <div class="u-stat"><span>VIEWER</span><span class="val">0</span></div>
+                    </div>
+                    <button class="btn-link mt-auto" id="btn-manage-users">Manage Users <i
+                            class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- SETTINGS MODAL (ADMIN INTERNAL) -->
+    <div id="settings-modal" class="modal hidden">
+        <div class="modal-content cyber-box settings-wide">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-user-shield"></i> ENCLAVE SECURITY PROTOCOL</h3>
+                <button id="btn-close-settings" class="icon-btn text-error"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body scrollable-body">
+                <div class="admin-form-wrap">
+                    <div class="section-title">COMMANDER REGISTRATION</div>
+                    <div class="registration-grid">
+                        <input type="email" id="new-admin-email" placeholder="OPERATOR EMAIL" class="cyber-input">
+                        <div class="pass-input-group">
+                            <input type="text" id="new-admin-pass" placeholder="PASSWORD" class="cyber-input">
+                            <button id="btn-gen-pass" class="icon-btn-small" title="Auto-Generate Secure Password"><i
+                                    class="fa-solid fa-wand-magic-sparkles"></i></button>
+                        </div>
+                        <input type="text" id="new-admin-confirm" placeholder="CONFIRM PASSWORD" class="cyber-input">
+                        <button id="btn-add-admin" class="cyber-btn-small">GRANT ACCESS</button>
+                    </div>
+                </div>
+                <hr class="cyber-divider">
+                <div class="admin-list-header">
+                    <div class="section-title">ACTIVE OPERATORS</div>
+                    <div class="search-wrap">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="admin-search" placeholder="Filter ID/Role..." class="cyber-input-search">
+                    </div>
+                </div>
+                <div class="admin-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left">ADMIN_ID</th>
+                                <th>AUTH_LVL</th>
+                                <th>CLEARANCE</th>
+                                <th>JOINED</th>
+                                <th>LAST_ACTIVE</th>
+                                <th>PAYLOAD</th>
+                                <th>PROTOCOL</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- CYBER CONFIRM MODAL -->
+    <div id="cyber-modal-overlay" class="cyber-modal-overlay" style="display:none">
+        <div id="active-cyber-modal" class="cyber-modal cyber-box">
+            <div class="cyber-modal-icon">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 id="cyber-modal-title">CONFIRM ACTION</h3>
+            <p id="cyber-modal-message">Are you sure?</p>
+            <div class="cyber-modal-actions">
+                <button id="cyber-modal-cancel" class="cyber-btn-small secondary">ABORT</button>
+                <button id="cyber-modal-confirm" class="cyber-btn-small">CONFIRM</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROFILE MODAL -->
+    <div id="profile-modal" class="modal hidden">
+        <div class="modal-content cyber-box">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-user-gear"></i> OPERATOR PROFILE</h3>
+                <button id="btn-close-profile" class="icon-btn text-error"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="profile-avatar-wrap">
+                    <img id="profile-img-display" src="https://ui-avatars.com/api/?name=SA&background=8b5cf6&color=fff"
+                        alt="Profile" class="profile-avatar">
+                    <div class="avatar-overlay"><i class="fa-solid fa-camera"></i></div>
+                    <input type="file" id="profile-upload" accept="image/*" style="display:none">
+                </div>
+                <div class="profile-info-grid">
+                    <div class="p-field">
+                        <span class="label">ROLE</span>
+                        <span class="val" id="p-role">--</span>
+                    </div>
+                    <div class="p-field">
+                        <span class="label">EMAIL</span>
+                        <span class="val" id="p-email">--</span>
+                    </div>
+                </div>
+                <div class="profile-stats">
+                    <div class="ps-item"><span class="label">LAST LOGIN</span><span class="val"
+                            id="stat-last-login">--</span></div>
+                    <div class="ps-item"><span class="label">CMDS SENT</span><span class="val"
+                            id="stat-cmds-sent">0</span></div>
+                </div>
+                <hr class="cyber-divider">
+                <div class="section-title">CHANGE PASSWORD</div>
+                <div class="pass-change-grid">
+                    <input type="password" id="p-new-pass" placeholder="NEW PASSWORD" class="cyber-input">
+                    <input type="password" id="p-confirm-pass" placeholder="CONFIRM PASSWORD" class="cyber-input">
+                </div>
+                <button id="btn-update-profile" class="cyber-btn-small mt-3">UPDATE CREDENTIALS</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROOF VIEWER MODAL -->
+    <div id="proof-viewer" class="modal hidden">
+        <div class="modal-content cyber-box proof-modal">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-images"></i> REPORT PROOF VIEWER</h3>
+                <button id="btn-close-proof" class="icon-btn text-error"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="proof-container" class="proof-container">
+                <img id="proof-click" src="" alt="Proof" class="proof-main-img" style="cursor:pointer">
+            </div>
+            <div id="proof-gallery-strip" class="proof-gallery-strip"></div>
+        </div>
+    </div>
+
+    <!-- FULLSCREEN PROOF MODAL -->
+    <div id="fullscreen-proof-modal" class="fullscreen-modal hidden">
+        <button id="btn-close-fs" class="fs-close-btn"><i class="fa-solid fa-xmark"></i></button>
+        <img id="fs-proof-img" src="" alt="Fullscreen Proof">
+    </div>
+
+    <!-- MODE SWITCHER (nav dropdown item — kept as hidden submenu) -->
+    <div id="mode-submenu" class="nav-dropdown hidden" style="top:60px;right:160px;">
+        <div class="dropdown-item" id="mode-vims"><i class="fa-solid fa-shield-halved"></i> VIMS MODE</div>
+        <div class="dropdown-sep"></div>
+        <div class="dropdown-item" id="mode-camscanner"><i class="fa-solid fa-camera"></i> CAMSCANNER MODE</div>
+        <div class="dropdown-sep"></div>
+        <div class="dropdown-item" id="mode-rasumi"><i class="fa-solid fa-border-all"></i> RASUMI APPS</div>
+    </div>
+
+    <!-- VIMS Admin Modules (load order matters) -->
+    <script src="js/config.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/dom.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/modal.js"></script>
+    <script src="js/alerts.js"></script>
+    <script src="js/navigation.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/devices.js"></script>
+    <script src="js/commands.js"></script>
+    <script src="js/schedule.js"></script>
+    <script src="js/profile.js"></script>
+    <script src="js/admin-settings.js"></script>
+    <script src="js/terminal.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/main.js"></script>
+</body>
+
+</html>
