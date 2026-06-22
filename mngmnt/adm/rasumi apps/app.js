@@ -247,7 +247,7 @@
       '    <div class="brand-icon"><img src="../assets/icon.png" style="width:32px;height:32px;object-fit:contain;display:block;"></div>',
       '    <div class="brand-text">',
       '      <h1>RASUMI APPS</h1>',
-      '      <span>SUPER ADMIN CONSOLE</span>',
+      '      <span>ADMIN CONSOLE</span>',
       '    </div>',
       '    <div class="nav-status-chips">',
       '      <span id="r-chip-on" class="chip success">0 ONLINE</span>',
@@ -544,7 +544,7 @@
     initRasumiSupabase();
 
     var fbStatus = $r('r-fb-status');
-    if (fbStatus) fbStatus.innerHTML = '<span style="color:var(--rc-green);font-size:10px;padding:6px 14px;display:block"><i class="fa-solid fa-circle"></i> rasumi-apps ● LIVE</span>';
+    if (fbStatus) fbStatus.innerHTML = '<span style="color:var(--rc-green);font-size:10px;padding:6px 14px;display:block">Rasumi Apps <span class="r-live-blink">● LIVE</span></span>';
 
     startGlobalListeners();
     rNav('r-dashboard');
@@ -979,7 +979,7 @@
             var fbStatus = document.getElementById('r-fb-status');
             if (fbStatus) fbStatus.innerHTML =
               '<span style="color:var(--rc-green);font-size:10px;padding:6px 14px;display:block">' +
-              '<i class="fa-solid fa-circle"></i> rasumi-apps ● LIVE (Supabase)</span>';
+              'Rasumi Apps <span class="r-live-blink">● LIVE</span></span>';
           }
         });
 

@@ -3,6 +3,17 @@
    Scoped entirely under #rasumi-container
    ========================================================== */
 
+/* ── LIVE indicator blink animation (desktop + mobile) ────── */
+@keyframes r-blink-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.25; }
+}
+.r-live-blink {
+  color: #10b981;
+  animation: r-blink-pulse 1.4s ease-in-out infinite;
+  font-weight: 600;
+}
+
 /* ── Variables ───────────────────────────────────────────── */
 #rasumi-container {
   --rc-bg:        #080c13;
@@ -935,6 +946,14 @@
 #rasumi-container .r-badge-info  { background: rgba(0,240,255,0.1);   color: var(--rc-cyan);   border: 1px solid rgba(0,240,255,0.25); }
 #rasumi-container .r-badge-muted { background: rgba(107,114,128,0.15);color: var(--rc-text-dim);border: 1px solid rgba(107,114,128,0.25); }
 #rasumi-container .r-badge-purple{ background: rgba(178,0,255,0.12);  color: #c084fc;          border: 1px solid rgba(178,0,255,0.25); }
+
+/* Activity feed badges — text only, no border, no background (desktop + mobile) */
+#rasumi-container .r-act-feed .r-act-item .r-badge {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  font-weight: 600;
+}
 
 /* ==========================================================
    TAB BAR

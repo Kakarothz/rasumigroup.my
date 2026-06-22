@@ -1,22 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rasumi Apps Super Admin Console</title>
+  <title>Rasumi Apps Admin Console</title>
   <link rel="icon" type="image/png" href="../assets/admin.png">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-  
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
+    rel="stylesheet">
+
   <!-- VIMS Base CSS (for top-nav) -->
   <link rel="stylesheet" href="../sales report/style.css?v=2">
   <!-- Rasumi CSS (copied from vims_admin/rasumi.css) -->
   <link rel="stylesheet" href="style.css?v=2">
   <!-- Mobile responsive overrides -->
   <link rel="stylesheet" href="mobile.css">
-  
+
   <!-- Firebase SDKs (device monitoring bridge for v9.3 machines — NOT for auth) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -30,125 +33,127 @@
   <script>
     // ── Supabase Auth Guard ──────────────────────────────────────
     document.addEventListener('DOMContentLoaded', async () => {
-        const _supa = supabase.createClient(
-            'https://seqlkwdghibmsfkbuwqq.supabase.co',
-            'sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp'
-        );
+      const _supa = supabase.createClient(
+        'https://seqlkwdghibmsfkbuwqq.supabase.co',
+        'sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp'
+      );
 
-        // Check current session
-        const { data: { session } } = await _supa.auth.getSession();
-        if (!session) {
-            window.location.href = '../index.html';
-            return;
-        }
+      // Check current session
+      const { data: { session } } = await _supa.auth.getSession();
+      if (!session) {
+        window.location.href = '../index.html';
+        return;
+      }
 
-        // Session valid — launch Rasumi Mode
-        if (typeof window.enterRasumiMode === 'function') {
-            window.enterRasumiMode();
-        } else {
-            setTimeout(() => {
-                if (typeof window.enterRasumiMode === 'function') window.enterRasumiMode();
-            }, 500);
-        }
+      // Session valid — launch Rasumi Mode
+      if (typeof window.enterRasumiMode === 'function') {
+        window.enterRasumiMode();
+      } else {
+        setTimeout(() => {
+          if (typeof window.enterRasumiMode === 'function') window.enterRasumiMode();
+        }, 500);
+      }
 
-        // Redirect on sign-out
-        _supa.auth.onAuthStateChange((event, session) => {
-            if (!session) window.location.href = '../index.html';
-        });
+      // Redirect on sign-out
+      _supa.auth.onAuthStateChange((event, session) => {
+        if (!session) window.location.href = '../index.html';
+      });
     });
   </script>
 </head>
+
 <body style="background: #05080f; margin: 0; overflow: hidden;" class="r-body-root">
-  
+
   <!-- Rasumi JS will dynamically inject #rasumi-container inside the body -->
   <script src="app.js?v=11"></script>
 
   <!-- Mobile enhancements — desktop untouched (window.innerWidth guard) -->
   <script>
-  (function() {
-    if (window.innerWidth > 768) return;
+    (function () {
+      if (window.innerWidth > 768) return;
 
-    var nodesPanel, overlay;
+      var nodesPanel, overlay;
 
-    function closeNodes() {
-      if (nodesPanel) nodesPanel.classList.remove('r-mob-open');
-      if (overlay)    overlay.style.display = 'none';
-    }
-
-    function injectMobileUI() {
-      var container = document.getElementById('rasumi-container');
-      nodesPanel = container && container.querySelector('.r-nodes-panel');
-      if (!container || !nodesPanel) return false;
-      if (document.getElementById('r-mob-hamburger')) return true; // already done
-
-      /* ── 1. NODES DRAWER ───────────────────────────────────── */
-      overlay = document.createElement('div');
-      overlay.id = 'r-mob-overlay';
-      container.appendChild(overlay);
-
-      var hNav = container.querySelector('.r-h-nav');
-      var nodesBtn = document.createElement('button');
-      nodesBtn.id = 'r-mob-hamburger';
-      nodesBtn.className = 'r-mob-hamburger';
-      nodesBtn.innerHTML = '<i class="fa-solid fa-server"></i>&nbsp;NODES';
-      if (hNav) hNav.insertBefore(nodesBtn, hNav.firstChild);
-
-      function openNodes() {
-        nodesPanel.classList.add('r-mob-open');
-        overlay.style.display = 'block';
-      }
-      nodesBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        nodesPanel.classList.contains('r-mob-open') ? closeNodes() : openNodes();
-      });
-      // Overlay covers only the right side (left:270px in CSS),
-      // so tapping it = tapping outside the panel = close
-      overlay.addEventListener('click', closeNodes);
-      overlay.addEventListener('touchstart', closeNodes, { passive: true });
-
-      /* ── 2. Patch rSelectNode — close drawer after tap ──────── */
-      var _origSelect = window.rSelectNode;
-      window.rSelectNode = function(hostname) {
-        if (_origSelect) _origSelect(hostname);
-        closeNodes(); // close drawer so user sees the updated dashboard
-      };
-
-      /* ── 3. "admin monitor" subtitle under brand title ──────── */
-      var brandText = container.querySelector('.brand-text');
-      if (brandText && !brandText.querySelector('.r-mob-subtitle')) {
-        var sub = document.createElement('span');
-        sub.className = 'r-mob-subtitle';
-        sub.textContent = 'admin monitor';
-        brandText.appendChild(sub);
+      function closeNodes() {
+        if (nodesPanel) nodesPanel.classList.remove('r-mob-open');
+        if (overlay) overlay.style.display = 'none';
       }
 
-      /* ── 4. Auto-collapse empty telemetry / health panels ───── */
-      function syncCollapse(el) {
-        if (!el) return;
-        var panel = el.parentElement;
-        while (panel && !panel.classList.contains('r-panel')) panel = panel.parentElement;
-        if (!panel) return;
-        var isEmpty = !!el.querySelector('.r-tele-empty');
-        panel.classList.toggle('r-mob-collapsed', isEmpty);
-      }
-      var emptyObs = new MutationObserver(function() {
+      function injectMobileUI() {
+        var container = document.getElementById('rasumi-container');
+        nodesPanel = container && container.querySelector('.r-nodes-panel');
+        if (!container || !nodesPanel) return false;
+        if (document.getElementById('r-mob-hamburger')) return true; // already done
+
+        /* ── 1. NODES DRAWER ───────────────────────────────────── */
+        overlay = document.createElement('div');
+        overlay.id = 'r-mob-overlay';
+        container.appendChild(overlay);
+
+        var hNav = container.querySelector('.r-h-nav');
+        var nodesBtn = document.createElement('button');
+        nodesBtn.id = 'r-mob-hamburger';
+        nodesBtn.className = 'r-mob-hamburger';
+        nodesBtn.innerHTML = '<i class="fa-solid fa-server"></i>&nbsp;NODES';
+        if (hNav) hNav.insertBefore(nodesBtn, hNav.firstChild);
+
+        function openNodes() {
+          nodesPanel.classList.add('r-mob-open');
+          overlay.style.display = 'block';
+        }
+        nodesBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          nodesPanel.classList.contains('r-mob-open') ? closeNodes() : openNodes();
+        });
+        // Overlay covers only the right side (left:270px in CSS),
+        // so tapping it = tapping outside the panel = close
+        overlay.addEventListener('click', closeNodes);
+        overlay.addEventListener('touchstart', closeNodes, { passive: true });
+
+        /* ── 2. Patch rSelectNode — close drawer after tap ──────── */
+        var _origSelect = window.rSelectNode;
+        window.rSelectNode = function (hostname) {
+          if (_origSelect) _origSelect(hostname);
+          closeNodes(); // close drawer so user sees the updated dashboard
+        };
+
+        /* ── 3. "admin monitor" subtitle under brand title ──────── */
+        var brandText = container.querySelector('.brand-text');
+        if (brandText && !brandText.querySelector('.r-mob-subtitle')) {
+          var sub = document.createElement('span');
+          sub.className = 'r-mob-subtitle';
+          sub.textContent = 'admin console';
+          brandText.appendChild(sub);
+        }
+
+        /* ── 4. Auto-collapse empty telemetry / health panels ───── */
+        function syncCollapse(el) {
+          if (!el) return;
+          var panel = el.parentElement;
+          while (panel && !panel.classList.contains('r-panel')) panel = panel.parentElement;
+          if (!panel) return;
+          var isEmpty = !!el.querySelector('.r-tele-empty');
+          panel.classList.toggle('r-mob-collapsed', isEmpty);
+        }
+        var emptyObs = new MutationObserver(function () {
+          syncCollapse(document.getElementById('r-tele-body'));
+          syncCollapse(document.getElementById('r-health-body'));
+        });
+        emptyObs.observe(container, { childList: true, subtree: true });
+        // Initial sync in case dashboard already rendered
         syncCollapse(document.getElementById('r-tele-body'));
         syncCollapse(document.getElementById('r-health-body'));
+
+        return true;
+      }
+
+      var obs = new MutationObserver(function () {
+        if (injectMobileUI()) obs.disconnect();
       });
-      emptyObs.observe(container, { childList: true, subtree: true });
-      // Initial sync in case dashboard already rendered
-      syncCollapse(document.getElementById('r-tele-body'));
-      syncCollapse(document.getElementById('r-health-body'));
-
-      return true;
-    }
-
-    var obs = new MutationObserver(function() {
-      if (injectMobileUI()) obs.disconnect();
-    });
-    obs.observe(document.body, { childList: true, subtree: true });
-  })();
+      obs.observe(document.body, { childList: true, subtree: true });
+    })();
   </script>
-  
+
 </body>
+
 </html>

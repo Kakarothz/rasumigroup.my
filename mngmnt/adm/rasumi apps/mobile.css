@@ -1,13 +1,21 @@
 /* ============================================================
-   mobile.css — Rasumi Apps Super Admin Console
+   mobile.css — Rasumi Apps Admin Console
    Media queries ONLY. Zero changes to existing desktop styles.
    Desktop view untouched. Mobile ≤ 768px only.
    ============================================================ */
 
 /* ── Elements injected by mobile JS — hidden on desktop ────── */
-.r-mob-hamburger  { display: none; }
-.r-mob-menu-btn   { display: none; }
-#r-mob-overlay    { display: none; }
+.r-mob-hamburger {
+    display: none;
+}
+
+.r-mob-menu-btn {
+    display: none;
+}
+
+#r-mob-overlay {
+    display: none;
+}
 
 @media (max-width: 768px) {
 
@@ -35,21 +43,47 @@
         flex-wrap: nowrap;
     }
 
-    /* Brand: keep icon + title, hide subtitle */
-    .nav-brand        { gap: 8px; flex-shrink: 1; min-width: 0; }
-    .brand-text h1    { font-size: 11px; letter-spacing: 0.5px; white-space: nowrap; }
-    .brand-text span  { display: none; }    /* hide "SUPER ADMIN CONSOLE" */
+    /* Brand: keep icon + title, hide built-in subtitle span */
+    .nav-brand {
+        gap: 8px;
+        flex-shrink: 1;
+        min-width: 0;
+    }
+
+    .brand-text h1 {
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+    }
+
+    .brand-text span:not(.r-mob-subtitle) {
+        display: none;
+    }
+
+    /* hide "SUPER ADMIN CONSOLE" only */
 
     /* Status chips — very compact */
-    .nav-status-chips { margin-left: 6px; gap: 4px; }
-    .chip             { font-size: 8px; padding: 2px 5px; }
+    .nav-status-chips {
+        margin-left: 6px;
+        gap: 4px;
+    }
+
+    .chip {
+        font-size: 8px;
+        padding: 2px 5px;
+    }
 
     /* Hide search bar on mobile */
-    .nav-search { display: none; }
+    .nav-search {
+        display: none;
+    }
 
     /* Actions: hide question / gear icon buttons, keep notification bell */
-    .icon-btn              { display: none; }
-    .icon-btn.notif-btn    {
+    .icon-btn {
+        display: none;
+    }
+
+    .icon-btn.notif-btn {
         display: flex !important;
         align-items: center;
         justify-content: center;
@@ -60,12 +94,16 @@
     }
 
     /* Profile: hide name/role text, keep avatar only */
-    .user-info  { display: none; }
+    .user-info {
+        display: none;
+    }
+
     .user-profile {
         padding-left: 8px;
         gap: 0;
-        border-left: 1px solid rgba(255,255,255,0.08);
+        border-left: 1px solid rgba(255, 255, 255, 0.08);
     }
+
     .user-profile img {
         width: 28px;
         height: 28px;
@@ -73,12 +111,15 @@
     }
 
     /* Hamburger menu button — not used, avatar handles menu */
-    .r-mob-menu-btn { display: none !important; }
+    .r-mob-menu-btn {
+        display: none !important;
+    }
 
-    /* Admin monitor subtitle injected by mobile JS */
+    /* "admin console" subtitle injected by mobile JS */
     .r-mob-subtitle {
-        display: block;
-        font-size: 8px;
+        display: block !important;
+        /* override brand-text span rule */
+        font-size: 7px;
         color: #6B7280;
         letter-spacing: 0.5px;
         text-transform: lowercase;
@@ -124,27 +165,33 @@
         height: 32px;
         font-size: 10px;
         gap: 4px;
-        flex-shrink: 0; /* prevent items from shrinking */
+        flex-shrink: 0;
+        /* prevent items from shrinking */
     }
 
-    #rasumi-container .r-hn-sep { margin: 0 2px; }
+    #rasumi-container .r-hn-sep {
+        margin: 0 2px;
+    }
 
     /* ══════════════════════════════════════════════════════════
        NODES PANEL — slide-in drawer from left
        ══════════════════════════════════════════════════════════ */
     #rasumi-container .r-nodes-panel {
         position: fixed;
-        top: 0; left: 0;
+        top: 0;
+        left: 0;
         width: 270px;
-        height: 100vh;          /* explicit height required for overflow-y to work */
+        height: 100vh;
+        /* explicit height required for overflow-y to work */
         min-width: unset;
         z-index: 8000;
         transform: translateX(-100%);
         transition: transform 0.25s ease;
-        border-right: 1px solid rgba(0,240,255,0.2);
+        border-right: 1px solid rgba(0, 240, 255, 0.2);
         overflow-y: auto !important;
         overflow-x: hidden;
-        -webkit-overflow-scrolling: touch;   /* iOS momentum scroll */
+        -webkit-overflow-scrolling: touch;
+        /* iOS momentum scroll */
     }
 
     #rasumi-container .r-nodes-panel.r-mob-open {
@@ -154,10 +201,11 @@
     #r-mob-overlay {
         position: fixed;
         top: 0;
-        left: 270px;   /* start AFTER the nodes panel — never blocks panel taps */
+        left: 270px;
+        /* start AFTER the nodes panel — never blocks panel taps */
         right: 0;
         bottom: 0;
-        background: rgba(0,0,0,0.45);
+        background: rgba(0, 0, 0, 0.45);
         z-index: 7999;
     }
 
@@ -166,8 +214,8 @@
         display: flex;
         align-items: center;
         gap: 5px;
-        background: rgba(0,240,255,0.08);
-        border: 1px solid rgba(0,240,255,0.25);
+        background: rgba(0, 240, 255, 0.08);
+        border: 1px solid rgba(0, 240, 255, 0.25);
         color: #00F0FF;
         font-size: 11px;
         font-weight: 600;
@@ -182,25 +230,52 @@
     /* ══════════════════════════════════════════════════════════
        BODY / MAIN CONTENT
        ══════════════════════════════════════════════════════════ */
-    #rasumi-container .r-body-wrap { overflow: visible; }
-    #rasumi-container .r-main-wrap { width: 100%; overflow: visible; }
-    #rasumi-container .r-view-area { padding: 10px 8px; overflow: visible; }
-
-    /* ── METRIC CARDS — 2 columns ─────────────────────────── */
-    #rasumi-container .r-metric-row {
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 8px;
+    #rasumi-container .r-body-wrap {
+        overflow: visible;
     }
-    #rasumi-container .r-metric-val   { font-size: 20px; }
-    #rasumi-container .r-metric-label { font-size: 7px; }
-    #rasumi-container .r-metric-sub   { font-size: 9px; }
+
+    #rasumi-container .r-main-wrap {
+        width: 100%;
+        overflow: visible;
+    }
+
+    #rasumi-container .r-view-area {
+        padding: 10px 8px;
+        overflow: visible;
+    }
+
+    /* ── METRIC CARDS — 3 columns, 2 rows ────────────────── */
+    #rasumi-container .r-metric-row {
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 6px;
+    }
+
+    #rasumi-container .r-metric-card {
+        padding: 8px 6px;
+    }
+
+    #rasumi-container .r-metric-val {
+        font-size: 16px;
+    }
+
+    #rasumi-container .r-metric-label {
+        font-size: 6px;
+        letter-spacing: 0.3px;
+    }
+
+    #rasumi-container .r-metric-sub {
+        font-size: 8px;
+    }
 
     /* ── KPI ROW — 2 columns ──────────────────────────────── */
     #rasumi-container .r-kpi-row {
         grid-template-columns: repeat(2, 1fr);
         gap: 8px;
     }
-    #rasumi-container .r-kpi-val { font-size: 22px; }
+
+    #rasumi-container .r-kpi-val {
+        font-size: 22px;
+    }
 
     /* ── ALL MULTI-COL GRIDS → single column ────────────────── */
     #rasumi-container .r-mid-row,
@@ -212,56 +287,130 @@
     }
 
     /* ── PANELS ──────────────────────────────────────────────── */
-    #rasumi-container .r-panel        { padding: 10px 8px; }
-    #rasumi-container .r-panel-hdr    { flex-direction: column; align-items: flex-start; gap: 8px; }
-    #rasumi-container .r-panel-title  { font-size: 9px; }
+    #rasumi-container .r-panel {
+        padding: 10px 8px;
+    }
+
+    #rasumi-container .r-panel-hdr {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    #rasumi-container .r-panel-title {
+        font-size: 9px;
+    }
 
     /* ── TABLES ──────────────────────────────────────────────── */
-    #rasumi-container .r-table-wrap   { -webkit-overflow-scrolling: touch; }
-    #rasumi-container .r-table th     { padding: 7px 8px; font-size: 8px; }
-    #rasumi-container .r-table td     { padding: 6px 8px; font-size: 11px; }
-    #rasumi-container .r-cell-trunc   { max-width: 110px; }
+    #rasumi-container .r-table-wrap {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #rasumi-container .r-table th {
+        padding: 7px 8px;
+        font-size: 8px;
+    }
+
+    #rasumi-container .r-table td {
+        padding: 6px 8px;
+        font-size: 11px;
+    }
+
+    #rasumi-container .r-cell-trunc {
+        max-width: 110px;
+    }
 
     /* ── FILTER BAR ──────────────────────────────────────────── */
-    #rasumi-container .r-filter-bar   { flex-direction: column; align-items: stretch; gap: 6px; }
+    #rasumi-container .r-filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+
     #rasumi-container .r-filter-input,
-    #rasumi-container .r-filter-sel   { font-size: 16px; min-width: unset; width: 100%; }
+    #rasumi-container .r-filter-sel {
+        font-size: 16px;
+        min-width: unset;
+        width: 100%;
+    }
 
     /* ── FEATURE PILLS ───────────────────────────────────────── */
-    #rasumi-container .r-feat-pill    { font-size: 10px; padding: 4px 8px; min-width: 65px; }
+    #rasumi-container .r-feat-pill {
+        font-size: 10px;
+        padding: 4px 8px;
+        min-width: 65px;
+    }
 
     /* ── BOT GRID ────────────────────────────────────────────── */
-    #rasumi-container .r-bot-grid     { grid-template-columns: 1fr; }
+    #rasumi-container .r-bot-grid {
+        grid-template-columns: 1fr;
+    }
 
     /* ── RUN GROUP ───────────────────────────────────────────── */
-    #rasumi-container .r-run-hdr      { flex-direction: column; align-items: flex-start; gap: 6px; }
+    #rasumi-container .r-run-hdr {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
     #rasumi-container .r-run-time,
-    #rasumi-container .r-run-actions  { margin-left: 0; }
+    #rasumi-container .r-run-actions {
+        margin-left: 0;
+    }
 
     /* ── CMD ROW ─────────────────────────────────────────────── */
     #rasumi-container .r-cmd-row,
-    #rasumi-container .r-cmd-send     { flex-direction: column; }
-    #rasumi-container .r-cmd-row .r-filter-input { width: 100%; min-width: unset; }
+    #rasumi-container .r-cmd-send {
+        flex-direction: column;
+    }
+
+    #rasumi-container .r-cmd-row .r-filter-input {
+        width: 100%;
+        min-width: unset;
+    }
 
     /* ── MODAL ───────────────────────────────────────────────── */
-    #rasumi-container .r-modal-box    { width: 96vw; max-height: 88vh; }
-    #rasumi-container .r-modal-hdr    { font-size: 12px; padding: 12px 14px; }
-    #rasumi-container .r-modal-body   { padding: 14px; }
-    #rasumi-container .r-modal-footer { padding: 12px 14px; flex-wrap: wrap; }
+    #rasumi-container .r-modal-box {
+        width: 96vw;
+        max-height: 88vh;
+    }
+
+    #rasumi-container .r-modal-hdr {
+        font-size: 12px;
+        padding: 12px 14px;
+    }
+
+    #rasumi-container .r-modal-body {
+        padding: 14px;
+    }
+
+    #rasumi-container .r-modal-footer {
+        padding: 12px 14px;
+        flex-wrap: wrap;
+    }
 
     /* ── TOAST ───────────────────────────────────────────────── */
-    #rasumi-container .r-toasts { left: 8px; right: 8px; bottom: 8px; }
-    #rasumi-container .r-toast  { max-width: 100%; }
+    #rasumi-container .r-toasts {
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+    }
+
+    #rasumi-container .r-toast {
+        max-width: 100%;
+    }
 
     /* ── AUTO-COLLAPSE empty telemetry / health panels ──────── */
     #rasumi-container .r-panel.r-mob-collapsed {
         padding-top: 6px;
         padding-bottom: 6px;
     }
+
     /* Hide all direct children except the panel title when collapsed */
-    #rasumi-container .r-panel.r-mob-collapsed > *:not(.r-panel-title) {
+    #rasumi-container .r-panel.r-mob-collapsed>*:not(.r-panel-title) {
         display: none !important;
     }
+
     /* Dim the title to signal "no data" state */
     #rasumi-container .r-panel.r-mob-collapsed .r-panel-title {
         opacity: 0.45;
@@ -270,18 +419,47 @@
     }
 
     /* ── MISC ────────────────────────────────────────────────── */
-    #rasumi-container .r-btn-sm       { font-size: 10px; padding: 5px 8px; }
+    #rasumi-container .r-btn-sm {
+        font-size: 10px;
+        padding: 5px 8px;
+    }
+
     #rasumi-container .r-btn-primary,
-    #rasumi-container .r-btn-warn     { font-size: 11px; padding: 8px 12px; }
-    #rasumi-container .r-chart-box    { height: 170px; }
-    #rasumi-container .r-terminal     { height: 120px; font-size: 9px; }
+    #rasumi-container .r-btn-warn {
+        font-size: 11px;
+        padding: 8px 12px;
+    }
+
+    #rasumi-container .r-chart-box {
+        height: 170px;
+    }
+
+    #rasumi-container .r-terminal {
+        height: 120px;
+        font-size: 9px;
+    }
 }
 
 /* ── Extra-small phones ≤ 390px ────────────────────────────── */
 @media (max-width: 390px) {
-    #rasumi-container .r-metric-row { grid-template-columns: 1fr !important; }
-    #rasumi-container .r-metric-val { font-size: 18px; }
-    #rasumi-container .r-kpi-row    { grid-template-columns: 1fr; }
-    .brand-text h1                  { font-size: 10px; }
-    .chip                           { font-size: 7px; padding: 2px 4px; }
+    #rasumi-container .r-metric-row {
+        grid-template-columns: 1fr !important;
+    }
+
+    #rasumi-container .r-metric-val {
+        font-size: 18px;
+    }
+
+    #rasumi-container .r-kpi-row {
+        grid-template-columns: 1fr;
+    }
+
+    .brand-text h1 {
+        font-size: 10px;
+    }
+
+    .chip {
+        font-size: 7px;
+        padding: 2px 4px;
+    }
 }
