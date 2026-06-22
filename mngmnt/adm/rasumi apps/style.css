@@ -473,6 +473,21 @@
   position: relative;
   overflow: hidden;
   cursor: default;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+/* Clickable card — pointer + lift on hover/active */
+#rasumi-container .r-metric-card.r-metric-card-link {
+  cursor: pointer;
+}
+#rasumi-container .r-metric-card.r-metric-card-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+  border-color: rgba(255,255,255,0.18);
+}
+#rasumi-container .r-metric-card.r-metric-card-link:active {
+  transform: translateY(0);
+  opacity: 0.85;
 }
 
 #rasumi-container .r-metric-card::before {

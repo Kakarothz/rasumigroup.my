@@ -1210,12 +1210,12 @@
     // ── Row 1: Metric cards ──
     var metricRow =
       '<div class="r-metric-row">' +
-        metricCard('green',  on,         'TOTAL ACTIVE NODES', 'fa-circle-check', 'Online now') +
-        metricCard('danger', off,        'OFFLINE NODES',      'fa-circle-xmark', off > 0 ? off + ' need attention' : 'All clear') +
-        metricCard('info',   runsToday,  'RUNS TODAY',         'fa-play-circle',  'Across all apps') +
-        metricCard('warn',   errToday,   'FAILED TODAY',       'fa-bug',          'Check log explorer') +
-        metricCard('purple', RS.unresolvedVibes, 'VIBES ERRORS','fa-triangle-exclamation', 'Unresolved') +
-        metricCard('blue',   devs.length,'MACHINES TOTAL',     'fa-server',       'Last sync: ' + lastSync) +
+        metricCard('green',  on,         'TOTAL ACTIVE NODES', 'fa-circle-check',       'Online now',              'r-devices') +
+        metricCard('danger', off,        'OFFLINE NODES',      'fa-circle-xmark',       off > 0 ? off + ' need attention' : 'All clear', 'r-devices') +
+        metricCard('info',   runsToday,  'RUNS TODAY',         'fa-play-circle',        'Across all apps',         'r-logs') +
+        metricCard('warn',   errToday,   'FAILED TODAY',       'fa-bug',                'Check log explorer',      'r-alerts') +
+        metricCard('purple', RS.unresolvedVibes, 'VIBES ERRORS','fa-triangle-exclamation', 'Unresolved',          'r-vibes') +
+        metricCard('blue',   devs.length,'MACHINES TOTAL',     'fa-server',             'Last sync: ' + lastSync, 'r-devices') +
       '</div>';
 
     // ── Selected device ──
@@ -1299,8 +1299,10 @@
   }
 
   // ── Metric card builder ────────────────────────────────────
-  function metricCard(cls, val, lbl, icon, sub) {
-    return '<div class="r-metric-card ' + cls + '">' +
+  function metricCard(cls, val, lbl, icon, sub, route) {
+    var click  = route ? ' onclick="rNav(\'' + route + '\')"' : '';
+    var cursor = route ? ' r-metric-card-link' : '';
+    return '<div class="r-metric-card ' + cls + cursor + '"' + click + '>' +
       '<div class="r-metric-label">' + lbl + '</div>' +
       '<div class="r-metric-val">' + val + '</div>' +
       '<div class="r-metric-sub">' + (sub||'') + '</div>' +
