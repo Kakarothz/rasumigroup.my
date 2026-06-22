@@ -61,6 +61,8 @@
     unresolvedVims:      0,
     unresolvedAppErrors: 0,
     appStats:    {},     // keyed by app key → { today: N, errors: N, last_seen: ts }
+    runsToday:   0,     // global session count today (same logic as Log Explorer)
+    failedToday: 0,     // global failed-session count today
     clockTick:   null,
     initialized: false,
     configOk:    false,
@@ -1011,7 +1013,7 @@
       if (!RS.supa) return; // no Supabase yet
 
       RS.supa.from('vibes_errors').select('id', { count: 'exact', head: true })
-        .eq('resolved', false).limit(51)
+        .eq('resolved', false).neq('error_type', 'batch_skip').neq('category', 'batch_skip').limit(51)
         .then(function(res) {
           var cnt = Math.min(res.count || 0, 51);
           RS.unresolvedVibes = cnt;
@@ -1064,7 +1066,8 @@
 
     // ── Periodic app stats refresh (every 60s) ──
     loadAppStats();
-    RS._appStatsInterval = setInterval(loadAppStats, 60000);
+    loadGlobalTodayStats();
+    RS._appStatsInterval = setInterval(function(){ loadAppStats(); loadGlobalTodayStats(); }, 60000);
 
     // ── Seed recent logs for activity feed (Supabase, Fasa 6) ──
     if (RS.supa) {
@@ -1090,6 +1093,34 @@
     });
   }
 
+  // ── Global today stats — same grouping logic as Log Explorer ──
+  function loadGlobalTodayStats() {
+    if (!RS.supa) return;
+    var today = new Date(); today.setHours(0,0,0,0);
+    var todayIso = today.toISOString();
+    RS.supa.from('logs')
+      .select('id,status,job_group_id,machine,app_name,branch_id,timestamp')
+      .gte('timestamp', todayIso)
+      .order('timestamp', { ascending: false })
+      .limit(2000)
+      .then(function(res) {
+        var data = res.data || [];
+        var groups = {};
+        data.forEach(function(d) {
+          var gid = d.job_group_id ||
+            ((d.machine||'') + '|' + (d.app_name||'') + '|' + (d.branch_id||'') + '|' + (d.timestamp||'').substring(0, 13));
+          if (!groups[gid]) groups[gid] = { hasFail: false, hasNonProc: false };
+          var st = (d.status||'').toUpperCase();
+          if (st === 'FAILED' || st === 'ERROR') groups[gid].hasFail = true;
+          if (st !== 'PROCESSING') groups[gid].hasNonProc = true;
+        });
+        var sessions = Object.values(groups).filter(function(s){ return s.hasNonProc; });
+        RS.runsToday   = sessions.length;
+        RS.failedToday = sessions.filter(function(s){ return s.hasFail; }).length;
+        if (RS.route === 'r-dashboard') renderDashboard();
+      }).catch(function(){});
+  }
+
   // ── App Stats (Supabase, Fasa 6) ─────────────────────────
   function loadAppStats() {
     if (!RS.supa) return;
@@ -1100,24 +1131,33 @@
     var pending = RASUMI_APPS.length;
     RASUMI_APPS.forEach(function(app) {
       var names = app.firebaseNames;
-      RS.supa.from('logs').select('*')
-        .in('app_name', names)
-        .order('timestamp', { ascending: false })
-        .limit(200)
-        .then(function(res) {
-          var data = res.data || [];
-          var todayCnt = 0, errCnt = 0, lastTs = null;
-          data.forEach(function(d) {
-            var ts = d.timestamp;
-            if (!lastTs) lastTs = ts;
-            if (ts && ts >= todayIso) todayCnt++;
-            var st = (d.status || '').toUpperCase();
-            if (st === 'FAILED' || st === 'ERROR') errCnt++;
-          });
-          RS.appStats[app.key] = { today: todayCnt, errors: errCnt, last_ts: lastTs };
-          pending--;
-          if (pending === 0 && RS.route === 'r-dashboard') renderDashboard();
-        }).catch(function() { pending--; });
+      // Fetch last_ts separately (no date filter, just latest 1 record)
+      var lastTsPromise = RS.supa.from('logs').select('timestamp')
+        .in('app_name', names).order('timestamp', { ascending: false }).limit(1);
+      // Count today's runs and errors with server-side date filter — avoids limit(200) truncation
+      var todayPromise = RS.supa.from('logs').select('id,status', { count: 'exact' })
+        .in('app_name', names).gte('timestamp', todayIso);
+      Promise.all([lastTsPromise, todayPromise]).then(function(results) {
+        var lastRow   = (results[0].data || [])[0];
+        var todayData = results[1].data || [];
+        var lastTs    = lastRow ? lastRow.timestamp : null;
+        // Count sessions (by job_group_id or fallback key) — not individual log entries
+        var sessionMap = {};
+        todayData.forEach(function(d) {
+          var gid = d.job_group_id ||
+            ((d.machine||'') + '|' + (d.app_name||'') + '|' + (d.branch_id||'') + '|' + (d.timestamp||'').substring(0, 13));
+          if (!sessionMap[gid]) sessionMap[gid] = { hasFail: false, hasNonProc: false };
+          var st = (d.status||'').toUpperCase();
+          if (st === 'FAILED' || st === 'ERROR') sessionMap[gid].hasFail = true;
+          if (st !== 'PROCESSING') sessionMap[gid].hasNonProc = true;
+        });
+        var allSessions = Object.values(sessionMap);
+        var todayCnt = allSessions.filter(function(s){ return s.hasNonProc; }).length;
+        var errCnt   = allSessions.filter(function(s){ return s.hasFail; }).length;
+        RS.appStats[app.key] = { today: todayCnt, errors: errCnt, last_ts: lastTs };
+        pending--;
+        if (pending === 0 && RS.route === 'r-dashboard') renderDashboard();
+      }).catch(function() { pending--; });
     });
   }
 
@@ -1192,9 +1232,9 @@
     var st   = devs.filter(function(d){ return d._status === 'stale';   }).length;
     var off  = devs.filter(function(d){ return d._status === 'offline'; }).length;
 
-    // Compute today's stats from appStats
-    var runsToday = 0, errToday = 0, slaToday = 0;
-    Object.values(RS.appStats).forEach(function(s){ runsToday += (s.today||0); errToday += (s.errors||0); });
+    // Use global session-based counts (same logic as Log Explorer)
+    var runsToday = RS.runsToday || 0;
+    var errToday  = RS.failedToday || 0;
 
     // Last sync from most recently active device
     var lastSync = '—';
@@ -1213,7 +1253,7 @@
         metricCard('green',  on,         'TOTAL ACTIVE NODES', 'fa-circle-check',       'Online now',              'r-devices') +
         metricCard('danger', off,        'OFFLINE NODES',      'fa-circle-xmark',       off > 0 ? off + ' need attention' : 'All clear', 'r-devices') +
         metricCard('info',   runsToday,  'RUNS TODAY',         'fa-play-circle',        'Across all apps',         'r-logs') +
-        metricCard('warn',   errToday,   'FAILED TODAY',       'fa-bug',                'Check log explorer',      'r-alerts') +
+        metricCard('warn',   errToday,   'FAILED TODAY',       'fa-bug',                'Check log explorer',      'r-logs') +
         metricCard('purple', RS.unresolvedVibes, 'VIBES ERRORS','fa-triangle-exclamation', 'Unresolved',          'r-vibes') +
         metricCard('blue',   devs.length,'MACHINES TOTAL',     'fa-server',             'Last sync: ' + lastSync, 'r-devices') +
       '</div>';
@@ -2587,7 +2627,7 @@
     view.innerHTML =
       '<div class="r-panel">' +
         '<div class="r-panel-hdr">' +
-          '<h3><i class="fa-solid fa-scroll"></i> Log Explorer (logs collection)</h3>' +
+          '<h3><i class="fa-solid fa-scroll"></i> Log Explorer</h3>' +
           '<div class="r-filter-bar">' +
             '<select class="r-filter-sel" id="r-log-dev"><option value="">All Machines</option>' + devOpts + '</select>' +
             '<select class="r-filter-sel" id="r-log-app"><option value="">All Apps</option>' + appOpts + '</select>' +
@@ -2603,38 +2643,134 @@
       '</div>';
   }
 
+  function _fmtDate(ts) {
+    if (!ts) return '—';
+    var d = new Date(ts);
+    if (isNaN(d)) return '—';
+    return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getFullYear()).slice(2);
+  }
+  function _fmtTime(ts) {
+    if (!ts) return '—';
+    var d = new Date(ts);
+    if (isNaN(d)) return '—';
+    return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0');
+  }
+  function _fmtDur(startTs, endTs) {
+    if (!startTs || !endTs) return '—';
+    var ms = new Date(endTs) - new Date(startTs);
+    if (ms <= 0) return '—';
+    var min = Math.floor(ms / 60000);
+    var sec = Math.floor((ms % 60000) / 1000);
+    return min > 0 ? min + 'm ' + sec + 's' : sec + 's';
+  }
+
+  window.rToggleLogDetail = function(gidKey) {
+    var el = document.getElementById('rld-' + gidKey);
+    if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+  };
+
   window.rLoadLogs = function () {
-    var hostname = ($r('r-log-dev')  || {}).value || '';
-    var appName  = ($r('r-log-app')  || {}).value || '';
-    var status   = ($r('r-log-stat') || {}).value || '';
+    var hostname     = ($r('r-log-dev')  || {}).value || '';
+    var appName      = ($r('r-log-app')  || {}).value || '';
+    var statusFilter = ($r('r-log-stat') || {}).value || '';
     var box = $r('r-log-results');
     if (!box) return;
     box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
-
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
+
+    // Fetch all statuses — need full context to reconstruct sessions
     var q = RS.supa.from('logs').select('*')
-      .order('timestamp', { ascending: false }).limit(200);
+      .order('timestamp', { ascending: false }).limit(2000);
     if (hostname) q = q.eq('machine', hostname);
     if (appName)  q = q.eq('app_name', appName);
-    if (status)   q = q.eq('status', status);
 
     q.then(function(res) {
       var data = res.data || [];
       if (!data.length) { box.innerHTML = '<div class="r-empty">No logs match</div>'; return; }
-      var rows = data.map(function(e) {
-        var st = (e.status || 'INFO').toUpperCase();
+
+      // ── Group logs into sessions ──
+      var groups = {};
+      var gOrder = [];
+      data.forEach(function(log) {
+        // Use job_group_id if present; fallback: machine+app+branch+hour bucket
+        var gid = log.job_group_id ||
+          ((log.machine||'') + '|' + (log.app_name||'') + '|' + (log.branch_id||'') + '|' + (log.timestamp||'').substring(0, 13));
+        if (!groups[gid]) {
+          groups[gid] = { gid: gid, logs: [], start: null, end: null,
+            machine: log.machine, app: log.app_name, branch: log.branch_id,
+            hasFail: false, allProcessing: true };
+          gOrder.push(gid);
+        }
+        var g = groups[gid];
+        g.logs.push(log);
+        var ts = log.timestamp || '';
+        if (!g.start || ts < g.start) g.start = ts;
+        if (!g.end   || ts > g.end)   g.end   = ts;
+        var st = (log.status || '').toUpperCase();
+        if (st === 'FAILED' || st === 'ERROR') g.hasFail = true;
+        if (st !== 'PROCESSING') g.allProcessing = false;
+      });
+
+      // Sort sessions newest-first
+      var sessions = gOrder.map(function(k){ return groups[k]; })
+        .sort(function(a, b){ return (b.end||'') > (a.end||'') ? 1 : -1; });
+
+      // Apply session-level status filter
+      if (statusFilter === 'FAILED') {
+        sessions = sessions.filter(function(g){ return g.hasFail; });
+      } else if (statusFilter === 'COMPLETED') {
+        sessions = sessions.filter(function(g){ return !g.hasFail && !g.allProcessing; });
+      }
+
+      if (!sessions.length) { box.innerHTML = '<div class="r-empty">No sessions match</div>'; return; }
+
+      var rows = sessions.map(function(g, idx) {
+        var completedLogs = g.logs.filter(function(l){ return (l.status||'').toUpperCase() === 'COMPLETED'; });
+        var failedLogs    = g.logs.filter(function(l){ var st=(l.status||'').toUpperCase(); return st==='FAILED'||st==='ERROR'; });
+        var totalDocs     = completedLogs.length + failedLogs.length;
+        var sessionSt     = g.allProcessing ? 'PROCESSING' : (g.hasFail ? 'FAILED' : 'COMPLETED');
+        var gKey          = 'g' + idx;
+
+        // Detail rows — one per file (non-PROCESSING entries)
+        var fileLogs = g.logs.filter(function(l){ return (l.status||'').toUpperCase() !== 'PROCESSING'; });
+        var fileRows = fileLogs.map(function(l) {
+          var st     = (l.status||'').toUpperCase();
+          var fname  = l.file_name || (l.job_info && l.job_info.file_name) || '—';
+          var errMsg = l.error_msg || (l.job_info && (l.job_info.error || l.job_info.state)) || '';
+          return '<tr>' +
+            '<td class="r-font-mono" style="white-space:nowrap">' + _fmtTime(l.timestamp) + '</td>' +
+            '<td class="r-cell-trunc" style="max-width:200px">' + esc(fname) + '</td>' +
+            '<td><span class="r-badge ' + logBadge(st) + '">' + st + '</span></td>' +
+            '<td class="r-cell-trunc">' + esc(errMsg) + '</td>' +
+            '<td>' + (l.duration != null ? parseFloat(l.duration).toFixed(2) + 's' : '—') + '</td>' +
+            '</tr>';
+        }).join('');
+        var detailHtml = fileRows
+          ? tableWrap(['Time','File','Status','Error / Detail','Duration'], fileRows)
+          : '<div class="r-empty" style="padding:8px">No file-level data</div>';
+
         return '<tr>' +
-          '<td>' + fmtTs(e.timestamp) + '</td>' +
-          '<td class="r-font-mono">' + esc(e.machine || '—') + '</td>' +
-          '<td><span class="r-badge r-badge-purple">' + esc(e.app_name || '—') + '</span></td>' +
-          '<td><span class="r-badge ' + logBadge(st) + '">' + st + '</span></td>' +
-          '<td>' + esc(e.branch_id || '—') + '</td>' +
-          '<td class="r-cell-trunc">' + esc(e.activity_name || e.details || e.error_msg || '—') + '</td>' +
-          '<td>' + (e.duration !== undefined ? e.duration + 's' : '—') + '</td>' +
+          '<td>' + _fmtDate(g.start) + '</td>' +
+          '<td class="r-font-mono" style="font-size:11px">' + esc(g.machine||'—') + '</td>' +
+          '<td><span class="r-badge r-badge-purple">' + esc(g.app||'—') + '</span></td>' +
+          '<td class="r-font-mono">' + _fmtTime(g.start) + '</td>' +
+          '<td class="r-font-mono">' + _fmtTime(g.end) + '</td>' +
+          '<td><span class="r-badge ' + logBadge(sessionSt) + '">' + sessionSt + '</span>' +
+            (g.hasFail ? ' <span class="r-muted-sm">(' + failedLogs.length + ' fail)</span>' : '') + '</td>' +
+          '<td>' + esc(g.branch||'—') + '</td>' +
+          '<td>' + (totalDocs > 0 ? totalDocs + ' doc' + (totalDocs !== 1 ? 's' : '') : g.allProcessing ? 'running…' : '—') + '</td>' +
+          '<td><button class="r-btn-sm" onclick="rToggleLogDetail(\'' + gKey + '\')"><i class="fa-solid fa-list"></i> Details</button></td>' +
+          '<td>' + _fmtDur(g.start, g.end) + '</td>' +
+          '</tr>' +
+          '<tr id="rld-' + gKey + '" style="display:none">' +
+            '<td colspan="10" style="padding:0 8px 12px 36px;background:rgba(0,0,0,0.25)">' + detailHtml + '</td>' +
           '</tr>';
       }).join('');
-      box.innerHTML = '<div class="r-results-count">' + snap.size + ' log(s)</div>' +
-        tableWrap(['Time','Machine','App','Status','Branch','Details','Duration'], rows);
+
+      box.innerHTML =
+        '<div class="r-results-count">' + sessions.length + ' session(s) — ' + data.length + ' log entries</div>' +
+        tableWrap(['Date','Machine','App','Start','End','Status','Branch','Total','Details','Duration'], rows);
+
     }).catch(function(err) { box.innerHTML = errBox(err.message); });
   };
 
@@ -2841,28 +2977,7 @@
           '</div>' +
         '</div>';
 
-    // ── Machine health alerts ──
-    if (!offline.length && !stale.length) {
-      html += '<div class="r-alert-item ok" style="padding:8px 12px"><i class="fa-solid fa-circle-check"></i> All machines healthy</div>';
-    }
-    if (offline.length) {
-      html += '<div class="r-alert-section"><div class="r-alert-section-title err"><i class="fa-solid fa-circle-xmark"></i> Offline Machines (' + offline.length + ')</div>';
-      offline.forEach(function(d) {
-        html += '<div class="r-alert-item err"><i class="fa-solid fa-server"></i> <strong>' + esc(d.id) + '</strong> — last heartbeat ' + fmtElapsed(d.last_heartbeat || d.last_seen) +
-          ' <button class="r-btn-sm" onclick="rNav(\'r-device:' + esc(d.id) + '\')">View</button></div>';
-      });
-      html += '</div>';
-    }
-    if (stale.length) {
-      html += '<div class="r-alert-section"><div class="r-alert-section-title warn"><i class="fa-solid fa-clock"></i> Stale Machines (' + stale.length + ')</div>';
-      stale.forEach(function(d) {
-        html += '<div class="r-alert-item warn"><i class="fa-solid fa-server"></i> <strong>' + esc(d.id) + '</strong> — no heartbeat ' + fmtElapsed(d.last_heartbeat || d.last_seen) +
-          ' <button class="r-btn-sm" onclick="rNav(\'r-device:' + esc(d.id) + '\')">View</button></div>';
-      });
-      html += '</div>';
-    }
-
-    // ── VIBES errors (existing) ──
+    // ── VIBES errors ──
     if (RS.unresolvedVibes > 0) {
       html += '<div class="r-alert-section"><div class="r-alert-section-title err"><i class="fa-solid fa-bug"></i> Unresolved VIBES Errors (' + RS.unresolvedVibes + ')</div>' +
         '<div class="r-alert-item err">' + RS.unresolvedVibes + ' error(s) pending resolution.' +
