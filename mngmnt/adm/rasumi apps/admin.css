@@ -681,3 +681,8 @@ canvas { display: block; }
 /* device detail link */
 .device-link { color: var(--info); cursor: pointer; text-decoration: underline; font-size: 11px; }
 .device-link:hover { color: var(--accent); }
+
+/* Profile avatar — purple background so it never shows white/blank while img loads */
+#r-profile-trigger img {
+  background-color: #8b5cf6;
+}

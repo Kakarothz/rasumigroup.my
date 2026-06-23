@@ -1048,6 +1048,90 @@
 #rasumi-container .r-cmd-send .r-filter-input { flex: 1; }
 
 /* ==========================================================
+   ANNOUNCEMENT RICH EDITOR
+   ========================================================== */
+#rasumi-container .r-ann-toolbar {
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  padding: 6px 8px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--rc-border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+}
+#rasumi-container .r-ann-fmt {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--rc-border);
+  color: var(--rc-text);
+  padding: 2px 8px; border-radius: 4px;
+  cursor: pointer; font-size: 12px; font-weight: 700; line-height: 1.6;
+  font-family: var(--rc-font); transition: background 0.12s, border-color 0.12s;
+}
+#rasumi-container .r-ann-fmt:hover {
+  background: rgba(0,240,255,0.12);
+  border-color: rgba(0,240,255,0.35);
+  color: var(--rc-cyan);
+}
+#rasumi-container .r-ann-clr {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.2);
+  cursor: pointer; padding: 0; flex-shrink: 0;
+  transition: transform 0.1s, border-color 0.12s;
+}
+#rasumi-container .r-ann-clr:hover { transform: scale(1.35); border-color: rgba(255,255,255,0.7); }
+#rasumi-container .r-ann-sep {
+  width: 1px; height: 16px;
+  background: var(--rc-border); margin: 0 3px; flex-shrink: 0;
+}
+#rasumi-container .r-ann-editor {
+  border-radius: 0 0 6px 6px !important;
+  min-height: 48px; max-height: 120px;
+  overflow-y: auto;
+  color: #fff;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+}
+#rasumi-container .r-ann-editor:focus { border-color: var(--rc-cyan); }
+#rasumi-container .r-ann-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--rc-text-dim);
+  pointer-events: none;
+}
+#rasumi-container .r-ann-emoji-picker {
+  display: none;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 8px;
+  background: rgba(8,12,19,0.97);
+  border: 1px solid var(--rc-border);
+  border-radius: 6px;
+  margin-top: 4px;
+}
+#rasumi-container .r-ann-emoji {
+  background: none; border: none;
+  font-size: 18px; cursor: pointer;
+  padding: 3px 4px; border-radius: 4px;
+  line-height: 1; transition: background 0.1s;
+}
+#rasumi-container .r-ann-emoji:hover { background: rgba(255,255,255,0.1); }
+#rasumi-container .r-ann-font-sel {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--rc-border);
+  color: var(--rc-text);
+  padding: 2px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: var(--rc-font);
+  outline: none;
+  height: 24px;
+  transition: border-color 0.12s;
+}
+#rasumi-container .r-ann-font-sel:hover { border-color: rgba(0,240,255,0.35); }
+#rasumi-container .r-ann-font-sel option { background: #080c13; color: #e2e8f0; }
+
+/* ==========================================================
    INFO BOX / LEGEND
    ========================================================== */
 #rasumi-container .r-info-box {

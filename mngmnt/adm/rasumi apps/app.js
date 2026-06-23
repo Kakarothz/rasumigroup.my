@@ -525,7 +525,30 @@
   // ── Enter / Exit ───────────────────────────────────────────
   window.enterRasumiMode = function() {
     injectHTML();
-    
+
+    // Restore cached profile image + nickname immediately (prevents flash)
+    try {
+      var _cachedImg = localStorage.getItem('rs_profile_img');
+      if (_cachedImg) {
+        var _hImg = document.querySelector('#r-profile-trigger img');
+        if (_hImg) _hImg.src = _cachedImg;
+      }
+      var _cachedNick = localStorage.getItem('rs_nickname');
+      if (_cachedNick) {
+        RS.userNickname = _cachedNick;
+        var _hRole = document.querySelector('#r-profile-trigger .role');
+        if (_hRole) _hRole.textContent = _cachedNick;
+      }
+    } catch(e) {}
+
+    // Restore cached dashboard counts immediately (prevents 0-flash on cards)
+    try {
+      var _cr = parseInt(localStorage.getItem('rs_cache_runs_today'), 10);
+      var _cf = parseInt(localStorage.getItem('rs_cache_failed_today'), 10);
+      if (!isNaN(_cr)) RS.runsToday   = _cr;
+      if (!isNaN(_cf)) RS.failedToday = _cf;
+    } catch(e) {}
+
     // Attach profile modal and header button listeners to the newly injected HTML
     if(typeof window.initProfileHandlers === 'function') {
         window.initProfileHandlers();
@@ -623,6 +646,7 @@
       if (res.error || !res.data) return;
       if (res.data.profile_img) {
         var src = res.data.profile_img;
+        try { localStorage.setItem('rs_profile_img', src); } catch(e) {}
         var hImg = document.querySelector('#r-profile-trigger img');
         if (hImg) hImg.src = src;
         var sp = document.getElementById('r-avatar-spinner');
@@ -633,6 +657,7 @@
       }
       if (res.data.nickname) {
         RS.userNickname = res.data.nickname;
+        try { localStorage.setItem('rs_nickname', res.data.nickname); } catch(e) {}
         var tbRole = document.querySelector('#r-profile-trigger .role');
         if (tbRole) tbRole.textContent = res.data.nickname;
       }
@@ -1013,7 +1038,9 @@
       if (!RS.supa) return; // no Supabase yet
 
       RS.supa.from('vibes_errors').select('id', { count: 'exact', head: true })
-        .eq('resolved', false).neq('error_type', 'batch_skip').neq('category', 'batch_skip').limit(51)
+        .eq('resolved', false)
+        .not('error_type', 'in', '("batch_skip","amount_unresolved","folder_not_found","row_skip_portal_lag")')
+        .limit(51)
         .then(function(res) {
           var cnt = Math.min(res.count || 0, 51);
           RS.unresolvedVibes = cnt;
@@ -1117,6 +1144,10 @@
         var sessions = Object.values(groups).filter(function(s){ return s.hasNonProc; });
         RS.runsToday   = sessions.length;
         RS.failedToday = sessions.filter(function(s){ return s.hasFail; }).length;
+        try {
+          localStorage.setItem('rs_cache_runs_today',   RS.runsToday);
+          localStorage.setItem('rs_cache_failed_today', RS.failedToday);
+        } catch(e) {}
         if (RS.route === 'r-dashboard') renderDashboard();
       }).catch(function(){});
   }
@@ -1616,49 +1647,224 @@
   }
 
   // ── Dashboard Charts ──────────────────────────────────────
+  // ── DISK: Custom gradient donut (image ref — thick ring, cyan→purple→pink gradient, % center) ──
+  function _drawDiskDonut(canvas, pct, usedLabel) {
+    var dpr  = window.devicePixelRatio || 1;
+    var cssW = canvas.clientWidth  || 220;
+    var cssH = canvas.clientHeight || 155;
+    canvas.width  = cssW * dpr;
+    canvas.height = cssH * dpr;
+    canvas.style.width  = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(dpr, dpr);
+    var W = cssW, H = cssH, cx = W / 2, cy = H / 2;
+    var R     = Math.min(W, H) * 0.40;
+    var lw    = R * 0.30;
+    var startA = -Math.PI / 2;
+    var endA   = startA + Math.PI * 2 * Math.min(Math.max(pct, 0), 100) / 100;
+    // Track
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = lw;
+    ctx.lineCap = 'butt';
+    ctx.stroke();
+    // Gradient arc
+    if (pct > 0.5) {
+      var g = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
+      g.addColorStop(0,    '#00f0ff');
+      g.addColorStop(0.45, '#b200ff');
+      g.addColorStop(1,    '#ff00aa');
+      // Glow layer
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, startA, endA);
+      ctx.strokeStyle = 'rgba(0,240,255,0.12)';
+      ctx.lineWidth = lw + 8;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      // Main arc
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, startA, endA);
+      ctx.strokeStyle = g;
+      ctx.lineWidth = lw;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+    // Centre % text
+    ctx.shadowBlur = 0;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold ' + Math.round(H * 0.23) + 'px Inter,sans-serif';
+    ctx.fillText(Math.round(pct) + '%', cx, cy - H * 0.05);
+    ctx.fillStyle = '#6B7A8F';
+    ctx.font = Math.round(H * 0.075) + 'px Inter,sans-serif';
+    ctx.fillText(usedLabel + ' used', cx, cy + H * 0.13);
+  }
+
+  // ── RAM: Custom dots circle (image ref — neon dots ring, gradient fill, % center) ──
+  function _drawRamDots(canvas, pct, usedLabel) {
+    var dpr  = window.devicePixelRatio || 1;
+    var cssW = canvas.clientWidth  || 220;
+    var cssH = canvas.clientHeight || 155;
+    canvas.width  = cssW * dpr;
+    canvas.height = cssH * dpr;
+    canvas.style.width  = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(dpr, dpr);
+    var W = cssW, H = cssH, cx = W / 2, cy = H / 2;
+    var ringR  = Math.min(W, H) * 0.39;
+    var dotR   = Math.min(W, H) * 0.030;
+    var N      = 48;
+    var filled = Math.round(N * Math.min(Math.max(pct, 0), 100) / 100);
+    function lerpC(c1, c2, t) {
+      var r1=parseInt(c1.slice(1,3),16), g1=parseInt(c1.slice(3,5),16), b1=parseInt(c1.slice(5,7),16);
+      var r2=parseInt(c2.slice(1,3),16), g2=parseInt(c2.slice(3,5),16), b2=parseInt(c2.slice(5,7),16);
+      return 'rgb('+Math.round(r1+(r2-r1)*t)+','+Math.round(g1+(g2-g1)*t)+','+Math.round(b1+(b2-b1)*t)+')';
+    }
+    for (var i = 0; i < N; i++) {
+      var a = (i / N) * Math.PI * 2 - Math.PI / 2;
+      var x = cx + ringR * Math.cos(a);
+      var y = cy + ringR * Math.sin(a);
+      var t = i / N;
+      ctx.beginPath();
+      ctx.arc(x, y, dotR, 0, Math.PI * 2);
+      if (i < filled) {
+        var col = t < 0.33 ? lerpC('#b200ff','#00f0ff', t / 0.33)
+                : t < 0.66 ? lerpC('#00f0ff','#ff00aa', (t - 0.33) / 0.33)
+                :             lerpC('#ff00aa','#b200ff', (t - 0.66) / 0.34);
+        ctx.fillStyle  = col;
+        ctx.shadowColor = col;
+        ctx.shadowBlur  = 9;
+        ctx.fill();
+        ctx.shadowBlur  = 0;
+      } else {
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.fill();
+      }
+    }
+    // Centre % text
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold ' + Math.round(H * 0.23) + 'px Inter,sans-serif';
+    ctx.fillText(Math.round(pct) + '%', cx, cy - H * 0.05);
+    ctx.fillStyle = '#6B7A8F';
+    ctx.font = Math.round(H * 0.075) + 'px Inter,sans-serif';
+    ctx.fillText(usedLabel + ' used', cx, cy + H * 0.13);
+  }
+
   function initDashCharts() {
     if (typeof Chart === 'undefined') return;
-    var labels = [];
-    for (var i = 23; i >= 0; i--) labels.push(i + 'h');
 
-    function makeData(color, data) {
-      return { labels: labels, datasets: [{ data: data, borderColor: color, backgroundColor: color.replace(')', ',0.1)').replace('rgb','rgba'), borderWidth: 1.5, pointRadius: 0, tension: 0.4, fill: true }] };
+    // ── CPU: Line chart 24h ──
+    var cpuLabels = [];
+    for (var i = 23; i >= 0; i--) cpuLabels.push(i === 0 ? 'now' : i + 'h');
+    var cpuCanvas = $r('r-chart-cpu');
+    if (cpuCanvas) {
+      if (RS._charts.cpu) { RS._charts.cpu.destroy(); delete RS._charts.cpu; }
+      RS._charts.cpu = new Chart(cpuCanvas, {
+        type: 'line',
+        data: {
+          labels: cpuLabels,
+          datasets: [{
+            data: new Array(24).fill(null),
+            borderColor: 'rgb(0,240,255)',
+            backgroundColor: 'rgba(0,240,255,0.08)',
+            borderWidth: 1.5, pointRadius: 0, tension: 0.4, fill: true,
+            spanGaps: true
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6B7A8F', font: { size: 8 }, maxTicksLimit: 6 } },
+            y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6B7A8F', font: { size: 8 } }, beginAtZero: true, max: 100 }
+          }
+        }
+      });
     }
 
-    var chartOpts = {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6B7A8F', font: { size: 8 }, maxTicksLimit: 6 } },
-        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6B7A8F', font: { size: 8 } }, beginAtZero: true, max: 100 }
-      }
-    };
+    // ── RAM: Custom dots circle — no Chart.js, drawn via _drawRamDots ──
+    var ramCanvas = $r('r-chart-ram');
+    if (ramCanvas) {
+      if (RS._charts.ram) { RS._charts.ram.destroy(); delete RS._charts.ram; }
+      RS._charts.ram = null;
+      _drawRamDots(ramCanvas, 0, '0 GB');
+    }
 
-    var colors = { cpu:'rgb(0,240,255)', ram:'rgb(178,0,255)', disk:'rgb(245,158,11)' };
-    ['cpu','ram','disk'].forEach(function(id){
-      var c = $r('r-chart-' + id);
-      if (!c) return;
-      if (RS._charts[id]) { RS._charts[id].destroy(); delete RS._charts[id]; }
-      RS._charts[id] = new Chart(c, { type: 'line', data: makeData(colors[id], new Array(24).fill(0)), options: JSON.parse(JSON.stringify(chartOpts)) });
-    });
+    // ── DISK: Custom gradient donut — no Chart.js, drawn via _drawDiskDonut ──
+    var diskCanvas = $r('r-chart-disk');
+    if (diskCanvas) {
+      if (RS._charts.disk) { RS._charts.disk.destroy(); delete RS._charts.disk; }
+      RS._charts.disk = null;
+      _drawDiskDonut(diskCanvas, 0, '0 GB');
+    }
 
-    // If selected device has live data, fill CPU/RAM/Disk from history
     updateChartFromDevice();
   }
 
   function updateChartFromDevice() {
     var d = RS._selectedDevice ? RS.devices[RS._selectedDevice] : null;
     if (!d || typeof Chart === 'undefined') return;
-    // Push current reading to chart (simulate rolling update)
-    ['cpu','ram','disk'].forEach(function(key){
-      var chart = RS._charts[key];
-      if (!chart) return;
-      var val = d[key + '_pct'];
-      if (val === undefined) return;
-      chart.data.datasets[0].data.shift();
-      chart.data.datasets[0].data.push(val);
-      chart.update('none');
-    });
+
+    // RAM — custom dots circle
+    var ramCanvas = $r('r-chart-ram');
+    if (ramCanvas && d.ram_pct !== undefined) {
+      var ramUsed     = Math.round(d.ram_pct);
+      var ramLabelUsed = d.ram_used_gb !== undefined ? d.ram_used_gb + ' GB' : ramUsed + '%';
+      _drawRamDots(ramCanvas, ramUsed, ramLabelUsed);
+    }
+
+    // DISK — custom gradient donut
+    var diskCanvas = $r('r-chart-disk');
+    if (diskCanvas && d.disk_pct !== undefined) {
+      var diskUsed      = Math.round(d.disk_pct);
+      var diskLabelUsed = d.disk_used_gb !== undefined ? d.disk_used_gb + ' GB' : diskUsed + '%';
+      _drawDiskDonut(diskCanvas, diskUsed, diskLabelUsed);
+    }
+
+    // CPU line — fetch 24h history from machine_telemetry
+    if (RS.supa && d.id) {
+      var since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      RS.supa.from('machine_telemetry')
+        .select('cpu_pct,recorded_at')
+        .eq('hostname', d.id)
+        .gte('recorded_at', since)
+        .order('recorded_at', { ascending: true })
+        .limit(200)
+        .then(function(res) {
+          var rows = res.data || [];
+          if (!rows.length) return;
+          // Bucket into 24 hourly slots (newest = slot 23, i.e. 'now')
+          var now = Date.now();
+          var hourSlots = new Array(24).fill(null);
+          var counts    = new Array(24).fill(0);
+          rows.forEach(function(r) {
+            var ageMs  = now - new Date(r.recorded_at).getTime();
+            var ageH   = Math.floor(ageMs / 3600000);
+            var slot   = 23 - ageH; // slot 23 = most recent hour
+            if (slot >= 0 && slot < 24 && r.cpu_pct != null) {
+              hourSlots[slot] = (hourSlots[slot] || 0) + r.cpu_pct;
+              counts[slot]++;
+            }
+          });
+          // Average per slot
+          var cpuData = hourSlots.map(function(v, i) {
+            return counts[i] > 0 ? Math.round(v / counts[i] * 10) / 10 : null;
+          });
+          var cpuChart = RS._charts.cpu;
+          if (cpuChart) {
+            cpuChart.data.datasets[0].data = cpuData;
+            cpuChart.update('none');
+          }
+        }).catch(function() {});
+    }
   }
 
   // ── DEVICES ────────────────────────────────────────────────
@@ -2373,8 +2579,9 @@
       var docs = (res.data || []).map(function(d) {
         return Object.assign({ id: d.id, _host: d.hostname }, d);
       }).filter(function(d) {
-        // batch_skip = normal batch completion, bukan error sebenar
-        return (d.error_type || d.category || '') !== 'batch_skip';
+        // Skip alerts handled in Alerts page — exclude from VIBES Monitor
+        var _skipTypes = ['batch_skip', 'amount_unresolved', 'folder_not_found', 'row_skip_portal_lag'];
+        return _skipTypes.indexOf(d.error_type || d.category || '') === -1;
       });
       if (!docs.length) { box.innerHTML = '<div class="r-empty">No VIBES errors match</div>'; return; }
 
@@ -2727,27 +2934,51 @@
       var rows = sessions.map(function(g, idx) {
         var completedLogs = g.logs.filter(function(l){ return (l.status||'').toUpperCase() === 'COMPLETED'; });
         var failedLogs    = g.logs.filter(function(l){ var st=(l.status||'').toUpperCase(); return st==='FAILED'||st==='ERROR'; });
-        var totalDocs     = completedLogs.length + failedLogs.length;
         var sessionSt     = g.allProcessing ? 'PROCESSING' : (g.hasFail ? 'FAILED' : 'COMPLETED');
         var gKey          = 'g' + idx;
 
-        // Detail rows — one per file (non-PROCESSING entries)
-        var fileLogs = g.logs.filter(function(l){ return (l.status||'').toUpperCase() !== 'PROCESSING'; });
-        var fileRows = fileLogs.map(function(l) {
-          var st     = (l.status||'').toUpperCase();
-          var fname  = l.file_name || (l.job_info && l.job_info.file_name) || '—';
-          var errMsg = l.error_msg || (l.job_info && (l.job_info.error || l.job_info.state)) || '';
-          return '<tr>' +
-            '<td class="r-font-mono" style="white-space:nowrap">' + _fmtTime(l.timestamp) + '</td>' +
-            '<td class="r-cell-trunc" style="max-width:200px">' + esc(fname) + '</td>' +
-            '<td><span class="r-badge ' + logBadge(st) + '">' + st + '</span></td>' +
-            '<td class="r-cell-trunc">' + esc(errMsg) + '</td>' +
-            '<td>' + (l.duration != null ? parseFloat(l.duration).toFixed(2) + 's' : '—') + '</td>' +
-            '</tr>';
-        }).join('');
-        var detailHtml = fileRows
-          ? tableWrap(['Time','File','Status','Error / Detail','Duration'], fileRows)
-          : '<div class="r-empty" style="padding:8px">No file-level data</div>';
+        // For VIBES sessions, doc count comes from job_info.doc_count (1 log = 1 batch summary)
+        var isVibes   = (g.app || '').toUpperCase() === 'VIBES';
+        var totalDocs = isVibes && g.logs.length === 1 && g.logs[0].job_info && g.logs[0].job_info.doc_count
+          ? g.logs[0].job_info.doc_count
+          : completedLogs.length + failedLogs.length;
+
+        // Detail rows
+        var detailHtml;
+        if (isVibes && g.logs.length === 1 && g.logs[0].job_info) {
+          // VIBES: show individual tuntutan numbers from job_info
+          var tNos = g.logs[0].job_info.tuntutan_nos || [];
+          if (tNos.length) {
+            var vibesRows = tNos.map(function(tNo, i) {
+              return '<tr>' +
+                '<td style="color:var(--text-2);font-size:11px">' + (i + 1) + '</td>' +
+                '<td class="r-font-mono">' + esc(String(tNo)) + '</td>' +
+                '<td><span class="r-badge r-badge-ok">UPLOADED</span></td>' +
+                '</tr>';
+            }).join('');
+            detailHtml = tableWrap(['#', 'Tuntutan No', 'Status'], vibesRows);
+          } else {
+            detailHtml = '<div class="r-empty" style="padding:8px">No tuntutan data in this batch</div>';
+          }
+        } else {
+          // Default: one row per file log (non-PROCESSING entries)
+          var fileLogs = g.logs.filter(function(l){ return (l.status||'').toUpperCase() !== 'PROCESSING'; });
+          var fileRows = fileLogs.map(function(l) {
+            var st     = (l.status||'').toUpperCase();
+            var fname  = l.file_name || (l.job_info && l.job_info.file_name) || '—';
+            var errMsg = l.error_msg || (l.job_info && (l.job_info.error || l.job_info.state)) || '';
+            return '<tr>' +
+              '<td class="r-font-mono" style="white-space:nowrap">' + _fmtTime(l.timestamp) + '</td>' +
+              '<td class="r-cell-trunc" style="max-width:200px">' + esc(fname) + '</td>' +
+              '<td><span class="r-badge ' + logBadge(st) + '">' + st + '</span></td>' +
+              '<td class="r-cell-trunc">' + esc(errMsg) + '</td>' +
+              '<td>' + (l.duration != null ? parseFloat(l.duration).toFixed(2) + 's' : '—') + '</td>' +
+              '</tr>';
+          }).join('');
+          detailHtml = fileRows
+            ? tableWrap(['Time','File','Status','Error / Detail','Duration'], fileRows)
+            : '<div class="r-empty" style="padding:8px">No file-level data</div>';
+        }
 
         return '<tr>' +
           '<td>' + _fmtDate(g.start) + '</td>' +
@@ -2823,11 +3054,75 @@
             '<button class="r-btn-warn" onclick="rSendBroadcast()">Broadcast</button>' +
           '</div>' +
           '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--rc-border)">' +
-            '<h4 style="font-size:11px;font-weight:700;color:var(--rc-text-dim);letter-spacing:0.1em;margin:0 0 10px;text-transform:uppercase">📢 Login Screen Announcement</h4>' +
-            '<div class="r-cmd-row" style="margin-bottom:8px">' +
-              '<input class="r-filter-input" id="r-announce-inp" placeholder="Type announcement message to display on all machines login screen…">' +
+            '<h4 style="font-size:11px;font-weight:700;color:var(--rc-text-dim);letter-spacing:0.1em;margin:0 0 8px;text-transform:uppercase">📢 Login Screen Announcement</h4>' +
+            '<div class="r-ann-toolbar">' +
+              '<button class="r-ann-fmt" title="Bold"          onmousedown="event.preventDefault();rAnnFmt(\'bold\')"><b>B</b></button>' +
+              '<button class="r-ann-fmt" title="Italic"        onmousedown="event.preventDefault();rAnnFmt(\'italic\')"><i>I</i></button>' +
+              '<button class="r-ann-fmt" title="Underline"     onmousedown="event.preventDefault();rAnnFmt(\'underline\')"><u>U</u></button>' +
+              '<button class="r-ann-fmt" title="Strikethrough" onmousedown="event.preventDefault();rAnnFmt(\'strikeThrough\')"><s>S</s></button>' +
+              '<select class="r-ann-font-sel" id="r-ann-font-sel" onmousedown="rAnnSaveSelection()" onchange="rAnnFont(this.value)">' +
+                '<option value="">Font</option>' +
+                '<option value="Inter">Inter</option>' +
+                '<option value="Arial">Arial</option>' +
+                '<option value="Georgia">Georgia</option>' +
+                '<option value="Impact">Impact</option>' +
+                '<option value="Courier New">Terminal</option>' +
+              '</select>' +
+              '<div class="r-ann-sep"></div>' +
+              '<button class="r-ann-clr" title="White"  style="background:#ffffff" onmousedown="event.preventDefault();rAnnColor(\'#ffffff\')"></button>' +
+              '<button class="r-ann-clr" title="Cyan"   style="background:#00f0ff" onmousedown="event.preventDefault();rAnnColor(\'#00f0ff\')"></button>' +
+              '<button class="r-ann-clr" title="Green"  style="background:#39ff14" onmousedown="event.preventDefault();rAnnColor(\'#39ff14\')"></button>' +
+              '<button class="r-ann-clr" title="Red"    style="background:#ff003c" onmousedown="event.preventDefault();rAnnColor(\'#ff003c\')"></button>' +
+              '<button class="r-ann-clr" title="Amber"  style="background:#f59e0b" onmousedown="event.preventDefault();rAnnColor(\'#f59e0b\')"></button>' +
+              '<button class="r-ann-clr" title="Purple" style="background:#b200ff" onmousedown="event.preventDefault();rAnnColor(\'#b200ff\')"></button>' +
+              '<button class="r-ann-clr" title="Pink"   style="background:#ff00aa" onmousedown="event.preventDefault();rAnnColor(\'#ff00aa\')"></button>' +
+              '<div class="r-ann-sep"></div>' +
+              '<button class="r-ann-fmt" title="Emoji" onmousedown="event.preventDefault();rAnnToggleEmoji()">😀</button>' +
             '</div>' +
-            '<div class="r-cmd-row" style="align-items:center">' +
+            '<div id="r-announce-inp" class="r-filter-input r-ann-editor" contenteditable="true" data-placeholder="Type announcement message to display on all machines login screen…"></div>' +
+            '<div id="r-ann-emoji-picker" class="r-ann-emoji-picker">' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🚨\')">🚨</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'⚠️\')">⚠️</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🔴\')">🔴</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🟡\')">🟡</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🟢\')">🟢</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'⛔\')">⛔</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'✅\')">✅</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'❌\')">❌</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'💀\')">💀</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'☠️\')">☠️</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'👾\')">👾</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🤖\')">🤖</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🕵️\')">🕵️</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🔐\')">🔐</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🛡️\')">🛡️</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🔑\')">🔑</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'💻\')">💻</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🖥️\')">🖥️</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'📡\')">📡</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'📟\')">📟</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'📲\')">📲</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'💾\')">💾</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🖨️\')">🖨️</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'⌨️\')">⌨️</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'⚡\')">⚡</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🔥\')">🔥</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🎯\')">🎯</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🚀\')">🚀</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🔧\')">🔧</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'⚙️\')">⚙️</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🔮\')">🔮</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🌐\')">🌐</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'📊\')">📊</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'📈\')">📈</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🧬\')">🧬</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🧠\')">🧠</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🔎\')">🔎</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🗜️\')">🗜️</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🦾\')">🦾</button>' +
+              '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'👁️\')">👁️</button>' +
+            '</div>' +
+            '<div class="r-cmd-row" style="align-items:center;margin-top:8px">' +
               '<span style="font-size:11px;font-weight:600;color:var(--rc-text-dim);white-space:nowrap;flex-shrink:0">Duration (hours)</span>' +
               '<input class="r-filter-input" id="r-announce-hours" type="number" min="1" max="720" value="24" style="flex:0 0 70px;text-align:center">' +
               '<button class="r-btn-primary" onclick="rSendAnnouncement()">Announce</button>' +
@@ -2921,11 +3216,57 @@
     }).catch(function(err) { rToast('Error: ' + err.message, 'error'); });
   };
 
+  // ── ANNOUNCEMENT RICH EDITOR HELPERS ────────────────────────
+  window.rAnnFmt = function(cmd) {
+    document.execCommand(cmd, false, null);
+  };
+  window.rAnnColor = function(color) {
+    document.execCommand('foreColor', false, color);
+  };
+  // Save selection before font dropdown steals focus
+  window.rAnnSaveSelection = function() {
+    var sel = window.getSelection && window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      window._annSavedRange = sel.getRangeAt(0).cloneRange();
+    }
+  };
+  window.rAnnFont = function(fontName) {
+    if (!fontName) return;
+    var ed = $r('r-announce-inp');
+    if (!ed) return;
+    ed.focus();
+    // Restore selection that was lost when dropdown opened
+    if (window._annSavedRange) {
+      var sel = window.getSelection();
+      if (sel) { sel.removeAllRanges(); sel.addRange(window._annSavedRange); }
+      window._annSavedRange = null;
+    }
+    document.execCommand('fontName', false, fontName);
+    // Reset dropdown back to placeholder
+    var fsel = $r('r-ann-font-sel');
+    if (fsel) fsel.selectedIndex = 0;
+  };
+  window.rAnnToggleEmoji = function() {
+    var p = $r('r-ann-emoji-picker');
+    if (!p) return;
+    p.style.display = p.style.display === 'flex' ? 'none' : 'flex';
+  };
+  window.rAnnEmoji = function(emoji) {
+    var ed = $r('r-announce-inp');
+    if (!ed) return;
+    ed.focus();
+    document.execCommand('insertText', false, emoji);
+    var p = $r('r-ann-emoji-picker');
+    if (p) p.style.display = 'none';
+  };
+
   // ── ANNOUNCEMENT ────────────────────────────────────────────
   window.rSendAnnouncement = function () {
     if (!_canWrite()) { rToast('Read-only — request write access from Super Admin', 'warn'); return; }
-    var message = ($r('r-announce-inp') || {}).value || '';
-    if (!message.trim()) { rToast('Enter an announcement message', 'warn'); return; }
+    var ed = $r('r-announce-inp');
+    var message   = ed ? ed.innerHTML : '';
+    var textCheck = ed ? (ed.textContent || ed.innerText || '').trim() : '';
+    if (!textCheck) { rToast('Enter an announcement message', 'warn'); return; }
     if (!RS.supa) { rToast('Supabase not ready', 'error'); return; }
     var hoursEl = $r('r-announce-hours');
     var hours   = hoursEl ? parseInt(hoursEl.value, 10) : 24;
@@ -2934,14 +3275,13 @@
     var now  = new Date();
     var exp  = new Date(now.getTime() + hours * 60 * 60 * 1000);
     RS.supa.from('announcements').insert({
-      message:      message.trim(),
+      message:      message,
       broadcast_at: now.toISOString(),
       expires_at:   exp.toISOString(),
       broadcast_by: user ? user.email : 'admin'
     }).then(function () {
       rToast('📢 Announcement sent — active for ' + hours + ' hour(s)', 'success');
-      var inp = $r('r-announce-inp');
-      if (inp) inp.value = '';
+      if (ed) ed.innerHTML = '';
     }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
   };
 
@@ -2984,6 +3324,13 @@
         ' <button class="r-btn-sm" onclick="rNav(\'r-vibes\')">Open VIBES Monitor →</button></div></div>';
     }
 
+    // ── VIBES Skipped Docs section ──
+    html += '<div class="r-alert-section">' +
+      '<div class="r-alert-section-title warn"><i class="fa-solid fa-file-circle-xmark"></i> VIBES Skipped Docs ' +
+        '(<span id="vs-count">—</span> unresolved)</div>' +
+      '<div id="vs-results"><div class="r-loading"><span class="r-spin"></span> Loading…</div></div>' +
+    '</div>';
+
     // ── App errors section (loaded separately via rLoadAppErrors) ──
     html += '<div class="r-alert-section">' +
       '<div class="r-alert-section-title err"><i class="fa-solid fa-circle-exclamation"></i> App Errors — All 7 Apps ' +
@@ -2993,7 +3340,110 @@
 
     html += '</div>'; // close r-panel
     view.innerHTML = html;
+
+    // Load VIBES skipped docs
+    _loadVibesSkipped();
   }
+
+  // Metadata for each skip category
+  var _SKIP_META = {
+    amount_unresolved: {
+      label: 'Amount Unresolved',
+      faultColor: 'var(--neon-amber)',
+      badge: 'r-badge-warn',
+      cause: 'Cause: manual entry mismatch. No action required from system. Clear when acknowledged.'
+    },
+    folder_not_found: {
+      label: 'Unmatch',
+      faultColor: 'var(--neon-amber)',
+      badge: 'r-badge-warn',
+      cause: 'Cause: local storage folder missing or DO mismatch. Verify folder exists in scanner base. No system action required.'
+    },
+    row_skip_portal_lag: {
+      label: 'Portal Unresponsive',
+      faultColor: 'var(--neon-red)',
+      badge: 'r-badge-err',
+      cause: 'Cause: portal page lag — bot could not click Kemaskini Invois after max retries. Re-run bot to retry these rows.'
+    },
+    batch_skip: {
+      label: 'Batch Skip',
+      faultColor: 'var(--neon-amber)',
+      badge: 'r-badge-warn',
+      cause: 'Cause: tuntutan was skipped during batch processing. Verify DO details in VIBES portal.'
+    }
+  };
+
+  function _loadVibesSkipped() {
+    if (!RS.supa) return;
+    var box = document.getElementById('vs-results');
+    var cnt = document.getElementById('vs-count');
+    if (!box) return;
+    RS.supa.from('vibes_errors')
+      .select('*')
+      .in('error_type', ['amount_unresolved', 'folder_not_found', 'row_skip_portal_lag', 'batch_skip'])
+      .eq('resolved', false)
+      .order('timestamp', { ascending: false })
+      .limit(100)
+      .then(function(res) {
+        var rows = res.data || [];
+        if (cnt) cnt.textContent = rows.length;
+        if (!rows.length) {
+          box.innerHTML = '<div class="r-empty">Tiada doc yang di-skip. Semua tuntutan OK.</div>';
+          return;
+        }
+        var html = rows.map(function(e) {
+          var meta    = _SKIP_META[e.error_type] || _SKIP_META['batch_skip'];
+          var ts      = e.timestamp ? new Date(e.timestamp).toLocaleString('ms-MY') : '—';
+          var machine = e.hostname || '—';
+          var msg     = e.message  || '';
+
+          // Parse "INV {tuntutan}-{DO}-... [{name}] — {description}"
+          // Extract tuntutan and DO number, and description after "—"
+          var tuntutan = '—', doNum = '—', desc = msg;
+          var parsed = msg.match(/^INV\s+([A-Z0-9]+)-(\d+)-[^\s]+(?:\s+\[[^\]]*\])?\s+[—\-]+\s*([\s\S]*)/);
+          if (parsed) {
+            tuntutan = parsed[1];
+            doNum    = parsed[2];
+            desc     = parsed[3] || '';
+          }
+
+          var detId = 'vskip-det-' + String(e.id).replace(/[^a-z0-9]/gi, '_');
+          return '<div class="r-alert-item" style="border-left:3px solid ' + meta.faultColor + ';padding:8px 14px">' +
+            // Compact header row (always visible)
+            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+              '<span class="r-badge ' + meta.badge + '" style="font-size:10px">' + esc(meta.label) + '</span>' +
+              '<span class="r-muted-sm"><i class="fa-solid fa-server" style="font-size:9px"></i> ' + esc(machine) + '</span>' +
+              '<span class="r-muted-sm">' + esc(ts) + '</span>' +
+              '<button class="r-btn-sm" style="margin-left:auto" onclick="var d=document.getElementById(\'' + detId + '\');d.style.display=d.style.display===\'none\'?\'\':\'none\'">Details</button>' +
+              '<button class="r-btn-sm" onclick="rResolveSkip(\'' + esc(String(e.id)) + '\',this)">✓ Clear</button>' +
+            '</div>' +
+            // Detail block (hidden by default)
+            '<div id="' + detId + '" style="display:none;margin-top:8px;font-size:11px;line-height:1.7">' +
+              '<div>- <span class="r-font-mono">' + esc(tuntutan) + ' | ' + esc(doNum) + ' |</span></div>' +
+              '<div style="color:var(--text-2)">- ' + esc(desc) + ' ' + esc(meta.cause) + '</div>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+        box.innerHTML = html;
+      }).catch(function(err) {
+        if (box) box.innerHTML = '<div class="r-empty">Gagal load: ' + esc(err.message) + '</div>';
+      });
+  }
+
+  window.rResolveSkip = function(id, btn) {
+    if (!RS.supa || !id) return;
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    RS.supa.from('vibes_errors')
+      .update({ resolved: true, fix_status: 'fixed' })
+      .eq('id', id)
+      .then(function() {
+        rToast('Marked resolved', 'ok');
+        _loadVibesSkipped();
+      }).catch(function(e) {
+        rToast('Failed: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Mark Resolved'; }
+      });
+  };
 
   // Helper: format 48h remaining countdown
   function _fmt48h(ts) {
