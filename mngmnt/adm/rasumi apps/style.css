@@ -3,6 +3,16 @@
    Scoped entirely under #rasumi-container
    ========================================================== */
 
+/* ── Display Settings Panel ──────────────────────────────── */
+#r-display-panel .r-bg-opt:hover {
+  border-color: rgba(0,240,255,0.4) !important;
+  transform: scale(1.05);
+  transition: all 0.15s;
+}
+#r-display-panel button:hover {
+  opacity: 0.85;
+}
+
 /* ── LIVE indicator blink animation (desktop + mobile) ────── */
 @keyframes r-blink-pulse {
   0%, 100% { opacity: 1; }
@@ -63,7 +73,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: url('../assets/background.jpg') center/cover no-repeat;
+  background: var(--rc-bg-url, url('../assets/background.jpg') center/cover no-repeat);
   z-index: 0;
   pointer-events: none;
 }
@@ -72,7 +82,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(5, 8, 15, 0.78);
+  background: rgba(5, 8, 15, 0.55);
   z-index: 1;
   pointer-events: none;
 }
@@ -331,9 +341,10 @@
 #rasumi-container .r-nodes-panel {
   width: 240px;
   min-width: 240px;
-  background: rgba(6, 10, 18, 0.82);
-  border-right: 1px solid var(--rc-border);
-  backdrop-filter: blur(20px);
+  background: rgba(6, 10, 18, 0.35);
+  border-right: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   display: flex;
   flex-direction: column;
   overflow: hidden;

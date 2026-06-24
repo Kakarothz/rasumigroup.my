@@ -105,6 +105,36 @@
     if (o) o.classList.add('hidden');
   };
 
+  // ── Custom prompt dialog — ganti window.prompt() ───────────────
+  // rPrompt({ title, label, placeholder, icon, confirmText, onConfirm, onCancel })
+  // onConfirm(value) dipanggil dengan nilai input; onCancel() bila cancel/escape.
+  window.rPrompt = function(opts) {
+    var ov    = $r('r-prompt-overlay');
+    var inp   = $r('r-prompt-input');
+    var title = $r('r-prompt-title');
+    var label = $r('r-prompt-label');
+    var icon  = $r('r-prompt-icon');
+    var btn   = $r('r-prompt-confirm-btn');
+    if (!ov || !inp) return;
+    if (title) title.textContent  = opts.title       || '';
+    if (label) label.textContent  = opts.label       || 'Note (optional)';
+    if (icon)  icon.innerHTML     = opts.icon        ? '<i class="fa-solid ' + opts.icon + '"></i>' : '';
+    if (btn)   btn.textContent    = opts.confirmText || 'Confirm';
+    inp.placeholder = opts.placeholder || '';
+    inp.value = '';
+    ov.style.display = 'flex';
+    setTimeout(function(){ inp.focus(); }, 80);
+
+    window._rPromptConfirm = function() {
+      ov.style.display = 'none';
+      if (opts.onConfirm) opts.onConfirm(inp.value.trim());
+    };
+    window._rPromptCancel = function() {
+      ov.style.display = 'none';
+      if (opts.onCancel) opts.onCancel();
+    };
+  };
+
   // Cache for detail modal lookups (populated by rLoadAppErrors)
   var _appErrorCache = {};
 
@@ -243,6 +273,9 @@
     el.id = 'rasumi-container';
     el.className = 'hidden';
     el.innerHTML = [
+      // ── BACKGROUND LAYER (controlled via JS for dynamic bg switching) ──
+      '<div id="r-bg-layer" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:url(\'../assets/background.jpg\') center/cover no-repeat;transition:background 0.4s ease"></div>',
+
       // ── TOP NAVIGATION (Identical to VIMS) ──
       '<nav class="top-nav" style="z-index: 9999;">',
       '  <div class="nav-brand">',
@@ -265,7 +298,7 @@
       '  <div class="nav-actions">',
       '    <button class="icon-btn notif-btn" onclick="var p=document.getElementById(\'r-nav-dropdown\'); if(p) p.classList.add(\'hidden\'); document.getElementById(\'notif-dropdown\').classList.toggle(\'hidden\'); event.stopPropagation();"><i class="fa-regular fa-bell"></i><span id="r-nb-alerts" class="badge hidden">0</span></button>',
       '    <button class="icon-btn"><i class="fa-regular fa-circle-question"></i></button>',
-      '    <button class="icon-btn"><i class="fa-solid fa-gear"></i></button>',
+      '    <button class="icon-btn" id="r-gear-btn" onclick="window.rToggleDisplayPanel(event)"><i class="fa-solid fa-gear"></i></button>',
       '    <div class="user-profile" id="r-profile-trigger" style="cursor:pointer" onclick="var n=document.getElementById(\'notif-dropdown\'); if(n) n.classList.add(\'hidden\'); document.getElementById(\'r-nav-dropdown\').classList.toggle(\'hidden\'); event.stopPropagation();">',
       '      <img src="https://ui-avatars.com/api/?name=Super+Admin&background=8b5cf6&color=fff" alt="User">',
       '      <div class="user-info">',
@@ -329,6 +362,25 @@
       '  <div class="r-main-wrap">',
       '    <div class="r-view-area" id="r-view-area">',
       '      <div class="r-loading"><span class="r-spin"></span> Connecting to rasumi-apps…</div>',
+      '    </div>',
+      '  </div>',
+      '</div>',
+
+      // ── CUSTOM PROMPT DIALOG ──
+      '<div id="r-prompt-overlay" style="display:none;position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);align-items:center;justify-content:center;">',
+      '  <div id="r-prompt-box" style="background:rgba(8,12,19,0.98);border:1px solid rgba(0,240,255,0.25);border-radius:12px;width:420px;max-width:94vw;box-shadow:0 0 40px rgba(0,240,255,0.08),0 24px 60px rgba(0,0,0,0.7);font-family:var(--rc-font);">',
+      '    <div style="padding:14px 18px 12px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:10px;">',
+      '      <span id="r-prompt-icon" style="color:var(--rc-cyan,#06b6d4);font-size:14px"></span>',
+      '      <span id="r-prompt-title" style="font-size:13px;font-weight:700;color:var(--rc-text,#e2e8f0);letter-spacing:0.05em;flex:1"></span>',
+      '      <button onclick="window._rPromptCancel()" style="background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:15px;padding:2px 4px;line-height:1;transition:color 0.12s" onmouseover="this.style.color=\'#ef4444\'" onmouseout="this.style.color=\'rgba(255,255,255,0.3)\'"><i class="fa-solid fa-xmark"></i></button>',
+      '    </div>',
+      '    <div style="padding:16px 18px 14px;">',
+      '      <label id="r-prompt-label" style="display:block;font-size:11px;color:rgba(255,255,255,0.45);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px"></label>',
+      '      <input id="r-prompt-input" type="text" autocomplete="off" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.04);border:1px solid rgba(0,240,255,0.18);border-radius:6px;color:#e2e8f0;padding:9px 12px;font-size:13px;font-family:var(--rc-font);outline:none;transition:border-color 0.15s,box-shadow 0.15s" onfocus="this.style.borderColor=\'rgba(0,240,255,0.5)\';this.style.boxShadow=\'0 0 0 3px rgba(0,240,255,0.08)\'" onblur="this.style.borderColor=\'rgba(0,240,255,0.18)\';this.style.boxShadow=\'none\'" onkeydown="if(event.key===\'Enter\')window._rPromptConfirm();if(event.key===\'Escape\')window._rPromptCancel()" placeholder="" />',
+      '    </div>',
+      '    <div style="padding:10px 18px 16px;display:flex;gap:8px;justify-content:flex-end;">',
+      '      <button onclick="window._rPromptCancel()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:6px;padding:7px 18px;font-size:12px;font-family:var(--rc-font);cursor:pointer;transition:background 0.12s" onmouseover="this.style.background=\'rgba(255,255,255,0.08)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.04)\'">Cancel</button>',
+      '      <button id="r-prompt-confirm-btn" onclick="window._rPromptConfirm()" style="background:rgba(0,240,255,0.1);border:1px solid rgba(0,240,255,0.35);color:var(--rc-cyan,#06b6d4);border-radius:6px;padding:7px 20px;font-size:12px;font-weight:700;font-family:var(--rc-font);cursor:pointer;letter-spacing:0.04em;transition:background 0.12s,box-shadow 0.12s" onmouseover="this.style.background=\'rgba(0,240,255,0.2)\';this.style.boxShadow=\'0 0 12px rgba(0,240,255,0.15)\'" onmouseout="this.style.background=\'rgba(0,240,255,0.1)\';this.style.boxShadow=\'none\'">Confirm</button>',
       '    </div>',
       '  </div>',
       '</div>',
@@ -427,6 +479,26 @@
       '      </div>',
       '    </div>',
 
+      '    <!-- DISPLAY SETTINGS PANEL (superadmin only) -->',
+      '    <div id="r-display-panel" class="hidden" style="position:fixed;top:62px;right:116px;z-index:10002;background:rgba(8,12,19,0.97);border:1px solid rgba(0,240,255,0.18);border-radius:10px;padding:18px;width:230px;backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,0.6);">',
+      '      <div style="font-size:10px;color:#6b7a8f;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px"><i class="fa-solid fa-display" style="margin-right:5px"></i>Display Settings</div>',
+      '      <div style="font-size:11px;color:#9ca3af;margin-bottom:8px">Mode</div>',
+      '      <div style="display:flex;gap:8px;margin-bottom:16px">',
+      '        <button id="r-mode-dark-btn" onclick="window.rSetTheme(\'dark\')" style="flex:1;padding:7px 0;border-radius:6px;border:1px solid rgba(0,240,255,0.35);background:rgba(0,240,255,0.1);color:#00f0ff;font-size:11px;cursor:pointer;transition:all 0.15s"><i class="fa-solid fa-moon"></i> Dark</button>',
+      '        <button id="r-mode-light-btn" onclick="window.rSetTheme(\'light\')" style="flex:1;padding:7px 0;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:none;color:#6b7a8f;font-size:11px;cursor:pointer;transition:all 0.15s"><i class="fa-solid fa-sun"></i> Light</button>',
+      '      </div>',
+      '      <div style="font-size:11px;color:#9ca3af;margin-bottom:8px">Background</div>',
+      '      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">',
+      '        <div class="r-bg-opt" data-bg="photo" onclick="window.rSetBackground(\'photo\')" title="Default Photo" style="height:40px;border-radius:6px;border:2px solid rgba(0,240,255,0.5);background:url(\'../assets/background.jpg\') center/cover;cursor:pointer"></div>',
+      '        <div class="r-bg-opt" data-bg="dark" onclick="window.rSetBackground(\'dark\')" title="Pure Dark" style="height:40px;border-radius:6px;border:2px solid transparent;background:#080c13;cursor:pointer"></div>',
+      '        <div class="r-bg-opt" data-bg="navy" onclick="window.rSetBackground(\'navy\')" title="Navy" style="height:40px;border-radius:6px;border:2px solid transparent;background:linear-gradient(135deg,#060d1a,#0d1f35);cursor:pointer"></div>',
+      '        <div class="r-bg-opt" data-bg="purple" onclick="window.rSetBackground(\'purple\')" title="Purple" style="height:40px;border-radius:6px;border:2px solid transparent;background:linear-gradient(135deg,#0b0614,#17082e);cursor:pointer"></div>',
+      '        <div class="r-bg-opt" data-bg="forest" onclick="window.rSetBackground(\'forest\')" title="Forest" style="height:40px;border-radius:6px;border:2px solid transparent;background:linear-gradient(135deg,#040f0a,#0a2016);cursor:pointer"></div>',
+      '        <div class="r-bg-opt" data-bg="ember" onclick="window.rSetBackground(\'ember\')" title="Ember" style="height:40px;border-radius:6px;border:2px solid transparent;background:linear-gradient(135deg,#110608,#200d0a);cursor:pointer"></div>',
+      '        <div class="r-bg-opt" data-bg="custom" onclick="window.rPickCustomBg()" title="Custom Photo" style="height:40px;border-radius:6px;border:2px dashed rgba(255,255,255,0.2);background:rgba(255,255,255,0.04) center/cover no-repeat;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6b7a8f;font-size:13px;gap:4px"><i class="fa-solid fa-folder-open"></i></div>',
+      '      </div>',
+      '    </div>',
+
       '    <!-- MANAGE ADMINS MODAL -->',
       '    <div id="r-admins-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
       '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:500px;max-height:78vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
@@ -481,13 +553,19 @@
       '<div id="r-toasts" class="r-toasts"></div>'
     ].join('\n');
     document.body.appendChild(el);
+    _restoreDisplayPrefs();
 
     // Close all nav dropdowns when clicking anywhere outside
-    document.addEventListener('click', function() {
+    document.addEventListener('click', function(ev) {
       var d = document.getElementById('r-nav-dropdown');
       var n = document.getElementById('notif-dropdown');
+      var p = document.getElementById('r-display-panel');
+      var g = document.getElementById('r-gear-btn');
       if (d && !d.classList.contains('hidden')) d.classList.add('hidden');
       if (n && !n.classList.contains('hidden')) n.classList.add('hidden');
+      if (p && !p.classList.contains('hidden') && g && !g.contains(ev.target) && !p.contains(ev.target)) {
+        p.classList.add('hidden');
+      }
     });
   }
 
@@ -876,6 +954,7 @@
                 RS.canWrite = true;
                 _applyRoleUI();
                 _syncProfileAvatar(user.email);
+                _loadDisplayPrefsFromSupabase();
                 // Update last_login for super admin
                 RS.supa.from('admin_users').update({
                     last_login:  new Date().toISOString(),
@@ -906,6 +985,7 @@
                     RS.userNickname = res.data.nickname || '';
                     _applyRoleUI();
                     _syncProfileAvatar(user.email);
+                    _loadDisplayPrefsFromSupabase();
                     // Update last_login for this admin
                     RS.supa.from('admin_users').update({
                         last_login:  new Date().toISOString(),
@@ -1136,12 +1216,14 @@
         data.forEach(function(d) {
           var gid = d.job_group_id ||
             ((d.machine||'') + '|' + (d.app_name||'') + '|' + (d.branch_id||'') + '|' + (d.timestamp||'').substring(0, 13));
-          if (!groups[gid]) groups[gid] = { hasFail: false, hasNonProc: false };
+          if (!groups[gid]) groups[gid] = { hasFail: false, hasNonProc: false, hasCompFail: false };
           var st = (d.status||'').toUpperCase();
-          if (st === 'FAILED' || st === 'ERROR') groups[gid].hasFail = true;
+          if (st === 'FAILED' || st === 'ERROR') { groups[gid].hasFail = true; groups[gid].hasCompFail = true; }
+          if (st === 'COMPLETED') groups[gid].hasCompFail = true;
           if (st !== 'PROCESSING') groups[gid].hasNonProc = true;
         });
-        var sessions = Object.values(groups).filter(function(s){ return s.hasNonProc; });
+        // Exclude phantom sessions: hasNonProc but zero actual COMPLETED/FAILED docs
+        var sessions = Object.values(groups).filter(function(s){ return s.hasNonProc && s.hasCompFail; });
         RS.runsToday   = sessions.length;
         RS.failedToday = sessions.filter(function(s){ return s.hasFail; }).length;
         try {
@@ -1177,13 +1259,15 @@
         todayData.forEach(function(d) {
           var gid = d.job_group_id ||
             ((d.machine||'') + '|' + (d.app_name||'') + '|' + (d.branch_id||'') + '|' + (d.timestamp||'').substring(0, 13));
-          if (!sessionMap[gid]) sessionMap[gid] = { hasFail: false, hasNonProc: false };
+          if (!sessionMap[gid]) sessionMap[gid] = { hasFail: false, hasNonProc: false, hasCompFail: false };
           var st = (d.status||'').toUpperCase();
-          if (st === 'FAILED' || st === 'ERROR') sessionMap[gid].hasFail = true;
+          if (st === 'FAILED' || st === 'ERROR') { sessionMap[gid].hasFail = true; sessionMap[gid].hasCompFail = true; }
+          if (st === 'COMPLETED') sessionMap[gid].hasCompFail = true;
           if (st !== 'PROCESSING') sessionMap[gid].hasNonProc = true;
         });
         var allSessions = Object.values(sessionMap);
-        var todayCnt = allSessions.filter(function(s){ return s.hasNonProc; }).length;
+        // Exclude phantom sessions: hasNonProc but zero actual COMPLETED/FAILED docs
+        var todayCnt = allSessions.filter(function(s){ return s.hasNonProc && s.hasCompFail; }).length;
         var errCnt   = allSessions.filter(function(s){ return s.hasFail; }).length;
         RS.appStats[app.key] = { today: todayCnt, errors: errCnt, last_ts: lastTs };
         pending--;
@@ -1284,7 +1368,7 @@
         metricCard('green',  on,         'TOTAL ACTIVE NODES', 'fa-circle-check',       'Online now',              'r-devices') +
         metricCard('danger', off,        'OFFLINE NODES',      'fa-circle-xmark',       off > 0 ? off + ' need attention' : 'All clear', 'r-devices') +
         metricCard('info',   runsToday,  'RUNS TODAY',         'fa-play-circle',        'Across all apps',         'r-logs') +
-        metricCard('warn',   errToday,   'FAILED TODAY',       'fa-bug',                'Check log explorer',      'r-logs') +
+        metricCard('warn',   errToday,   'FAILED TODAY',       'fa-bug',                'Check log explorer',      null, 'window.rOpenFailedLogs()') +
         metricCard('purple', RS.unresolvedVibes, 'VIBES ERRORS','fa-triangle-exclamation', 'Unresolved',          'r-vibes') +
         metricCard('blue',   devs.length,'MACHINES TOTAL',     'fa-server',             'Last sync: ' + lastSync, 'r-devices') +
       '</div>';
@@ -1369,10 +1453,17 @@
     startLiveStream();
   }
 
+  // Navigate to Log Explorer with a pre-set status filter (no flash — flag set before render)
+  window.rOpenFailedLogs = function() {
+    RS._pendingLogFilter = 'FAILED';
+    rNav('r-logs');
+  };
+
   // ── Metric card builder ────────────────────────────────────
-  function metricCard(cls, val, lbl, icon, sub, route) {
-    var click  = route ? ' onclick="rNav(\'' + route + '\')"' : '';
-    var cursor = route ? ' r-metric-card-link' : '';
+  function metricCard(cls, val, lbl, icon, sub, route, customOnclick) {
+    var click  = customOnclick ? ' onclick="' + customOnclick + '"'
+               : route ? ' onclick="rNav(\'' + route + '\')"' : '';
+    var cursor = (route || customOnclick) ? ' r-metric-card-link' : '';
     return '<div class="r-metric-card ' + cls + cursor + '"' + click + '>' +
       '<div class="r-metric-label">' + lbl + '</div>' +
       '<div class="r-metric-val">' + val + '</div>' +
@@ -2829,6 +2920,8 @@
     var appOpts = RASUMI_APPS.map(function(a){
       return a.firebaseNames.map(function(n){ return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
     }).join('');
+    var now = new Date();
+    var todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
     var view = $r('r-view-area');
     if (!view) return;
     view.innerHTML =
@@ -2836,6 +2929,7 @@
         '<div class="r-panel-hdr">' +
           '<h3><i class="fa-solid fa-scroll"></i> Log Explorer</h3>' +
           '<div class="r-filter-bar">' +
+            '<input type="date" class="r-filter-sel" id="r-log-date" value="' + todayStr + '" title="Filter by date (clear to show all)">' +
             '<select class="r-filter-sel" id="r-log-dev"><option value="">All Machines</option>' + devOpts + '</select>' +
             '<select class="r-filter-sel" id="r-log-app"><option value="">All Apps</option>' + appOpts + '</select>' +
             '<select class="r-filter-sel" id="r-log-stat">' +
@@ -2843,11 +2937,20 @@
               '<option value="COMPLETED">Completed</option>' +
               '<option value="FAILED">Failed</option>' +
             '</select>' +
-            '<button class="r-btn-sm" onclick="rLoadLogs()">Search</button>' +
+            '<button class="r-btn-sm" onclick="window.rSearchAllLogs()">Search</button>' +
           '</div>' +
         '</div>' +
-        '<div id="r-log-results"><div class="r-empty">Select filter and click Search</div></div>' +
+        '<div id="r-log-results"><div class="r-empty">Loading today\'s logs…</div></div>' +
       '</div>';
+    setTimeout(function(){
+      // Apply any pending filter set before navigation (e.g. from dashboard cards)
+      if (RS._pendingLogFilter) {
+        var sel = document.getElementById('r-log-stat');
+        if (sel) sel.value = RS._pendingLogFilter;
+        RS._pendingLogFilter = null;
+      }
+      window.rLoadLogs();
+    }, 100);
   }
 
   function _fmtDate(ts) {
@@ -2876,7 +2979,352 @@
     if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
   };
 
+  // ── Enterprise error normalizer ───────────────────────────────
+  // Maps raw Python exceptions → professional error profile
+  // { code, title, description, causes[], type, action, icon, color }
+  function _normalizeError(errMsg) {
+    var m = (errMsg || '').toLowerCase();
+
+    if (m.indexOf('workercrash') >= 0 || m.indexOf('process pool') >= 0 ||
+        m.indexOf('terminated abruptly') >= 0 || m.indexOf('killed') >= 0) {
+      return { code:'WRK-5001', title:'EXECUTION FAILURE',
+        description:'Worker process terminated unexpectedly while executing task.',
+        causes:['Application crash','Insufficient system memory','Forced termination by OS','Unhandled exception in worker'],
+        type:'system', action:'acknowledge', icon:'fa-server', color:'#94a3b8' };
+    }
+    if (m.indexOf('out of memory') >= 0 || m.indexOf('oom') >= 0 ||
+        (m.indexOf('memory') >= 0 && m.indexOf('error') >= 0)) {
+      return { code:'SYS-3001', title:'MEMORY EXHAUSTION',
+        description:'System exhausted available memory during task execution.',
+        causes:['Large file processing','Insufficient RAM on node','Too many concurrent workers','Memory leak in process'],
+        type:'system', action:'acknowledge', icon:'fa-memory', color:'#94a3b8' };
+    }
+    if (m.indexOf('disk') >= 0 || m.indexOf('no space') >= 0 || m.indexOf('storage') >= 0) {
+      return { code:'SYS-3002', title:'STORAGE FAILURE',
+        description:'Insufficient disk space available for operation.',
+        causes:['Target disk is full','Output directory quota exceeded','Temp file accumulation'],
+        type:'resource', action:'restart', icon:'fa-hard-drive', color:'#f59e0b' };
+    }
+    if (m.indexOf('network') >= 0 || m.indexOf('connection') >= 0 || m.indexOf('timeout') >= 0 ||
+        m.indexOf('socket') >= 0 || m.indexOf('offline') >= 0 || m.indexOf('unreachable') >= 0) {
+      return { code:'NET-4001', title:'CONNECTIVITY FAILURE',
+        description:'Network connection lost or timed out during operation.',
+        causes:['Network instability','VPN disconnected','Remote server unreachable','Firewall blocking connection'],
+        type:'network', action:'restart', icon:'fa-wifi', color:'#f59e0b' };
+    }
+    if (m.indexOf('permission') >= 0 || m.indexOf('access denied') >= 0 ||
+        m.indexOf('unauthorized') >= 0 || m.indexOf('forbidden') >= 0) {
+      return { code:'SEC-2001', title:'ACCESS DENIED',
+        description:'Operation blocked due to insufficient permissions.',
+        causes:['File or folder permissions restricted','UAC restrictions on Windows','Antivirus blocking write access','Network share access denied'],
+        type:'config', action:'config', icon:'fa-lock', color:'#a855f7' };
+    }
+    if (m.indexOf('not found') >= 0 || m.indexOf('no such file') >= 0 ||
+        m.indexOf('filenotfound') >= 0 || m.indexOf('missing file') >= 0) {
+      return { code:'IO-1001', title:'FILE NOT FOUND',
+        description:'Target file could not be located at the specified path.',
+        causes:['File moved or deleted','Incorrect source path','Folder mapping changed','File locked by another process'],
+        type:'missing', action:'none', icon:'fa-file-circle-xmark', color:'#f59e0b' };
+    }
+    if (m.indexOf('segfault') >= 0 || m.indexOf('assertion') >= 0) {
+      return { code:'ENG-5002', title:'RUNTIME ERROR',
+        description:'Internal engine error encountered during processing.',
+        causes:['Software defect','Corrupted or malformed input file','Library compatibility issue','OS-level fault'],
+        type:'bug', action:'fix', icon:'fa-bug', color:'#ef4444' };
+    }
+    if (m.indexOf('typeerror') >= 0 || m.indexOf('attributeerror') >= 0 ||
+        m.indexOf('valueerror') >= 0 || m.indexOf('nameerror') >= 0) {
+      return { code:'ENG-5003', title:'CODE EXCEPTION',
+        description:'Unhandled exception raised in application logic.',
+        causes:['Software defect','Unexpected input format','Version mismatch','Data validation failure'],
+        type:'bug', action:'fix', icon:'fa-bug', color:'#ef4444' };
+    }
+    if (!errMsg) {
+      return { code:'ERR-0000', title:'UNKNOWN ERROR',
+        description:'An unspecified error occurred during processing.',
+        causes:['Unknown cause — review system logs'],
+        type:'unknown', action:'acknowledge', icon:'fa-circle-xmark', color:'#64748b' };
+    }
+    return { code:'ERR-9999', title:'PROCESSING ERROR',
+      description:'An unexpected error occurred during task execution.',
+      causes:['Unknown cause — review raw error details','Corrupted file','System instability'],
+      type:'unknown', action:'acknowledge', icon:'fa-circle-xmark', color:'#64748b' };
+  }
+  // Backwards-compat alias used by session banner counts
+  function _classifyErrType(errMsg) { return _normalizeError(errMsg); }
+
+  // Toggle expanded error detail block — called from onclick in log rows
+  window.rToggleErrDetail = function(id) {
+    var d = document.getElementById(id);
+    if (!d) return;
+    var open = d.style.display !== 'none';
+    d.style.display = open ? 'none' : 'block';
+    var btn = document.getElementById('erdbtn_' + id);
+    if (btn) btn.innerHTML = open
+      ? '<i class="fa-solid fa-chevron-down"></i> Details'
+      : '<i class="fa-solid fa-chevron-up"></i> Hide';
+  };
+
+  // Acknowledge a system/resource failure — admin has reviewed, punca sistem bukan kod
+  window.rAcknowledgeLog = function(logId, btn) {
+    if (!RS.supa || !logId || logId === 'undefined') { rToast('Log ID missing', 'warn'); return; }
+    if (!_canWrite()) { rToast('Read-only — request write access', 'warn'); return; }
+    rPrompt({
+      title: 'Acknowledge Failure',
+      icon:  'fa-eye',
+      label: 'Note (optional)',
+      placeholder: 'e.g. low memory, worker terminated by OS — user notified…',
+      confirmText: 'Acknowledge',
+      onCancel: function() {},
+      onConfirm: function(note) {
+        var user  = RS.currentUser;
+        var displayName = RS.userNickname || (user && user.email) || 'admin';
+        var email = (RS.userRole === 'superadmin' ? 'SUPER ADMIN ' : 'ADMIN ') + displayName;
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+        RS.supa.from('logs').update({
+          fix_status: 'acknowledged',
+          fixed_by:   email,
+          fixed_at:   new Date().toISOString(),
+          fix_note:   note || null
+        }).eq('id', logId).select('id').then(function(res) {
+          if (res.error) {
+            rToast('Update failed: ' + res.error.message, 'error');
+            console.error('[rAcknowledgeLog] Supabase error:', res.error);
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-eye"></i> Acknowledge'; }
+            return;
+          }
+          if (!res.data || !res.data.length) {
+            rToast('No rows updated — check Supabase RLS policy for logs table', 'warn');
+            console.warn('[rAcknowledgeLog] 0 rows affected for id:', logId);
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-eye"></i> Acknowledge'; }
+            return;
+          }
+          rToast('Acknowledged', 'success');
+          window.rLoadLogs();
+        }).catch(function(e) {
+          rToast('Update failed: ' + e.message, 'error');
+          console.error('[rAcknowledgeLog] catch:', e);
+          if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-eye"></i> Acknowledge'; }
+        });
+      }
+    });
+  };
+
+  // ── Checkbox multi-select for bulk acknowledge ─────────────────
+  window.rSelectAllFailed = function(gKey, checked) {
+    var chks = document.querySelectorAll('.r-fail-chk-' + gKey);
+    chks.forEach(function(c){ c.checked = checked; });
+    rUpdateFailSelection(gKey);
+  };
+
+  window.rUpdateFailSelection = function(gKey) {
+    var checked = document.querySelectorAll('.r-fail-chk-' + gKey + ':checked');
+    var btn     = document.getElementById('r-ack-sel-' + gKey);
+    var allChk  = document.getElementById('chk-all-' + gKey);
+    var total   = document.querySelectorAll('.r-fail-chk-' + gKey);
+    if (allChk) allChk.indeterminate = checked.length > 0 && checked.length < total.length;
+    if (allChk) allChk.checked = checked.length === total.length && total.length > 0;
+    if (btn) {
+      var n = checked.length;
+      btn.style.display = n > 0 ? 'inline-flex' : 'none';
+      btn.innerHTML = '<i class="fa-solid fa-eye" style="margin-right:5px"></i>Acknowledge Selected (' + n + ')';
+    }
+  };
+
+  window.rAcknowledgeSelected = function(gKey) {
+    if (!RS.supa) return;
+    if (!_canWrite()) { rToast('Read-only — request write access', 'warn'); return; }
+    var chks = document.querySelectorAll('.r-fail-chk-' + gKey + ':checked');
+    var ids  = Array.prototype.slice.call(chks).map(function(c){ return c.dataset.id; }).filter(Boolean);
+    if (!ids.length) { rToast('Nothing selected', 'warn'); return; }
+    rPrompt({
+      title: 'Acknowledge Selected (' + ids.length + ')',
+      icon: 'fa-eye',
+      label: 'Note (optional)',
+      placeholder: 'e.g. low memory, worker terminated by OS — user notified…',
+      confirmText: 'Acknowledge',
+      onCancel: function(){},
+      onConfirm: function(note) {
+        var user  = RS.currentUser;
+        var displayName = RS.userNickname || (user && user.email) || 'admin';
+        var email = (RS.userRole === 'superadmin' ? 'SUPER ADMIN ' : 'ADMIN ') + displayName;
+        RS.supa.from('logs').update({
+          fix_status: 'acknowledged',
+          fixed_by:   email,
+          fixed_at:   new Date().toISOString(),
+          fix_note:   note || null
+        }).in('id', ids).select('id').then(function(res) {
+          if (res.error) { rToast('Update failed: ' + res.error.message, 'error'); console.error('[rAcknowledgeSelected]', res.error); return; }
+          var n = (res.data || []).length;
+          if (!n) { rToast('No rows updated — check Supabase RLS policy for logs table', 'warn'); console.warn('[rAcknowledgeSelected] 0 rows affected, ids:', ids); return; }
+          rToast('Acknowledged ' + n + ' records', 'success');
+          window.rLoadLogs();
+        }).catch(function(e){ rToast('Update failed: ' + e.message, 'error'); console.error('[rAcknowledgeSelected]', e); });
+      }
+    });
+  };
+
+  // Acknowledge ALL system-type failures in a session at once
+  window.rAcknowledgeAll = function(gKey) {
+    if (!RS.supa) return;
+    if (!_canWrite()) { rToast('Read-only — request write access', 'warn'); return; }
+    var data = window._rFailedLogs && window._rFailedLogs[gKey];
+    if (!data || !data.logs || !data.logs.length) { rToast('No failed records', 'warn'); return; }
+    var ids = data.logs.filter(function(l){ return !l.fix_status && l.id; }).map(function(l){ return l.id; });
+    if (!ids.length) { rToast('All records already acknowledged', 'info'); return; }
+    rPrompt({
+      title: 'Acknowledge All (' + ids.length + ' failures)',
+      icon:  'fa-eye',
+      label: 'Note (optional)',
+      placeholder: 'e.g. all low memory events — users notified…',
+      confirmText: 'Acknowledge All',
+      onCancel: function() {},
+      onConfirm: function(note) {
+        var user  = RS.currentUser;
+        var displayName = RS.userNickname || (user && user.email) || 'admin';
+        var email = (RS.userRole === 'superadmin' ? 'SUPER ADMIN ' : 'ADMIN ') + displayName;
+        RS.supa.from('logs').update({
+          fix_status: 'acknowledged',
+          fixed_by:   email,
+          fixed_at:   new Date().toISOString(),
+          fix_note:   note || null
+        }).in('id', ids).select('id').then(function(res) {
+          if (res.error) { rToast('Update failed: ' + res.error.message, 'error'); console.error('[rAcknowledgeAll]', res.error); return; }
+          var n = (res.data || []).length;
+          if (!n) { rToast('No rows updated — check Supabase RLS policy for logs table', 'warn'); console.warn('[rAcknowledgeAll] 0 rows affected, ids:', ids); return; }
+          rToast('Acknowledged ' + n + ' records', 'success');
+          window.rLoadLogs();
+        }).catch(function(e) { rToast('Update failed: ' + e.message, 'error'); console.error('[rAcknowledgeAll]', e); });
+      }
+    });
+  };
+
+  // Mark a single failed log row as fixed in Supabase
+  window.rMarkLogFixed = function(logId, btn) {
+    if (!RS.supa || !logId || logId === 'undefined') { rToast('Log ID missing — cannot update', 'warn'); return; }
+    if (!_canWrite()) { rToast('Read-only — request write access', 'warn'); return; }
+    rPrompt({
+      title: 'Mark as Fixed',
+      icon:  'fa-circle-check',
+      label: 'Fix Note (optional)',
+      placeholder: 'e.g. Updated ke v9.9.1, bug telah dipatch…',
+      confirmText: 'Mark Fixed',
+      onCancel: function() {},
+      onConfirm: function(note) {
+        var user  = RS.currentUser;
+        var displayName = RS.userNickname || (user && user.email) || 'admin';
+        var email = (RS.userRole === 'superadmin' ? 'SUPER ADMIN ' : 'ADMIN ') + displayName;
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+        RS.supa.from('logs').update({
+          fix_status: 'fixed',
+          fixed_by:   email,
+          fixed_at:   new Date().toISOString(),
+          fix_note:   note || null
+        }).eq('id', logId).select('id').then(function(res) {
+          if (res.error) {
+            rToast('Update failed: ' + res.error.message, 'error');
+            console.error('[rMarkLogFixed] Supabase error:', res.error);
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Mark Fixed'; }
+            return;
+          }
+          if (!res.data || !res.data.length) {
+            rToast('No rows updated — check Supabase RLS policy for logs table', 'warn');
+            console.warn('[rMarkLogFixed] 0 rows affected for id:', logId);
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Mark Fixed'; }
+            return;
+          }
+          rToast('Marked as fixed', 'success');
+          window.rLoadLogs();
+        }).catch(function(e) {
+          rToast('Update failed: ' + e.message, 'error');
+          console.error('[rMarkLogFixed] catch:', e);
+          if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Mark Fixed'; }
+        });
+      }
+    });
+  };
+
+  // Mark ALL unfixed bug-type failed logs in a session as fixed
+  window.rMarkAllLogFixed = function(gKey) {
+    if (!RS.supa) return;
+    if (!_canWrite()) { rToast('Read-only — request write access', 'warn'); return; }
+    var data = window._rFailedLogs && window._rFailedLogs[gKey];
+    if (!data || !data.logs || !data.logs.length) { rToast('No failed records', 'warn'); return; }
+    var ids = data.logs.filter(function(l){ return l.fix_status !== 'fixed' && l.id; }).map(function(l){ return l.id; });
+    if (!ids.length) { rToast('All already marked fixed', 'info'); return; }
+    rPrompt({
+      title: 'Mark All Fixed (' + ids.length + ' failures)',
+      icon:  'fa-circle-check',
+      label: 'Fix Note (optional)',
+      placeholder: 'e.g. patched in v9.9.1 — all affected workers updated…',
+      confirmText: 'Mark All Fixed',
+      onCancel: function() {},
+      onConfirm: function(note) {
+        var user  = RS.currentUser;
+        var displayName = RS.userNickname || (user && user.email) || 'admin';
+        var email = (RS.userRole === 'superadmin' ? 'SUPER ADMIN ' : 'ADMIN ') + displayName;
+        RS.supa.from('logs').update({
+          fix_status: 'fixed',
+          fixed_by:   email,
+          fixed_at:   new Date().toISOString(),
+          fix_note:   note || null
+        }).in('id', ids).select('id').then(function(res) {
+          if (res.error) { rToast('Update failed: ' + res.error.message, 'error'); console.error('[rMarkAllLogFixed]', res.error); return; }
+          var n = (res.data || []).length;
+          if (!n) { rToast('No rows updated — check Supabase RLS policy for logs table', 'warn'); console.warn('[rMarkAllLogFixed] 0 rows affected, ids:', ids); return; }
+          rToast('Marked ' + n + ' records as fixed', 'success');
+          window.rLoadLogs();
+        }).catch(function(e) { rToast('Update failed: ' + e.message, 'error'); console.error('[rMarkAllLogFixed]', e); });
+      }
+    });
+  };
+
+  // Copy a stored error message to clipboard
+  window.rCopyLogErr = function(key) {
+    var msg = window._rErrStore && window._rErrStore[key];
+    if (!msg) { rToast('No error text', 'warn'); return; }
+    navigator.clipboard.writeText(msg)
+      .then(function() { rToast('Error copied to clipboard', 'success'); })
+      .catch(function() { rToast('Copy failed — check browser permissions', 'error'); });
+  };
+
+  // Export failed logs for a session as CSV download
+  window.rExportFailCsv = function(gKey) {
+    var data = window._rFailedLogs && window._rFailedLogs[gKey];
+    if (!data || !data.logs || !data.logs.length) { rToast('No failed records to export', 'warn'); return; }
+    var lines = ['"Time","Machine","App","File","Status","Error","Duration"'];
+    data.logs.forEach(function(l) {
+      var row = [
+        l.timestamp || '',
+        data.machine,
+        data.app,
+        l.file_name || (l.job_info && l.job_info.file_name) || '',
+        l.status || 'FAILED',
+        l.error_msg || (l.job_info && (l.job_info.error || l.job_info.state)) || '',
+        l.duration != null ? parseFloat(l.duration).toFixed(2) + 's' : ''
+      ].map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; });
+      lines.push(row.join(','));
+    });
+    var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'failed_' + (data.machine || 'session') + '_' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    rToast('Exported ' + data.logs.length + ' failed record(s)', 'success');
+  };
+
+  window.rSearchAllLogs = function () {
+    var d = document.getElementById('r-log-date');
+    if (d) d.value = '';
+    window.rLoadLogs();
+  };
+
   window.rLoadLogs = function () {
+    var dateVal      = ($r('r-log-date') || {}).value || '';
     var hostname     = ($r('r-log-dev')  || {}).value || '';
     var appName      = ($r('r-log-app')  || {}).value || '';
     var statusFilter = ($r('r-log-stat') || {}).value || '';
@@ -2887,7 +3335,10 @@
 
     // Fetch all statuses — need full context to reconstruct sessions
     var q = RS.supa.from('logs').select('*')
-      .order('timestamp', { ascending: false }).limit(2000);
+      .order('timestamp', { ascending: false }).limit(20000);
+    if (dateVal) {
+      q = q.gte('timestamp', dateVal + 'T00:00:00').lte('timestamp', dateVal + 'T23:59:59');
+    }
     if (hostname) q = q.eq('machine', hostname);
     if (appName)  q = q.eq('app_name', appName);
 
@@ -2922,6 +3373,40 @@
       var sessions = gOrder.map(function(k){ return groups[k]; })
         .sort(function(a, b){ return (b.end||'') > (a.end||'') ? 1 : -1; });
 
+      // Auto-clean: cap at 100 sessions (unfiltered full-load only) and delete older COMPLETED rows from DB
+      // NEVER delete sessions with any failures — those stay until admin takes action
+      var MAX_SESSIONS = 100;
+      if (!dateVal && !hostname && !appName && !statusFilter && sessions.length > MAX_SESSIONS) {
+        var oldSessions = sessions.slice(MAX_SESSIONS);
+        sessions = sessions.slice(0, MAX_SESSIONS);
+        var idsToDelete = [];
+        oldSessions.forEach(function(s) {
+          if (!s.hasFail) { // Only delete fully-completed sessions
+            s.logs.forEach(function(l) { if (l.id) idsToDelete.push(l.id); });
+          }
+        });
+        if (idsToDelete.length && RS.supa) {
+          RS.supa.from('logs').delete().in('id', idsToDelete).then(function(){});
+        }
+      }
+
+      // Remove phantom sessions: COMPLETED but zero actual processed docs
+      // (stray logs sent after a real job ends — no file COMPLETED/FAILED entries)
+      var phantomIds = [];
+      sessions = sessions.filter(function(s) {
+        if (s.hasFail || s.allProcessing) return true; // keep failures + still-running
+        var cCount = s.logs.filter(function(l){ return (l.status||'').toUpperCase() === 'COMPLETED'; }).length;
+        var fCount = s.logs.filter(function(l){ var st=(l.status||'').toUpperCase(); return st==='FAILED'||st==='ERROR'; }).length;
+        if (cCount === 0 && fCount === 0) {
+          s.logs.forEach(function(l){ if (l.id) phantomIds.push(l.id); });
+          return false;
+        }
+        return true;
+      });
+      if (phantomIds.length && RS.supa) {
+        RS.supa.from('logs').delete().in('id', phantomIds).then(function(){});
+      }
+
       // Apply session-level status filter
       if (statusFilter === 'FAILED') {
         sessions = sessions.filter(function(g){ return g.hasFail; });
@@ -2943,6 +3428,12 @@
           ? g.logs[0].job_info.doc_count
           : completedLogs.length + failedLogs.length;
 
+        // Initialise global stores for this render
+        if (!window._rErrStore)    window._rErrStore    = {};
+        if (!window._rFailedLogs)  window._rFailedLogs  = {};
+        // Save failed logs so export/retry buttons can reference them
+        window._rFailedLogs[gKey] = { machine: g.machine || '', app: g.app || '', logs: failedLogs };
+
         // Detail rows
         var detailHtml;
         if (isVibes && g.logs.length === 1 && g.logs[0].job_info) {
@@ -2962,28 +3453,194 @@
           }
         } else {
           // Default: one row per file log (non-PROCESSING entries)
+          var isRenamer = /renamer|fv.branch|fv branch/i.test(g.app || '');
           var fileLogs = g.logs.filter(function(l){ return (l.status||'').toUpperCase() !== 'PROCESSING'; });
-          var fileRows = fileLogs.map(function(l) {
-            var st     = (l.status||'').toUpperCase();
-            var fname  = l.file_name || (l.job_info && l.job_info.file_name) || '—';
-            var errMsg = l.error_msg || (l.job_info && (l.job_info.error || l.job_info.state)) || '';
+          var fileRows = fileLogs.map(function(l, lIdx) {
+            var st        = (l.status||'').toUpperCase();
+            var isFail    = st === 'FAILED' || st === 'ERROR';
+            var isFixed   = l.fix_status === 'fixed';
+            var fname     = l.file_name || (l.job_info && l.job_info.file_name) || '—';
+            var errMsg    = l.error_msg || (l.job_info && l.job_info.error) || '';
+            var logId     = String(l.id || '');
+            var pages     = l.job_info && (l.job_info.total_pages || l.job_info.pages || l.job_info.page_count || l.job_info.num_pages || null);
+            var durVal    = l.duration != null ? l.duration : (l.job_info && (l.job_info.duration || l.job_info.elapsed || l.job_info.processing_time || null));
+            var resultName = isRenamer
+              ? (l.renamed_to || (l.job_info && l.job_info.renamed_to) || '')
+              : '';
+            // Normalize error to enterprise format
+            var errType   = isFail ? _normalizeError(errMsg) : null;
+            // Store full raw error text for clipboard access
+            var errKey    = gKey + '_' + lIdx;
+            var detKey    = 'errd_' + gKey + '_' + lIdx;
+            if (isFail && errMsg) window._rErrStore[errKey] = errMsg;
+
+            // Error cell: enterprise format for failed rows; plain for others
+            var errCell;
+            if (isFail) {
+              var causesHtml = errType.causes.map(function(c){
+                return '<div style="display:flex;gap:6px;align-items:baseline">' +
+                  '<span style="color:' + errType.color + ';font-size:9px;flex-shrink:0">▸</span>' +
+                  '<span>' + esc(c) + '</span></div>';
+              }).join('');
+              errCell =
+                '<td style="padding:6px 8px 8px;vertical-align:top">' +
+                  // Title + code
+                  '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">' +
+                    '<span style="font-size:12px;font-weight:700;color:#e2e8f0;letter-spacing:0.07em">' + esc(errType.title) + '</span>' +
+                    '<span style="font-size:9px;font-family:\'Courier New\',monospace;color:' + errType.color + ';background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:3px;padding:1px 5px;letter-spacing:0.06em">' + esc(errType.code) + '</span>' +
+                  '</div>' +
+                  // Description
+                  '<div style="font-size:11px;color:#94a3b8;margin-bottom:5px;line-height:1.4">' + esc(errType.description) + '</div>' +
+                  // Expand/collapse detail
+                  '<button id="erdbtn_' + detKey + '" onclick="rToggleErrDetail(\'' + detKey + '\')" ' +
+                    'style="background:none;border:none;color:rgba(255,255,255,0.3);font-size:10px;padding:0;cursor:pointer;font-family:var(--rc-font);margin-bottom:2px">' +
+                    '<i class="fa-solid fa-chevron-down"></i> Details</button>' +
+                  // Collapsible detail block
+                  '<div id="' + detKey + '" style="display:none;margin-top:6px;padding:8px 10px;background:rgba(0,0,0,0.25);border-left:2px solid ' + errType.color + ';border-radius:0 4px 4px 0">' +
+                    '<div style="font-size:10px;color:#64748b;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px">Possible Causes</div>' +
+                    '<div style="font-size:11px;color:#94a3b8;line-height:1.7">' + causesHtml + '</div>' +
+                    (errMsg ? '<div style="margin-top:8px;display:flex;align-items:center;gap:6px">' +
+                      '<button class="r-btn-sm" style="font-size:10px;padding:1px 7px" onclick="rCopyLogErr(\'' + errKey + '\')">' +
+                        '<i class="fa-solid fa-copy"></i> Copy Raw Error</button>' +
+                    '</div>' : '') +
+                  '</div>' +
+                '</td>';
+            } else {
+              // For completed rows: show meaningful job_info detail, or clean dash
+              var completedDetail = errMsg ||
+                (l.job_info && (l.job_info.output || l.job_info.output_file || l.job_info.result || l.job_info.message)) || '';
+              // Filter out redundant state strings (e.g. "completed", "done")
+              var stateWords = ['completed', 'done', 'success', 'ok'];
+              if (completedDetail && stateWords.indexOf(completedDetail.toLowerCase().trim()) >= 0) completedDetail = '';
+              errCell = '<td class="r-cell-trunc" style="max-width:260px;vertical-align:top;padding-top:6px;color:#64748b;font-size:11px">' +
+                (completedDetail ? esc(completedDetail) : '—') + '</td>';
+            }
+
+            // Action cell: depends on error type + fix_status
+            var isAcked  = l.fix_status === 'acknowledged';
+            var actionCell = '<td style="vertical-align:top;padding-top:6px;min-width:140px">';
+            if (!isFail) {
+              actionCell += '</td>';
+            } else if (isFixed) {
+              actionCell +=
+                '<div style="font-size:11px;color:var(--rc-green,#10b981);display:flex;align-items:center;gap:4px">' +
+                  '<i class="fa-solid fa-circle-check"></i> Fixed by ' + esc(l.fixed_by || '?') +
+                '</div>' +
+                (l.fix_note ? '<div style="font-size:10px;color:#d1fae5;margin-top:3px">' + esc(l.fix_note) + '</div>' : '') +
+              '</td>';
+            } else if (isAcked) {
+              actionCell +=
+                '<div style="font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:4px">' +
+                  '<i class="fa-solid fa-eye"></i> Acknowledged by ' + esc(l.fixed_by || '?') +
+                '</div>' +
+                (l.fix_note ? '<div style="font-size:10px;color:#cbd5e1;margin-top:3px">' + esc(l.fix_note) + '</div>' : '') +
+              '</td>';
+            } else {
+              // Type badge
+              actionCell += '<div style="font-size:10px;color:' + errType.color + ';margin-bottom:5px">' +
+                '<i class="fa-solid ' + errType.icon + '"></i> ' + errType.title + '</div>';
+              if (errType.action === 'acknowledge') {
+                // System/resource crash — admin acknowledge, bukan fix kod
+                actionCell +=
+                  '<button class="r-btn-sm" style="font-size:10px;padding:2px 8px;color:#94a3b8;border-color:rgba(148,163,184,0.35)" ' +
+                    'onclick="rAcknowledgeLog(\'' + logId + '\',this)">' +
+                    '<i class="fa-solid fa-eye"></i> Acknowledge</button>';
+              } else if (errType.action === 'fix') {
+                actionCell +=
+                  '<button class="r-btn-sm" style="font-size:10px;padding:2px 8px;color:var(--rc-green,#10b981);border-color:rgba(16,185,129,0.3)" ' +
+                    'onclick="rMarkLogFixed(\'' + logId + '\',this)" title="Mark this failure as resolved after code fix">' +
+                    '<i class="fa-solid fa-circle-check"></i> Mark Fixed</button>';
+              } else if (errType.action === 'restart') {
+                actionCell +=
+                  '<button class="r-btn-sm" style="font-size:10px;padding:2px 8px;color:var(--rc-warn,#f59e0b);border-color:rgba(245,158,11,0.3)" ' +
+                    'onclick="rSendTeleCmd(\'' + esc(g.machine||'') + '\',\'RESTART\')" title="Restart Rasumi Apps on ' + esc(g.machine||'') + '">' +
+                    '<i class="fa-solid fa-rotate-right"></i> Restart Machine</button>';
+              } else if (errType.action === 'config') {
+                actionCell +=
+                  '<span style="font-size:10px;color:var(--rc-muted);font-style:italic">Check permissions<br>on ' + esc(g.machine||'machine') + '</span>';
+              }
+              // 'none' type (file not found) — no action, type badge is enough
+              actionCell += '</td>';
+            }
+
             return '<tr>' +
-              '<td class="r-font-mono" style="white-space:nowrap">' + _fmtTime(l.timestamp) + '</td>' +
-              '<td class="r-cell-trunc" style="max-width:200px">' + esc(fname) + '</td>' +
-              '<td><span class="r-badge ' + logBadge(st) + '">' + st + '</span></td>' +
-              '<td class="r-cell-trunc">' + esc(errMsg) + '</td>' +
-              '<td>' + (l.duration != null ? parseFloat(l.duration).toFixed(2) + 's' : '—') + '</td>' +
+              (isFail && !isAcked && !isFixed
+                ? '<td style="vertical-align:top;padding-top:7px;text-align:center;width:32px"><input type="checkbox" class="r-fail-chk-' + gKey + '" data-id="' + logId + '" onchange="rUpdateFailSelection(\'' + gKey + '\')" style="cursor:pointer;accent-color:var(--rc-cyan,#00f0ff);width:14px;height:14px"></td>'
+                : '<td></td>') +
+              '<td class="r-font-mono" style="white-space:nowrap;vertical-align:top;padding-top:6px">' + _fmtTime(l.timestamp) + '</td>' +
+              '<td class="r-cell-trunc" style="max-width:180px;vertical-align:top;padding-top:6px">' + esc(fname) + '</td>' +
+              (isRenamer
+                ? '<td class="r-cell-trunc r-font-mono" style="max-width:180px;vertical-align:top;padding-top:6px;color:' + (resultName ? 'var(--rc-cyan,#00f0ff)' : '#475569') + '" title="' + esc(resultName) + '">' + (resultName ? esc(resultName) : '—') + '</td>'
+                : '') +
+              '<td style="vertical-align:top;padding-top:6px">' +
+                '<span class="r-badge ' + (isFixed ? 'r-badge-ok' : isAcked ? 'r-badge-muted' : logBadge(st)) + '">' +
+                  (isFixed ? 'FIXED' : isAcked ? 'ACKED' : st) +
+                '</span>' +
+              '</td>' +
+              errCell +
+              '<td style="vertical-align:top;padding-top:6px;white-space:nowrap">' + (durVal != null ? parseFloat(durVal).toFixed(2) + 's' : '—') + '</td>' +
+              '<td style="vertical-align:top;padding-top:6px;text-align:center;white-space:nowrap">' + (pages != null ? '<span style="font-size:11px;color:#94a3b8">' + pages + ' pg</span>' : '—') + '</td>' +
+              actionCell +
               '</tr>';
           }).join('');
-          detailHtml = fileRows
-            ? tableWrap(['Time','File','Status','Error / Detail','Duration'], fileRows)
-            : '<div class="r-empty" style="padding:8px">No file-level data</div>';
+
+          // Determine session-level error profile
+          var ackedCount  = failedLogs.filter(function(l){ return l.fix_status === 'acknowledged'; }).length;
+          var fixedCount  = failedLogs.filter(function(l){ return l.fix_status === 'fixed'; }).length;
+          var resolvedCount = ackedCount + fixedCount;
+          var pendingLogs = failedLogs.filter(function(l){ return !l.fix_status; });
+          var pendingSysCount = pendingLogs.filter(function(l){
+            return _classifyErrType(l.error_msg || '').action === 'acknowledge';
+          }).length;
+          var pendingBugCount = pendingLogs.filter(function(l){
+            return _classifyErrType(l.error_msg || '').action === 'fix';
+          }).length;
+
+          // Action banner for failed sessions
+          var failBanner = g.hasFail
+            ? '<div style="display:flex;align-items:center;gap:8px;padding:10px 0 10px 0;flex-wrap:wrap;border-bottom:1px solid rgba(239,68,68,0.2);margin-bottom:8px">' +
+                '<span class="r-badge r-badge-err" style="font-size:11px"><i class="fa-solid fa-circle-xmark"></i> ' + failedLogs.length + ' FAILED' +
+                  (resolvedCount ? ' <span style="opacity:0.7;font-weight:400">(' + resolvedCount + ' resolved)</span>' : '') +
+                '</span>' +
+                (pendingSysCount > 0
+                  ? '<button class="r-btn-sm" onclick="rAcknowledgeAll(\'' + gKey + '\')" ' +
+                      'style="font-size:11px;color:#94a3b8;border-color:rgba(148,163,184,0.35)">' +
+                      '<i class="fa-solid fa-eye"></i> Acknowledge All (' + pendingSysCount + ')</button>'
+                  : '') +
+                (pendingBugCount > 0
+                  ? '<button class="r-btn-sm" onclick="rMarkAllLogFixed(\'' + gKey + '\')" ' +
+                      'title="Mark all code-level failures as fixed" ' +
+                      'style="font-size:11px;color:var(--rc-green,#10b981);border-color:rgba(16,185,129,0.3)">' +
+                      '<i class="fa-solid fa-circle-check"></i> Mark All Fixed (' + pendingBugCount + ')</button>'
+                  : '') +
+                '<button id="r-ack-sel-' + gKey + '" class="r-btn-sm" onclick="rAcknowledgeSelected(\'' + gKey + '\')" ' +
+                  'style="display:none;font-size:11px;color:var(--rc-cyan,#00f0ff);border-color:rgba(0,240,255,0.35)">' +
+                  '<i class="fa-solid fa-eye"></i> Acknowledge Selected</button>' +
+                '<button class="r-btn-sm" onclick="rExportFailCsv(\'' + gKey + '\')" ' +
+                  'title="Download failed file list as CSV" style="font-size:11px">' +
+                  '<i class="fa-solid fa-file-csv"></i> Export CSV</button>' +
+                '<button class="r-btn-sm" onclick="rSendTeleCmd(\'' + esc(g.machine||'') + '\',\'RESTART\')" ' +
+                  'title="Restart Rasumi Apps on ' + esc(g.machine||'') + '" ' +
+                  'style="font-size:11px;color:var(--rc-warn,#f59e0b);border-color:rgba(245,158,11,0.35)">' +
+                  '<i class="fa-solid fa-rotate-right"></i> Restart ' + esc(g.machine||'') + '</button>' +
+              '</div>'
+            : '';
+
+          var chkHeader = pendingSysCount > 0 || pendingBugCount > 0
+            ? '<input type="checkbox" id="chk-all-' + gKey + '" onchange="rSelectAllFailed(\'' + gKey + '\',this.checked)" style="cursor:pointer;accent-color:var(--rc-cyan,#00f0ff);width:14px;height:14px" title="Select all pending">'
+            : '';
+          var detailHeaders = isRenamer
+            ? [chkHeader, 'Time', 'File', 'Result', 'Status', 'Error / Detail', 'Duration', 'Pages', 'Action']
+            : [chkHeader, 'Time', 'File', 'Status', 'Error / Detail', 'Duration', 'Pages', 'Action'];
+          detailHtml = failBanner + (fileRows
+            ? tableWrap(detailHeaders, fileRows)
+            : '<div class="r-empty" style="padding:8px">No file-level data</div>');
         }
 
         return '<tr>' +
           '<td>' + _fmtDate(g.start) + '</td>' +
           '<td class="r-font-mono" style="font-size:11px">' + esc(g.machine||'—') + '</td>' +
-          '<td><span class="r-badge r-badge-purple">' + esc(g.app||'—') + '</span></td>' +
+          '<td><span class="r-badge r-badge-purple">' + esc((/^fv.branch$/i.test(g.app||'') ? 'Renamer FV' : g.app)||'—') + '</span></td>' +
           '<td class="r-font-mono">' + _fmtTime(g.start) + '</td>' +
           '<td class="r-font-mono">' + _fmtTime(g.end) + '</td>' +
           '<td><span class="r-badge ' + logBadge(sessionSt) + '">' + sessionSt + '</span>' +
@@ -4149,6 +4806,224 @@
 
   // Keep legacy alias
   window.rSaveNickname = window.rSaveProfile;
+
+  // ── Display Settings (superadmin only) ────────────────────────
+
+  var _customBgDataUrl = null; // in-memory store for custom bg (session only)
+
+  // IndexedDB helpers — no quota issues, fast async read (~10ms)
+  var _idbDB = null;
+  function _idbOpen(cb) {
+    if (_idbDB) { cb(_idbDB); return; }
+    var req = indexedDB.open('rasumi_prefs', 1);
+    req.onupgradeneeded = function(e) { e.target.result.createObjectStore('kv'); };
+    req.onsuccess = function(e) { _idbDB = e.target.result; cb(_idbDB); };
+    req.onerror = function() { cb(null); };
+  }
+  function _idbSet(key, value) {
+    _idbOpen(function(db) {
+      if (!db) return;
+      db.transaction('kv', 'readwrite').objectStore('kv').put(value, key);
+    });
+  }
+  function _idbGet(key, cb) {
+    _idbOpen(function(db) {
+      if (!db) { cb(null); return; }
+      var req = db.transaction('kv', 'readonly').objectStore('kv').get(key);
+      req.onsuccess = function() { cb(req.result || null); };
+      req.onerror = function() { cb(null); };
+    });
+  }
+
+  function _applyBackground(bg) {
+    var presets = {
+      photo:  'url(\'../assets/background.jpg\') center/cover no-repeat',
+      dark:   '#080c13',
+      navy:   'linear-gradient(135deg,#060d1a,#0d1f35)',
+      purple: 'linear-gradient(135deg,#0b0614,#17082e)',
+      forest: 'linear-gradient(135deg,#040f0a,#0a2016)',
+      ember:  'linear-gradient(135deg,#110608,#200d0a)'
+    };
+    var bgCss;
+    if (bg === 'custom') {
+      var dataUrl = _customBgDataUrl || localStorage.getItem('r-bg-custom');
+      if (!dataUrl) return;
+      bgCss = 'url("' + dataUrl + '") center/cover no-repeat';
+    } else {
+      bgCss = presets[bg] || presets['photo'];
+    }
+    // Set directly on bg-layer div (reliable, no CSS cache dependency)
+    var layer = document.getElementById('r-bg-layer');
+    if (layer) layer.style.background = bgCss;
+    // Also set CSS variable as backup
+    var container = document.getElementById('rasumi-container');
+    if (container) container.style.setProperty('--rc-bg-url', bgCss);
+    // Mark active tile
+    document.querySelectorAll('.r-bg-opt').forEach(function(el){
+      el.style.borderColor = el.dataset.bg === bg ? 'rgba(0,240,255,0.6)' : 'transparent';
+    });
+  }
+
+  window.rPickCustomBg = function() {
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.onchange = function(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      // Compress via canvas before storing
+      var img = new Image();
+      var objectUrl = URL.createObjectURL(file);
+      img.onload = function() {
+        var MAX = 1920;
+        var w = img.width, h = img.height;
+        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+        else if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(objectUrl);
+        var compressed = canvas.toDataURL('image/jpeg', 0.85);
+        _customBgDataUrl = compressed;
+        // Persist to IndexedDB (primary — no quota issues) + localStorage (fallback)
+        _idbSet('r-bg-custom', compressed);
+        try { localStorage.setItem('r-bg-custom', compressed); } catch(e) {}
+        localStorage.setItem('r-bg', 'custom');
+        _applyBackground('custom');
+        var tile = document.querySelector('.r-bg-opt[data-bg="custom"]');
+        if (tile) { tile.style.backgroundImage = 'url("' + compressed + '")'; tile.style.backgroundSize = 'cover'; }
+        _saveDisplayToSupabase(localStorage.getItem('r-theme') || 'dark', 'custom', compressed);
+      };
+      img.src = objectUrl;
+    };
+    inp.click();
+  };
+
+  function _applyTheme(mode) {
+    var c = document.getElementById('rasumi-container') || document.querySelector('#rasumi-container');
+    if (!c) return;
+    var styleEl = document.getElementById('r-theme-override') || (function(){
+      var el = document.createElement('style'); el.id = 'r-theme-override'; document.head.appendChild(el); return el;
+    })();
+    if (mode === 'light') {
+      styleEl.textContent =
+        '#rasumi-container{--rc-bg:#dde4ef;--rc-glass:rgba(255,255,255,0.68);--rc-glass-hi:rgba(255,255,255,0.88);--rc-border:rgba(0,0,0,0.1);--rc-border-hi:rgba(0,150,200,0.35);--rc-card:rgba(255,255,255,0.68);--rc-card2:rgba(240,245,255,0.82);--rc-text:#1a2030;--rc-text-dim:#5a6a7f;--rc-muted:#9ca3af;--rc-shadow:0 4px 16px rgba(0,0,0,0.12)}' +
+        '#rasumi-container .r-topbar{background:rgba(240,244,250,0.92)!important;border-bottom:1px solid rgba(0,0,0,0.1)!important}' +
+        '#rasumi-container .r-sidebar{background:rgba(240,244,250,0.9)!important;border-right:1px solid rgba(0,0,0,0.08)!important}' +
+        '#rasumi-container .nav-dropdown{background:rgba(240,244,250,0.97)!important;border-color:rgba(0,0,0,0.1)!important}' +
+        '#rasumi-container .dropdown-item{color:#1a2030!important}' +
+        '#rasumi-container .dropdown-item:hover{background:rgba(0,0,0,0.06)!important}';
+    } else {
+      styleEl.textContent = '';
+    }
+    // Update mode buttons
+    var darkBtn  = document.getElementById('r-mode-dark-btn');
+    var lightBtn = document.getElementById('r-mode-light-btn');
+    if (darkBtn)  { darkBtn.style.borderColor  = mode==='dark'  ? 'rgba(0,240,255,0.5)' : 'rgba(255,255,255,0.1)'; darkBtn.style.background  = mode==='dark'  ? 'rgba(0,240,255,0.1)' : 'none'; darkBtn.style.color  = mode==='dark'  ? '#00f0ff' : '#6b7a8f'; }
+    if (lightBtn) { lightBtn.style.borderColor = mode==='light' ? 'rgba(255,220,50,0.5)' : 'rgba(255,255,255,0.1)'; lightBtn.style.background = mode==='light' ? 'rgba(255,220,50,0.08)' : 'none'; lightBtn.style.color = mode==='light' ? '#fcd34d' : '#6b7a8f'; }
+  }
+
+  window.rToggleDisplayPanel = function(e) {
+    if (RS.userRole !== 'superadmin') return;
+    if (e) e.stopPropagation();
+    var panel = document.getElementById('r-display-panel');
+    if (!panel) return;
+    var notif = document.getElementById('notif-dropdown');
+    var nav   = document.getElementById('r-nav-dropdown');
+    if (notif) notif.classList.add('hidden');
+    if (nav)   nav.classList.add('hidden');
+    panel.classList.toggle('hidden');
+  };
+
+  function _saveDisplayToSupabase(theme, bg, customBgData) {
+    if (!RS.supa) return;
+    RS.supa.from('app_settings').select('id').limit(1).then(function(res) {
+      var id = res.data && res.data[0] && res.data[0].id;
+      var payload = { ui_theme: theme, ui_background: bg };
+      if (customBgData) payload.ui_custom_bg = customBgData;
+      if (id) {
+        RS.supa.from('app_settings').update(payload).eq('id', id).then(function(){});
+      } else {
+        RS.supa.from('app_settings').insert(payload).then(function(){});
+      }
+    });
+  }
+
+  window.rSetTheme = function(mode) {
+    _applyTheme(mode);
+    localStorage.setItem('r-theme', mode);
+    var curBg = localStorage.getItem('r-bg') || 'photo';
+    _saveDisplayToSupabase(mode, curBg);
+  };
+
+  window.rSetBackground = function(bg) {
+    _applyBackground(bg);
+    localStorage.setItem('r-bg', bg);
+    var curTheme = localStorage.getItem('r-theme') || 'dark';
+    _saveDisplayToSupabase(curTheme, bg);
+  };
+
+  // Load display prefs from Supabase after login (overrides localStorage cache)
+  function _loadDisplayPrefsFromSupabase() {
+    if (!RS.supa) return;
+    RS.supa.from('app_settings').select('ui_theme,ui_background,ui_custom_bg').limit(1).then(function(res) {
+      var row = res.data && res.data[0];
+      if (!row) return;
+      var theme = row.ui_theme || 'dark';
+      var bg    = row.ui_background || 'photo';
+      // If custom bg data stored in Supabase, restore to memory + IndexedDB + localStorage
+      if (bg === 'custom' && row.ui_custom_bg) {
+        _customBgDataUrl = row.ui_custom_bg;
+        _idbSet('r-bg-custom', row.ui_custom_bg);
+        try { localStorage.setItem('r-bg-custom', row.ui_custom_bg); } catch(e) {}
+      }
+      localStorage.setItem('r-theme', theme);
+      localStorage.setItem('r-bg', bg);
+      _applyTheme(theme);
+      _applyBackground(bg);
+      // Restore custom tile preview
+      if (bg === 'custom' && _customBgDataUrl) {
+        setTimeout(function(){
+          var tile = document.querySelector('.r-bg-opt[data-bg="custom"]');
+          if (tile) { tile.style.backgroundImage = 'url("' + _customBgDataUrl + '")'; tile.style.backgroundSize = 'cover'; }
+        }, 200);
+      }
+    }).catch(function(){});
+  }
+
+  // Apply saved display prefs on initial load (from cache — fast, no flash)
+  function _restoreDisplayPrefs() {
+    var savedTheme = localStorage.getItem('r-theme') || 'dark';
+    var savedBg    = localStorage.getItem('r-bg')    || 'photo';
+    _applyTheme(savedTheme);
+    if (savedBg !== 'custom') {
+      _applyBackground(savedBg);
+    } else {
+      // Try localStorage first (synchronous, instant)
+      var lsCached = localStorage.getItem('r-bg-custom');
+      if (lsCached) {
+        _customBgDataUrl = lsCached;
+        _applyBackground('custom');
+        setTimeout(function(){
+          var tile = document.querySelector('.r-bg-opt[data-bg="custom"]');
+          if (tile) { tile.style.backgroundImage = 'url("' + lsCached + '")'; tile.style.backgroundSize = 'cover'; }
+        }, 200);
+      } else {
+        // Fall back to IndexedDB (~10ms async, still fast enough to avoid flash)
+        _idbGet('r-bg-custom', function(dataUrl) {
+          if (dataUrl) {
+            _customBgDataUrl = dataUrl;
+            _applyBackground('custom');
+            try { localStorage.setItem('r-bg-custom', dataUrl); } catch(e) {}
+            setTimeout(function(){
+              var tile = document.querySelector('.r-bg-opt[data-bg="custom"]');
+              if (tile) { tile.style.backgroundImage = 'url("' + dataUrl + '")'; tile.style.backgroundSize = 'cover'; }
+            }, 200);
+          }
+        });
+      }
+    }
+  }
 
   // ── Settings gateway ───────────────────────────────────────────
   window.rOpenSettings = function() {
