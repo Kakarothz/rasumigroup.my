@@ -1,4 +1,5 @@
 User-agent: *
+Disallow: /mngmnt/
 Disallow: /assets/js/
 Disallow: /assets/css/
 
