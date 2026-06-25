@@ -37,7 +37,7 @@
   --rc-card2:     rgba(8, 11, 20, 0.6);
 
   --rc-cyan:   #00F0FF;
-  --rc-blue:   #00F0FF;
+  --rc-blue:   #06b6d4;
   --rc-green:  #10B981;
   --rc-orange: #F59E0B;
   --rc-red:    #EF4444;
@@ -710,7 +710,7 @@
 #rasumi-container .r-hb-fill {
   height: 100%; border-radius: 3px; transition: width 0.5s ease;
 }
-#rasumi-container .r-hb-fill.cpu  { background: linear-gradient(90deg, #00F0FF, #00B4CC); }
+#rasumi-container .r-hb-fill.cpu  { background: linear-gradient(90deg, #00f0ff, #00B4CC); }
 #rasumi-container .r-hb-fill.ram  { background: linear-gradient(90deg, #B200FF, #6600CC); }
 #rasumi-container .r-hb-fill.disk { background: linear-gradient(90deg, #F59E0B, #D97706); }
 
@@ -770,7 +770,7 @@
 #rasumi-container .r-st-nums  { font-size: 10px; font-family: var(--rc-mono); color: var(--rc-text); }
 #rasumi-container .r-st-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
 #rasumi-container .r-st-fill  { height: 100%; border-radius: 3px; transition: width 0.5s; }
-#rasumi-container .r-st-fill.cpu-fill  { background: linear-gradient(90deg,#00F0FF,#0088AA); }
+#rasumi-container .r-st-fill.cpu-fill  { background: linear-gradient(90deg,#00f0ff,#0088AA); }
 #rasumi-container .r-st-fill.ram-fill  { background: linear-gradient(90deg,#B200FF,#6600CC); }
 #rasumi-container .r-st-fill.disk-fill { background: linear-gradient(90deg,#F59E0B,#B45309); }
 #rasumi-container .r-st-fill.net-fill  { background: linear-gradient(90deg,#10B981,#059669); }
@@ -793,6 +793,77 @@
 #rasumi-container .r-chart-box canvas {
   flex: 1;
   min-height: 0;
+}
+
+/* ── CPU chart: same height as other chart cards ───────────── */
+#rasumi-container .r-chart-cpu-box {
+  height: 200px;
+}
+
+/* ── Chart header row (title + range tabs) ─────────────────── */
+#rasumi-container .r-chart-hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Range tab buttons: 24H / 7D / 1M ─────────────────────── */
+#rasumi-container .r-chart-tabs {
+  display: flex;
+  gap: 4px;
+}
+#rasumi-container .r-ctab {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #6B7A8F;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  letter-spacing: 0.4px;
+}
+#rasumi-container .r-ctab:hover {
+  color: #aef;
+  border-color: rgba(0,200,120,0.3);
+}
+#rasumi-container .r-ctab.r-ctab-active {
+  background: rgba(0,200,120,0.12);
+  border-color: rgba(0,220,140,0.5);
+  color: #00e887;
+}
+
+/* ── Canvas wrapper: needed for abs-positioned live dot ─────── */
+#rasumi-container .r-cpu-wrap {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+#rasumi-container .r-cpu-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── Blinking live dot ─────────────────────────────────────── */
+#rasumi-container .r-cpu-live {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #00ff96;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 8px rgba(0,255,150,0.9);
+  animation: rCpuPulse 1.4s ease-in-out infinite;
+  z-index: 2;
+}
+@keyframes rCpuPulse {
+  0%,100% { opacity:1; transform:translate(-50%,-50%) scale(1);   box-shadow:0 0 8px rgba(0,255,150,0.9); }
+  50%      { opacity:.4; transform:translate(-50%,-50%) scale(2.2); box-shadow:0 0 18px rgba(0,255,150,0.3); }
 }
 
 /* ==========================================================
@@ -1201,26 +1272,4 @@
 #rasumi-container .r-modal-x   { background: none; border: none; color: var(--rc-text-dim); cursor: pointer; font-size: 14px; padding: 4px; transition: color 0.12s; }
 #rasumi-container .r-modal-x:hover { color: var(--rc-red); }
 #rasumi-container .r-modal-body   { padding: 18px; overflow-y: auto; flex: 1; }
-#rasumi-container .r-modal-footer { padding: 14px 18px; border-top: 1px solid var(--rc-border); display: flex; gap: 10px; justify-content: flex-end; }
-
-/* ==========================================================
-   TOAST
-   ========================================================== */
-#rasumi-container .r-toasts { position: fixed; bottom: 20px; right: 20px; z-index: 11000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-#rasumi-container .r-toast  { padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 500; background: rgba(10,14,23,0.95); border: 1px solid var(--rc-border); color: var(--rc-text); box-shadow: 0 4px 20px rgba(0,0,0,0.4); animation: r-toast-in 0.25s ease; max-width: 320px; backdrop-filter: blur(16px); }
-#rasumi-container .r-toast.r-toast-out     { animation: r-toast-out 0.4s ease forwards; }
-#rasumi-container .r-toast.r-toast-success { border-color: rgba(16,185,129,0.4); color: var(--rc-green); }
-#rasumi-container .r-toast.r-toast-error   { border-color: rgba(239,68,68,0.4);   color: var(--rc-red); }
-#rasumi-container .r-toast.r-toast-warn    { border-color: rgba(245,158,11,0.4);  color: var(--rc-orange); }
-#rasumi-container .r-toast.r-toast-info    { border-color: var(--rc-border-hi);   color: var(--rc-cyan); }
-@keyframes r-toast-in  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-@keyframes r-toast-out { from{opacity:1} to{opacity:0;transform:translateY(8px)} }
-
-/* ==========================================================
-   CODE / MISC
-   ========================================================== */
-#rasumi-container code { font-family: var(--rc-mono); font-size: 11px; background: rgba(0,240,255,0.08); padding: 1px 5px; border-radius: 3px; color: var(--rc-cyan); }
-#rasumi-container a { color: inherit; }
-#rasumi-container .r-detail-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.06em; }
-#rasumi-container .r-modal-body table tr:hover td { background: rgba(0,240,255,0.04); }
-#rasumi-container .r-fb-status { margin-bottom: 8px; border-radius: 6px; overflow: hidden; }
+#rasumi-container .r-modal-footer { padding: 14px 18px; border-top: 1px

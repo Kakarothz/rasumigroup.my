@@ -280,10 +280,22 @@
     /* ── ALL MULTI-COL GRIDS → single column ────────────────── */
     #rasumi-container .r-mid-row,
     #rasumi-container .r-bot-row,
-    #rasumi-container .r-charts-row,
     #rasumi-container .r-dash-grid {
         grid-template-columns: 1fr !important;
         gap: 10px;
+    }
+
+    /* ── CHARTS ROW — CPU full width, RAM+DISK side by side ─── */
+    #rasumi-container .r-charts-row {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 8px;
+    }
+    #rasumi-container .r-charts-row .r-chart-box:nth-child(1) {
+        grid-column: 1 / -1;   /* CPU line graph spans full width */
+    }
+    #rasumi-container .r-charts-row .r-chart-box:nth-child(2),
+    #rasumi-container .r-charts-row .r-chart-box:nth-child(3) {
+        height: 160px;          /* shorter to fit side by side */
     }
 
     /* ── PANELS ──────────────────────────────────────────────── */
@@ -434,14 +446,25 @@
         height: 170px;
     }
 
+    /* CPU chart full-width on mobile — give it more height */
+    #rasumi-container .r-chart-cpu-box {
+        height: 220px;
+    }
+
+    /* RAM/DISK side-by-side — compact tabs if present */
+    #rasumi-container .r-ctab {
+        font-size: 9px;
+        padding: 2px 6px;
+    }
+
     #rasumi-container .r-terminal {
         height: 120px;
         font-size: 9px;
     }
 }
 
-/* ── Extra-small phones ≤ 390px ────────────────────────────── */
-@media (max-width: 390px) {
+/* ── Extra-small phones ≤ 360px ────────────────────────────── */
+@media (max-width: 360px) {
     #rasumi-container .r-metric-row {
         grid-template-columns: 1fr !important;
     }

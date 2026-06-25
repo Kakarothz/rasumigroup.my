@@ -73,7 +73,8 @@
     _terminal:   [],         // live stream lines
     _charts:     {},         // Chart.js instances
     _logCache:   [],         // log entries for modal
-    _recentLogs: []          // recent logs for activity feed
+    _recentLogs: [],         // recent logs for activity feed
+    _onlineFrom: {}          // hostname → ms timestamp when device entered 'online'
   };
 
   // ── Helpers ────────────────────────────────────────────────
@@ -152,6 +153,32 @@
     });
   }
 
+  // Maps login/branch IDs → human display name used in Log Explorer + Device Fleet
+  var _BRANCH_MAP = {
+    'rasumihq':    'HQ',
+    'rasumifvkl':  'FVKL',
+    'rasumifvt':   'FVT',
+    'rasumifvl':   'FVL',
+    'rasumifvg':   'FVG',
+    'admin':       'ADMIN',
+    'mustaqim':    'SUPER ADMIN',
+    'super admin': 'SUPER ADMIN'   // agent may log display name instead of login id
+  };
+  function _branchName(id) {
+    if (!id) return '—';
+    return _BRANCH_MAP[(id || '').toLowerCase()] || id;
+  }
+
+  // Format elapsed ms as counting-up uptime: 0s → 59s → 1m 0s → 59m 59s → 1h 0m 0s …
+  function fmtUptime(ms) {
+    var s = Math.floor(Math.max(ms, 0) / 1000);
+    if (s < 60)  return s + 's';
+    var m = Math.floor(s / 60), rs = s % 60;
+    if (m < 60)  return m + 'm ' + rs + 's';
+    var h = Math.floor(m / 60), rm = m % 60;
+    return h + 'h ' + rm + 'm ' + (s % 60) + 's';
+  }
+
   function fmtElapsed(ts) {
     if (!ts) return 'never';
     var d;
@@ -180,6 +207,42 @@
     if (mins < 5)  return 'online';
     if (mins < 15) return 'stale';
     return 'offline';
+  }
+
+  // Record when a device first entered 'online' state; reset on offline/stale.
+  // Priority 1: sessionStorage — survives page refresh within same tab, so the timer
+  //             continues from where it was (e.g. "1h 20m 54s" stays after F5).
+  // Priority 2: last_heartbeat timestamp — fallback on first ever page load.
+  // On offline: clears both in-memory and sessionStorage so next online cycle starts fresh.
+  function _trackOnlineFrom(hostname, status, heartbeatTs) {
+    if (status === 'online') {
+      if (!RS._onlineFrom[hostname]) {
+        // Try sessionStorage first (preserves timer across F5 refresh)
+        var savedMs = null;
+        try { savedMs = parseInt(sessionStorage.getItem('rs_on_' + hostname), 10); } catch(e) {}
+        if (savedMs && !isNaN(savedMs) && savedMs > 0) {
+          RS._onlineFrom[hostname] = savedMs;
+        } else {
+          // First page load or new online session: use last_heartbeat as approximation
+          var refMs = Date.now();
+          if (heartbeatTs) {
+            try {
+              var hbd = heartbeatTs.toDate ? heartbeatTs.toDate()
+                      : heartbeatTs.seconds ? new Date(heartbeatTs.seconds * 1000)
+                      : new Date(heartbeatTs);
+              if (!isNaN(hbd.getTime())) refMs = hbd.getTime();
+            } catch(e) {}
+          }
+          RS._onlineFrom[hostname] = refMs;
+        }
+        // Persist to sessionStorage so next refresh picks it up
+        try { sessionStorage.setItem('rs_on_' + hostname, RS._onlineFrom[hostname].toString()); } catch(e) {}
+      }
+    } else {
+      // Device went offline — clear timer so next online session starts fresh
+      delete RS._onlineFrom[hostname];
+      try { sessionStorage.removeItem('rs_on_' + hostname); } catch(e) {}
+    }
   }
 
   function errBadge(t) {
@@ -266,6 +329,130 @@
     }
   }
 
+  // ── Display Preferences (theme + background) ─────────────────
+  var _BG_MAP = {
+    'photo':  null,   // special — image file
+    'dark':   '#080c13',
+    'navy':   'linear-gradient(135deg,#060d1a,#0d1f35)',
+    'purple': 'linear-gradient(135deg,#0b0614,#17082e)',
+    'forest': 'linear-gradient(135deg,#040f0a,#0a2016)',
+    'ember':  'linear-gradient(135deg,#110608,#200d0a)'
+  };
+
+  window.rSetTheme = function(theme) {
+    var c = $r('rasumi-container');
+    if (c) {
+      if (theme === 'light') c.setAttribute('data-theme','light');
+      else                   c.removeAttribute('data-theme');
+    }
+    var darkBtn  = $r('r-mode-dark-btn');
+    var lightBtn = $r('r-mode-light-btn');
+    if (darkBtn) {
+      darkBtn.style.background  = theme === 'dark' ? 'rgba(0,240,255,0.1)' : 'none';
+      darkBtn.style.color       = theme === 'dark' ? '#00f0ff' : '#6b7a8f';
+      darkBtn.style.borderColor = theme === 'dark' ? 'rgba(0,240,255,0.35)' : 'rgba(255,255,255,0.1)';
+    }
+    if (lightBtn) {
+      lightBtn.style.background  = theme === 'light' ? 'rgba(255,255,255,0.1)' : 'none';
+      lightBtn.style.color       = theme === 'light' ? '#e2e8f0' : '#6b7a8f';
+      lightBtn.style.borderColor = theme === 'light' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.1)';
+    }
+    try { localStorage.setItem('rs_theme', theme); } catch(e) {}
+    if (RS.supa && RS.currentUser) {
+      RS.supa.from('admin_users').update({ display_theme: theme })
+        .eq('email', RS.currentUser.email).then(function(){}).catch(function(){});
+    }
+  };
+
+  window.rSetBackground = function(bg) {
+    if (bg === 'photo') {
+      document.body.style.backgroundImage = "url('../assets/background.jpg')";
+      document.body.style.backgroundSize = 'cover';
+      document.body.style.backgroundPosition = 'center';
+      document.body.style.backgroundAttachment = 'fixed';
+      document.body.style.backgroundColor = '';
+    } else if (_BG_MAP[bg]) {
+      document.body.style.backgroundImage = '';
+      document.body.style.background = _BG_MAP[bg];
+    }
+    var opts = document.querySelectorAll('.r-bg-opt');
+    for (var i = 0; i < opts.length; i++) {
+      opts[i].style.border = opts[i].getAttribute('data-bg') === bg
+        ? '2px solid rgba(0,240,255,0.5)' : '2px solid transparent';
+    }
+    try { localStorage.setItem('rs_bg', bg); } catch(e) {}
+    if (RS.supa && RS.currentUser) {
+      RS.supa.from('admin_users').update({ display_bg: bg })
+        .eq('email', RS.currentUser.email).then(function(){}).catch(function(){});
+    }
+  };
+
+  window.rPickCustomBg = function() {
+    var inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = function(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        var url = ev.target.result;
+        document.body.style.backgroundImage    = 'url(' + url + ')';
+        document.body.style.backgroundSize     = 'cover';
+        document.body.style.backgroundPosition = 'center';
+        document.body.style.backgroundAttachment = 'fixed';
+        try {
+          localStorage.setItem('rs_bg', 'custom');
+          localStorage.setItem('rs_bg_custom', url);
+        } catch(e) {}
+        var opts = document.querySelectorAll('.r-bg-opt');
+        for (var i = 0; i < opts.length; i++) {
+          opts[i].style.border = opts[i].getAttribute('data-bg') === 'custom'
+            ? '2px solid rgba(0,240,255,0.5)' : '2px solid transparent';
+        }
+        var customEl = document.querySelector('.r-bg-opt[data-bg="custom"]');
+        if (customEl) customEl.style.backgroundImage = 'url(' + url + ')';
+      };
+      reader.readAsDataURL(file);
+    };
+    inp.click();
+  };
+
+  function _restoreDisplayPrefs() {
+    try {
+      var theme     = localStorage.getItem('rs_theme') || 'dark';
+      var bg        = localStorage.getItem('rs_bg')    || 'photo';
+      var customUrl = localStorage.getItem('rs_bg_custom');
+      window.rSetTheme(theme);
+      if (bg === 'custom' && customUrl) {
+        document.body.style.backgroundImage    = 'url(' + customUrl + ')';
+        document.body.style.backgroundSize     = 'cover';
+        document.body.style.backgroundPosition = 'center';
+        document.body.style.backgroundAttachment = 'fixed';
+      } else {
+        window.rSetBackground(bg || 'photo');
+      }
+    } catch(e) {}
+  }
+
+  function _loadDisplayPrefsFromSupabase() {
+    if (!RS.supa || !RS.currentUser) return;
+    RS.supa.from('admin_users')
+      .select('display_theme,display_bg')
+      .eq('email', RS.currentUser.email)
+      .single()
+      .then(function(res) {
+        if (res.error || !res.data) return;
+        if (res.data.display_theme) {
+          window.rSetTheme(res.data.display_theme);
+          try { localStorage.setItem('rs_theme', res.data.display_theme); } catch(e) {}
+        }
+        if (res.data.display_bg) {
+          window.rSetBackground(res.data.display_bg);
+          try { localStorage.setItem('rs_bg', res.data.display_bg); } catch(e) {}
+        }
+      }).catch(function() {});
+  }
+
   // ── Container HTML ─────────────────────────────────────────
   function injectHTML() {
     if ($r('rasumi-container')) return;
@@ -338,8 +525,8 @@
       '  <div class="r-hn-item" id="rni-r-studio"     onclick="rNav(\'r-studio\')"><i class="fa-solid fa-file-pdf"></i> PDF Studio</div>',
       '  <div class="r-hn-item" id="rni-r-quick"      onclick="rNav(\'r-quick\')"><i class="fa-solid fa-bolt"></i> Quick Rename</div>',
       '  <div class="r-hn-item" id="rni-r-scanify"    onclick="rNav(\'r-scanify\')"><i class="fa-solid fa-camera"></i> Scanify</div>',
-      '  <div class="r-hn-item" id="rni-r-vibes"      onclick="rNav(\'r-vibes\')"><i class="fa-solid fa-file-arrow-up"></i> VIBES Monitor <span class="r-nb err" id="r-nb-vibes" style="display:none"></span></div>',
-      '  <div class="r-hn-item" id="rni-r-vims"       onclick="rNav(\'r-vims\')"><i class="fa-solid fa-magnifying-glass-chart"></i> VIMS Scrape <span class="r-nb warn" id="r-nb-vims" style="display:none"></span></div>',
+      '  <div class="r-hn-item" id="rni-r-vibes"      onclick="rNav(\'r-vibes\')"><i class="fa-solid fa-file-arrow-up"></i> VIBES Agent <span class="r-nb err" id="r-nb-vibes" style="display:none"></span></div>',
+      '  <div class="r-hn-item" id="rni-r-vims"       onclick="rNav(\'r-vims\')"><i class="fa-solid fa-magnifying-glass-chart"></i> VIMS Agent <span class="r-nb warn" id="r-nb-vims" style="display:none"></span></div>',
       '  <div class="r-hn-sep"></div>',
       '  <div class="r-hn-item" id="rni-r-logs"      onclick="rNav(\'r-logs\')"><i class="fa-solid fa-scroll"></i> Log Explorer</div>',
       '  <div class="r-hn-item" id="rni-r-commands"  onclick="rNav(\'r-commands\')"><i class="fa-solid fa-terminal"></i> Commands</div>',
@@ -370,7 +557,7 @@
       '<div id="r-prompt-overlay" style="display:none;position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);align-items:center;justify-content:center;">',
       '  <div id="r-prompt-box" style="background:rgba(8,12,19,0.98);border:1px solid rgba(0,240,255,0.25);border-radius:12px;width:420px;max-width:94vw;box-shadow:0 0 40px rgba(0,240,255,0.08),0 24px 60px rgba(0,0,0,0.7);font-family:var(--rc-font);">',
       '    <div style="padding:14px 18px 12px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:10px;">',
-      '      <span id="r-prompt-icon" style="color:var(--rc-cyan,#06b6d4);font-size:14px"></span>',
+      '      <span id="r-prompt-icon" style="color:var(--rc-cyan,#00f0ff);font-size:14px"></span>',
       '      <span id="r-prompt-title" style="font-size:13px;font-weight:700;color:var(--rc-text,#e2e8f0);letter-spacing:0.05em;flex:1"></span>',
       '      <button onclick="window._rPromptCancel()" style="background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:15px;padding:2px 4px;line-height:1;transition:color 0.12s" onmouseover="this.style.color=\'#ef4444\'" onmouseout="this.style.color=\'rgba(255,255,255,0.3)\'"><i class="fa-solid fa-xmark"></i></button>',
       '    </div>',
@@ -380,7 +567,7 @@
       '    </div>',
       '    <div style="padding:10px 18px 16px;display:flex;gap:8px;justify-content:flex-end;">',
       '      <button onclick="window._rPromptCancel()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:6px;padding:7px 18px;font-size:12px;font-family:var(--rc-font);cursor:pointer;transition:background 0.12s" onmouseover="this.style.background=\'rgba(255,255,255,0.08)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.04)\'">Cancel</button>',
-      '      <button id="r-prompt-confirm-btn" onclick="window._rPromptConfirm()" style="background:rgba(0,240,255,0.1);border:1px solid rgba(0,240,255,0.35);color:var(--rc-cyan,#06b6d4);border-radius:6px;padding:7px 20px;font-size:12px;font-weight:700;font-family:var(--rc-font);cursor:pointer;letter-spacing:0.04em;transition:background 0.12s,box-shadow 0.12s" onmouseover="this.style.background=\'rgba(0,240,255,0.2)\';this.style.boxShadow=\'0 0 12px rgba(0,240,255,0.15)\'" onmouseout="this.style.background=\'rgba(0,240,255,0.1)\';this.style.boxShadow=\'none\'">Confirm</button>',
+      '      <button id="r-prompt-confirm-btn" onclick="window._rPromptConfirm()" style="background:rgba(0,240,255,0.1);border:1px solid rgba(0,240,255,0.35);color:var(--rc-cyan,#00f0ff);border-radius:6px;padding:7px 20px;font-size:12px;font-weight:700;font-family:var(--rc-font);cursor:pointer;letter-spacing:0.04em;transition:background 0.12s,box-shadow 0.12s" onmouseover="this.style.background=\'rgba(0,240,255,0.2)\';this.style.boxShadow=\'0 0 12px rgba(0,240,255,0.15)\'" onmouseout="this.style.background=\'rgba(0,240,255,0.1)\';this.style.boxShadow=\'none\'">Confirm</button>',
       '    </div>',
       '  </div>',
       '</div>',
@@ -401,49 +588,49 @@
       '    <div id="r-profile-modal" class="hidden" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:10000; display:flex; align-items:center; justify-content:center;">',
       '        <div style="background:var(--rc-bg, #111827); border:1px solid var(--rc-border, #374151); border-radius:8px; width:400px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.5); max-height:90vh; overflow-y:auto;">',
       '            <div style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid var(--rc-border, #374151); padding-bottom:10px;">',
-      '                <h3 style="margin:0; font-size:14px; color:var(--rc-cyan, #06b6d4);"><i class="fa-solid fa-user-shield"></i> PROFILE COMMAND</h3>',
+      '                <h3 style="margin:0; font-size:14px; color:var(--rc-cyan, #00f0ff);"><i class="fa-solid fa-user-shield"></i> PROFILE COMMAND</h3>',
       '                <button id="btn-close-r-profile" style="background:none; border:none; color:var(--rc-text-dim, #9ca3af); cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>',
       '            </div>',
       '            <div style="text-align:center;position:relative;">',
-      '                <button onclick="rToggleProfileEdit()" title="Edit profile" style="position:absolute;top:0;right:0;background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:13px;padding:3px 5px;line-height:1;transition:color 0.15s;" onmouseover="this.style.color=\'#06b6d4\'" onmouseout="this.style.color=\'var(--rc-text-dim,#9ca3af)\'"><i class="fa-solid fa-pen-to-square"></i></button>',
+      '                <button onclick="rToggleProfileEdit()" title="Edit profile" style="position:absolute;top:0;right:0;background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:13px;padding:3px 5px;line-height:1;transition:color 0.15s;" onmouseover="this.style.color=\'#00f0ff\'" onmouseout="this.style.color=\'var(--rc-text-dim,#9ca3af)\'"><i class="fa-solid fa-pen-to-square"></i></button>',
       '                <input type="file" id="r-profile-upload" class="hidden" accept="image/*">',
       '                <div style="position:relative;display:inline-block;margin-bottom:14px;">',
-      '                    <img id="r-profile-img-display" src="https://ui-avatars.com/api/?name=SA&background=0d1117&color=06b6d4" style="width:88px;height:88px;border-radius:50%;cursor:pointer;border:2px solid var(--rc-cyan,#06b6d4);display:block;object-fit:cover;" title="Click to change photo">',
+      '                    <img id="r-profile-img-display" src="https://ui-avatars.com/api/?name=SA&background=0d1117&color=06b6d4" style="width:88px;height:88px;border-radius:50%;cursor:pointer;border:2px solid var(--rc-cyan,#00f0ff);display:block;object-fit:cover;" title="Click to change photo">',
       '                    <div id="r-avatar-spinner" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.6);border-radius:50%;align-items:center;justify-content:center;font-size:18px;color:#fff"><i class="fa-solid fa-circle-notch fa-spin"></i></div>',
       '                </div>',
       '                <div id="r-p-displayname" style="font-weight:bold;color:var(--rc-text,#fff);letter-spacing:1px;font-size:13px;">—</div>',
       '                <div id="r-p-email" style="font-size:11px;color:var(--rc-text-dim,#9ca3af);margin-top:3px;">—</div>',
-      '                <div id="r-p-role-badge" style="display:inline-block;margin-top:6px;font-size:9px;font-weight:700;letter-spacing:1.5px;padding:2px 8px;border-radius:10px;background:rgba(0,240,255,0.1);color:var(--rc-cyan,#06b6d4);border:1px solid rgba(0,240,255,0.25);">—</div>',
+      '                <div id="r-p-role-badge" style="display:inline-block;margin-top:6px;font-size:9px;font-weight:700;letter-spacing:1.5px;padding:2px 8px;border-radius:10px;background:rgba(0,240,255,0.1);color:var(--rc-cyan,#00f0ff);border:1px solid rgba(0,240,255,0.25);">—</div>',
       '                <div id="r-p-edit-panel" style="display:none;text-align:left;margin-top:14px;padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--rc-border,#374151);border-radius:6px;">',
       '                    <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:6px;">NICKNAME</div>',
       '                    <input type="text" id="r-p-nickname" placeholder="Display name (e.g. Kakar0th)" style="width:100%;box-sizing:border-box;padding:9px 12px;margin-bottom:10px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;font-size:12px;">',
       '                    <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:6px;">EMAIL</div>',
       '                    <input type="email" id="r-p-edit-email" placeholder="New email address" style="width:100%;box-sizing:border-box;padding:9px 12px;margin-bottom:10px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;font-size:12px;">',
       '                    <div id="r-p-email-note" style="font-size:10px;color:var(--rc-text-dim,#9ca3af);margin-bottom:10px;display:none;">Supabase will send a verification to the new email. Login email updates after confirmation.</div>',
-      '                    <button onclick="rSaveProfile()" style="width:100%;padding:9px;background:rgba(6,182,212,0.12);border:1px solid rgba(6,182,212,0.35);color:var(--rc-cyan,#06b6d4);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;">Save Changes</button>',
+      '                    <button onclick="rSaveProfile()" style="width:100%;padding:9px;background:rgba(0,240,255,0.12);border:1px solid rgba(0,240,255,0.35);color:var(--rc-cyan,#00f0ff);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;">Save Changes</button>',
       '                </div>',
       '                <div style="text-align:left;margin-top:14px;border-top:1px solid var(--rc-border,#374151);padding-top:16px;">',
       '                    <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">CHANGE PASSWORD</div>',
       '                    <input type="password" id="r-p-curr-pass" placeholder="Current password" style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;">',
       '                    <input type="password" id="r-p-new-pass" placeholder="New password (min 6 chars)" style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;">',
       '                    <input type="password" id="r-p-confirm-pass" placeholder="Confirm new password" style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;">',
-      '                    <button id="btn-update-r-profile" style="width:100%;padding:12px;background:var(--rc-cyan,#06b6d4);color:#000;font-weight:bold;border:none;border-radius:4px;cursor:pointer;letter-spacing:1px;font-family:inherit;">CHANGE PASSWORD</button>',
+      '                    <button id="btn-update-r-profile" style="width:100%;padding:12px;background:var(--rc-cyan,#00f0ff);color:#000;font-weight:bold;border:none;border-radius:4px;cursor:pointer;letter-spacing:1px;font-family:inherit;">CHANGE PASSWORD</button>',
       '                    <div id="r-p-pass-status" style="font-size:10px;margin-top:8px;text-align:center;min-height:14px;"></div>',
       '                </div>',
       '                <!-- 2FA SECTION -->',
       '                <div style="text-align:left;margin-top:14px;border-top:1px solid var(--rc-border,#374151);padding-top:16px;">',
       '                    <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">TWO-FACTOR AUTHENTICATION</div>',
       '                    <div id="r-2fa-status" style="font-size:11px;color:#9ca3af;margin-bottom:10px;"><i class="fa-solid fa-circle-notch fa-spin"></i> Checking…</div>',
-      '                    <button id="btn-r-setup-2fa" onclick="rSetup2FA()" style="display:none;width:100%;padding:10px;background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.35);color:var(--rc-cyan,#06b6d4);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;letter-spacing:0.5px;">ENABLE 2FA (TOTP)</button>',
+      '                    <button id="btn-r-setup-2fa" onclick="rSetup2FA()" style="display:none;width:100%;padding:10px;background:rgba(0,240,255,0.1);border:1px solid rgba(0,240,255,0.35);color:var(--rc-cyan,#00f0ff);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;letter-spacing:0.5px;">ENABLE 2FA (TOTP)</button>',
       '                    <button id="btn-r-remove-2fa" onclick="rRemove2FA()" style="display:none;width:100%;padding:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;letter-spacing:0.5px;">DISABLE 2FA</button>',
       '                    <div id="r-2fa-enroll" style="display:none;margin-top:14px;text-align:center;">',
       '                        <div style="font-size:10px;color:#9ca3af;margin-bottom:10px;line-height:1.5;">Scan with <strong style="color:#fff">Google Authenticator</strong> or <strong style="color:#fff">Authy</strong>, then enter the 6-digit code below to confirm.</div>',
       '                        <img id="r-2fa-qr" src="" style="width:156px;height:156px;background:#fff;padding:8px;border-radius:6px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;">',
       '                        <div style="font-size:9px;color:#6b7280;margin-bottom:6px;letter-spacing:0.5px;">OR ENTER KEY MANUALLY:</div>',
-      '                        <code id="r-2fa-secret" style="font-size:11px;color:var(--rc-cyan,#06b6d4);background:rgba(0,0,0,0.35);padding:6px 10px;border-radius:3px;word-break:break-all;display:block;margin-bottom:14px;text-align:left;"></code>',
+      '                        <code id="r-2fa-secret" style="font-size:11px;color:var(--rc-cyan,#00f0ff);background:rgba(0,0,0,0.35);padding:6px 10px;border-radius:3px;word-break:break-all;display:block;margin-bottom:14px;text-align:left;"></code>',
       '                        <input type="text" id="r-2fa-verify-code" placeholder="Enter 6-digit code" maxlength="6" inputmode="numeric"',
       '                          style="width:100%;box-sizing:border-box;padding:11px 12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;font-size:16px;text-align:center;letter-spacing:6px;">',
-      '                        <button onclick="rVerify2FA()" style="width:100%;padding:10px;background:rgba(6,182,212,0.12);border:1px solid rgba(6,182,212,0.35);color:var(--rc-cyan,#06b6d4);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;margin-bottom:6px;">CONFIRM &amp; ACTIVATE</button>',
+      '                        <button onclick="rVerify2FA()" style="width:100%;padding:10px;background:rgba(0,240,255,0.12);border:1px solid rgba(0,240,255,0.35);color:var(--rc-cyan,#00f0ff);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;margin-bottom:6px;">CONFIRM &amp; ACTIVATE</button>',
       '                        <button onclick="rCancel2FA()" style="width:100%;padding:8px;background:none;border:1px solid var(--rc-border,#374151);color:#6b7280;border-radius:4px;cursor:pointer;font-size:10px;font-family:inherit;">Cancel</button>',
       '                    </div>',
       '                </div>',
@@ -455,20 +642,20 @@
       '    <div id="r-settings-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
       '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:420px;max-width:95vw;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
       '        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);">',
-      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#06b6d4);letter-spacing:1px;"><i class="fa-solid fa-sliders"></i> SETTINGS</h3>',
+      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#00f0ff);letter-spacing:1px;"><i class="fa-solid fa-sliders"></i> SETTINGS</h3>',
       '          <button id="btn-close-settings" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
       '        </div>',
       '        <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px;">',
-      '          <div onclick="window.rOpenAdminsFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#06b6d4\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
-      '            <i class="fa-solid fa-users-gear" style="font-size:20px;color:var(--rc-cyan,#06b6d4);flex-shrink:0;"></i>',
+      '          <div onclick="window.rOpenAdminsFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#00f0ff\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
+      '            <i class="fa-solid fa-users-gear" style="font-size:20px;color:var(--rc-cyan,#00f0ff);flex-shrink:0;"></i>',
       '            <div>',
       '              <div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;letter-spacing:0.5px;">MANAGE ADMINS</div>',
       '              <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:2px;">Manage admin console access &amp; permissions</div>',
       '            </div>',
       '            <i class="fa-solid fa-chevron-right" style="margin-left:auto;color:var(--rc-text-dim,#6b7280);font-size:11px;"></i>',
       '          </div>',
-      '          <div onclick="window.rOpenAppUsersFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#06b6d4\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
-      '            <i class="fa-solid fa-id-card-clip" style="font-size:20px;color:var(--rc-cyan,#06b6d4);flex-shrink:0;"></i>',
+      '          <div onclick="window.rOpenAppUsersFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#00f0ff\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
+      '            <i class="fa-solid fa-id-card-clip" style="font-size:20px;color:var(--rc-cyan,#00f0ff);flex-shrink:0;"></i>',
       '            <div>',
       '              <div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;letter-spacing:0.5px;">APP USERS</div>',
       '              <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:2px;">Manage access &amp; allowed apps for each Rasumi user</div>',
@@ -503,7 +690,7 @@
       '    <div id="r-admins-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
       '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:500px;max-height:78vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
       '        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
-      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#06b6d4);letter-spacing:1px;"><i class="fa-solid fa-users-gear"></i> MANAGE ADMINS</h3>',
+      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#00f0ff);letter-spacing:1px;"><i class="fa-solid fa-users-gear"></i> MANAGE ADMINS</h3>',
       '          <button id="btn-close-admins" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
       '        </div>',
       '        <div style="padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
@@ -519,7 +706,7 @@
       '              <option value="write">Read &amp; Write</option>',
       '            </select>',
       '            <span id="r-admin-perm-tick" style="font-size:13px;color:#22c55e;display:inline;flex-shrink:0;">✓</span>',
-      '            <button onclick="rAddAdmin()" style="padding:9px 16px;background:var(--rc-cyan,#06b6d4);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">ADD</button>',
+      '            <button onclick="rAddAdmin()" style="padding:9px 16px;background:var(--rc-cyan,#00f0ff);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">ADD</button>',
       '          </div>',
       '        </div>',
       '        <div id="r-admins-list" style="overflow-y:auto;padding:0 20px;flex:1;"></div>',
@@ -530,7 +717,7 @@
       '    <div id="r-husers-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
       '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:720px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
       '        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
-      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#06b6d4);letter-spacing:1px;"><i class="fa-solid fa-id-card-clip"></i> APP USERS</h3>',
+      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#00f0ff);letter-spacing:1px;"><i class="fa-solid fa-id-card-clip"></i> APP USERS</h3>',
       '          <button id="btn-close-husers" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
       '        </div>',
       '        <div style="padding:12px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
@@ -542,7 +729,7 @@
       '              <option value="ADMIN">ADMIN</option>',
       '              <option value="VIEWER">VIEWER</option>',
       '            </select>',
-      '            <button onclick="rAddHospitalUser()" style="padding:9px 16px;background:var(--rc-cyan,#06b6d4);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">ADD</button>',
+      '            <button onclick="rAddHospitalUser()" style="padding:9px 16px;background:var(--rc-cyan,#00f0ff);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">ADD</button>',
       '          </div>',
       '          <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:6px;letter-spacing:0.3px;">Add new users ID.</div>',
       '        </div>',
@@ -669,6 +856,12 @@
     function tick() {
       var el = $r('r-clock');
       if (el) el.textContent = new Date().toLocaleTimeString('ms-MY', { hour12: false });
+      // Update online device uptime counters directly in the sidebar — no DOM rebuild
+      var now = Date.now();
+      document.querySelectorAll('.r-nc-time[data-online]').forEach(function(te) {
+        var from = RS._onlineFrom[te.getAttribute('data-online')];
+        te.textContent = fmtUptime(from ? now - from : 0);
+      });
     }
     tick();
     RS.clockTick = setInterval(tick, 1000);
@@ -887,11 +1080,11 @@
         // Line 1: email + nickname + role + controls
         row += '<div style="display:flex;align-items:center;justify-content:space-between;">';
         row += '<div>';
-        row += '<div style="font-size:12px;color:var(--rc-text,#fff);">' + esc(em) + (nick ? ' <span style="font-size:10px;color:var(--rc-cyan,#06b6d4);">(' + esc(nick) + ')</span>' : '') + '</div>';
+        row += '<div style="font-size:12px;color:var(--rc-text,#fff);">' + esc(em) + (nick ? ' <span style="font-size:10px;color:var(--rc-cyan,#00f0ff);">(' + esc(nick) + ')</span>' : '') + '</div>';
         row += '<div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:2px;">' + (isSA ? 'SUPER ADMIN' : (canW ? 'ADMIN · Read & Write' : 'ADMIN · Read')) + '</div>';
         row += '</div>';
         if (isSA) {
-          row += '<span style="font-size:10px;color:var(--rc-cyan,#06b6d4);padding:3px 8px;border:1px solid rgba(0,240,255,0.3);border-radius:10px;">Owner</span>';
+          row += '<span style="font-size:10px;color:var(--rc-cyan,#00f0ff);padding:3px 8px;border:1px solid rgba(0,240,255,0.3);border-radius:10px;">Owner</span>';
         } else {
           row += '<div style="display:flex;gap:10px;align-items:center;">';
           row += '<select id="' + permId + '" onchange="rToggleAdminWrite(\'' + safeEm + '\',this.value===\'write\');rUpdateListPermIndicator(this)" style="padding:5px 8px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:11px;font-family:inherit;cursor:pointer;">';
@@ -899,7 +1092,7 @@
           row += '<option value="write"' + (canW ? ' selected' : '') + '>Read &amp; Write</option>';
           row += '</select>';
           row += '<span style="font-size:13px;color:#22c55e;' + (canW ? 'display:none' : 'display:inline') + ';" id="tick_' + permId + '">✓</span>';
-          row += '<button onclick="rSendAdminResetEmail(\'' + safeEm + '\')" title="Send reset email" style="background:none;border:1px solid rgba(6,182,212,0.4);color:var(--rc-cyan,#06b6d4);padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;"><i class="fa-solid fa-envelope-circle-check"></i></button>';
+          row += '<button onclick="rSendAdminResetEmail(\'' + safeEm + '\')" title="Send reset email" style="background:none;border:1px solid rgba(0,240,255,0.4);color:var(--rc-cyan,#00f0ff);padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;"><i class="fa-solid fa-envelope-circle-check"></i></button>';
           row += '<button onclick="rRemoveAdmin(\'' + safeEm + '\')" style="background:none;border:1px solid rgba(239,68,68,0.5);color:#ef4444;padding:3px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;">Remove</button>';
           row += '</div>';
         }
@@ -1027,11 +1220,57 @@
       RS.supa.from('machine_status').select('*').then(function(res) {
         if (res.error) { console.warn('[Supa] machine_status fetch:', res.error.message); }
         RS.devices = {};
-        (res.data || []).forEach(function(d) { RS.devices[d.hostname] = _normSupa(d); });
+        (res.data || []).forEach(function(d) {
+          RS.devices[d.hostname] = _normSupa(d);
+          _trackOnlineFrom(d.hostname, RS.devices[d.hostname]._status, d.last_heartbeat || d.last_seen);
+        });
         updateFleetBadges();
         if (RS.route === 'r-dashboard') renderDashboard();
-        if (RS.route === 'r-devices')   renderDevices();
         if (RS.route === 'r-alerts')    renderAlerts();
+
+        // Build machine→branch_id map from logs (machine_status has no branch_id column).
+        // One query per device using ilike (case-insensitive) — guarantees coverage
+        // regardless of log volume or hostname capitalisation differences.
+        RS._devBranchMap = {};
+        var _hostnames = Object.keys(RS.devices);
+        if (!RS.supa || !_hostnames.length) {
+          if (RS.route === 'r-devices') renderDevices();
+        } else {
+          var _pending = _hostnames.length;
+          _hostnames.forEach(function(h) {
+            RS.supa.from('logs').select('branch_id')
+              .ilike('machine', h)
+              .not('branch_id', 'is', null)
+              .order('timestamp', { ascending: false })
+              .limit(1)
+              .then(function(r) {
+                if (r.data && r.data[0] && r.data[0].branch_id) {
+                  RS._devBranchMap[h.toLowerCase()] = r.data[0].branch_id.toLowerCase();
+                }
+              })
+              .catch(function() {})
+              .finally(function() {
+                _pending--;
+                if (_pending === 0 && RS.route === 'r-devices') renderDevices();
+              });
+          });
+        }
+
+        // Auto-restore: re-select previously viewed device (or first online) and reload chart.
+        // Fixes empty chart on page refresh — RS._selectedDevice is lost on page reload.
+        if (RS.route === 'r-dashboard' && !RS._selectedDevice) {
+          var savedDev = null;
+          try { savedDev = sessionStorage.getItem('rs_sel_dev'); } catch(e) {}
+          var autoHost = (savedDev && RS.devices[savedDev]) ? savedDev
+            : (Object.values(RS.devices).filter(function(dv){ return dv._status === 'online'; })[0] || {}).id || null;
+          if (autoHost) {
+            RS._selectedDevice = autoHost;
+            try { sessionStorage.setItem('rs_sel_dev', autoHost); } catch(e) {}
+            updateSideNodeList();
+            updateDashTelemetry();
+            updateChartFromDevice(); // draws RAM/DISK donuts + triggers fetchCpuChart internally
+          }
+        }
 
         // Firebase bridge: covers v9.3 machines that don't dual-write to Supabase.
         // Compares timestamps — whichever source is more recent wins.
@@ -1055,6 +1294,7 @@
               var d = Object.assign({ id: doc.id, _source: 'firebase' }, fbData);
               d._status = deviceStatus(d);
               RS.devices[doc.id] = d;
+              _trackOnlineFrom(doc.id, d._status, d.last_heartbeat || d.last_seen);
             });
             updateFleetBadges();
             if (RS.route === 'r-dashboard') renderDashboard();
@@ -1076,6 +1316,7 @@
             // only include the primary key in payload.new, so we must preserve existing fields.
             var existing = RS.devices[d.hostname] || {};
             RS.devices[d.hostname] = _normSupa(Object.assign({}, existing, d));
+            _trackOnlineFrom(d.hostname, RS.devices[d.hostname]._status, RS.devices[d.hostname].last_heartbeat || RS.devices[d.hostname].last_seen);
             updateFleetBadges();
             if (RS.route === 'r-dashboard') renderDashboard();
             if (RS.route === 'r-devices')   renderDevices();
@@ -1100,6 +1341,7 @@
           var d = Object.assign({ id: doc.id }, doc.data());
           d._status = deviceStatus(d);
           RS.devices[doc.id] = d;
+          _trackOnlineFrom(doc.id, d._status, d.last_heartbeat || d.last_seen);
         });
         updateFleetBadges();
         if (RS.route === 'r-dashboard') renderDashboard();
@@ -1362,20 +1604,51 @@
     });
     if (allDevs.length) lastSync = fmtElapsed(allDevs[0].last_heartbeat || allDevs[0].last_seen);
 
-    // ── Row 1: Metric cards ──
-    var metricRow =
-      '<div class="r-metric-row">' +
-        metricCard('green',  on,         'TOTAL ACTIVE NODES', 'fa-circle-check',       'Online now',              'r-devices') +
-        metricCard('danger', off,        'OFFLINE NODES',      'fa-circle-xmark',       off > 0 ? off + ' need attention' : 'All clear', 'r-devices') +
-        metricCard('info',   runsToday,  'RUNS TODAY',         'fa-play-circle',        'Across all apps',         'r-logs') +
-        metricCard('warn',   errToday,   'FAILED TODAY',       'fa-bug',                'Check log explorer',      null, 'window.rOpenFailedLogs()') +
-        metricCard('purple', RS.unresolvedVibes, 'VIBES ERRORS','fa-triangle-exclamation', 'Unresolved',          'r-vibes') +
-        metricCard('blue',   devs.length,'MACHINES TOTAL',     'fa-server',             'Last sync: ' + lastSync, 'r-devices') +
-      '</div>';
-
-    // ── Selected device ──
-    var selId = RS._selectedDevice;
+    var selId  = RS._selectedDevice;
     var selDev = selId ? RS.devices[selId] : null;
+
+    // ── Patch-only update when dashboard DOM already exists (no flicker) ──
+    if ($r('r-dash-metrics')) {
+      _patchMetric('mc-on',    on,                'Online now');
+      _patchMetric('mc-off',   off,               off > 0 ? off + ' need attention' : 'All clear');
+      _patchMetric('mc-runs',  runsToday,         'Across all apps');
+      _patchMetric('mc-err',   errToday,          'Check log explorer');
+      _patchMetric('mc-vibes', RS.unresolvedVibes,'Unresolved');
+      _patchMetric('mc-total', devs.length,       'Last sync: ' + lastSync);
+      // Telemetry title
+      var tt = $r('r-tele-title');
+      if (tt) tt.innerHTML = '<i class="fa-solid fa-microchip"></i> ACTIVE TELEMETRY' +
+        (selId ? ' &mdash; ' + selId : ' <span style="color:var(--rc-text-dim);font-weight:400">[SELECT A NODE]</span>');
+      // Telemetry + health panels
+      var tb = $r('r-tele-body');   if (tb) tb.innerHTML = buildTelemetryHTML(selDev);
+      var hb = $r('r-health-body'); if (hb) hb.innerHTML = buildHealthHTML(selDev);
+      // Recent activity
+      var ra = $r('r-recent-act');  if (ra) ra.innerHTML = buildRecentActHTML();
+      // App overview inner list
+      var ao = $r('r-app-ov-list');
+      if (ao) ao.innerHTML = RASUMI_APPS.map(function(app) {
+        var stats = RS.appStats[app.key] || {};
+        return '<div class="r-app-row" onclick="rNav(\'r-logs\')">' +
+          '<i class="fa-solid ' + app.icon + ' r-app-ico"></i>' +
+          '<span class="r-app-name">' + app.label + '</span>' +
+          '<span class="r-app-cnt">Today: ' + (stats.today||0) + '</span>' +
+          ((stats.errors||0) > 0 ? '<span class="r-app-err">' + stats.errors + ' err</span>' : '') +
+          '</div>';
+      }).join('');
+      updateSideNodeList();
+      return;  // ← skip full DOM rebuild
+    }
+
+    // ── Row 1: Metric cards (first full render only) ──
+    var metricRow =
+      '<div class="r-metric-row" id="r-dash-metrics">' +
+        metricCard('green',  on,         'TOTAL ACTIVE NODES', 'fa-circle-check',       'Online now',              'r-devices', null, 'mc-on') +
+        metricCard('danger', off,        'OFFLINE NODES',      'fa-circle-xmark',       off > 0 ? off + ' need attention' : 'All clear', 'r-devices', null, 'mc-off') +
+        metricCard('info',   runsToday,  'RUNS TODAY',         'fa-play-circle',        'Across all apps',         'r-logs', null, 'mc-runs') +
+        metricCard('warn',   errToday,   'FAILED TODAY',       'fa-bug',                'Check log explorer',      null, 'window.rOpenFailedLogs()', 'mc-err') +
+        metricCard('purple', RS.unresolvedVibes, 'VIBES ERRORS','fa-triangle-exclamation', 'Unresolved',          'r-vibes', null, 'mc-vibes') +
+        metricCard('blue',   devs.length,'MACHINES TOTAL',     'fa-server',             'Last sync: ' + lastSync, 'r-devices', null, 'mc-total') +
+      '</div>';
 
     // ── Active Telemetry panel HTML ──
     var teleHTML = buildTelemetryHTML(selDev);
@@ -1391,7 +1664,7 @@
     var cmdHistHTML = '<div class="r-cmd-hist-feed" id="r-cmd-hist-dash"><div class="r-loading"><span class="r-spin"></span></div></div>';
 
     // App Overview
-    var appOvHTML = '<div class="r-app-list">' + RASUMI_APPS.map(function(app) {
+    var appOvHTML = '<div id="r-app-ov-list" class="r-app-list">' + RASUMI_APPS.map(function(app) {
       var stats = RS.appStats[app.key] || {};
       return '<div class="r-app-row" onclick="rNav(\'r-logs\')">' +
         '<i class="fa-solid ' + app.icon + ' r-app-ico"></i>' +
@@ -1441,7 +1714,17 @@
 
       // ── Row 4: 3 Charts ──
       '<div class="r-charts-row">' +
-        '<div class="r-chart-box"><div class="r-panel-title" style="margin-bottom:6px;border:none;padding:0"><i class="fa-solid fa-microchip"></i> CPU USAGE 24H</div><canvas id="r-chart-cpu"></canvas></div>' +
+        '<div class="r-chart-box r-chart-cpu-box">' +
+          '<div class="r-chart-hdr">' +
+            '<div class="r-panel-title" style="border:none;padding:0;margin:0"><i class="fa-solid fa-microchip"></i> CPU USAGE</div>' +
+            '<div class="r-chart-tabs">' +
+              '<button class="r-ctab r-ctab-active" onclick="rCpuRange(\'24H\',this)">24H</button>' +
+              '<button class="r-ctab" onclick="rCpuRange(\'7D\',this)">7D</button>' +
+              '<button class="r-ctab" onclick="rCpuRange(\'1M\',this)">1M</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="r-cpu-wrap"><canvas id="r-chart-cpu"></canvas><div id="r-cpu-live" class="r-cpu-live" style="display:none"></div></div>' +
+        '</div>' +
         '<div class="r-chart-box"><div class="r-panel-title" style="margin-bottom:6px;border:none;padding:0"><i class="fa-solid fa-memory"></i> RAM USAGE 24H</div><canvas id="r-chart-ram"></canvas></div>' +
         '<div class="r-chart-box"><div class="r-panel-title" style="margin-bottom:6px;border:none;padding:0"><i class="fa-solid fa-hard-drive"></i> DISK USAGE 24H</div><canvas id="r-chart-disk"></canvas></div>' +
       '</div>';
@@ -1460,16 +1743,27 @@
   };
 
   // ── Metric card builder ────────────────────────────────────
-  function metricCard(cls, val, lbl, icon, sub, route, customOnclick) {
+  function metricCard(cls, val, lbl, icon, sub, route, customOnclick, mid) {
     var click  = customOnclick ? ' onclick="' + customOnclick + '"'
                : route ? ' onclick="rNav(\'' + route + '\')"' : '';
     var cursor = (route || customOnclick) ? ' r-metric-card-link' : '';
-    return '<div class="r-metric-card ' + cls + cursor + '"' + click + '>' +
+    var midAttr = mid ? ' data-mid="' + mid + '"' : '';
+    return '<div class="r-metric-card ' + cls + cursor + '"' + click + midAttr + '>' +
       '<div class="r-metric-label">' + lbl + '</div>' +
       '<div class="r-metric-val">' + val + '</div>' +
       '<div class="r-metric-sub">' + (sub||'') + '</div>' +
       '<i class="fa-solid ' + icon + ' r-metric-icon"></i>' +
       '</div>';
+  }
+
+  // Patch a single metric card value/sub in-place without rebuilding the DOM
+  function _patchMetric(mid, val, sub) {
+    var card = document.querySelector('[data-mid="' + mid + '"]');
+    if (!card) return;
+    var v = card.querySelector('.r-metric-val');
+    var s = card.querySelector('.r-metric-sub');
+    if (v) v.textContent = String(val);
+    if (s && sub !== undefined) s.textContent = sub;
   }
 
   function kpi(cls, val, lbl, icon, extra) {
@@ -1483,6 +1777,7 @@
   // ── Node selection ─────────────────────────────────────────
   window.rSelectNode = function(hostname) {
     RS._selectedDevice = hostname;
+    try { sessionStorage.setItem('rs_sel_dev', hostname); } catch(e) {}
     updateSideNodeList();
     if (RS.route === 'r-dashboard') updateDashTelemetry();
     else renderDashboard();
@@ -1637,12 +1932,22 @@
       // Same timestamp: higher version first (lower version sinks to bottom)
       return _parseVer(b) - _parseVer(a);
     });
+    // Hash check — skip full rebuild if device list and statuses haven't changed.
+    // The tick() function handles the online uptime counter updates each second.
+    var newHash = devs.map(function(d) { return d.id + '|' + d._status + '|' + (d.id===selId?'1':'0'); }).join(',');
+    if (panel.innerHTML && RS._sideHash === newHash) return;
+    RS._sideHash = newHash;
+
     panel.innerHTML = devs.map(function(d) {
+      var onlineAttr = d._status === 'online' ? ' data-online="' + esc(d.id) + '"' : '';
+      var timeText   = d._status === 'online'
+        ? fmtUptime(Date.now() - (RS._onlineFrom[d.id] || Date.now()))
+        : fmtElapsed(d.last_heartbeat||d.last_seen);
       return '<div class="r-node-card' + (d.id===selId?' active':'') + '" onclick="rSelectNode(\'' + esc(d.id) + '\')">' +
         '<span class="r-nc-dot ' + d._status + '"></span>' +
         '<div class="r-nc-info">' +
           '<div class="r-nc-host">' + esc(d.id) + '</div>' +
-          '<div class="r-nc-time">' + fmtElapsed(d.last_heartbeat||d.last_seen) + '</div>' +
+          '<div class="r-nc-time"' + onlineAttr + '>' + timeText + '</div>' +
         '</div>' +
         '<span class="r-nc-badge ' + d._status + '">' + d._status.toUpperCase() + '</span>' +
       '</div>';
@@ -1738,8 +2043,10 @@
   }
 
   // ── Dashboard Charts ──────────────────────────────────────
-  // ── DISK: Custom gradient donut (image ref — thick ring, cyan→purple→pink gradient, % center) ──
+  // ── DISK: Animated gradient donut — breathing glow + rotating shimmer + tip pulse ──
   function _drawDiskDonut(canvas, pct, usedLabel) {
+    if (canvas._animFrame) { cancelAnimationFrame(canvas._animFrame); canvas._animFrame = null; }
+
     var dpr  = window.devicePixelRatio || 1;
     var cssW = canvas.clientWidth  || 220;
     var cssH = canvas.clientHeight || 155;
@@ -1747,56 +2054,110 @@
     canvas.height = cssH * dpr;
     canvas.style.width  = cssW + 'px';
     canvas.style.height = cssH + 'px';
-    var ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.scale(dpr, dpr);
+
+    var ctx  = canvas.getContext('2d');
     var W = cssW, H = cssH, cx = W / 2, cy = H / 2;
-    var R     = Math.min(W, H) * 0.40;
-    var lw    = R * 0.30;
+    var R      = Math.min(W, H) * 0.40;
+    var lw     = R * 0.30;
     var startA = -Math.PI / 2;
     var endA   = startA + Math.PI * 2 * Math.min(Math.max(pct, 0), 100) / 100;
-    // Track
-    ctx.beginPath();
-    ctx.arc(cx, cy, R, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-    ctx.lineWidth = lw;
-    ctx.lineCap = 'butt';
-    ctx.stroke();
-    // Gradient arc
-    if (pct > 0.5) {
-      var g = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
-      g.addColorStop(0,    '#00f0ff');
-      g.addColorStop(0.45, '#b200ff');
-      g.addColorStop(1,    '#ff00aa');
-      // Glow layer
+    var t0 = null;
+
+    function frame(ts) {
+      if (!t0) t0 = ts;
+      var elapsed = ts - t0;
+
+      // Breathing: 0→1→0 over 2s
+      var breathe = (1 - Math.cos((elapsed % 2000) / 2000 * Math.PI * 2)) / 2;
+      // Shimmer: highlight point sweeps along the filled arc over 3s
+      var shimmerAngle = startA + ((elapsed % 3000) / 3000) * (endA - startA);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.scale(dpr, dpr);
+
+      // ── Track ring ──
       ctx.beginPath();
-      ctx.arc(cx, cy, R, startA, endA);
-      ctx.strokeStyle = 'rgba(0,240,255,0.12)';
-      ctx.lineWidth = lw + 8;
-      ctx.lineCap = 'round';
-      ctx.stroke();
-      // Main arc
-      ctx.beginPath();
-      ctx.arc(cx, cy, R, startA, endA);
-      ctx.strokeStyle = g;
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
       ctx.lineWidth = lw;
-      ctx.lineCap = 'round';
+      ctx.lineCap = 'butt';
       ctx.stroke();
+
+      if (pct > 0.5) {
+        var g = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
+        g.addColorStop(0,    '#00f0ff');
+        g.addColorStop(0.45, '#b200ff');
+        g.addColorStop(1,    '#ff00aa');
+
+        // Effect 1 — Breathing outer glow: spread and opacity oscillate with breathe
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, startA, endA);
+        ctx.strokeStyle = 'rgba(0,240,255,' + (0.08 + 0.14 * breathe).toFixed(2) + ')';
+        ctx.lineWidth = lw + 6 + 10 * breathe;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        // ── Main arc ──
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, startA, endA);
+        ctx.strokeStyle = g;
+        ctx.lineWidth = lw;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        // Effect 2 — Rotating shimmer: white radial highlight sweeps the arc every 3s
+        if (shimmerAngle >= startA && shimmerAngle <= endA) {
+          var shimX = cx + R * Math.cos(shimmerAngle);
+          var shimY = cy + R * Math.sin(shimmerAngle);
+          var shimR = lw * 0.55;
+          var sg = ctx.createRadialGradient(shimX, shimY, 0, shimX, shimY, shimR);
+          sg.addColorStop(0,   'rgba(255,255,255,0.55)');
+          sg.addColorStop(0.4, 'rgba(255,255,255,0.15)');
+          sg.addColorStop(1,   'rgba(255,255,255,0)');
+          ctx.beginPath();
+          ctx.arc(shimX, shimY, shimR, 0, Math.PI * 2);
+          ctx.fillStyle = sg;
+          ctx.fill();
+        }
+
+        // Effect 3 — Tip pulse: glowing spot at the leading edge beats with breathe
+        var tipX = cx + R * Math.cos(endA);
+        var tipY = cy + R * Math.sin(endA);
+        var tipR = lw * (0.45 + 0.25 * breathe);
+        var tg = ctx.createRadialGradient(tipX, tipY, 0, tipX, tipY, tipR);
+        tg.addColorStop(0,    'rgba(255,255,255,' + (0.7 + 0.3 * breathe).toFixed(2) + ')');
+        tg.addColorStop(0.35, 'rgba(255,0,170,0.5)');
+        tg.addColorStop(1,    'rgba(255,0,170,0)');
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, tipR, 0, Math.PI * 2);
+        ctx.fillStyle = tg;
+        ctx.fill();
+      }
+
+      // ── Centre text ──
+      ctx.shadowBlur = 0;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold ' + Math.round(H * 0.23) + 'px Inter,sans-serif';
+      ctx.fillText(Math.round(pct) + '%', cx, cy - H * 0.05);
+      ctx.fillStyle = '#6B7A8F';
+      ctx.font = Math.round(H * 0.075) + 'px Inter,sans-serif';
+      ctx.fillText(usedLabel + ' used', cx, cy + H * 0.13);
+
+      ctx.restore();
+      canvas._animFrame = requestAnimationFrame(frame);
     }
-    // Centre % text
-    ctx.shadowBlur = 0;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold ' + Math.round(H * 0.23) + 'px Inter,sans-serif';
-    ctx.fillText(Math.round(pct) + '%', cx, cy - H * 0.05);
-    ctx.fillStyle = '#6B7A8F';
-    ctx.font = Math.round(H * 0.075) + 'px Inter,sans-serif';
-    ctx.fillText(usedLabel + ' used', cx, cy + H * 0.13);
+
+    canvas._animFrame = requestAnimationFrame(frame);
   }
 
-  // ── RAM: Custom dots circle (image ref — neon dots ring, gradient fill, % center) ──
+  // ── RAM: Animated capsule ring — breathing glow + tip pulse via rAF ──
   function _drawRamDots(canvas, pct, usedLabel) {
+    // Cancel previous animation loop on this canvas before redrawing
+    if (canvas._animFrame) { cancelAnimationFrame(canvas._animFrame); canvas._animFrame = null; }
+
     var dpr  = window.devicePixelRatio || 1;
     var cssW = canvas.clientWidth  || 220;
     var cssH = canvas.clientHeight || 155;
@@ -1804,82 +2165,170 @@
     canvas.height = cssH * dpr;
     canvas.style.width  = cssW + 'px';
     canvas.style.height = cssH + 'px';
-    var ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.scale(dpr, dpr);
+
+    var ctx  = canvas.getContext('2d');
     var W = cssW, H = cssH, cx = W / 2, cy = H / 2;
-    var ringR  = Math.min(W, H) * 0.39;
-    var dotR   = Math.min(W, H) * 0.030;
-    var N      = 48;
+    var base  = Math.min(W, H);
+    var ringR = base * 0.39;
+    var dotW  = base * 0.038;          // capsule narrow axis
+    var dotH  = base * 0.120;          // capsule tall axis — matches disk donut thickness
+    var N     = 36;                    // fewer dots = visible gap between each capsule
     var filled = Math.round(N * Math.min(Math.max(pct, 0), 100) / 100);
+    var hw = dotW / 2, hh = dotH / 2, cr = hw;
+
     function lerpC(c1, c2, t) {
       var r1=parseInt(c1.slice(1,3),16), g1=parseInt(c1.slice(3,5),16), b1=parseInt(c1.slice(5,7),16);
       var r2=parseInt(c2.slice(1,3),16), g2=parseInt(c2.slice(3,5),16), b2=parseInt(c2.slice(5,7),16);
       return 'rgb('+Math.round(r1+(r2-r1)*t)+','+Math.round(g1+(g2-g1)*t)+','+Math.round(b1+(b2-b1)*t)+')';
     }
-    for (var i = 0; i < N; i++) {
-      var a = (i / N) * Math.PI * 2 - Math.PI / 2;
-      var x = cx + ringR * Math.cos(a);
-      var y = cy + ringR * Math.sin(a);
-      var t = i / N;
+
+    // Draw a rounded-rect capsule centred at (0,0) in local space
+    function pill(ctx) {
       ctx.beginPath();
-      ctx.arc(x, y, dotR, 0, Math.PI * 2);
-      if (i < filled) {
-        var col = t < 0.33 ? lerpC('#b200ff','#00f0ff', t / 0.33)
-                : t < 0.66 ? lerpC('#00f0ff','#ff00aa', (t - 0.33) / 0.33)
-                :             lerpC('#ff00aa','#b200ff', (t - 0.66) / 0.34);
-        ctx.fillStyle  = col;
-        ctx.shadowColor = col;
-        ctx.shadowBlur  = 9;
-        ctx.fill();
-        ctx.shadowBlur  = 0;
-      } else {
-        ctx.fillStyle = 'rgba(255,255,255,0.06)';
-        ctx.fill();
-      }
+      ctx.moveTo(-hw + cr, -hh);
+      ctx.lineTo( hw - cr, -hh);
+      ctx.arcTo(  hw, -hh,  hw, -hh + cr, cr);
+      ctx.lineTo( hw,  hh - cr);
+      ctx.arcTo(  hw,  hh,  hw - cr, hh, cr);
+      ctx.lineTo(-hw + cr,  hh);
+      ctx.arcTo( -hw,  hh, -hw,  hh - cr, cr);
+      ctx.lineTo(-hw, -hh + cr);
+      ctx.arcTo( -hw, -hh, -hw + cr, -hh, cr);
+      ctx.closePath();
     }
-    // Centre % text
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold ' + Math.round(H * 0.23) + 'px Inter,sans-serif';
-    ctx.fillText(Math.round(pct) + '%', cx, cy - H * 0.05);
-    ctx.fillStyle = '#6B7A8F';
-    ctx.font = Math.round(H * 0.075) + 'px Inter,sans-serif';
-    ctx.fillText(usedLabel + ' used', cx, cy + H * 0.13);
+
+    var t0 = null;
+
+    function frame(ts) {
+      if (!t0) t0 = ts;
+      // Breathing: smooth sine 0→1→0 over 2 seconds
+      var phase   = ((ts - t0) % 2000) / 2000;
+      var breathe = (1 - Math.cos(phase * Math.PI * 2)) / 2;
+      // glow ranges 7–18 for body dots, tip gets 2.2× at peak
+      var glow = 7 + 11 * breathe;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.scale(dpr, dpr);
+
+      for (var i = 0; i < N; i++) {
+        var a = (i / N) * Math.PI * 2 - Math.PI / 2;
+        var x = cx + ringR * Math.cos(a);
+        var y = cy + ringR * Math.sin(a);
+        var t = i / N;
+        var isTip = (i === filled - 1);
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(a - Math.PI / 2);  // long axis → radial direction
+
+        if (i < filled) {
+          var col = t < 0.33 ? lerpC('#b200ff','#00f0ff', t / 0.33)
+                  : t < 0.66 ? lerpC('#00f0ff','#ff00aa', (t - 0.33) / 0.33)
+                  :             lerpC('#ff00aa','#b200ff', (t - 0.66) / 0.34);
+
+          // Effect 1 — Breathing glow on all filled capsules
+          pill(ctx);
+          ctx.fillStyle   = col;
+          ctx.shadowColor = col;
+          ctx.shadowBlur  = isTip ? glow * 2.2 : glow;
+          ctx.fill();
+
+          // Effect 2 — Tip pulse: second fill pass doubles the brightness at the leading edge
+          if (isTip) {
+            pill(ctx);
+            ctx.shadowBlur = glow * 1.5;
+            ctx.fill();
+          }
+          ctx.shadowBlur = 0;
+        } else {
+          pill(ctx);
+          ctx.fillStyle = 'rgba(255,255,255,0.06)';
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      // Centre text — clear shadow before drawing
+      ctx.shadowBlur = 0;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold ' + Math.round(H * 0.23) + 'px Inter,sans-serif';
+      ctx.fillText(Math.round(pct) + '%', cx, cy - H * 0.05);
+      ctx.fillStyle = '#6B7A8F';
+      ctx.font = Math.round(H * 0.075) + 'px Inter,sans-serif';
+      ctx.fillText(usedLabel + ' used', cx, cy + H * 0.13);
+
+      ctx.restore();
+      canvas._animFrame = requestAnimationFrame(frame);
+    }
+
+    canvas._animFrame = requestAnimationFrame(frame);
   }
 
   function initDashCharts() {
     if (typeof Chart === 'undefined') return;
 
-    // ── CPU: Line chart 24h ──
-    var cpuLabels = [];
-    for (var i = 23; i >= 0; i--) cpuLabels.push(i === 0 ? 'now' : i + 'h');
+    // ── CPU: Gradient line chart with 24H/7D/1M range ──
     var cpuCanvas = $r('r-chart-cpu');
     if (cpuCanvas) {
       if (RS._charts.cpu) { RS._charts.cpu.destroy(); delete RS._charts.cpu; }
+      // Build blue→green 5-stop gradient along X axis
+      var cpuCtx = cpuCanvas.getContext('2d');
+      var cpuGrad = cpuCtx.createLinearGradient(0, 0, cpuCanvas.offsetWidth || 400, 0);
+      cpuGrad.addColorStop(0,    '#1a7fff');
+      cpuGrad.addColorStop(0.25, '#00ccdd');
+      cpuGrad.addColorStop(0.5,  '#00e5aa');
+      cpuGrad.addColorStop(0.75, '#00ef80');
+      cpuGrad.addColorStop(1,    '#39ff6e');
+      // Vertical fill gradient (transparent under the line)
+      var cpuFill = cpuCtx.createLinearGradient(0, 0, 0, cpuCanvas.offsetHeight || 180);
+      cpuFill.addColorStop(0,   'rgba(0,220,140,0.18)');
+      cpuFill.addColorStop(1,   'rgba(0,220,140,0)');
       RS._charts.cpu = new Chart(cpuCanvas, {
         type: 'line',
         data: {
-          labels: cpuLabels,
+          labels: [],
           datasets: [{
-            data: new Array(24).fill(null),
-            borderColor: 'rgb(0,240,255)',
-            backgroundColor: 'rgba(0,240,255,0.08)',
-            borderWidth: 1.5, pointRadius: 0, tension: 0.4, fill: true,
-            spanGaps: true
+            data: [],
+            borderColor: cpuGrad,
+            backgroundColor: cpuFill,
+            borderWidth: 2,
+            pointRadius: 3,
+            pointBackgroundColor: cpuGrad,
+            pointBorderColor: 'transparent',
+            pointHoverRadius: 5,
+            tension: 0.45,
+            fill: true,
+            spanGaps: false   // gaps = offline periods
           }]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
+          animation: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: { label: function(ctx) { return ' ' + ctx.parsed.y + '%'; } },
+              backgroundColor: 'rgba(10,14,26,0.9)',
+              titleColor: '#aaa', bodyColor: '#00e887',
+              borderColor: 'rgba(0,220,140,0.3)', borderWidth: 1
+            },
+          },
           scales: {
-            x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6B7A8F', font: { size: 8 }, maxTicksLimit: 6 } },
-            y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6B7A8F', font: { size: 8 } }, beginAtZero: true, max: 100 }
+            x: { grid: { color: 'rgba(255,255,255,0.04)' },
+                 ticks: { color: '#6B7A8F', font: { size: 8 }, maxTicksLimit: 8, maxRotation: 0 } },
+            y: { grid: { color: 'rgba(255,255,255,0.04)' },
+                 ticks: { color: '#6B7A8F', font: { size: 8 }, stepSize: 20, callback: function(v){ return v+'%'; } },
+                 beginAtZero: true, max: 100 }
           }
         }
       });
+      // Custom drag-to-pan (no external plugin needed)
+      _initCpuPan(RS._charts.cpu, cpuCanvas);
     }
+    if (!RS._cpuRange) RS._cpuRange = '24H';
 
     // ── RAM: Custom dots circle — no Chart.js, drawn via _drawRamDots ──
     var ramCanvas = $r('r-chart-ram');
@@ -1920,47 +2369,270 @@
       _drawDiskDonut(diskCanvas, diskUsed, diskLabelUsed);
     }
 
-    // CPU line — fetch 24h history from machine_telemetry
-    if (RS.supa && d.id) {
-      var since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-      RS.supa.from('machine_telemetry')
-        .select('cpu_pct,recorded_at')
-        .eq('hostname', d.id)
-        .gte('recorded_at', since)
-        .order('recorded_at', { ascending: true })
-        .limit(200)
-        .then(function(res) {
-          var rows = res.data || [];
-          if (!rows.length) return;
-          // Bucket into 24 hourly slots (newest = slot 23, i.e. 'now')
-          var now = Date.now();
-          var hourSlots = new Array(24).fill(null);
-          var counts    = new Array(24).fill(0);
+    // CPU — fetch based on current range
+    if (RS.supa && d.id) fetchCpuChart(d.id, RS._cpuRange || '24H');
+  }
+
+  // ── CPU chart range toggle (called by 24H / 7D / 1M buttons) ──
+  window.rCpuRange = function(range, btn) {
+    RS._cpuRange = range;
+    document.querySelectorAll('.r-ctab').forEach(function(b) { b.classList.remove('r-ctab-active'); });
+    if (btn) btn.classList.add('r-ctab-active');
+    var d = RS._selectedDevice ? RS.devices[RS._selectedDevice] : null;
+    if (d && d.id) fetchCpuChart(d.id, range);
+  };
+
+  // ── Fetch + render CPU chart for given hostname and range ──
+  function fetchCpuChart(hostname, range) {
+    if (!RS.supa || !hostname) return;
+    var now = Date.now();
+    var msBack = range === '7D' ? 7 * 864e5 : range === '1M' ? 30 * 864e5 : 864e5;
+    var since  = new Date(now - msBack).toISOString();
+    var groupByDay = range !== '24H';
+
+    RS.supa.from('machine_telemetry')
+      .select('cpu_pct,recorded_at')
+      .eq('hostname', hostname)
+      .gte('recorded_at', since)
+      .order('recorded_at', { ascending: true })
+      .limit(groupByDay ? 2000 : 300)
+      .then(function(res) {
+        var rows = res.data || [];
+        var labels = [], data = [];
+
+        if (!groupByDay) {
+          // 24H — build slots only from first data point to now (avoids wasted 00:00–data gap).
+          var nowSlot = new Date().getHours() * 6 + Math.floor(new Date().getMinutes() / 10);
+          var firstSlot = nowSlot, lastSlot = nowSlot;
           rows.forEach(function(r) {
-            var ageMs  = now - new Date(r.recorded_at).getTime();
-            var ageH   = Math.floor(ageMs / 3600000);
-            var slot   = 23 - ageH; // slot 23 = most recent hour
-            if (slot >= 0 && slot < 24 && r.cpu_pct != null) {
-              hourSlots[slot] = (hourSlots[slot] || 0) + r.cpu_pct;
-              counts[slot]++;
-            }
+            var dt = new Date(r.recorded_at);
+            var sl = dt.getHours() * 6 + Math.floor(dt.getMinutes() / 10);
+            if (sl < firstSlot) firstSlot = sl;
+            if (sl > lastSlot)  lastSlot  = sl;
           });
-          // Average per slot
-          var cpuData = hourSlots.map(function(v, i) {
-            return counts[i] > 0 ? Math.round(v / counts[i] * 10) / 10 : null;
-          });
-          var cpuChart = RS._charts.cpu;
-          if (cpuChart) {
-            cpuChart.data.datasets[0].data = cpuData;
-            cpuChart.update('none');
+          var startSlot = Math.max(0, firstSlot - 3);    // 30-min buffer before first data
+          var endSlot   = Math.min(143, Math.max(nowSlot + 2, lastSlot + 1));
+          for (var s = startSlot; s <= endSlot; s++) {
+            var sh = Math.floor(s * 10 / 60), sm = (s * 10) % 60;
+            labels.push(String(sh).padStart(2,'0') + ':' + String(sm).padStart(2,'0'));
+            data.push(null);
           }
-        }).catch(function() {});
+          rows.forEach(function(r) {
+            var dt = new Date(r.recorded_at);
+            var sl = dt.getHours() * 6 + Math.floor(dt.getMinutes() / 10);
+            var idx = sl - startSlot;
+            if (idx >= 0 && idx < data.length)
+              data[idx] = r.cpu_pct != null ? Math.round(r.cpu_pct * 10) / 10 : null;
+          });
+        } else {
+          // 7D / 1M — group by calendar day, average per day
+          var days = range === '7D' ? 7 : 30;
+          var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+          var dayMap = {};
+          rows.forEach(function(r) {
+            if (r.cpu_pct == null) return;
+            var dt = new Date(r.recorded_at);
+            var key = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+            if (!dayMap[key]) dayMap[key] = { sum: 0, n: 0 };
+            dayMap[key].sum += r.cpu_pct; dayMap[key].n++;
+          });
+          for (var i = days - 1; i >= 0; i--) {
+            var dt = new Date(now - i * 864e5);
+            var key = dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+            labels.push(range === '7D' ? dayNames[dt.getDay()] : (dt.getDate() + '/' + (dt.getMonth()+1)));
+            var s = dayMap[key];
+            data.push(s && s.n ? Math.round(s.sum / s.n * 10) / 10 : null);
+          }
+        }
+
+        var cpuChart = RS._charts.cpu;
+        if (!cpuChart) return;
+        cpuChart.data.labels = labels;
+        cpuChart.data.datasets[0].data = data;
+        // spanGaps only for daily aggregates (7D/1M); keep gaps for 24H sessions
+        cpuChart.data.datasets[0].spanGaps = groupByDay;
+        if (groupByDay) {
+          // 7D/1M: clear any x-axis window so full range is visible
+          cpuChart.options.scales.x.min = undefined;
+          cpuChart.options.scales.x.max = undefined;
+        }
+        cpuChart.update('none');
+        // Auto-scroll to current time window if user not panning
+        if (!groupByDay && !RS._cpuUserPanning) _cpuScrollToNow(cpuChart);
+
+        // Live blinking dot — only for 24H when device is currently online
+        var dev = RS._selectedDevice ? RS.devices[RS._selectedDevice] : null;
+        var isLive = !groupByDay && dev && deviceStatus(dev) === 'online';
+        _updateCpuLiveDot(cpuChart, isLive, data);
+      }).catch(function() {});
+  }
+
+  // Position the blinking overlay dot on the last non-null point
+  function _updateCpuLiveDot(chart, isLive, data) {
+    var dot = document.getElementById('r-cpu-live');
+    if (!dot) return;
+    if (!isLive) { dot.style.display = 'none'; return; }
+    var lastIdx = data.length - 1;
+    while (lastIdx >= 0 && data[lastIdx] == null) lastIdx--;
+    if (lastIdx < 0) { dot.style.display = 'none'; return; }
+    try {
+      var meta  = chart.getDatasetMeta(0);
+      var point = meta.data[lastIdx];
+      if (!point) { dot.style.display = 'none'; return; }
+      dot.style.display = 'block';
+      dot.style.left    = point.x + 'px';
+      dot.style.top     = point.y + 'px';
+    } catch(e) { dot.style.display = 'none'; }
+  }
+
+  // Custom drag-to-pan for CPU chart (replaces chartjs-plugin-zoom on category axes).
+  // Admin drags left/right to scroll the 3-hour window; no scrollbar shown.
+  function _initCpuPan(chart, canvas) {
+    var dragX = null;
+
+    function doPan(dx) {
+      var lbls = chart.data.labels;
+      if (!lbls || lbls.length < 2) return;
+      try {
+        var xScale    = chart.scales.x;
+        var chartPx   = xScale.right - xScale.left;
+        var curMin    = chart.options.scales.x.min;
+        var curMax    = chart.options.scales.x.max;
+        var minIdx    = curMin !== undefined ? lbls.indexOf(curMin) : 0;
+        var maxIdx    = curMax !== undefined ? lbls.indexOf(curMax) : lbls.length - 1;
+        if (minIdx < 0) minIdx = 0;
+        if (maxIdx < 0) maxIdx = lbls.length - 1;
+        var visSlots  = maxIdx - minIdx + 1;
+        var slotDelta = Math.round(-dx * visSlots / chartPx);
+        if (slotDelta === 0) return;
+        var newMin = Math.max(0, minIdx + slotDelta);
+        var newMax = newMin + visSlots - 1;
+        if (newMax >= lbls.length) { newMax = lbls.length - 1; newMin = Math.max(0, newMax - visSlots + 1); }
+        chart.options.scales.x.min = lbls[newMin];
+        chart.options.scales.x.max = lbls[newMax];
+        chart.update('none');
+      } catch(e) {}
     }
+
+    // Mouse
+    canvas.addEventListener('mousedown', function(e) {
+      dragX = e.clientX;
+      RS._cpuUserPanning = true;
+      clearTimeout(RS._cpuPanTimer);
+      canvas.style.cursor = 'grabbing';
+    });
+    canvas.addEventListener('mousemove', function(e) {
+      if (dragX === null) return;
+      doPan(e.clientX - dragX);
+      dragX = e.clientX;
+    });
+    function endDrag() {
+      if (dragX !== null) {
+        RS._cpuPanTimer = setTimeout(function() { RS._cpuUserPanning = false; }, 8000);
+      }
+      dragX = null;
+      canvas.style.cursor = 'grab';
+    }
+    canvas.addEventListener('mouseup',    endDrag);
+    canvas.addEventListener('mouseleave', endDrag);
+    canvas.style.cursor = 'grab';
+
+    // Touch
+    canvas.addEventListener('touchstart', function(e) {
+      if (e.touches.length === 1) {
+        dragX = e.touches[0].clientX;
+        RS._cpuUserPanning = true;
+        clearTimeout(RS._cpuPanTimer);
+      }
+    }, { passive: true });
+    canvas.addEventListener('touchmove', function(e) {
+      if (e.touches.length === 1 && dragX !== null) {
+        e.preventDefault();
+        doPan(e.touches[0].clientX - dragX);
+        dragX = e.touches[0].clientX;
+      }
+    }, { passive: false });
+    canvas.addEventListener('touchend', function() {
+      if (dragX !== null) RS._cpuPanTimer = setTimeout(function() { RS._cpuUserPanning = false; }, 8000);
+      dragX = null;
+    });
+  }
+
+  // Set CPU chart x-axis to show ~3 hours ending at current time.
+  // Uses direct Chart.js options (no plugin) — avoids the silent-fail of zoomScale on category axes.
+  function _cpuScrollToNow(chart) {
+    try {
+      var lbls = chart.data.labels;
+      if (!lbls || !lbls.length) return;
+      var now = new Date();
+      var nowLabel = String(now.getHours()).padStart(2,'0') + ':' +
+                     String(Math.floor(now.getMinutes() / 10) * 10).padStart(2,'0');
+      // Find closest label to current time
+      var nowIdx = lbls.indexOf(nowLabel);
+      if (nowIdx < 0) nowIdx = lbls.length - 1;
+      var visible = 18;                                          // 18 × 10 min = ~3 hours
+      var maxIdx  = Math.min(nowIdx + 2, lbls.length - 1);     // slight right padding
+      var minIdx  = Math.max(maxIdx - visible + 1, 0);
+      chart.options.scales.x.min = lbls[minIdx];
+      chart.options.scales.x.max = lbls[maxIdx];
+      chart.update('none');
+    } catch(e) {}
   }
 
   // ── DEVICES ────────────────────────────────────────────────
+  // Sort state for Device Fleet table
+  RS._devSort = RS._devSort || { col: null, dir: 1 };
+
+  function _devSortedDevs(devs) {
+    var col = RS._devSort.col;
+    var dir = RS._devSort.dir;
+    if (!col) return devs;
+    return devs.slice().sort(function(a, b) {
+      var av, bv;
+      switch (col) {
+        case 'hostname':  av = (a.hostname||'').toLowerCase();  bv = (b.hostname||'').toLowerCase(); break;
+        case 'id':        av = (RS._devBranchMap&&RS._devBranchMap[(a.hostname||'').toLowerCase()]||'').toLowerCase(); bv = (RS._devBranchMap&&RS._devBranchMap[(b.hostname||'').toLowerCase()]||'').toLowerCase(); break;
+        case 'branch':    av = _branchName((RS._devBranchMap&&RS._devBranchMap[(a.hostname||'').toLowerCase()])||'').toLowerCase(); bv = _branchName((RS._devBranchMap&&RS._devBranchMap[(b.hostname||'').toLowerCase()])||'').toLowerCase(); break;
+        case 'status':    av = a._status||''; bv = b._status||''; break;
+        case 'job':       av = (a.current_job||'').toLowerCase(); bv = (b.current_job||'').toLowerCase(); break;
+        case 'version':   av = parseFloat(a.version)||0; bv = parseFloat(b.version)||0; break;
+        case 'heartbeat': av = (a.last_heartbeat||a.last_seen||'').toString(); bv = (b.last_heartbeat||b.last_seen||'').toString(); break;
+        default: return 0;
+      }
+      if (av < bv) return -1 * dir;
+      if (av > bv) return  1 * dir;
+      return 0;
+    });
+  }
+
+  function _devThStyle() { return 'cursor:pointer;user-select:none;white-space:nowrap'; }
+
+  function _devTh(label, col, width) {
+    var active = RS._devSort.col === col;
+    var arrow  = active ? (RS._devSort.dir === 1 ? ' ↑' : ' ↓') : ' <span style="opacity:0.25">↕</span>';
+    var style  = _devThStyle() + (active ? ';color:#00f0ff' : '') + (width ? ';width:' + width : '');
+    return '<th style="' + style + '" onclick="rSortDevices(\'' + col + '\')">' + label + arrow + '</th>';
+  }
+
+  // Map full app names → short display labels for Current Job column
+  var _JOB_LABEL = {
+    'renamer hq':        'RENAMER',
+    'fv branch':         'RENAMER FV',
+    'pdf splitter':      'SPLITTER',
+    'pdf studio':        'PDF STUDIO',
+    'quick rename':      'QUICK RENAME',
+    'vibes automation':  'VIBES',
+    'scanify':           'SCANIFY'
+  };
+  function _fmtJob(raw) {
+    if (!raw) return null;
+    var lower = raw.toLowerCase().trim();
+    if (lower === 'idle' || lower === 'offline' || lower === '') return null;
+    return _JOB_LABEL[lower] || raw.toUpperCase();
+  }
+
   function renderDevices() {
-    var devs = Object.values(RS.devices);
+    var devs = _devSortedDevs(Object.values(RS.devices));
     var view = $r('r-view-area');
     if (!view) return;
     view.innerHTML =
@@ -1979,37 +2651,121 @@
         '</div>' +
         '<div class="r-table-wrap">' +
           '<table class="r-table">' +
-            '<thead><tr><th></th><th>Hostname</th><th>Status</th><th>Current Job</th><th>Pending Files</th><th>Version</th><th>Last Heartbeat</th><th>Action</th></tr></thead>' +
+            '<thead><tr>' +
+              '<th style="width:32px"></th>' +
+              _devTh('Hostname',       'hostname',  '200px') +
+              _devTh('ID',             'id',        '110px') +
+              _devTh('Branch',         'branch',    '100px') +
+              _devTh('Status',         'status',    '90px') +
+              _devTh('Current Job',    'job',       '130px') +
+              _devTh('Version',        'version',   '75px') +
+              _devTh('Last Heartbeat', 'heartbeat', '155px') +
+              '<th style="width:90px">Action</th>' +
+            '</tr></thead>' +
             '<tbody id="r-dev-tbody">' + devRows(devs) + '</tbody>' +
           '</table>' +
         '</div>' +
       '</div>';
   }
 
+  window.rSortDevices = function(col) {
+    if (RS._devSort.col === col) {
+      RS._devSort.dir *= -1;
+    } else {
+      RS._devSort.col = col;
+      RS._devSort.dir = 1;
+    }
+    renderDevices();
+    // re-apply active filter if any
+    var fq   = ($r('r-dev-filter') || {}).value || '';
+    var stat = ($r('r-dev-stat')   || {}).value || '';
+    if (fq || stat) rFilterDevices(fq);
+  };
+
   function devRows(devs) {
-    if (!devs.length) return '<tr><td colspan="8" class="r-empty-td">No machines reporting. Ensure Rasumi Apps is running.</td></tr>';
+    if (!devs.length) return '<tr><td colspan="9" class="r-empty-td">No machines reporting. Ensure Rasumi Apps is running.</td></tr>';
+    var isSuperAdmin = RS.userRole === 'superadmin';
     return devs.map(function(d) {
-      var jobStatus = (d.status || 'IDLE').toUpperCase();
-      var sc = { online: 'r-badge-ok', stale: 'r-badge-warn', offline: 'r-badge-err' }[d._status] || 'r-badge-muted';
-      return '<tr onclick="rNav(\'r-device:' + esc(d.id) + '\')" style="cursor:pointer">' +
+      var sc         = { online: 'r-badge-ok', stale: 'r-badge-warn', offline: 'r-badge-err' }[d._status] || 'r-badge-muted';
+      var branchId   = (d.branch_id || (RS._devBranchMap && RS._devBranchMap[(d.hostname||'').toLowerCase()]) || '').toLowerCase();
+      var branchDisp = _branchName(branchId);
+      var isOwner    = branchDisp === 'SUPER ADMIN';  // covers 'mustaqim' OR 'super admin' in logs
+      var safeHost   = esc(d.id);
+
+      // ID column — mustaqim masked for non-superadmins; permanently concealed
+      var idCell;
+      if (isOwner) {
+        if (isSuperAdmin) {
+          // Superadmin: masked by default, clickable eye to toggle reveal
+          idCell = '<td class="r-font-mono" style="white-space:nowrap">' +
+            '<span id="devid-' + safeHost + '" data-real="' + esc(branchId) + '" data-hidden="1" ' +
+              'style="letter-spacing:2px;color:#64748b">••••••••</span>' +
+            '<button onclick="event.stopPropagation();rToggleDevId(\'' + safeHost + '\')" ' +
+              'id="devid-btn-' + safeHost + '" title="Reveal ID" ' +
+              'style="background:none;border:none;color:rgba(255,255,255,0.25);cursor:pointer;font-size:11px;margin-left:5px;padding:0">' +
+              '<i class="fa-solid fa-eye"></i></button>' +
+            '</td>';
+        } else {
+          // Non-superadmin: permanently hidden, dimmed eye, no click
+          idCell = '<td class="r-font-mono" style="white-space:nowrap">' +
+            '<span style="letter-spacing:2px;color:#334155">••••••••</span>' +
+            '<span title="Access restricted" style="color:rgba(255,255,255,0.1);font-size:11px;margin-left:5px">' +
+              '<i class="fa-solid fa-eye-slash"></i></span>' +
+            '</td>';
+        }
+      } else {
+        idCell = '<td class="r-font-mono" style="font-size:11px;color:#94a3b8">' + esc(branchId || '—') + '</td>';
+      }
+
+      var jobLabel = _fmtJob(d.current_job);
+      var jobCell  = jobLabel
+        ? '<span style="color:#00f0ff;font-size:11px;font-weight:600;letter-spacing:.5px">' + esc(jobLabel) + '</span>'
+        : d._status === 'offline'
+          ? '<span style="color:#334155">—</span>'
+          : '<span style="color:#475569;font-size:11px">IDLE</span>';
+
+      return '<tr onclick="rNav(\'r-device:' + safeHost + '\')" style="cursor:pointer">' +
         '<td><span class="r-status-dot ' + d._status + '"></span></td>' +
-        '<td class="r-font-mono">' + esc(d.id) + '</td>' +
+        '<td class="r-font-mono">' + safeHost + '</td>' +
+        idCell +
+        '<td style="font-size:11px;color:#94a3b8">' + esc(branchDisp) + '</td>' +
         '<td><span class="r-badge ' + sc + '">' + d._status.toUpperCase() + '</span></td>' +
-        '<td>' + esc(d.current_job || jobStatus || '—') + '</td>' +
-        '<td>' + (d.pending_files !== undefined ? d.pending_files : '—') + '</td>' +
-        '<td>' + esc(d.version || '—') + '</td>' +
+        '<td>' + jobCell + '</td>' +
+        '<td style="color:#94a3b8">' + esc(d.version || '—') + '</td>' +
         '<td>' + fmtTs(d.last_heartbeat || d.last_seen) + '</td>' +
-        '<td><button class="r-btn-sm" onclick="event.stopPropagation();rNav(\'r-device:' + esc(d.id) + '\')">Detail →</button></td>' +
+        '<td><button class="r-btn-sm" onclick="event.stopPropagation();rNav(\'r-device:' + safeHost + '\')">Detail →</button></td>' +
         '</tr>';
     }).join('');
   }
 
+  // Toggle masked ID visibility — superadmin only
+  window.rToggleDevId = function(hostname) {
+    if (RS.userRole !== 'superadmin') return;
+    var span = document.getElementById('devid-' + hostname);
+    var btn  = document.getElementById('devid-btn-' + hostname);
+    if (!span) return;
+    var hidden = span.getAttribute('data-hidden') === '1';
+    if (hidden) {
+      span.textContent = span.getAttribute('data-real');
+      span.style.letterSpacing = '';
+      span.style.color = '#e2e8f0';
+      span.setAttribute('data-hidden', '0');
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i>';
+    } else {
+      span.textContent = '••••••••';
+      span.style.letterSpacing = '2px';
+      span.style.color = '#64748b';
+      span.setAttribute('data-hidden', '1');
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-eye"></i>';
+    }
+  };
+
   window.rFilterDevices = function (q) {
     var stat = ($r('r-dev-stat') || {}).value || '';
     var lq   = (q || '').toLowerCase();
-    var devs = Object.values(RS.devices).filter(function(d) {
+    var devs = _devSortedDevs(Object.values(RS.devices).filter(function(d) {
       return (!lq || d.id.toLowerCase().indexOf(lq) !== -1) && (!stat || d._status === stat);
-    });
+    }));
     var tbody = $r('r-dev-tbody');
     if (tbody) tbody.innerHTML = devRows(devs);
   };
@@ -2981,28 +3737,62 @@
 
   // ── Enterprise error normalizer ───────────────────────────────
   // Maps raw Python exceptions → professional error profile
-  // { code, title, description, causes[], type, action, icon, color }
+  // confirmed:true  → rootCause is definitive, rendered as "Root Cause"
+  // confirmed:false → causes[] are possibilities, rendered as "Possible Causes"
+  // status taxonomy: file_missing = User/File Action (not a system/app failure)
   function _normalizeError(errMsg) {
-    var m = (errMsg || '').toLowerCase();
+    var m   = (errMsg || '').toLowerCase();
+    var raw = errMsg || '';
 
+    // ── FILE MISSING — checked FIRST (takes priority over WorkerCrash wrapper) ──
+    // Pattern: WorkerCrash: no such file: 'C:/path/to/file.pdf'
+    if (m.indexOf('no such file') >= 0 || m.indexOf('filenotfounderror') >= 0 ||
+        m.indexOf('filenotfound') >= 0  || m.indexOf('missing file') >= 0 ||
+        (m.indexOf('not found') >= 0 && (m.indexOf('file') >= 0 || m.indexOf('path') >= 0))) {
+      // Extract quoted path from raw error if present
+      var pathMatch = raw.match(/['"]((?:[A-Za-z]:[\\/]|\/)[^'"]+)['"]/);
+      var missingPath = pathMatch ? pathMatch[1] : null;
+      var desc = missingPath
+        ? 'Source artifact absent at dispatch path: ' + missingPath
+        : 'Source artifact absent from the declared dispatch path.';
+      return { code:'IO-1001', title:'FILE MISSING',
+        description: desc,
+        rootCause: 'File was relocated, renamed, or purged externally after being queued — no processing was attempted by the worker.',
+        confirmed: true,
+        type:'file_missing', action:'dismiss', icon:'fa-file-circle-xmark', color:'#f59e0b' };
+    }
+
+    // ── WORKER CRASH — generic, cause ambiguous ──
     if (m.indexOf('workercrash') >= 0 || m.indexOf('process pool') >= 0 ||
         m.indexOf('terminated abruptly') >= 0 || m.indexOf('killed') >= 0) {
       return { code:'WRK-5001', title:'EXECUTION FAILURE',
         description:'Worker process terminated unexpectedly while executing task.',
         causes:['Application crash','Insufficient system memory','Forced termination by OS','Unhandled exception in worker'],
+        confirmed: false,
         type:'system', action:'acknowledge', icon:'fa-server', color:'#94a3b8' };
     }
+
     if (m.indexOf('out of memory') >= 0 || m.indexOf('oom') >= 0 ||
         (m.indexOf('memory') >= 0 && m.indexOf('error') >= 0)) {
       return { code:'SYS-3001', title:'MEMORY EXHAUSTION',
         description:'System exhausted available memory during task execution.',
-        causes:['Large file processing','Insufficient RAM on node','Too many concurrent workers','Memory leak in process'],
+        rootCause: 'OS-level OOM condition — kernel terminated the worker process due to insufficient physical or virtual memory.',
+        confirmed: true,
         type:'system', action:'acknowledge', icon:'fa-memory', color:'#94a3b8' };
     }
-    if (m.indexOf('disk') >= 0 || m.indexOf('no space') >= 0 || m.indexOf('storage') >= 0) {
+    if (m.indexOf('no space left') >= 0 || m.indexOf('disk full') >= 0 ||
+        (m.indexOf('disk') >= 0 && m.indexOf('space') >= 0)) {
       return { code:'SYS-3002', title:'STORAGE FAILURE',
-        description:'Insufficient disk space available for operation.',
+        description:'Insufficient disk space available for write operation.',
+        rootCause: 'Target volume exhausted — filesystem returned ENOSPC. Output directory or temp path has no remaining capacity.',
+        confirmed: true,
+        type:'resource', action:'restart', icon:'fa-hard-drive', color:'#f59e0b' };
+    }
+    if (m.indexOf('storage') >= 0 || m.indexOf('disk') >= 0) {
+      return { code:'SYS-3002', title:'STORAGE FAILURE',
+        description:'Storage-related error during operation.',
         causes:['Target disk is full','Output directory quota exceeded','Temp file accumulation'],
+        confirmed: false,
         type:'resource', action:'restart', icon:'fa-hard-drive', color:'#f59e0b' };
     }
     if (m.indexOf('network') >= 0 || m.indexOf('connection') >= 0 || m.indexOf('timeout') >= 0 ||
@@ -3010,44 +3800,43 @@
       return { code:'NET-4001', title:'CONNECTIVITY FAILURE',
         description:'Network connection lost or timed out during operation.',
         causes:['Network instability','VPN disconnected','Remote server unreachable','Firewall blocking connection'],
+        confirmed: false,
         type:'network', action:'restart', icon:'fa-wifi', color:'#f59e0b' };
     }
     if (m.indexOf('permission') >= 0 || m.indexOf('access denied') >= 0 ||
         m.indexOf('unauthorized') >= 0 || m.indexOf('forbidden') >= 0) {
       return { code:'SEC-2001', title:'ACCESS DENIED',
-        description:'Operation blocked due to insufficient permissions.',
-        causes:['File or folder permissions restricted','UAC restrictions on Windows','Antivirus blocking write access','Network share access denied'],
+        description:'Operation blocked due to insufficient privileges on target path.',
+        rootCause: 'Process lacks read/write privileges — OS-level ACL or UAC restriction blocked execution. Verify folder permissions and antivirus exclusion rules on this node.',
+        confirmed: true,
         type:'config', action:'config', icon:'fa-lock', color:'#a855f7' };
     }
-    if (m.indexOf('not found') >= 0 || m.indexOf('no such file') >= 0 ||
-        m.indexOf('filenotfound') >= 0 || m.indexOf('missing file') >= 0) {
-      return { code:'IO-1001', title:'FILE NOT FOUND',
-        description:'Target file could not be located at the specified path.',
-        causes:['File moved or deleted','Incorrect source path','Folder mapping changed','File locked by another process'],
-        type:'missing', action:'none', icon:'fa-file-circle-xmark', color:'#f59e0b' };
-    }
-    if (m.indexOf('segfault') >= 0 || m.indexOf('assertion') >= 0) {
-      return { code:'ENG-5002', title:'RUNTIME ERROR',
-        description:'Internal engine error encountered during processing.',
-        causes:['Software defect','Corrupted or malformed input file','Library compatibility issue','OS-level fault'],
+    if (m.indexOf('segfault') >= 0 || m.indexOf('segmentation fault') >= 0 || m.indexOf('assertion') >= 0) {
+      return { code:'ENG-5002', title:'RUNTIME FAULT',
+        description:'Internal engine raised a low-level fault during processing.',
+        rootCause: 'Segmentation fault or assertion failure in native code — likely triggered by a corrupted or malformed input file, or a library incompatibility.',
+        confirmed: true,
         type:'bug', action:'fix', icon:'fa-bug', color:'#ef4444' };
     }
     if (m.indexOf('typeerror') >= 0 || m.indexOf('attributeerror') >= 0 ||
         m.indexOf('valueerror') >= 0 || m.indexOf('nameerror') >= 0) {
       return { code:'ENG-5003', title:'CODE EXCEPTION',
         description:'Unhandled exception raised in application logic.',
-        causes:['Software defect','Unexpected input format','Version mismatch','Data validation failure'],
+        rootCause: 'Python exception intercepted by worker runtime — indicates a software defect, unexpected input format, or version mismatch in application code.',
+        confirmed: true,
         type:'bug', action:'fix', icon:'fa-bug', color:'#ef4444' };
     }
     if (!errMsg) {
       return { code:'ERR-0000', title:'UNKNOWN ERROR',
         description:'An unspecified error occurred during processing.',
-        causes:['Unknown cause — review system logs'],
+        causes:['No error message captured — review system logs on the node'],
+        confirmed: false,
         type:'unknown', action:'acknowledge', icon:'fa-circle-xmark', color:'#64748b' };
     }
     return { code:'ERR-9999', title:'PROCESSING ERROR',
       description:'An unexpected error occurred during task execution.',
-      causes:['Unknown cause — review raw error details','Corrupted file','System instability'],
+      causes:['Unknown cause — review raw error details below','Corrupted file','System instability'],
+      confirmed: false,
       type:'unknown', action:'acknowledge', icon:'fa-circle-xmark', color:'#64748b' };
   }
   // Backwards-compat alias used by session banner counts
@@ -3419,7 +4208,13 @@
       var rows = sessions.map(function(g, idx) {
         var completedLogs = g.logs.filter(function(l){ return (l.status||'').toUpperCase() === 'COMPLETED'; });
         var failedLogs    = g.logs.filter(function(l){ var st=(l.status||'').toUpperCase(); return st==='FAILED'||st==='ERROR'; });
-        var sessionSt     = g.allProcessing ? 'PROCESSING' : (g.hasFail ? 'FAILED' : 'COMPLETED');
+        // Determine session-level status — if ALL failures are file_missing, surface that
+        // instead of FAILED so admin knows it's a User/File Action, not a system error
+        var allFileMissing = failedLogs.length > 0 && failedLogs.every(function(l){
+          return _normalizeError(l.error_msg || (l.job_info && l.job_info.error) || '').type === 'file_missing';
+        });
+        var sessionSt = g.allProcessing ? 'PROCESSING'
+          : (g.hasFail ? (allFileMissing ? 'FILE MISSING' : 'FAILED') : 'COMPLETED');
         var gKey          = 'g' + idx;
 
         // For VIBES sessions, doc count comes from job_info.doc_count (1 log = 1 batch summary)
@@ -3477,11 +4272,20 @@
             // Error cell: enterprise format for failed rows; plain for others
             var errCell;
             if (isFail) {
-              var causesHtml = errType.causes.map(function(c){
-                return '<div style="display:flex;gap:6px;align-items:baseline">' +
-                  '<span style="color:' + errType.color + ';font-size:9px;flex-shrink:0">▸</span>' +
-                  '<span>' + esc(c) + '</span></div>';
-              }).join('');
+              // confirmed=true → single definitive root cause; false → possibility list
+              var diagLabel, diagBody;
+              if (errType.confirmed && errType.rootCause) {
+                diagLabel = '<span style="color:' + errType.color + '">●</span> Root Cause';
+                diagBody  = '<div style="font-size:11px;color:#cbd5e1;line-height:1.6;font-style:italic">' + esc(errType.rootCause) + '</div>';
+              } else {
+                var causesHtml = (errType.causes || ['Unknown — review raw error']).map(function(c){
+                  return '<div style="display:flex;gap:6px;align-items:baseline">' +
+                    '<span style="color:' + errType.color + ';font-size:9px;flex-shrink:0">▸</span>' +
+                    '<span>' + esc(c) + '</span></div>';
+                }).join('');
+                diagLabel = 'Possible Causes';
+                diagBody  = '<div style="font-size:11px;color:#94a3b8;line-height:1.7">' + causesHtml + '</div>';
+              }
               errCell =
                 '<td style="padding:6px 8px 8px;vertical-align:top">' +
                   // Title + code
@@ -3497,8 +4301,8 @@
                     '<i class="fa-solid fa-chevron-down"></i> Details</button>' +
                   // Collapsible detail block
                   '<div id="' + detKey + '" style="display:none;margin-top:6px;padding:8px 10px;background:rgba(0,0,0,0.25);border-left:2px solid ' + errType.color + ';border-radius:0 4px 4px 0">' +
-                    '<div style="font-size:10px;color:#64748b;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px">Possible Causes</div>' +
-                    '<div style="font-size:11px;color:#94a3b8;line-height:1.7">' + causesHtml + '</div>' +
+                    '<div style="font-size:10px;color:#64748b;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px">' + diagLabel + '</div>' +
+                    diagBody +
                     (errMsg ? '<div style="margin-top:8px;display:flex;align-items:center;gap:6px">' +
                       '<button class="r-btn-sm" style="font-size:10px;padding:1px 7px" onclick="rCopyLogErr(\'' + errKey + '\')">' +
                         '<i class="fa-solid fa-copy"></i> Copy Raw Error</button>' +
@@ -3558,8 +4362,16 @@
               } else if (errType.action === 'config') {
                 actionCell +=
                   '<span style="font-size:10px;color:var(--rc-muted);font-style:italic">Check permissions<br>on ' + esc(g.machine||'machine') + '</span>';
+              } else if (errType.action === 'dismiss') {
+                // FILE MISSING — User/File Action, not a system/app error
+                // Dismiss acknowledges that admin has seen it; no code fix required
+                actionCell +=
+                  '<div style="font-size:10px;color:#64748b;margin-bottom:5px;font-style:italic">No system action required</div>' +
+                  '<button class="r-btn-sm" style="font-size:10px;padding:2px 8px;color:#f59e0b;border-color:rgba(245,158,11,0.3)" ' +
+                    'onclick="rAcknowledgeLog(\'' + logId + '\',this)" title="Dismiss — file was absent at source, not an application failure">' +
+                    '<i class="fa-solid fa-xmark"></i> Dismiss</button>';
               }
-              // 'none' type (file not found) — no action, type badge is enough
+              // 'none' type — no action, type badge is enough
               actionCell += '</td>';
             }
 
@@ -3573,9 +4385,14 @@
                 ? '<td class="r-cell-trunc r-font-mono" style="max-width:180px;vertical-align:top;padding-top:6px;color:' + (resultName ? 'var(--rc-cyan,#00f0ff)' : '#475569') + '" title="' + esc(resultName) + '">' + (resultName ? esc(resultName) : '—') + '</td>'
                 : '') +
               '<td style="vertical-align:top;padding-top:6px">' +
-                '<span class="r-badge ' + (isFixed ? 'r-badge-ok' : isAcked ? 'r-badge-muted' : logBadge(st)) + '">' +
-                  (isFixed ? 'FIXED' : isAcked ? 'ACKED' : st) +
-                '</span>' +
+                (function(){
+                  if (isFixed)  return '<span class="r-badge r-badge-ok">FIXED</span>';
+                  if (isAcked)  return '<span class="r-badge r-badge-muted">ACKED</span>';
+                  // File Missing: amber badge — User/File Action, not an app failure
+                  if (errType && errType.type === 'file_missing')
+                    return '<span class="r-badge r-badge-warn" title="File was absent at dispatch — not an application error">FILE MISSING</span>';
+                  return '<span class="r-badge ' + logBadge(st) + '">' + st + '</span>';
+                })() +
               '</td>' +
               errCell +
               '<td style="vertical-align:top;padding-top:6px;white-space:nowrap">' + (durVal != null ? parseFloat(durVal).toFixed(2) + 's' : '—') + '</td>' +
@@ -3643,9 +4460,9 @@
           '<td><span class="r-badge r-badge-purple">' + esc((/^fv.branch$/i.test(g.app||'') ? 'Renamer FV' : g.app)||'—') + '</span></td>' +
           '<td class="r-font-mono">' + _fmtTime(g.start) + '</td>' +
           '<td class="r-font-mono">' + _fmtTime(g.end) + '</td>' +
-          '<td><span class="r-badge ' + logBadge(sessionSt) + '">' + sessionSt + '</span>' +
-            (g.hasFail ? ' <span class="r-muted-sm">(' + failedLogs.length + ' fail)</span>' : '') + '</td>' +
-          '<td>' + esc(g.branch||'—') + '</td>' +
+          '<td><span class="r-badge ' + (sessionSt === 'FILE MISSING' ? 'r-badge-warn' : logBadge(sessionSt)) + '">' + sessionSt + '</span>' +
+            (g.hasFail ? ' <span class="r-muted-sm">(' + failedLogs.length + ' file)</span>' : '') + '</td>' +
+          '<td>' + esc(_branchName(g.branch)) + '</td>' +
           '<td>' + (totalDocs > 0 ? totalDocs + ' doc' + (totalDocs !== 1 ? 's' : '') : g.allProcessing ? 'running…' : '—') + '</td>' +
           '<td><button class="r-btn-sm" onclick="rToggleLogDetail(\'' + gKey + '\')"><i class="fa-solid fa-list"></i> Details</button></td>' +
           '<td>' + _fmtDur(g.start, g.end) + '</td>' +
@@ -4159,7 +4976,7 @@
         statusBadge +
         '<strong style="font-size:13px;color:var(--rc-text,#f9fafb)">' + esc(e.app_name || '?') + '</strong>' +
         '<span style="color:var(--rc-text-dim,#9ca3af);font-size:11px">on</span>' +
-        '<code style="background:rgba(0,240,255,0.08);padding:2px 7px;border-radius:3px;color:var(--rc-cyan,#06b6d4);font-size:12px">' + esc(e.hostname || '?') + '</code>' +
+        '<code style="background:rgba(0,240,255,0.08);padding:2px 7px;border-radius:3px;color:var(--rc-cyan,#00f0ff);font-size:12px">' + esc(e.hostname || '?') + '</code>' +
         '<span style="color:var(--rc-text-dim,#9ca3af);font-size:11px">×' + (e.recur_count || 1) + ' occurrence(s)</span>' +
       '</div>' +
 
@@ -4263,7 +5080,7 @@
           '</div>';
 
         // Action buttons
-        var detailBtn = '<button onclick="rOpenAppDetails(\'' + esc(e._id) + '\')" style="background:rgba(0,240,255,0.08);border:1px solid rgba(0,240,255,0.3);color:var(--rc-cyan,#06b6d4);border-radius:4px;padding:5px 11px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background=\'rgba(0,240,255,0.16)\'" onmouseout="this.style.background=\'rgba(0,240,255,0.08)\'"><i class="fa-solid fa-magnifying-glass"></i> Details</button>';
+        var detailBtn = '<button onclick="rOpenAppDetails(\'' + esc(e._id) + '\')" style="background:rgba(0,240,255,0.08);border:1px solid rgba(0,240,255,0.3);color:var(--rc-cyan,#00f0ff);border-radius:4px;padding:5px 11px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background=\'rgba(0,240,255,0.16)\'" onmouseout="this.style.background=\'rgba(0,240,255,0.08)\'"><i class="fa-solid fa-magnifying-glass"></i> Details</button>';
         var fixBtn = !isFixed
           ? '<button onclick="rOpenAppFix(\'' + esc(e._id) + '\',\'' + esc(e._host) + '\')" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.5);color:#fca5a5;border-radius:4px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background=\'rgba(239,68,68,0.28)\'" onmouseout="this.style.background=\'rgba(239,68,68,0.15)\'"><i class="fa-solid fa-circle-check"></i> Mark Fixed</button>'
           : '<span style="font-size:11px;color:var(--rc-green,#10b981)"><i class="fa-solid fa-circle-check"></i> Fixed by ' + esc(e.fixed_by || '?') + '</span>';
@@ -4274,7 +5091,7 @@
             badge +
             '<strong style="font-size:13px">' + esc(e.app_name || '?') + '</strong>' +
             '<span class="r-muted-sm">on</span>' +
-            '<code style="background:rgba(0,240,255,0.08);padding:2px 7px;border-radius:3px;color:var(--rc-cyan,#06b6d4);font-size:12px">' + esc(e._host) + '</code>' +
+            '<code style="background:rgba(0,240,255,0.08);padding:2px 7px;border-radius:3px;color:var(--rc-cyan,#00f0ff);font-size:12px">' + esc(e._host) + '</code>' +
             '<span class="r-muted-sm">×' + (e.recur_count || 1) + '</span>' +
             lifecycle +
             '<div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0">' + detailBtn + fixBtn + '</div>' +
@@ -4534,7 +5351,6 @@
 
 
 
-    payload.id = 1; // ensure upsert targets the singleton row
     RS.supa.from('app_settings').upsert(payload, { onConflict: 'id' }).then(function(res) {
       if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
       rToast(
@@ -4724,15 +5540,6 @@
       }).catch(function(e) { rToast('Error: ' + e.message, 'error'); });
   };
 
-  // ── Logout ─────────────────────────────────────────────────────
-  window.rLogout = function() {
-    if (RS && RS.supa) {
-      RS.supa.auth.signOut().then(function() { location.reload(); }).catch(function() { location.reload(); });
-    } else {
-      location.reload();
-    }
-  };
-
   // ── Open profile modal (called from inline onclick) ────────────
   window.rOpenProfile = function() {
     var nav = document.getElementById('r-nav-dropdown');
@@ -4807,224 +5614,6 @@
   // Keep legacy alias
   window.rSaveNickname = window.rSaveProfile;
 
-  // ── Display Settings (superadmin only) ────────────────────────
-
-  var _customBgDataUrl = null; // in-memory store for custom bg (session only)
-
-  // IndexedDB helpers — no quota issues, fast async read (~10ms)
-  var _idbDB = null;
-  function _idbOpen(cb) {
-    if (_idbDB) { cb(_idbDB); return; }
-    var req = indexedDB.open('rasumi_prefs', 1);
-    req.onupgradeneeded = function(e) { e.target.result.createObjectStore('kv'); };
-    req.onsuccess = function(e) { _idbDB = e.target.result; cb(_idbDB); };
-    req.onerror = function() { cb(null); };
-  }
-  function _idbSet(key, value) {
-    _idbOpen(function(db) {
-      if (!db) return;
-      db.transaction('kv', 'readwrite').objectStore('kv').put(value, key);
-    });
-  }
-  function _idbGet(key, cb) {
-    _idbOpen(function(db) {
-      if (!db) { cb(null); return; }
-      var req = db.transaction('kv', 'readonly').objectStore('kv').get(key);
-      req.onsuccess = function() { cb(req.result || null); };
-      req.onerror = function() { cb(null); };
-    });
-  }
-
-  function _applyBackground(bg) {
-    var presets = {
-      photo:  'url(\'../assets/background.jpg\') center/cover no-repeat',
-      dark:   '#080c13',
-      navy:   'linear-gradient(135deg,#060d1a,#0d1f35)',
-      purple: 'linear-gradient(135deg,#0b0614,#17082e)',
-      forest: 'linear-gradient(135deg,#040f0a,#0a2016)',
-      ember:  'linear-gradient(135deg,#110608,#200d0a)'
-    };
-    var bgCss;
-    if (bg === 'custom') {
-      var dataUrl = _customBgDataUrl || localStorage.getItem('r-bg-custom');
-      if (!dataUrl) return;
-      bgCss = 'url("' + dataUrl + '") center/cover no-repeat';
-    } else {
-      bgCss = presets[bg] || presets['photo'];
-    }
-    // Set directly on bg-layer div (reliable, no CSS cache dependency)
-    var layer = document.getElementById('r-bg-layer');
-    if (layer) layer.style.background = bgCss;
-    // Also set CSS variable as backup
-    var container = document.getElementById('rasumi-container');
-    if (container) container.style.setProperty('--rc-bg-url', bgCss);
-    // Mark active tile
-    document.querySelectorAll('.r-bg-opt').forEach(function(el){
-      el.style.borderColor = el.dataset.bg === bg ? 'rgba(0,240,255,0.6)' : 'transparent';
-    });
-  }
-
-  window.rPickCustomBg = function() {
-    var inp = document.createElement('input');
-    inp.type = 'file';
-    inp.accept = 'image/*';
-    inp.onchange = function(e) {
-      var file = e.target.files[0];
-      if (!file) return;
-      // Compress via canvas before storing
-      var img = new Image();
-      var objectUrl = URL.createObjectURL(file);
-      img.onload = function() {
-        var MAX = 1920;
-        var w = img.width, h = img.height;
-        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
-        else if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
-        var canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        URL.revokeObjectURL(objectUrl);
-        var compressed = canvas.toDataURL('image/jpeg', 0.85);
-        _customBgDataUrl = compressed;
-        // Persist to IndexedDB (primary — no quota issues) + localStorage (fallback)
-        _idbSet('r-bg-custom', compressed);
-        try { localStorage.setItem('r-bg-custom', compressed); } catch(e) {}
-        localStorage.setItem('r-bg', 'custom');
-        _applyBackground('custom');
-        var tile = document.querySelector('.r-bg-opt[data-bg="custom"]');
-        if (tile) { tile.style.backgroundImage = 'url("' + compressed + '")'; tile.style.backgroundSize = 'cover'; }
-        _saveDisplayToSupabase(localStorage.getItem('r-theme') || 'dark', 'custom', compressed);
-      };
-      img.src = objectUrl;
-    };
-    inp.click();
-  };
-
-  function _applyTheme(mode) {
-    var c = document.getElementById('rasumi-container') || document.querySelector('#rasumi-container');
-    if (!c) return;
-    var styleEl = document.getElementById('r-theme-override') || (function(){
-      var el = document.createElement('style'); el.id = 'r-theme-override'; document.head.appendChild(el); return el;
-    })();
-    if (mode === 'light') {
-      styleEl.textContent =
-        '#rasumi-container{--rc-bg:#dde4ef;--rc-glass:rgba(255,255,255,0.68);--rc-glass-hi:rgba(255,255,255,0.88);--rc-border:rgba(0,0,0,0.1);--rc-border-hi:rgba(0,150,200,0.35);--rc-card:rgba(255,255,255,0.68);--rc-card2:rgba(240,245,255,0.82);--rc-text:#1a2030;--rc-text-dim:#5a6a7f;--rc-muted:#9ca3af;--rc-shadow:0 4px 16px rgba(0,0,0,0.12)}' +
-        '#rasumi-container .r-topbar{background:rgba(240,244,250,0.92)!important;border-bottom:1px solid rgba(0,0,0,0.1)!important}' +
-        '#rasumi-container .r-sidebar{background:rgba(240,244,250,0.9)!important;border-right:1px solid rgba(0,0,0,0.08)!important}' +
-        '#rasumi-container .nav-dropdown{background:rgba(240,244,250,0.97)!important;border-color:rgba(0,0,0,0.1)!important}' +
-        '#rasumi-container .dropdown-item{color:#1a2030!important}' +
-        '#rasumi-container .dropdown-item:hover{background:rgba(0,0,0,0.06)!important}';
-    } else {
-      styleEl.textContent = '';
-    }
-    // Update mode buttons
-    var darkBtn  = document.getElementById('r-mode-dark-btn');
-    var lightBtn = document.getElementById('r-mode-light-btn');
-    if (darkBtn)  { darkBtn.style.borderColor  = mode==='dark'  ? 'rgba(0,240,255,0.5)' : 'rgba(255,255,255,0.1)'; darkBtn.style.background  = mode==='dark'  ? 'rgba(0,240,255,0.1)' : 'none'; darkBtn.style.color  = mode==='dark'  ? '#00f0ff' : '#6b7a8f'; }
-    if (lightBtn) { lightBtn.style.borderColor = mode==='light' ? 'rgba(255,220,50,0.5)' : 'rgba(255,255,255,0.1)'; lightBtn.style.background = mode==='light' ? 'rgba(255,220,50,0.08)' : 'none'; lightBtn.style.color = mode==='light' ? '#fcd34d' : '#6b7a8f'; }
-  }
-
-  window.rToggleDisplayPanel = function(e) {
-    if (RS.userRole !== 'superadmin') return;
-    if (e) e.stopPropagation();
-    var panel = document.getElementById('r-display-panel');
-    if (!panel) return;
-    var notif = document.getElementById('notif-dropdown');
-    var nav   = document.getElementById('r-nav-dropdown');
-    if (notif) notif.classList.add('hidden');
-    if (nav)   nav.classList.add('hidden');
-    panel.classList.toggle('hidden');
-  };
-
-  function _saveDisplayToSupabase(theme, bg, customBgData) {
-    if (!RS.supa) return;
-    RS.supa.from('app_settings').select('id').limit(1).then(function(res) {
-      var id = res.data && res.data[0] && res.data[0].id;
-      var payload = { ui_theme: theme, ui_background: bg };
-      if (customBgData) payload.ui_custom_bg = customBgData;
-      if (id) {
-        RS.supa.from('app_settings').update(payload).eq('id', id).then(function(){});
-      } else {
-        RS.supa.from('app_settings').insert(payload).then(function(){});
-      }
-    });
-  }
-
-  window.rSetTheme = function(mode) {
-    _applyTheme(mode);
-    localStorage.setItem('r-theme', mode);
-    var curBg = localStorage.getItem('r-bg') || 'photo';
-    _saveDisplayToSupabase(mode, curBg);
-  };
-
-  window.rSetBackground = function(bg) {
-    _applyBackground(bg);
-    localStorage.setItem('r-bg', bg);
-    var curTheme = localStorage.getItem('r-theme') || 'dark';
-    _saveDisplayToSupabase(curTheme, bg);
-  };
-
-  // Load display prefs from Supabase after login (overrides localStorage cache)
-  function _loadDisplayPrefsFromSupabase() {
-    if (!RS.supa) return;
-    RS.supa.from('app_settings').select('ui_theme,ui_background,ui_custom_bg').limit(1).then(function(res) {
-      var row = res.data && res.data[0];
-      if (!row) return;
-      var theme = row.ui_theme || 'dark';
-      var bg    = row.ui_background || 'photo';
-      // If custom bg data stored in Supabase, restore to memory + IndexedDB + localStorage
-      if (bg === 'custom' && row.ui_custom_bg) {
-        _customBgDataUrl = row.ui_custom_bg;
-        _idbSet('r-bg-custom', row.ui_custom_bg);
-        try { localStorage.setItem('r-bg-custom', row.ui_custom_bg); } catch(e) {}
-      }
-      localStorage.setItem('r-theme', theme);
-      localStorage.setItem('r-bg', bg);
-      _applyTheme(theme);
-      _applyBackground(bg);
-      // Restore custom tile preview
-      if (bg === 'custom' && _customBgDataUrl) {
-        setTimeout(function(){
-          var tile = document.querySelector('.r-bg-opt[data-bg="custom"]');
-          if (tile) { tile.style.backgroundImage = 'url("' + _customBgDataUrl + '")'; tile.style.backgroundSize = 'cover'; }
-        }, 200);
-      }
-    }).catch(function(){});
-  }
-
-  // Apply saved display prefs on initial load (from cache — fast, no flash)
-  function _restoreDisplayPrefs() {
-    var savedTheme = localStorage.getItem('r-theme') || 'dark';
-    var savedBg    = localStorage.getItem('r-bg')    || 'photo';
-    _applyTheme(savedTheme);
-    if (savedBg !== 'custom') {
-      _applyBackground(savedBg);
-    } else {
-      // Try localStorage first (synchronous, instant)
-      var lsCached = localStorage.getItem('r-bg-custom');
-      if (lsCached) {
-        _customBgDataUrl = lsCached;
-        _applyBackground('custom');
-        setTimeout(function(){
-          var tile = document.querySelector('.r-bg-opt[data-bg="custom"]');
-          if (tile) { tile.style.backgroundImage = 'url("' + lsCached + '")'; tile.style.backgroundSize = 'cover'; }
-        }, 200);
-      } else {
-        // Fall back to IndexedDB (~10ms async, still fast enough to avoid flash)
-        _idbGet('r-bg-custom', function(dataUrl) {
-          if (dataUrl) {
-            _customBgDataUrl = dataUrl;
-            _applyBackground('custom');
-            try { localStorage.setItem('r-bg-custom', dataUrl); } catch(e) {}
-            setTimeout(function(){
-              var tile = document.querySelector('.r-bg-opt[data-bg="custom"]');
-              if (tile) { tile.style.backgroundImage = 'url("' + dataUrl + '")'; tile.style.backgroundSize = 'cover'; }
-            }, 200);
-          }
-        });
-      }
-    }
-  }
-
   // ── Settings gateway ───────────────────────────────────────────
   window.rOpenSettings = function() {
     if (RS.userRole !== 'superadmin') return;
@@ -5087,7 +5676,7 @@
         var isActive = (status === 'ACTIVE');
         var safeId   = uname.replace(/[^a-z0-9]/gi, '_');
 
-        var roleColor = role === 'SUPER_ADMIN' ? '#06b6d4' : role === 'ADMIN' ? '#8b5cf6' : role === 'BRANCH_USER' ? '#10b981' : '#9ca3af';
+        var roleColor = role === 'SUPER_ADMIN' ? '#00f0ff' : role === 'ADMIN' ? '#8b5cf6' : role === 'BRANCH_USER' ? '#10b981' : '#9ca3af';
 
         var row = '<div style="padding:14px 0;border-bottom:1px solid var(--rc-border,#1f2937);">';
         // Username + role badge + status toggle
@@ -5097,7 +5686,7 @@
         row += '<span style="font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid ' + roleColor + ';color:' + roleColor + ';letter-spacing:0.5px;">' + esc(role) + '</span>';
         row += '</div>';
         if (isMaster) {
-          row += '<span style="font-size:10px;color:var(--rc-cyan,#06b6d4);padding:3px 8px;border:1px solid rgba(0,240,255,0.3);border-radius:10px;">Owner</span>';
+          row += '<span style="font-size:10px;color:var(--rc-cyan,#00f0ff);padding:3px 8px;border:1px solid rgba(0,240,255,0.3);border-radius:10px;">Owner</span>';
         } else {
           var statusStyle = isActive
             ? 'background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.5);color:#10b981;'
@@ -5116,18 +5705,18 @@
           var checked = apps.indexOf(app) !== -1;
           if (isMaster) {
             row += '<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--rc-text-dim,#9ca3af);opacity:0.55;cursor:not-allowed;">';
-            row += '<input type="checkbox"' + (checked ? ' checked' : '') + ' disabled style="cursor:not-allowed;accent-color:var(--rc-cyan,#06b6d4);"> ' + esc(app);
+            row += '<input type="checkbox"' + (checked ? ' checked' : '') + ' disabled style="cursor:not-allowed;accent-color:var(--rc-cyan,#00f0ff);"> ' + esc(app);
             row += '</label>';
           } else {
             row += '<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--rc-text-dim,#d1d5db);cursor:pointer;">';
-            row += '<input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') + ' style="cursor:pointer;accent-color:var(--rc-cyan,#06b6d4);"> ' + esc(app);
+            row += '<input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') + ' style="cursor:pointer;accent-color:var(--rc-cyan,#00f0ff);"> ' + esc(app);
             row += '</label>';
           }
         });
         row += '</div>';
         if (!isMaster) {
           row += '<button onclick="rSaveUserApps(\'' + uname.replace(/'/g, "\\'") + '\')" ';
-          row += 'style="padding:4px 14px;background:var(--rc-cyan,#06b6d4);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;">SAVE APPS</button>';
+          row += 'style="padding:4px 14px;background:var(--rc-cyan,#00f0ff);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;">SAVE APPS</button>';
         }
         row += '</div>';
         rows.push(row);
@@ -5266,8 +5855,13 @@
           })
           .then(function(r) {
             if (r.error) throw new Error(r.error.message);
-            // Password updated in Supabase Auth (bcrypt) — no plaintext sync
-            rToast('Password updated', 'success');
+            // Step 3: Sync to admin_users record
+            RS.supa.from('admin_users').update({ password: np }).eq('email', user.email)
+              .then(function(res) {
+                if (res.error) { rToast('Password ✓ — record sync failed: ' + res.error.message, 'warn'); }
+                else           { rToast('Password updated & saved', 'success'); }
+              })
+              .catch(function() { rToast('Password ✓ — record sync failed', 'warn'); });
             setStatus('');
             btnPwd.disabled = false;
             document.getElementById('r-p-curr-pass').value    = '';

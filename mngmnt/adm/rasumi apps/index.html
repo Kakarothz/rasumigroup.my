@@ -14,9 +14,9 @@
     rel="stylesheet">
 
   <!-- VIMS Base CSS (for top-nav) -->
-  <link rel="stylesheet" href="../sales report/style.css?v=2">
+  <link rel="stylesheet" href="../sales report/style.css?v=1782389765214">
   <!-- Rasumi CSS (copied from vims_admin/rasumi.css) -->
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=1782389765214">
   <!-- Mobile responsive overrides -->
   <link rel="stylesheet" href="mobile.css">
 
@@ -27,10 +27,20 @@
   <!-- Supabase JS SDK (auth + realtime) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
-  <!-- Chart.js -->
+  <!-- Chart.js (pan implemented natively — no external zoom plugin needed) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 
   <script>
+    // ── DEBUG sementara — papar error ────────────────────────────
+    window.onerror = function(msg, src, line, col, err) {
+      document.body.style.background = '#0d1117';
+      document.body.innerHTML = '<div style="font-family:monospace;color:#ef4444;padding:30px;font-size:13px">'
+        + '<b>JS ERROR:</b><br>' + msg + '<br><br>'
+        + '<b>File:</b> ' + src + '<br>'
+        + '<b>Line:</b> ' + line + ' Col: ' + col + '<br><br>'
+        + (err ? '<b>Stack:</b><br><pre style="color:#f87171;white-space:pre-wrap">' + err.stack + '</pre>' : '')
+        + '</div>';
+    };
     // ── Supabase Auth Guard ──────────────────────────────────────
     document.addEventListener('DOMContentLoaded', async () => {
       const _supa = supabase.createClient(
@@ -45,13 +55,23 @@
         return;
       }
 
+      // DEBUG: semak enterRasumiMode
+      if (typeof window.enterRasumiMode !== 'function') {
+        document.body.style.background = '#0d1117';
+        document.body.innerHTML = '<div style="font-family:monospace;color:#f59e0b;padding:30px;font-size:13px">'
+          + '<b>WARN:</b> window.enterRasumiMode tidak wujud selepas app.js load.<br>'
+          + 'Kemungkinan app.js ada runtime error semasa IIFE execute.</div>';
+        return;
+      }
+
       // Session valid — launch Rasumi Mode
-      if (typeof window.enterRasumiMode === 'function') {
+      try {
         window.enterRasumiMode();
-      } else {
-        setTimeout(() => {
-          if (typeof window.enterRasumiMode === 'function') window.enterRasumiMode();
-        }, 500);
+      } catch(e) {
+        document.body.style.background = '#0d1117';
+        document.body.innerHTML = '<div style="font-family:monospace;color:#ef4444;padding:30px;font-size:13px">'
+          + '<b>enterRasumiMode() THREW:</b><br>'
+          + '<pre style="color:#f87171;white-space:pre-wrap">' + e.stack + '</pre></div>';
       }
 
       // Redirect on sign-out
@@ -65,7 +85,7 @@
 <body style="background: #05080f; margin: 0; overflow: hidden;" class="r-body-root">
 
   <!-- Rasumi JS will dynamically inject #rasumi-container inside the body -->
-  <script src="app.js?v=22"></script>
+  <script src="app.js?v=1782391616648"></script>
 
   <!-- Mobile enhancements — desktop untouched (window.innerWidth guard) -->
   <script>
@@ -120,40 +140,4 @@
         /* ── 3. "admin monitor" subtitle under brand title ──────── */
         var brandText = container.querySelector('.brand-text');
         if (brandText && !brandText.querySelector('.r-mob-subtitle')) {
-          var sub = document.createElement('span');
-          sub.className = 'r-mob-subtitle';
-          sub.textContent = 'admin console';
-          brandText.appendChild(sub);
-        }
-
-        /* ── 4. Auto-collapse empty telemetry / health panels ───── */
-        function syncCollapse(el) {
-          if (!el) return;
-          var panel = el.parentElement;
-          while (panel && !panel.classList.contains('r-panel')) panel = panel.parentElement;
-          if (!panel) return;
-          var isEmpty = !!el.querySelector('.r-tele-empty');
-          panel.classList.toggle('r-mob-collapsed', isEmpty);
-        }
-        var emptyObs = new MutationObserver(function () {
-          syncCollapse(document.getElementById('r-tele-body'));
-          syncCollapse(document.getElementById('r-health-body'));
-        });
-        emptyObs.observe(container, { childList: true, subtree: true });
-        // Initial sync in case dashboard already rendered
-        syncCollapse(document.getElementById('r-tele-body'));
-        syncCollapse(document.getElementById('r-health-body'));
-
-        return true;
-      }
-
-      var obs = new MutationObserver(function () {
-        if (injectMobileUI()) obs.disconnect();
-      });
-      obs.observe(document.body, { childList: true, subtree: true });
-    })();
-  </script>
-
-</body>
-
-</html>
+         
