@@ -19,7 +19,7 @@
   // Machine_status reads migrate to Supabase Realtime.
   // Uses publishable (anon) key — RLS allows read on machine_status only.
   var RASUMI_SUPABASE_URL     = 'https://seqlkwdghibmsfkbuwqq.supabase.co';
-  var RASUMI_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlcWxrd2RnaGlibXNma2J1d3FxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2NzUwOTUsImV4cCI6MjA5NzI1MTA5NX0.FhgKR2zFq9EMYAlAw5etS8VI4KvzElffLBSAVdWjYKU';
+  var RASUMI_SUPABASE_ANON_KEY = 'sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp';
   // ──────────────────────────────────────────────────────────
 
   // ── ⚠️  FILL THIS IN ──────────────────────────────────────
