@@ -370,7 +370,7 @@
     if (bg === 'photo') {
       bgLayer.style.background = "url('../assets/background.jpg') center/cover no-repeat";
     } else if (bg === 'custom') {
-      var customUrl = localStorage.getItem('rs_bg_custom');
+      var customUrl = localStorage.getItem('rs_bg_custom') || sessionStorage.getItem('rs_bg_custom');
       if (customUrl) bgLayer.style.background = 'url(' + customUrl + ') center/cover no-repeat';
     } else if (_BG_MAP[bg]) {
       bgLayer.style.background = _BG_MAP[bg];
@@ -455,7 +455,7 @@
       var bg    = localStorage.getItem('rs_bg')    || 'photo';
       window.rSetTheme(theme);
       if (bg === 'custom') {
-        var customUrl = localStorage.getItem('rs_bg_custom');
+        var customUrl = localStorage.getItem('rs_bg_custom') || sessionStorage.getItem('rs_bg_custom');
         if (customUrl) {
           var bl = document.getElementById('r-bg-layer');
           if (bl) bl.style.background = 'url(' + customUrl + ') center/cover no-repeat';
@@ -488,27 +488,25 @@
         if (d.ui_background === 'custom' && d.ui_custom_bg) {
           var bgLayer = document.getElementById('r-bg-layer');
           if (bgLayer) bgLayer.style.background = 'url(' + d.ui_custom_bg + ') center/cover no-repeat';
-          // Simpan terus ke localStorage (synchronous) untuk instant next refresh
-          try {
-            localStorage.setItem('rs_bg', 'custom');
-            localStorage.setItem('rs_bg_custom', d.ui_custom_bg);
-          } catch(e) {
-            // Quota exceeded — compress async dan cuba semula
-            (function(srcUrl) {
-              var img = new Image();
-              img.onload = function() {
-                try {
-                  var cv = document.createElement('canvas');
-                  cv.width = 1280; cv.height = 720;
-                  cv.getContext('2d').drawImage(img, 0, 0, 1280, 720);
-                  var small = cv.toDataURL('image/jpeg', 0.4);
-                  localStorage.setItem('rs_bg', 'custom');
-                  localStorage.setItem('rs_bg_custom', small);
-                } catch(e2) {}
-              };
-              img.src = srcUrl;
-            })(d.ui_custom_bg);
-          }
+          // Cache ke storage untuk instant next refresh
+          localStorage.setItem('rs_bg', 'custom');
+          (function(srcUrl) {
+            var img = new Image();
+            img.onload = function() {
+              // Compress ke 640x360 @ 0.3 — sangat kecil (~30-60KB base64)
+              var cv = document.createElement('canvas');
+              cv.width = 640; cv.height = 360;
+              cv.getContext('2d').drawImage(img, 0, 0, 640, 360);
+              var tiny = cv.toDataURL('image/jpeg', 0.3);
+              try {
+                localStorage.setItem('rs_bg_custom', tiny);
+              } catch(e) {
+                // localStorage penuh — guna sessionStorage (quota berasingan, kekal sepanjang session)
+                try { sessionStorage.setItem('rs_bg_custom', tiny); } catch(e2) {}
+              }
+            };
+            img.src = srcUrl;
+          })(d.ui_custom_bg);
           // Update custom thumbnail dalam panel
           var customEl = document.querySelector('.r-bg-opt[data-bg="custom"]');
           if (customEl) customEl.style.backgroundImage = 'url(' + d.ui_custom_bg + ')';
@@ -537,7 +535,8 @@
     var _initBgStyle = (function() {
       try {
         var _sb = localStorage.getItem('rs_bg');
-        var _sc = localStorage.getItem('rs_bg_custom');
+        // Check localStorage dulu, kemudian sessionStorage (quota berasingan)
+        var _sc = localStorage.getItem('rs_bg_custom') || sessionStorage.getItem('rs_bg_custom');
         if (_sb === 'custom' && _sc) return 'url(' + _sc + ') center/cover no-repeat';
         if (_sb && _sb !== 'custom' && _sb !== 'photo' && _BG_MAP[_sb]) return _BG_MAP[_sb];
         if (_sb === 'photo') return "url('../assets/background.jpg') center/cover no-repeat";
