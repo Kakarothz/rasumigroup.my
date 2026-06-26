@@ -486,27 +486,35 @@
         }
         // Apply wallpaper
         if (d.ui_background === 'custom' && d.ui_custom_bg) {
-          var bgLayer = document.getElementById('r-bg-layer');
-          if (bgLayer) bgLayer.style.background = 'url(' + d.ui_custom_bg + ') center/cover no-repeat';
-          // Cache ke storage untuk instant next refresh
+          // Hanya apply ke screen kalau tiada cache — elak "resize" bila full quality load
+          var _hasBgCache = localStorage.getItem('rs_bg_custom') || sessionStorage.getItem('rs_bg_custom');
+          if (!_hasBgCache) {
+            var bgLayer = document.getElementById('r-bg-layer');
+            if (bgLayer) bgLayer.style.background = 'url(' + d.ui_custom_bg + ') center/cover no-repeat';
+          }
+          // Cache full quality ke sessionStorage (quota berasingan dari localStorage)
           localStorage.setItem('rs_bg', 'custom');
-          (function(srcUrl) {
-            var img = new Image();
-            img.onload = function() {
-              // Compress ke 640x360 @ 0.3 — sangat kecil (~30-60KB base64)
-              var cv = document.createElement('canvas');
-              cv.width = 640; cv.height = 360;
-              cv.getContext('2d').drawImage(img, 0, 0, 640, 360);
-              var tiny = cv.toDataURL('image/jpeg', 0.3);
-              try {
-                localStorage.setItem('rs_bg_custom', tiny);
-              } catch(e) {
-                // localStorage penuh — guna sessionStorage (quota berasingan, kekal sepanjang session)
-                try { sessionStorage.setItem('rs_bg_custom', tiny); } catch(e2) {}
-              }
-            };
-            img.src = srcUrl;
-          })(d.ui_custom_bg);
+          try {
+            // Cuba simpan terus tanpa compress — full quality
+            sessionStorage.setItem('rs_bg_custom', d.ui_custom_bg);
+          } catch(e) {
+            // sessionStorage penuh — compress sekali sahaja ke 1920x1080 @ 0.85
+            (function(srcUrl) {
+              var img = new Image();
+              img.onload = function() {
+                var maxW = 1920, maxH = 1080;
+                var w = img.width, h = img.height;
+                if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+                if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+                var cv = document.createElement('canvas');
+                cv.width = w; cv.height = h;
+                cv.getContext('2d').drawImage(img, 0, 0, w, h);
+                try { sessionStorage.setItem('rs_bg_custom', cv.toDataURL('image/jpeg', 0.85)); } catch(e2) {}
+              };
+              img.src = srcUrl;
+            })(d.ui_custom_bg);
+          }
+          try { localStorage.setItem('rs_bg_custom', d.ui_custom_bg); } catch(e) {}
           // Update custom thumbnail dalam panel
           var customEl = document.querySelector('.r-bg-opt[data-bg="custom"]');
           if (customEl) customEl.style.backgroundImage = 'url(' + d.ui_custom_bg + ')';
@@ -2047,6 +2055,7 @@
     var d = RS._selectedDevice ? RS.devices[RS._selectedDevice] : null;
     var tb = $r('r-tele-body');   if (tb) tb.innerHTML = buildTelemetryHTML(d);
     var hb = $r('r-health-body'); if (hb) hb.innerHTML = buildHealthHTML(d);
+    updateChartFromDevice();
   }
 
   // ── Dashboard command history (Supabase, Fasa 6) ────────────
@@ -2931,54 +2940,9 @@
   function ddActivity(hostname, box) {
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
     RS.supa.from('logs').select('*').eq('machine', hostname)
-      .order('timestamp', { ascending: false }).limit(300)
+      .order('timestamp', { ascending: false }).limit(5000)
       .then(function(res) {
-        var data = res.data || [];
-        if (!data.length) { box.innerHTML = '<div class="r-empty">No activity logs for this machine</div>'; return; }
-        RS._logCache = data;
-
-        var failCnt = RS._logCache.filter(function(e){
-          return (e.status||'').toUpperCase() === 'FAILED' || (e.state||'').toUpperCase() === 'FAILED';
-        }).length;
-        var slaCnt = RS._logCache.filter(function(e){ return e.sla_breach; }).length;
-
-        var summary = '<div class="r-log-summary">' +
-          '<span class="r-badge r-badge-muted">' + RS._logCache.length + ' records</span>' +
-          (failCnt ? '<span class="r-badge r-badge-err">' + failCnt + ' FAILED</span>' : '') +
-          (slaCnt  ? '<span class="r-badge r-badge-warn">' + slaCnt + ' SLA BREACH</span>' : '') +
-          '<span class="r-muted-sm" style="margin-left:auto">Click row → view full detail</span>' +
-          '</div>';
-
-        var rows = RS._logCache.map(function(e, i) {
-          var rawStatus = e.status || e.state || '';
-          var isMsg     = rawStatus.length > 30;
-          var stCode    = isMsg ? 'DEBUG' : (rawStatus.toUpperCase() || 'INFO');
-          var stState   = (e.state || '').toUpperCase();
-          // File/detail: file_name is the most useful field
-          var fileDetail = e.file_name || e.activity_name || e.details || e.error_msg || e.error
-                         || e.message || e.reason || (isMsg ? rawStatus : '') || '—';
-          var jobId = e.job_group_id || e.trace_id || e.run_id || '';
-          var isFailed = stCode === 'FAILED' || stState === 'FAILED';
-          var rowCls   = isFailed ? ' style="background:rgba(255,51,85,0.04)"' : (e.sla_breach ? ' style="background:rgba(255,149,0,0.04)"' : '');
-
-          return '<tr' + rowCls + ' onclick="rShowLogDetail(' + i + ')" style="cursor:pointer' + (isFailed ? ';background:rgba(255,51,85,0.06)' : (e.sla_breach ? ';background:rgba(255,149,0,0.04)' : '')) + '">' +
-            '<td>' + fmtTs(e.timestamp || e.created_at) + '</td>' +
-            '<td><span class="r-badge r-badge-purple">' + esc(e.app_name || '—') + '</span></td>' +
-            '<td>' +
-              '<span class="r-badge ' + logBadge(stCode) + '">' + esc(stCode) + '</span>' +
-              (e.state && e.state.toUpperCase() !== stCode ? ' <span class="r-muted-sm">/' + esc(e.state) + '</span>' : '') +
-            '</td>' +
-            '<td class="r-cell-trunc r-font-mono" style="max-width:220px" title="' + esc(fileDetail) + '">' + esc(fileDetail) + '</td>' +
-            '<td class="r-font-mono r-muted-sm">' + (jobId ? jobId.substring(0,8) + '…' : '—') + '</td>' +
-            '<td>' +
-              (e.sla_breach ? '<span class="r-badge r-badge-warn">SLA!</span> ' : '') +
-              (e.version ? '<span class="r-muted-sm">v' + esc(String(e.version)) + '</span>' : '') +
-            '</td>' +
-            '<td><button class="r-btn-sm" onclick="event.stopPropagation();rShowLogDetail(' + i + ')">Detail</button></td>' +
-            '</tr>';
-        }).join('');
-
-        box.innerHTML = summary + tableWrap(['Time','App','Status/State','File / Detail','Job ID','Flags',''], rows);
+        _processAndRenderLogs(res.data || [], box, '');
       }).catch(function(err) { box.innerHTML = errBox(err.message); });
   }
 
@@ -3400,6 +3364,9 @@
     var view = $r('r-view-area');
     if (!view) return;
     var safeId = appName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    // Store appName supaya onclick guna safeId sahaja (elak double-quote dalam attribute)
+    if (!window._appNameMap) window._appNameMap = {};
+    window._appNameMap[safeId] = appName;
     view.innerHTML =
       '<div class="r-panel">' +
         '<div class="r-panel-hdr">' +
@@ -3413,7 +3380,7 @@
               '<option value="ERROR">Error</option>' +
               '<option value="PROCESSING">Processing</option>' +
             '</select>' +
-            '<button class="r-btn-sm" onclick="rLoadAppLogs(' + JSON.stringify(appName) + ',' + JSON.stringify(safeId) + ')">Search</button>' +
+            '<button class="r-btn-sm" onclick="rLoadAppLogs(\'' + safeId + '\')">Search</button>' +
           '</div>' +
         '</div>' +
         '<div class="r-legend">' +
@@ -3425,37 +3392,19 @@
       '</div>';
   }
 
-  window.rLoadAppLogs = function(appName, safeId) {
+  window.rLoadAppLogs = function(safeId) {
+    var appName  = (window._appNameMap || {})[safeId] || safeId;
     var hostname = ($r('al-dev-' + safeId) || {}).value || '';
-    var status   = ($r('al-stat-' + safeId) || {}).value || '';
+    var statusFilter = ($r('al-stat-' + safeId) || {}).value || '';
     var box = $r('al-results-' + safeId);
     if (!box) return;
     box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
-
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
     var q = RS.supa.from('logs').select('*').eq('app_name', appName)
-      .order('timestamp', { ascending: false }).limit(200);
-    if (status)   q = q.eq('status', status);
+      .order('timestamp', { ascending: false }).limit(5000);
     if (hostname) q = q.eq('machine', hostname);
-
     q.then(function(res) {
-      var docs = res.data || [];
-      if (!docs.length) { box.innerHTML = '<div class="r-empty">No records match</div>'; return; }
-      var rows = docs.map(function(e) {
-        var sc = e.status === 'COMPLETED' ? 'r-badge-ok' : e.status === 'PROCESSING' ? 'r-badge-warn' : 'r-badge-err';
-        var errLine = e.error_msg ? esc(String(e.error_msg).split('\n')[0].substring(0, 80)) : '—';
-        return '<tr>' +
-          '<td>' + fmtTs(e.timestamp) + '</td>' +
-          '<td class="r-font-mono">' + esc(e.machine || '—') + '</td>' +
-          '<td class="r-font-mono">' + esc(e.branch_id || '—') + '</td>' +
-          '<td><span class="r-badge ' + sc + '">' + esc(e.status || '?') + '</span></td>' +
-          '<td>' + (e.duration != null ? parseFloat(e.duration).toFixed(2) + 's' : '—') + '</td>' +
-          '<td class="r-font-mono r-cell-trunc" title="' + esc(e.error_msg || '') + '">' + errLine + '</td>' +
-          '<td class="r-font-mono">' + esc(e.root_cause || '—') + '</td>' +
-          '</tr>';
-      }).join('');
-      box.innerHTML = '<div class="r-results-count">' + docs.length + ' record(s)</div>' +
-        tableWrap(['Time', 'Machine', 'User', 'Status', 'Duration', 'Error', 'Root Cause'], rows);
+      _processAndRenderLogs(res.data || [], box, statusFilter);
     }).catch(function(err) { box.innerHTML = errBox(err.message); });
   };
 
@@ -4198,28 +4147,9 @@
     window.rLoadLogs();
   };
 
-  window.rLoadLogs = function () {
-    var dateVal      = ($r('r-log-date') || {}).value || '';
-    var hostname     = ($r('r-log-dev')  || {}).value || '';
-    var appName      = ($r('r-log-app')  || {}).value || '';
-    var statusFilter = ($r('r-log-stat') || {}).value || '';
-    var box = $r('r-log-results');
-    if (!box) return;
-    box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
-    if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
-
-    // Fetch all statuses — need full context to reconstruct sessions
-    var q = RS.supa.from('logs').select('*')
-      .order('timestamp', { ascending: false }).limit(20000);
-    if (dateVal) {
-      q = q.gte('timestamp', dateVal + 'T00:00:00').lte('timestamp', dateVal + 'T23:59:59');
-    }
-    if (hostname) q = q.eq('machine', hostname);
-    if (appName)  q = q.eq('app_name', appName);
-
-    q.then(function(res) {
-      var data = res.data || [];
-      if (!data.length) { box.innerHTML = '<div class="r-empty">No logs match</div>'; return; }
+  // ── Shared session renderer — used by Log Explorer + per-app log tabs ──
+  function _processAndRenderLogs(data, box, statusFilter) {
+    if (!data.length) { box.innerHTML = '<div class="r-empty">No logs match</div>'; return; }
 
       // ── Group logs into sessions ──
       var groups = {};
@@ -4251,7 +4181,7 @@
       // Auto-clean: cap at 100 sessions (unfiltered full-load only) and delete older COMPLETED rows from DB
       // NEVER delete sessions with any failures — those stay until admin takes action
       var MAX_SESSIONS = 100;
-      if (!dateVal && !hostname && !appName && !statusFilter && sessions.length > MAX_SESSIONS) {
+      if (!statusFilter && sessions.length > MAX_SESSIONS) {
         var oldSessions = sessions.slice(MAX_SESSIONS);
         sessions = sessions.slice(0, MAX_SESSIONS);
         var idsToDelete = [];
@@ -4548,10 +4478,10 @@
           '<td class="r-font-mono">' + _fmtTime(g.end) + '</td>' +
           '<td><span class="r-badge ' + (sessionSt === 'FILE MISSING' ? 'r-badge-warn' : logBadge(sessionSt)) + '">' + sessionSt + '</span>' +
             (g.hasFail ? ' <span class="r-muted-sm">(' + failedLogs.length + ' file)</span>' : '') + '</td>' +
-          '<td>' + esc(_branchName(g.branch)) + '</td>' +
+          '<td class="r-font-mono r-muted-sm" style="font-size:11px">' + esc((g.gid && !g.gid.includes('|') ? g.gid.substring(0,8) + '…' : '—')) + '</td>' +
           '<td>' + (totalDocs > 0 ? totalDocs + ' doc' + (totalDocs !== 1 ? 's' : '') : g.allProcessing ? 'running…' : '—') + '</td>' +
-          '<td><button class="r-btn-sm" onclick="rToggleLogDetail(\'' + gKey + '\')"><i class="fa-solid fa-list"></i> Details</button></td>' +
           '<td>' + _fmtDur(g.start, g.end) + '</td>' +
+          '<td><button class="r-btn-sm" onclick="rToggleLogDetail(\'' + gKey + '\')"><i class="fa-solid fa-list"></i> Details</button></td>' +
           '</tr>' +
           '<tr id="rld-' + gKey + '" style="display:none">' +
             '<td colspan="10" style="padding:0 8px 12px 36px;background:rgba(0,0,0,0.25)">' + detailHtml + '</td>' +
@@ -4560,10 +4490,34 @@
 
       box.innerHTML =
         '<div class="r-results-count">' + sessions.length + ' session(s) — ' + data.length + ' log entries</div>' +
-        tableWrap(['Date','Machine','App','Start','End','Status','Branch','Total','Details','Duration'], rows);
+        tableWrap(['Date','Machine','App','Start','End','Status','Job ID','Total','Duration','Details'], rows);
 
+  }
+
+  window.rLoadLogs = function () {
+    var dateVal      = ($r('r-log-date') || {}).value || '';
+    var hostname     = ($r('r-log-dev')  || {}).value || '';
+    var appName      = ($r('r-log-app')  || {}).value || '';
+    var statusFilter = ($r('r-log-stat') || {}).value || '';
+    var box = $r('r-log-results');
+    if (!box) return;
+    box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
+    if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
+
+    // Fetch all statuses — need full context to reconstruct sessions
+    var q = RS.supa.from('logs').select('*')
+      .order('timestamp', { ascending: false }).limit(20000);
+    if (dateVal) {
+      q = q.gte('timestamp', dateVal + 'T00:00:00').lte('timestamp', dateVal + 'T23:59:59');
+    }
+    if (hostname) q = q.eq('machine', hostname);
+    if (appName)  q = q.eq('app_name', appName);
+
+    q.then(function(res) {
+      _processAndRenderLogs(res.data || [], box, statusFilter);
     }).catch(function(err) { box.innerHTML = errBox(err.message); });
   };
+
 
   // ── COMMANDS ───────────────────────────────────────────────
   function _qCmd(cmd, icon, color, desc) {
