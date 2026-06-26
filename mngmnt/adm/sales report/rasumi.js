@@ -295,7 +295,7 @@
       '</div>';
 
     var fbStatus = $r('r-fb-status');
-    if (fbStatus) fbStatus.innerHTML = '<span style="color:var(--rc-orange);font-size:10px;padding:6px 14px;display:block"><i class="fa-solid fa-triangle-exclamation"></i> Config missing</span>';
+    if (fbStatus) fbStatus.innerHTML = '<span style="color:var(--rc-orange);font-size:10px;padding:0 21px;display:block"><i class="fa-solid fa-triangle-exclamation"></i> Config missing</span>';
   }
 
   // ── Enter / Exit ───────────────────────────────────────────
@@ -313,7 +313,7 @@
     }
 
     var fbStatus = $r('r-fb-status');
-    if (fbStatus) fbStatus.innerHTML = '<span style="color:var(--rc-green);font-size:10px;padding:6px 14px;display:block"><i class="fa-solid fa-circle"></i> rasumi-apps ● LIVE</span>';
+    if (fbStatus) fbStatus.innerHTML = '<span style="color:var(--rc-green);font-size:10px;padding:0 21px;display:block"><i class="fa-solid fa-circle"></i> rasumi-apps ● LIVE</span>';
 
     startGlobalListeners();
     rNav('r-dashboard');
