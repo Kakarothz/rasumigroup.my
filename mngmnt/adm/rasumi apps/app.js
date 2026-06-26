@@ -1540,33 +1540,84 @@
   function loadGlobalTodayStats() {
     if (!RS.supa) return;
     var today = new Date(); today.setHours(0,0,0,0);
-    var todayIso = today.toISOString();
+    var todayIso     = today.toISOString();
+    var todayDateStr = today.getFullYear() + '-' +
+      String(today.getMonth()+1).padStart(2,'0') + '-' +
+      String(today.getDate()).padStart(2,'0');
+
+    function _isToday(ts) {
+      if (!ts) return false;
+      var d = new Date(ts);
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' +
+             String(d.getDate()).padStart(2,'0') === todayDateStr;
+    }
+
+    function _commit(logMap, machineSet) {
+      var groups = {};
+      Object.values(logMap).forEach(function(d) {
+        var gid = d.job_group_id ||
+          ((d.machine||'') + '|' + (d.app_name||'') + '|' + (d.branch_id||'') + '|' + (d.timestamp||'').substring(0, 13));
+        if (!groups[gid]) groups[gid] = { hasFail: false, hasCancelled: false, hasNonProc: false, hasCompFail: false, _start: null, _machine: d.machine||'' };
+        var st = (d.status||'').toUpperCase();
+        if (st === 'FAILED' || st === 'ERROR') { groups[gid].hasFail = true; groups[gid].hasCompFail = true; }
+        if (st === 'COMPLETED') groups[gid].hasCompFail = true;
+        if (st === 'CANCELLED') { groups[gid].hasCancelled = true; groups[gid].hasCompFail = true; }
+        if (st !== 'PROCESSING') groups[gid].hasNonProc = true;
+        if (d.timestamp && (!groups[gid]._start || d.timestamp < groups[gid]._start))
+          groups[gid]._start = d.timestamp;
+      });
+      var sessions = Object.values(groups).filter(function(s) {
+        if (!s.hasNonProc || !s.hasCompFail) return false;
+        if (!s._start) return (s.hasFail || s.hasCancelled) && !!machineSet[s._machine];
+        return _isToday(s._start);
+      });
+      RS.runsToday   = sessions.length;
+      RS.failedToday = sessions.filter(function(s){ return s.hasFail || s.hasCancelled; }).length;
+      try {
+        localStorage.setItem('rs_cache_runs_today',   RS.runsToday);
+        localStorage.setItem('rs_cache_failed_today', RS.failedToday);
+      } catch(e) {}
+      if (RS.route === 'r-dashboard') renderDashboard();
+    }
+
+    // P1 — today's valid-timestamp logs
     RS.supa.from('logs')
       .select('id,status,job_group_id,machine,app_name,branch_id,timestamp')
       .gte('timestamp', todayIso)
-      .order('timestamp', { ascending: false })
-      .limit(2000)
-      .then(function(res) {
-        var data = res.data || [];
-        var groups = {};
-        data.forEach(function(d) {
-          var gid = d.job_group_id ||
-            ((d.machine||'') + '|' + (d.app_name||'') + '|' + (d.branch_id||'') + '|' + (d.timestamp||'').substring(0, 13));
-          if (!groups[gid]) groups[gid] = { hasFail: false, hasNonProc: false, hasCompFail: false };
-          var st = (d.status||'').toUpperCase();
-          if (st === 'FAILED' || st === 'ERROR') { groups[gid].hasFail = true; groups[gid].hasCompFail = true; }
-          if (st === 'COMPLETED') groups[gid].hasCompFail = true;
-          if (st !== 'PROCESSING') groups[gid].hasNonProc = true;
+      .order('timestamp', { ascending: false }).limit(5000)
+      .then(function(r1) {
+        var logMap = {}, machineSet = {}, gidSet = {}, gids = [], machines = [];
+        (r1.data || []).forEach(function(d) {
+          if (d.id) logMap[d.id] = d;
+          if (d.machine      && !machineSet[d.machine])      { machineSet[d.machine]      = true; machines.push(d.machine); }
+          if (d.job_group_id && !gidSet[d.job_group_id])     { gidSet[d.job_group_id]     = true; gids.push(d.job_group_id); }
         });
-        // Exclude phantom sessions: hasNonProc but zero actual COMPLETED/FAILED docs
-        var sessions = Object.values(groups).filter(function(s){ return s.hasNonProc && s.hasCompFail; });
-        RS.runsToday   = sessions.length;
-        RS.failedToday = sessions.filter(function(s){ return s.hasFail; }).length;
-        try {
-          localStorage.setItem('rs_cache_runs_today',   RS.runsToday);
-          localStorage.setItem('rs_cache_failed_today', RS.failedToday);
-        } catch(e) {}
-        if (RS.route === 'r-dashboard') renderDashboard();
+
+        if (!machines.length) { _commit(logMap, machineSet); return; }
+
+        // P3 — null-ts logs for today's machines (catches null-ts + null-gid FAILED)
+        function doP3() {
+          RS.supa.from('logs')
+            .select('id,status,job_group_id,machine,app_name,branch_id,timestamp')
+            .is('timestamp', null).in('machine', machines).limit(500)
+            .then(function(r3) {
+              (r3.data || []).forEach(function(d) { if (d.id) logMap[d.id] = d; });
+              _commit(logMap, machineSet);
+            })
+            .catch(function() { _commit(logMap, machineSet); });
+        }
+
+        // P2 — all logs sharing gids from P1 (catches null-ts FAILED with valid gid)
+        if (!gids.length) { doP3(); return; }
+
+        RS.supa.from('logs')
+          .select('id,status,job_group_id,machine,app_name,branch_id,timestamp')
+          .in('job_group_id', gids).limit(5000)
+          .then(function(r2) {
+            (r2.data || []).forEach(function(d) { if (d.id) logMap[d.id] = d; });
+            doP3();
+          })
+          .catch(function() { doP3(); });
       }).catch(function(){});
   }
 
@@ -1739,7 +1790,7 @@
         metricCard('green',  on,         'TOTAL ACTIVE NODES', 'fa-circle-check',       'Online now',              'r-devices', null, 'mc-on') +
         metricCard('danger', off,        'OFFLINE NODES',      'fa-circle-xmark',       off > 0 ? off + ' need attention' : 'All clear', 'r-devices', null, 'mc-off') +
         metricCard('info',   runsToday,  'RUNS TODAY',         'fa-play-circle',        'Across all apps',         'r-logs', null, 'mc-runs') +
-        metricCard('warn',   errToday,   'FAILED TODAY',       'fa-bug',                'Check log explorer',      null, 'window.rOpenFailedLogs()', 'mc-err') +
+        metricCard('warn',   errToday,   'ISSUES TODAY',       'fa-bug',                'Failed, partial & skipped', null, 'window.rOpenFailedLogs()', 'mc-err') +
         metricCard('purple', RS.unresolvedVibes, 'VIBES ERRORS','fa-triangle-exclamation', 'Unresolved',          'r-vibes', null, 'mc-vibes') +
         metricCard('blue',   devs.length,'MACHINES TOTAL',     'fa-server',             'Last sync: ' + lastSync, 'r-devices', null, 'mc-total') +
       '</div>';
@@ -1832,7 +1883,7 @@
 
   // Navigate to Log Explorer with a pre-set status filter (no flash — flag set before render)
   window.rOpenFailedLogs = function() {
-    RS._pendingLogFilter = 'FAILED';
+    RS._pendingLogFilter = 'ISSUE';
     rNav('r-logs');
   };
 
@@ -2884,9 +2935,22 @@
     // Health panel (if telemetry data exists)
     var healthPanel = d ? (
       '<div class="r-mid-row" style="margin-bottom:12px">' +
-        '<div class="r-panel" style="margin:0">' +
-          '<div class="r-panel-title"><i class="fa-solid fa-heart-pulse"></i> NODE HEALTH</div>' +
-          buildHealthHTML(d) +
+        '<div class="r-panel" style="margin:0;flex:2;min-width:0">' +
+          '<div class="r-panel-title" style="display:flex;align-items:center;gap:8px">' +
+            '<i class="fa-solid fa-chart-line"></i> APP USAGE' +
+            '<div style="margin-left:auto;display:flex;gap:4px">' +
+              '<button class="r-btn-sm" id="dd-chart-week" onclick="rDdChartView(\'week\',\'' + esc(hostname) + '\')">Week</button>' +
+              '<button class="r-btn-sm" id="dd-chart-month" onclick="rDdChartView(\'month\',\'' + esc(hostname) + '\')">Month</button>' +
+            '</div>' +
+          '</div>' +
+          '<div id="dd-chart-wrap" style="position:relative;height:200px;margin-top:8px">' +
+            '<canvas id="dd-usage-canvas" style="display:block"></canvas>' +
+            '<div id="dd-chart-tooltip" style="display:none;position:absolute;background:rgba(8,12,19,0.97);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;font-size:11px;pointer-events:none;z-index:10;line-height:1.9;min-width:140px"></div>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">' +
+            '<div id="dd-chart-legend" style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;flex:1"></div>' +
+            '<button class="r-btn-sm" onclick="rDdExportUsage(\'' + esc(hostname) + '\')" title="Export XLS"><i class="fa-solid fa-file-excel"></i> Export</button>' +
+          '</div>' +
         '</div>' +
         '<div class="r-panel" style="margin:0">' +
           '<div class="r-panel-title"><i class="fa-solid fa-server"></i> SYSTEM TELEMETRY</div>' +
@@ -2919,6 +2983,7 @@
 
     RS._currentDdHostname = hostname;
     rDdTab('activity', hostname);
+    setTimeout(function(){ if (window.rDdChartView) window.rDdChartView('week', hostname); }, 80);
   }
 
   window.rDdTab = function (tab, hostname) {
@@ -2945,6 +3010,212 @@
         _processAndRenderLogs(res.data || [], box, '');
       }).catch(function(err) { box.innerHTML = errBox(err.message); });
   }
+
+  // ── Device Detail: App Usage Chart ────────────────────────────────────────
+  var _DD_APPS = [
+    { label: 'Renamer',      color: '#a855f7', re: /renamer|fv[\s._-]branch/i },
+    { label: 'PDF Splitter',  color: '#22c55e', re: /pdf[\s._-]?split/i },
+    { label: 'Scanify',       color: '#38bdf8', re: /scanify/i },
+    { label: 'PDF Studio',    color: '#eab308', re: /pdf[\s._-]?studio/i },
+    { label: 'Quick Rename',  color: '#f97316', re: /quick[\s._-]?rename/i },
+    { label: 'Vibes Agent',   color: '#ef4444', re: /vibes/i },
+  ];
+
+  function _dd2(n) { return n < 10 ? '0' + n : String(n); }
+  function _ddIsoDate(d) { return d.getFullYear() + '-' + _dd2(d.getMonth()+1) + '-' + _dd2(d.getDate()); }
+
+  window.rDdChartView = function(view, hostname) {
+    var wb = $r('dd-chart-week'), mb = $r('dd-chart-month');
+    if (wb) { wb.style.opacity = view==='week'?'1':'0.45'; wb.style.fontWeight = view==='week'?'600':'400'; }
+    if (mb) { mb.style.opacity = view==='month'?'1':'0.45'; mb.style.fontWeight = view==='month'?'600':'400'; }
+    var canvas = $r('dd-usage-canvas'); if (!canvas) return;
+
+    var now = new Date(), labels = [], starts = [], ends = [];
+    if (view === 'week') {
+      var dow = now.getDay();
+      var mon = new Date(now); mon.setDate(now.getDate() - (dow===0?6:dow-1)); mon.setHours(0,0,0,0);
+      ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(function(n, i) {
+        var d = new Date(mon); d.setDate(mon.getDate()+i);
+        labels.push(n); starts.push(_ddIsoDate(d)+'T00:00:00'); ends.push(_ddIsoDate(d)+'T23:59:59');
+      });
+    } else {
+      var yr = now.getFullYear(), mo = now.getMonth();
+      var dim = new Date(yr, mo+1, 0).getDate();
+      for (var i = 1; i <= dim; i++) {
+        var d = new Date(yr, mo, i);
+        labels.push(String(i)); starts.push(_ddIsoDate(d)+'T00:00:00'); ends.push(_ddIsoDate(d)+'T23:59:59');
+      }
+    }
+
+    if (!RS.supa) return;
+    canvas.style.opacity = '0.35';
+    RS.supa.from('logs').select('app_name,timestamp,status')
+      .eq('machine', hostname).gte('timestamp', starts[0]).lte('timestamp', ends[ends.length-1])
+      .then(function(res) {
+        canvas.style.opacity = '1';
+        var data = res.data || [];
+        var datasets = _DD_APPS.map(function(grp) {
+          return {
+            label: grp.label, color: grp.color,
+            data: starts.map(function(s, i) {
+              return data.filter(function(e) {
+                return grp.re.test(e.app_name||'') &&
+                  (e.timestamp||'') >= s && (e.timestamp||'') <= ends[i] &&
+                  (e.status||'').toUpperCase() === 'COMPLETED';
+              }).length;
+            })
+          };
+        }).filter(function(ds) { return ds.data.some(function(v){ return v > 0; }); });
+
+        canvas._exportData = { datasets: datasets, labels: labels, hostname: hostname };
+        _ddDraw(canvas, datasets, labels);
+        _ddLegend(datasets);
+      }).catch(function(){ canvas.style.opacity = '1'; });
+  };
+
+  function _ddDraw(canvas, datasets, labels) {
+    var dpr = window.devicePixelRatio || 1;
+    var wrap = canvas.parentElement;
+    var W = wrap ? (wrap.offsetWidth || 640) : 640;
+    var H = 200;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    var pL=46, pR=16, pT=14, pB=32;
+    var cW=W-pL-pR, cH=H-pT-pB, n=labels.length;
+    var maxVal = 0;
+    datasets.forEach(function(ds){ ds.data.forEach(function(v){ if (v>maxVal) maxVal=v; }); });
+    if (!maxVal) maxVal = 10;
+    var nice = Math.pow(10, Math.floor(Math.log10(maxVal)));
+    maxVal = Math.ceil(maxVal/nice)*nice;
+
+    function xP(i){ return pL + (n>1 ? i/(n-1) : 0.5)*cW; }
+    function yP(v){ return pT + cH - (v/maxVal)*cH; }
+
+    // Grid lines + Y labels
+    for (var g = 0; g <= 4; g++) {
+      var gy = pT + g/4*cH;
+      ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(pL,gy); ctx.lineTo(W-pR,gy); ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,0.28)'; ctx.font='10px monospace'; ctx.textAlign='right';
+      ctx.fillText(Math.round(maxVal*(1-g/4)), pL-5, gy+3);
+    }
+    // X labels
+    ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.font='10px sans-serif'; ctx.textAlign='center';
+    var skip = n>20?3:n>10?2:1;
+    labels.forEach(function(l, i){ if (i%skip===0) ctx.fillText(l, xP(i), H-pB+14); });
+
+    // Lines + area fills
+    datasets.forEach(function(ds) {
+      var pts = ds.data.map(function(v,i){ return {x:xP(i), y:yP(v)}; });
+      // Area
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (var i=1; i<pts.length; i++) {
+        var cx=(pts[i-1].x+pts[i].x)/2;
+        ctx.bezierCurveTo(cx,pts[i-1].y, cx,pts[i].y, pts[i].x,pts[i].y);
+      }
+      ctx.lineTo(pts[pts.length-1].x, pT+cH); ctx.lineTo(pts[0].x, pT+cH); ctx.closePath();
+      var grad=ctx.createLinearGradient(0,pT,0,pT+cH);
+      grad.addColorStop(0, ds.color+'2e'); grad.addColorStop(1, ds.color+'00');
+      ctx.fillStyle=grad; ctx.fill();
+      // Line
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (var i=1; i<pts.length; i++) {
+        var cx=(pts[i-1].x+pts[i].x)/2;
+        ctx.bezierCurveTo(cx,pts[i-1].y, cx,pts[i].y, pts[i].x,pts[i].y);
+      }
+      ctx.strokeStyle=ds.color; ctx.lineWidth=2; ctx.stroke();
+      // Dots
+      pts.forEach(function(p,i){
+        if (!ds.data[i]) return;
+        ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fillStyle=ds.color; ctx.fill();
+      });
+    });
+
+    // Snapshot base for hover overlay
+    canvas._base  = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    canvas._chart = { datasets:datasets, labels:labels, xP:xP, yP:yP, pL:pL, pR:pR, pT:pT, pB:pB, cW:cW, cH:cH, W:W, H:H, n:n };
+
+    canvas.onmousemove = function(e) {
+      var cd = canvas._chart; if (!cd) return;
+      var rect = canvas.getBoundingClientRect();
+      var mx = e.clientX - rect.left;
+      var idx = Math.round((mx - cd.pL) / cd.cW * (cd.n-1));
+      idx = Math.max(0, Math.min(cd.n-1, idx));
+
+      var c2 = canvas.getContext('2d');
+      if (canvas._base) c2.putImageData(canvas._base, 0, 0);
+      var dp = window.devicePixelRatio || 1;
+      c2.setTransform(dp, 0, 0, dp, 0, 0);
+      // Crosshair
+      var lx = cd.xP(idx);
+      c2.beginPath(); c2.moveTo(lx, cd.pT); c2.lineTo(lx, cd.pT+cd.cH);
+      c2.strokeStyle='rgba(255,255,255,0.18)'; c2.lineWidth=1; c2.stroke();
+      // Highlight dots
+      cd.datasets.forEach(function(ds) {
+        var p = {x:cd.xP(idx), y:cd.yP(ds.data[idx]||0)};
+        c2.beginPath(); c2.arc(p.x,p.y,5,0,Math.PI*2);
+        c2.fillStyle=ds.color; c2.fill();
+        c2.strokeStyle='rgba(255,255,255,0.75)'; c2.lineWidth=1.5; c2.stroke();
+      });
+
+      // Tooltip
+      var tip = $r('dd-chart-tooltip'); if (!tip) return;
+      var html = '<div style="font-weight:600;margin-bottom:4px;color:rgba(255,255,255,0.9);font-size:12px">' + cd.labels[idx] + '</div>';
+      cd.datasets.forEach(function(ds) {
+        var val = ds.data[idx]||0;
+        html += '<div style="white-space:nowrap"><span style="color:'+ds.color+'">●</span> '+ds.label+': <b style="color:#fff">'+val+' doc'+(val!==1?'s':'')+'</b></div>';
+      });
+      tip.innerHTML = html; tip.style.display = 'block';
+      var tw = tip.offsetWidth || 160;
+      var tx = lx + 14; if (tx + tw > cd.W - cd.pR) tx = lx - tw - 10;
+      tip.style.left = tx + 'px'; tip.style.top = '8px';
+    };
+    canvas.onmouseleave = function() {
+      var tip = $r('dd-chart-tooltip'); if (tip) tip.style.display = 'none';
+      if (canvas._base) canvas.getContext('2d').putImageData(canvas._base, 0, 0);
+    };
+  }
+
+  function _ddLegend(datasets) {
+    var leg = $r('dd-chart-legend'); if (!leg) return;
+    leg.innerHTML = !datasets.length
+      ? '<span style="color:rgba(255,255,255,0.3)">No activity this period</span>'
+      : datasets.map(function(ds){
+          return '<span style="display:flex;align-items:center;gap:5px">' +
+            '<span style="width:9px;height:9px;border-radius:50%;background:'+ds.color+'"></span>' +
+            '<span style="color:rgba(255,255,255,0.55)">'+ds.label+'</span></span>';
+        }).join('');
+  }
+
+  window.rDdExportUsage = function(hostname) {
+    var canvas = $r('dd-usage-canvas');
+    var ed = canvas && canvas._exportData;
+    if (!ed || !ed.datasets.length) { rToast('No data to export','warn'); return; }
+    function doExport(XLSX) {
+      var rows = [[''].concat(ed.datasets.map(function(d){ return d.label; }))];
+      ed.labels.forEach(function(l, i){
+        rows.push([l].concat(ed.datasets.map(function(d){ return d.data[i]||0; })));
+      });
+      rows.push(['TOTAL'].concat(ed.datasets.map(function(d){ return d.data.reduce(function(a,b){return a+b;},0); })));
+      var ws = XLSX.utils.aoa_to_sheet(rows);
+      // Bold header row
+      var wb2 = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb2, ws, 'Usage — ' + hostname);
+      XLSX.writeFile(wb2, 'usage_' + hostname + '_' + new Date().toISOString().substring(0,10) + '.xlsx');
+      rToast('Exported','ok');
+    }
+    if (window.XLSX) { doExport(window.XLSX); return; }
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = function(){ doExport(window.XLSX); };
+    s.onerror = function(){ rToast('XLSX library unavailable','err'); };
+    document.head.appendChild(s);
+  };
+  // ── End App Usage Chart ────────────────────────────────────────────────
 
   window.rShowLogDetail = function (idx) {
     var e = RS._logCache[idx];
@@ -3376,9 +3647,9 @@
             '<select class="r-filter-sel" id="al-stat-' + safeId + '">' +
               '<option value="">All Status</option>' +
               '<option value="COMPLETED">Completed</option>' +
+              '<option value="PARTIAL">Partial</option>' +
               '<option value="FAILED">Failed</option>' +
-              '<option value="ERROR">Error</option>' +
-              '<option value="PROCESSING">Processing</option>' +
+              '<option value="RUNNING">Running</option>' +
             '</select>' +
             '<button class="r-btn-sm" onclick="rLoadAppLogs(\'' + safeId + '\')">Search</button>' +
           '</div>' +
@@ -3726,7 +3997,10 @@
             '<select class="r-filter-sel" id="r-log-stat">' +
               '<option value="">All Status</option>' +
               '<option value="COMPLETED">Completed</option>' +
+              '<option value="PARTIAL">Partial</option>' +
               '<option value="FAILED">Failed</option>' +
+              '<option value="CANCELLED">Cancelled</option>' +
+              '<option value="RUNNING">Running</option>' +
             '</select>' +
             '<button class="r-btn-sm" onclick="window.rSearchAllLogs()">Search</button>' +
           '</div>' +
@@ -3736,8 +4010,13 @@
     setTimeout(function(){
       // Apply any pending filter set before navigation (e.g. from dashboard cards)
       if (RS._pendingLogFilter) {
-        var sel = document.getElementById('r-log-stat');
-        if (sel) sel.value = RS._pendingLogFilter;
+        if (RS._pendingLogFilter === 'ISSUE') {
+          // ISSUE is a dashboard-only combined filter — not in the dropdown
+          RS._issueMode = true;
+        } else {
+          var sel = document.getElementById('r-log-stat');
+          if (sel) sel.value = RS._pendingLogFilter;
+        }
         RS._pendingLogFilter = null;
       }
       window.rLoadLogs();
@@ -3778,6 +4057,19 @@
   function _normalizeError(errMsg) {
     var m   = (errMsg || '').toLowerCase();
     var raw = errMsg || '';
+
+    // ── DOCUMENT VALIDATION — "Missing: SURAT X, SURAT Y" — checked FIRST ──
+    // Bukan ralat teknikal. App berfungsi betul — ia detect jenis surat tidak ada
+    // dalam dokumen dan diskip secara sengaja. Tiada processing dilakukan.
+    if (/^missing:/i.test(raw.trim())) {
+      var missingList = raw.replace(/^missing:\s*/i, '').trim();
+      return { code: 'VAL-1001', title: 'INCOMPLETE DOCUMENT',
+        description: 'File skipped — the following document types were not found in this file.',
+        rootCause: missingList,
+        confirmed: true,
+        type: 'validation', action: 'dismiss',
+        icon: 'fa-file-circle-question', color: '#f59e0b' };
+    }
 
     // ── FILE MISSING — checked FIRST (takes priority over WorkerCrash wrapper) ──
     // Pattern: WorkerCrash: no such file: 'C:/path/to/file.pdf'
@@ -4148,7 +4440,11 @@
   };
 
   // ── Shared session renderer — used by Log Explorer + per-app log tabs ──
-  function _processAndRenderLogs(data, box, statusFilter) {
+  function _processAndRenderLogs(data, box, statusFilter, context) {
+    // context: 'global' (Log Explorer) → show Machine + Branch
+    //          'device' or undefined   → hide Machine (already known), hide Branch
+    var showMachine = context === 'global';
+    var showBranch  = context === 'global';
     if (!data.length) { box.innerHTML = '<div class="r-empty">No logs match</div>'; return; }
 
       // ── Group logs into sessions ──
@@ -4161,7 +4457,7 @@
         if (!groups[gid]) {
           groups[gid] = { gid: gid, logs: [], start: null, end: null,
             machine: log.machine, app: log.app_name, branch: log.branch_id,
-            hasFail: false, allProcessing: true };
+            hasFail: false, hasCancelled: false, allProcessing: true };
           gOrder.push(gid);
         }
         var g = groups[gid];
@@ -4171,6 +4467,7 @@
         if (!g.end   || ts > g.end)   g.end   = ts;
         var st = (log.status || '').toUpperCase();
         if (st === 'FAILED' || st === 'ERROR') g.hasFail = true;
+        if (st === 'CANCELLED') g.hasCancelled = true;
         if (st !== 'PROCESSING') g.allProcessing = false;
       });
 
@@ -4199,7 +4496,7 @@
       // (stray logs sent after a real job ends — no file COMPLETED/FAILED entries)
       var phantomIds = [];
       sessions = sessions.filter(function(s) {
-        if (s.hasFail || s.allProcessing) return true; // keep failures + still-running
+        if (s.hasFail || s.hasCancelled || s.allProcessing) return true; // keep failures, cancels + still-running
         var cCount = s.logs.filter(function(l){ return (l.status||'').toUpperCase() === 'COMPLETED'; }).length;
         var fCount = s.logs.filter(function(l){ var st=(l.status||'').toUpperCase(); return st==='FAILED'||st==='ERROR'; }).length;
         if (cCount === 0 && fCount === 0) {
@@ -4212,11 +4509,29 @@
         RS.supa.from('logs').delete().in('id', phantomIds).then(function(){});
       }
 
+      // Pre-compute session status for filtering + rendering
+      sessions.forEach(function(g) {
+        var cLen = g.logs.filter(function(l){ return (l.status||'').toUpperCase() === 'COMPLETED'; }).length;
+        if (g.allProcessing)                   g._st = 'RUNNING';
+        else if (g.hasFail && cLen === 0)      g._st = 'FAILED';    // all files failed
+        else if (g.hasFail)                    g._st = 'PARTIAL';   // mix success + failure
+        else if (g.hasCancelled)               g._st = 'CANCELLED'; // job cancelled (no failures)
+        else                                   g._st = 'COMPLETED';
+      });
+
       // Apply session-level status filter
-      if (statusFilter === 'FAILED') {
-        sessions = sessions.filter(function(g){ return g.hasFail; });
+      if (statusFilter === 'ISSUE') {
+        sessions = sessions.filter(function(g){ return g._st === 'FAILED' || g._st === 'PARTIAL' || g._st === 'CANCELLED'; });
+      } else if (statusFilter === 'FAILED') {
+        sessions = sessions.filter(function(g){ return g._st === 'FAILED'; });
+      } else if (statusFilter === 'PARTIAL') {
+        sessions = sessions.filter(function(g){ return g._st === 'PARTIAL'; });
       } else if (statusFilter === 'COMPLETED') {
-        sessions = sessions.filter(function(g){ return !g.hasFail && !g.allProcessing; });
+        sessions = sessions.filter(function(g){ return g._st === 'COMPLETED'; });
+      } else if (statusFilter === 'RUNNING') {
+        sessions = sessions.filter(function(g){ return g._st === 'RUNNING'; });
+      } else if (statusFilter === 'CANCELLED') {
+        sessions = sessions.filter(function(g){ return g._st === 'CANCELLED'; });
       }
 
       if (!sessions.length) { box.innerHTML = '<div class="r-empty">No sessions match</div>'; return; }
@@ -4224,13 +4539,11 @@
       var rows = sessions.map(function(g, idx) {
         var completedLogs = g.logs.filter(function(l){ return (l.status||'').toUpperCase() === 'COMPLETED'; });
         var failedLogs    = g.logs.filter(function(l){ var st=(l.status||'').toUpperCase(); return st==='FAILED'||st==='ERROR'; });
-        // Determine session-level status — if ALL failures are file_missing, surface that
-        // instead of FAILED so admin knows it's a User/File Action, not a system error
-        var allFileMissing = failedLogs.length > 0 && failedLogs.every(function(l){
-          return _normalizeError(l.error_msg || (l.job_info && l.job_info.error) || '').type === 'file_missing';
+        var allValidationSkip = failedLogs.length > 0 && failedLogs.every(function(l){
+          var t = _normalizeError(l.error_msg || (l.job_info && l.job_info.error) || '').type;
+          return t === 'validation' || t === 'file_missing';
         });
-        var sessionSt = g.allProcessing ? 'PROCESSING'
-          : (g.hasFail ? (allFileMissing ? 'FILE MISSING' : 'FAILED') : 'COMPLETED');
+        var sessionSt = g._st || 'COMPLETED'; // pre-computed above
         var gKey          = 'g' + idx;
 
         // For VIBES sessions, doc count comes from job_info.doc_count (1 log = 1 batch summary)
@@ -4391,8 +4704,9 @@
               actionCell += '</td>';
             }
 
+            var isValidationSkip = isFail && errType && errType.type === 'validation';
             return '<tr>' +
-              (isFail && !isAcked && !isFixed
+              (isFail && !isAcked && !isFixed && !isValidationSkip
                 ? '<td style="vertical-align:top;padding-top:7px;text-align:center;width:32px"><input type="checkbox" class="r-fail-chk-' + gKey + '" data-id="' + logId + '" onchange="rUpdateFailSelection(\'' + gKey + '\')" style="cursor:pointer;accent-color:var(--rc-cyan,#38bdf8);width:14px;height:14px"></td>'
                 : '<td></td>') +
               '<td class="r-font-mono" style="white-space:nowrap;vertical-align:top;padding-top:6px">' + _fmtTime(l.timestamp) + '</td>' +
@@ -4404,6 +4718,9 @@
                 (function(){
                   if (isFixed)  return '<span class="r-badge r-badge-ok">FIXED</span>';
                   if (isAcked)  return '<span class="r-badge r-badge-muted">ACKED</span>';
+                  // Validation skip: amber SKIPPED — bukan ralat sistem/app
+                  if (errType && errType.type === 'validation')
+                    return '<span class="r-badge r-badge-warn" title="File skipped — required document types not found">SKIPPED</span>';
                   // File Missing: amber badge — User/File Action, not an app failure
                   if (errType && errType.type === 'file_missing')
                     return '<span class="r-badge r-badge-warn" title="File was absent at dispatch — not an application error">FILE MISSING</span>';
@@ -4412,7 +4729,7 @@
               '</td>' +
               errCell +
               '<td style="vertical-align:top;padding-top:6px;white-space:nowrap">' + (durVal != null ? parseFloat(durVal).toFixed(2) + 's' : '—') + '</td>' +
-              '<td style="vertical-align:top;padding-top:6px;text-align:center;white-space:nowrap">' + (pages != null ? '<span style="font-size:11px;color:#94a3b8">' + pages + ' pg</span>' : '—') + '</td>' +
+              '<td style="vertical-align:top;padding-top:6px;text-align:center;white-space:nowrap">' + (pages != null ? '<span style="font-size:11px;color:#94a3b8">' + pages + '</span>' : '—') + '</td>' +
               actionCell +
               '</tr>';
           }).join('');
@@ -4429,10 +4746,20 @@
             return _classifyErrType(l.error_msg || '').action === 'fix';
           }).length;
 
-          // Action banner for failed sessions
+          // Action banner for failed/skipped sessions
           var failBanner = g.hasFail
-            ? '<div style="display:flex;align-items:center;gap:8px;padding:10px 0 10px 0;flex-wrap:wrap;border-bottom:1px solid rgba(239,68,68,0.2);margin-bottom:8px">' +
-                '<span class="r-badge r-badge-err" style="font-size:11px"><i class="fa-solid fa-circle-xmark"></i> ' + failedLogs.length + ' FAILED' +
+            ? (allValidationSkip
+                // ── Validation/incomplete skip banner (amber) ──
+                ? '<div style="display:flex;align-items:center;gap:8px;padding:10px 0 10px 0;flex-wrap:wrap;border-bottom:1px solid rgba(245,158,11,0.2);margin-bottom:8px">' +
+                    '<span class="r-badge r-badge-warn" style="font-size:11px"><i class="fa-solid fa-file-circle-question"></i> ' + failedLogs.length + ' SKIPPED — Incomplete Document</span>' +
+                    '<span style="font-size:11px;color:#94a3b8;font-style:italic">No application error — required document types not found in file</span>' +
+                    (pendingLogs.length > 0
+                      ? '<button class="r-btn-sm" onclick="rAcknowledgeAll(\'' + gKey + '\')" style="font-size:11px;color:#f59e0b;border-color:rgba(245,158,11,0.35)"><i class="fa-solid fa-xmark"></i> Dismiss All (' + pendingLogs.length + ')</button>'
+                      : '') +
+                  '</div>'
+                // ── Partial / full failure banner ──
+                : '<div style="display:flex;align-items:center;gap:8px;padding:10px 0 10px 0;flex-wrap:wrap;border-bottom:1px solid ' + (sessionSt==='PARTIAL'?'rgba(245,158,11,0.2)':'rgba(239,68,68,0.2)') + ';margin-bottom:8px">' +
+                '<span class="r-badge ' + (sessionSt==='PARTIAL'?'r-badge-warn':'r-badge-err') + '" style="font-size:11px"><i class="fa-solid fa-circle-xmark"></i> ' + failedLogs.length + ' FAILED' +
                   (resolvedCount ? ' <span style="opacity:0.7;font-weight:400">(' + resolvedCount + ' resolved)</span>' : '') +
                 '</span>' +
                 (pendingSysCount > 0
@@ -4457,6 +4784,7 @@
                   'style="font-size:11px;color:var(--rc-warn,#f59e0b);border-color:rgba(245,158,11,0.35)">' +
                   '<i class="fa-solid fa-rotate-right"></i> Restart ' + esc(g.machine||'') + '</button>' +
               '</div>'
+              )  // close allValidationSkip ternary
             : '';
 
           var chkHeader = pendingSysCount > 0 || pendingBugCount > 0
@@ -4470,27 +4798,33 @@
             : '<div class="r-empty" style="padding:8px">No file-level data</div>');
         }
 
+        var colSpan = 9 + (showMachine ? 1 : 0) + (showBranch ? 1 : 0);
         return '<tr>' +
           '<td>' + _fmtDate(g.start) + '</td>' +
-          '<td class="r-font-mono" style="font-size:11px">' + esc(g.machine||'—') + '</td>' +
+          (showMachine ? '<td class="r-font-mono" style="font-size:11px">' + esc(g.machine||'—') + '</td>' : '') +
+          (showBranch  ? '<td class="r-font-mono" style="font-size:11px">' + esc(_branchName(g.branch)) + '</td>' : '') +
           '<td><span class="r-badge r-badge-purple">' + esc((/^fv.branch$/i.test(g.app||'') ? 'Renamer FV' : g.app)||'—') + '</span></td>' +
           '<td class="r-font-mono">' + _fmtTime(g.start) + '</td>' +
           '<td class="r-font-mono">' + _fmtTime(g.end) + '</td>' +
-          '<td><span class="r-badge ' + (sessionSt === 'FILE MISSING' ? 'r-badge-warn' : logBadge(sessionSt)) + '">' + sessionSt + '</span>' +
-            (g.hasFail ? ' <span class="r-muted-sm">(' + failedLogs.length + ' file)</span>' : '') + '</td>' +
-          '<td class="r-font-mono r-muted-sm" style="font-size:11px">' + esc((g.gid && !g.gid.includes('|') ? g.gid.substring(0,8) + '…' : '—')) + '</td>' +
-          '<td>' + (totalDocs > 0 ? totalDocs + ' doc' + (totalDocs !== 1 ? 's' : '') : g.allProcessing ? 'running…' : '—') + '</td>' +
+          '<td>' + (totalDocs > 0 ? totalDocs : g.allProcessing ? 'running…' : '—') + '</td>' +
           '<td>' + _fmtDur(g.start, g.end) + '</td>' +
-          '<td><button class="r-btn-sm" onclick="rToggleLogDetail(\'' + gKey + '\')"><i class="fa-solid fa-list"></i> Details</button></td>' +
+          '<td><span class="r-badge ' + ({COMPLETED:'r-badge-ok',PARTIAL:'r-badge-warn',FAILED:'r-badge-err',RUNNING:'r-badge-info',CANCELLED:'r-badge-muted'}[sessionSt]||'r-badge-muted') + '">' + sessionSt + '</span></td>' +
+          '<td class="r-font-mono r-muted-sm" style="font-size:11px">' + esc((g.gid && !g.gid.includes('|') ? g.gid.substring(0,8) + '…' : '—')) + '</td>' +
+          '<td><button class="r-btn-sm" onclick="rToggleLogDetail(\'' + gKey + '\')"><i class="fa-solid fa-list"></i> View</button></td>' +
           '</tr>' +
           '<tr id="rld-' + gKey + '" style="display:none">' +
-            '<td colspan="10" style="padding:0 8px 12px 36px;background:rgba(0,0,0,0.25)">' + detailHtml + '</td>' +
+            '<td colspan="' + colSpan + '" style="padding:0 8px 12px 36px;background:rgba(0,0,0,0.25)">' + detailHtml + '</td>' +
           '</tr>';
       }).join('');
 
       box.innerHTML =
         '<div class="r-results-count">' + sessions.length + ' session(s) — ' + data.length + ' log entries</div>' +
-        tableWrap(['Date','Machine','App','Start','End','Status','Job ID','Total','Duration','Details'], rows);
+        tableWrap(
+          ['Date']
+            .concat(showMachine ? ['Machine'] : [])
+            .concat(showBranch  ? ['Branch']  : [])
+            .concat(['Application','Start','End','Files','Duration','Status','Job ID','Details']),
+          rows);
 
   }
 
@@ -4498,13 +4832,27 @@
     var dateVal      = ($r('r-log-date') || {}).value || '';
     var hostname     = ($r('r-log-dev')  || {}).value || '';
     var appName      = ($r('r-log-app')  || {}).value || '';
-    var statusFilter = ($r('r-log-stat') || {}).value || '';
+    var issueModeActive = !!RS._issueMode;
+    if (RS._issueMode) RS._issueMode = false;
+    var statusFilter = issueModeActive ? 'ISSUE' : (($r('r-log-stat') || {}).value || '');
     var box = $r('r-log-results');
     if (!box) return;
     box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
 
-    // Fetch all statuses — need full context to reconstruct sessions
+    // Helper: render + optional Issues Today banner
+    function _render(data) {
+      _processAndRenderLogs(data, box, statusFilter, 'global');
+      if (issueModeActive) {
+        var banner = document.createElement('div');
+        banner.style.cssText = 'padding:6px 14px;background:rgba(239,68,68,0.07);border-bottom:1px solid rgba(239,68,68,0.18);font-size:12px;color:#ef4444;display:flex;align-items:center;gap:8px;';
+        banner.innerHTML = '<i class="fa-solid fa-bug" style="font-size:11px"></i><span>ISSUE SCAN — surfacing all flagged sessions: FAILED · PARTIAL · CANCELLED</span>' +
+          '<button onclick="window.rLoadLogs()" style="margin-left:auto;background:none;border:1px solid rgba(239,68,68,0.35);color:#ef4444;cursor:pointer;font-size:11px;padding:2px 8px;border-radius:4px;line-height:1.6">✕ Clear</button>';
+        box.insertBefore(banner, box.firstChild);
+      }
+    }
+
+    // Pass 1: fetch logs (with date filter if set)
     var q = RS.supa.from('logs').select('*')
       .order('timestamp', { ascending: false }).limit(20000);
     if (dateVal) {
@@ -4514,7 +4862,44 @@
     if (appName)  q = q.eq('app_name', appName);
 
     q.then(function(res) {
-      _processAndRenderLogs(res.data || [], box, statusFilter);
+      var data = res.data || [];
+
+      // No date filter or empty — render directly
+      if (!dateVal || !data.length) { _render(data); return; }
+
+      // Multi-pass: capture null-timestamp FAILED logs that get excluded by date filter
+      var gidSet = {}, machineSet = {}, gids = [], machines = [];
+      data.forEach(function(l) {
+        if (l.job_group_id && !gidSet[l.job_group_id]) { gidSet[l.job_group_id] = true; gids.push(l.job_group_id); }
+        if (l.machine      && !machineSet[l.machine])  { machineSet[l.machine]  = true; machines.push(l.machine); }
+      });
+
+      if (!machines.length) { _render(data); return; }
+
+      // Build base logMap from P1
+      var logMap = {};
+      data.forEach(function(l) { if (l.id) logMap[l.id] = l; });
+
+      // P3 — null-ts logs for today's machines (catches null-ts + null-gid FAILED)
+      function doP3() {
+        if (hostname) { _render(Object.values(logMap)); return; } // machine-specific; P1 already covers it
+        RS.supa.from('logs').select('*').is('timestamp', null).in('machine', machines).limit(500)
+          .then(function(r3) {
+            (r3.data || []).forEach(function(l) { if (l.id) logMap[l.id] = l; });
+            _render(Object.values(logMap));
+          })
+          .catch(function() { _render(Object.values(logMap)); });
+      }
+
+      // P2 — all logs sharing gids from P1 (catches null-ts FAILED with valid gid)
+      if (!gids.length) { doP3(); return; }
+
+      RS.supa.from('logs').select('*').in('job_group_id', gids).limit(20000)
+        .then(function(r2) {
+          (r2.data || []).forEach(function(l) { if (l.id) logMap[l.id] = l; });
+          doP3();
+        })
+        .catch(function() { doP3(); });
     }).catch(function(err) { box.innerHTML = errBox(err.message); });
   };
 
