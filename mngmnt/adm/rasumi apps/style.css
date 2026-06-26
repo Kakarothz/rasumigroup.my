@@ -5,7 +5,7 @@
 
 /* ── Display Settings Panel ──────────────────────────────── */
 #r-display-panel .r-bg-opt:hover {
-  border-color: rgba(0,240,255,0.4) !important;
+  border-color: rgba(56,189,248,0.4) !important;
   transform: scale(1.05);
   transition: all 0.15s;
 }
@@ -31,12 +31,12 @@
   --rc-glass-hi:  rgba(12, 18, 30, 0.72);
   --rc-blur:      blur(18px);
   --rc-border:    rgba(255,255,255,0.08);
-  --rc-border-hi: rgba(0,240,255,0.25);
+  --rc-border-hi: rgba(56,189,248,0.25);
   --rc-shadow:    0 8px 32px rgba(0,0,0,0.45);
   --rc-card:      rgba(10, 14, 23, 0.55);
   --rc-card2:     rgba(8, 11, 20, 0.6);
 
-  --rc-cyan:   #00F0FF;
+  --rc-cyan:   #38bdf8;
   --rc-blue:   #06b6d4;
   --rc-green:  #10B981;
   --rc-orange: #F59E0B;
@@ -124,8 +124,8 @@
 #rasumi-container .r-brand-icon {
   width: 36px;
   height: 36px;
-  background: rgba(0,240,255,0.1);
-  border: 1px solid rgba(0,240,255,0.3);
+  background: rgba(56,189,248,0.1);
+  border: 1px solid rgba(56,189,248,0.3);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -133,7 +133,7 @@
   font-size: 16px;
   color: var(--rc-cyan);
   flex-shrink: 0;
-  box-shadow: 0 0 12px rgba(0,240,255,0.15);
+  box-shadow: 0 0 12px rgba(56,189,248,0.15);
 }
 
 /* Brand icon override — use icon.png, no border/bg */
@@ -159,7 +159,7 @@
   font-weight: 800;
   letter-spacing: 0.14em;
   color: var(--rc-cyan);
-  text-shadow: 0 0 10px rgba(0,240,255,0.5);
+  text-shadow: 0 0 10px rgba(56,189,248,0.5);
   line-height: 1.1;
 }
 
@@ -251,8 +251,8 @@
 }
 
 #rasumi-container .r-back-vims {
-  background: rgba(0,240,255,0.08);
-  border: 1px solid rgba(0,240,255,0.25);
+  background: rgba(56,189,248,0.08);
+  border: 1px solid rgba(56,189,248,0.25);
   color: var(--rc-cyan);
   font-size: 11px;
   font-weight: 600;
@@ -264,7 +264,7 @@
   transition: background 0.15s;
   white-space: nowrap;
 }
-#rasumi-container .r-back-vims:hover { background: rgba(0,240,255,0.18); }
+#rasumi-container .r-back-vims:hover { background: rgba(56,189,248,0.18); }
 
 /* ==========================================================
    HORIZONTAL NAV BAR (replaces sidebar)
@@ -370,8 +370,8 @@
   font-size: 9px;
   font-family: var(--rc-mono);
   color: var(--rc-cyan);
-  background: rgba(0,240,255,0.08);
-  border: 1px solid rgba(0,240,255,0.2);
+  background: rgba(56,189,248,0.08);
+  border: 1px solid rgba(56,189,248,0.2);
   border-radius: 4px;
   padding: 1px 6px;
 }
@@ -647,8 +647,8 @@
   transition: background 0.12s, border-color 0.12s;
   border: 1px solid transparent;
 }
-#rasumi-container .r-node-card:hover { background: rgba(0,240,255,0.06); border-color: rgba(0,240,255,0.15); }
-#rasumi-container .r-node-card.active { background: rgba(0,240,255,0.1); border-color: rgba(0,240,255,0.3); }
+#rasumi-container .r-node-card:hover { background: rgba(56,189,248,0.06); border-color: rgba(56,189,248,0.15); }
+#rasumi-container .r-node-card.active { background: rgba(56,189,248,0.1); border-color: rgba(56,189,248,0.3); }
 
 #rasumi-container .r-nc-dot {
   width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
@@ -710,7 +710,7 @@
 #rasumi-container .r-hb-fill {
   height: 100%; border-radius: 3px; transition: width 0.5s ease;
 }
-#rasumi-container .r-hb-fill.cpu  { background: linear-gradient(90deg, #00f0ff, #00B4CC); }
+#rasumi-container .r-hb-fill.cpu  { background: linear-gradient(90deg, #38bdf8, #0ea5e9); }
 #rasumi-container .r-hb-fill.ram  { background: linear-gradient(90deg, #B200FF, #6600CC); }
 #rasumi-container .r-hb-fill.disk { background: linear-gradient(90deg, #F59E0B, #D97706); }
 
@@ -732,7 +732,7 @@
    ========================================================== */
 #rasumi-container .r-terminal {
   background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(0,240,255,0.1);
+  border: 1px solid rgba(56,189,248,0.1);
   border-radius: 7px;
   padding: 10px 12px;
   height: 160px;
@@ -770,7 +770,7 @@
 #rasumi-container .r-st-nums  { font-size: 10px; font-family: var(--rc-mono); color: var(--rc-text); }
 #rasumi-container .r-st-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
 #rasumi-container .r-st-fill  { height: 100%; border-radius: 3px; transition: width 0.5s; }
-#rasumi-container .r-st-fill.cpu-fill  { background: linear-gradient(90deg,#00f0ff,#0088AA); }
+#rasumi-container .r-st-fill.cpu-fill  { background: linear-gradient(90deg,#38bdf8,#0088AA); }
 #rasumi-container .r-st-fill.ram-fill  { background: linear-gradient(90deg,#B200FF,#6600CC); }
 #rasumi-container .r-st-fill.disk-fill { background: linear-gradient(90deg,#F59E0B,#B45309); }
 #rasumi-container .r-st-fill.net-fill  { background: linear-gradient(90deg,#10B981,#059669); }
@@ -877,7 +877,7 @@
   border-radius: 6px; font-size: 11px;
   transition: background 0.12s;
 }
-#rasumi-container .r-act-item:hover { background: rgba(0,240,255,0.04); }
+#rasumi-container .r-act-item:hover { background: rgba(56,189,248,0.04); }
 
 #rasumi-container .r-act-icon { color: var(--rc-cyan); font-size: 10px; margin-top: 1px; flex-shrink: 0; }
 #rasumi-container .r-act-body { flex: 1; min-width: 0; }
@@ -909,7 +909,7 @@
   background: rgba(255,255,255,0.02); border: 1px solid var(--rc-border);
   border-radius: 5px; cursor: pointer; transition: background 0.12s;
 }
-#rasumi-container .r-app-row:hover { background: rgba(0,240,255,0.05); }
+#rasumi-container .r-app-row:hover { background: rgba(56,189,248,0.05); }
 #rasumi-container .r-app-ico  { color: var(--rc-cyan); width: 16px; text-align: center; font-size: 11px; flex-shrink: 0; }
 #rasumi-container .r-app-name { flex: 1; font-size: 11px; font-weight: 600; color: var(--rc-text); }
 #rasumi-container .r-app-cnt  { font-size: 9px; color: var(--rc-text-dim); }
@@ -922,7 +922,7 @@
   display: flex; align-items: center; gap: 8px;
   padding: 7px 10px; border-radius: 6px; cursor: pointer; transition: background 0.12s;
 }
-#rasumi-container .r-device-mini:hover { background: rgba(0,240,255,0.06); }
+#rasumi-container .r-device-mini:hover { background: rgba(56,189,248,0.06); }
 #rasumi-container .r-dm-host  { flex: 1; font-family: var(--rc-mono); font-size: 11px; }
 #rasumi-container .r-dm-time  { font-size: 10px; color: var(--rc-text-dim); }
 #rasumi-container .r-dm-badge { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.08em; }
@@ -957,7 +957,7 @@
 }
 #rasumi-container .r-alert-item.err  { background: rgba(239,68,68,0.08);  border: 1px solid rgba(239,68,68,0.2);  color: #fca5a5; }
 #rasumi-container .r-alert-item.warn { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); color: #fcd34d; }
-#rasumi-container .r-alert-item.info { background: rgba(0,240,255,0.06);  border: 1px solid var(--rc-border);     color: var(--rc-text); }
+#rasumi-container .r-alert-item.info { background: rgba(56,189,248,0.06);  border: 1px solid var(--rc-border);     color: var(--rc-text); }
 
 /* ==========================================================
    STATUS DOT
@@ -992,12 +992,12 @@
    BUTTONS
    ========================================================== */
 #rasumi-container .r-btn-sm {
-  background: rgba(0,240,255,0.08); border: 1px solid rgba(0,240,255,0.25);
+  background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.25);
   color: var(--rc-cyan); font-size: 11px; font-weight: 600; padding: 5px 10px;
   border-radius: 5px; cursor: pointer; font-family: var(--rc-font);
   transition: background 0.12s; white-space: nowrap;
 }
-#rasumi-container .r-btn-sm:hover { background: rgba(0,240,255,0.18); }
+#rasumi-container .r-btn-sm:hover { background: rgba(56,189,248,0.18); }
 #rasumi-container .r-btn-sm.warn  { border-color: rgba(245,158,11,0.4); color: var(--rc-orange); background: rgba(245,158,11,0.08); }
 #rasumi-container .r-btn-sm.warn:hover { background: rgba(245,158,11,0.18); }
 
@@ -1020,10 +1020,10 @@
    ========================================================== */
 #rasumi-container .r-table-wrap { overflow-x: auto; border-radius: 6px; border: 1px solid var(--rc-border); }
 #rasumi-container .r-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-#rasumi-container .r-table thead tr { background: rgba(0,240,255,0.04); border-bottom: 1px solid var(--rc-border); }
+#rasumi-container .r-table thead tr { background: rgba(56,189,248,0.04); border-bottom: 1px solid var(--rc-border); }
 #rasumi-container .r-table th { padding: 9px 12px; text-align: left; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; color: var(--rc-text-dim); text-transform: uppercase; white-space: nowrap; }
 #rasumi-container .r-table td { padding: 8px 12px; border-bottom: 1px solid var(--rc-border); vertical-align: middle; max-width: 250px; }
-#rasumi-container .r-table tbody tr:hover { background: rgba(0,240,255,0.04); }
+#rasumi-container .r-table tbody tr:hover { background: rgba(56,189,248,0.04); }
 #rasumi-container .r-table tbody tr:last-child td { border-bottom: none; }
 #rasumi-container .r-cell-trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
 #rasumi-container .r-cell-wrap  { max-width: 300px; word-break: break-word; }
@@ -1040,7 +1040,7 @@
 #rasumi-container .r-badge-ok    { background: rgba(16,185,129,0.12); color: var(--rc-green);  border: 1px solid rgba(16,185,129,0.25); }
 #rasumi-container .r-badge-err   { background: rgba(239,68,68,0.12);  color: var(--rc-red);    border: 1px solid rgba(239,68,68,0.25); }
 #rasumi-container .r-badge-warn  { background: rgba(245,158,11,0.12); color: var(--rc-orange); border: 1px solid rgba(245,158,11,0.25); }
-#rasumi-container .r-badge-info  { background: rgba(0,240,255,0.1);   color: var(--rc-cyan);   border: 1px solid rgba(0,240,255,0.25); }
+#rasumi-container .r-badge-info  { background: rgba(56,189,248,0.1);   color: var(--rc-cyan);   border: 1px solid rgba(56,189,248,0.25); }
 #rasumi-container .r-badge-muted { background: rgba(107,114,128,0.15);color: var(--rc-text-dim);border: 1px solid rgba(107,114,128,0.25); }
 #rasumi-container .r-badge-purple{ background: rgba(178,0,255,0.12);  color: #c084fc;          border: 1px solid rgba(178,0,255,0.25); }
 
@@ -1085,7 +1085,7 @@
 #rasumi-container .r-feat-pill:hover { color: var(--rc-text); border-color: rgba(255,255,255,0.2); }
 #rasumi-container .r-feat-pill.active {
   color: var(--rc-cyan); border-color: var(--rc-cyan);
-  background: rgba(0,240,255,0.06);
+  background: rgba(56,189,248,0.06);
 }
 #rasumi-container .r-feat-pill.r-pill-empty { opacity: 0.4; }
 #rasumi-container .r-pill-cnt {
@@ -1105,7 +1105,7 @@
    RUN GROUPS
    ========================================================== */
 #rasumi-container .r-run-group { border: 1px solid var(--rc-border); border-radius: var(--rc-radius); overflow: hidden; margin-bottom: 12px; background: rgba(255,255,255,0.01); }
-#rasumi-container .r-run-hdr   { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(0,240,255,0.03); border-bottom: 1px solid var(--rc-border); flex-wrap: wrap; }
+#rasumi-container .r-run-hdr   { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: rgba(56,189,248,0.03); border-bottom: 1px solid var(--rc-border); flex-wrap: wrap; }
 #rasumi-container .r-run-id    { font-family: var(--rc-mono); font-size: 11px; color: var(--rc-cyan); }
 #rasumi-container .r-run-time  { font-size: 11px; color: var(--rc-text-dim); margin-left: auto; }
 #rasumi-container .r-run-actions { display: flex; gap: 6px; margin-left: 8px; }
@@ -1149,8 +1149,8 @@
   font-family: var(--rc-font); transition: background 0.12s, border-color 0.12s;
 }
 #rasumi-container .r-ann-fmt:hover {
-  background: rgba(0,240,255,0.12);
-  border-color: rgba(0,240,255,0.35);
+  background: rgba(56,189,248,0.12);
+  border-color: rgba(56,189,248,0.35);
   color: var(--rc-cyan);
 }
 #rasumi-container .r-ann-clr {
@@ -1210,7 +1210,7 @@
   height: 24px;
   transition: border-color 0.12s;
 }
-#rasumi-container .r-ann-font-sel:hover { border-color: rgba(0,240,255,0.35); }
+#rasumi-container .r-ann-font-sel:hover { border-color: rgba(56,189,248,0.35); }
 #rasumi-container .r-ann-font-sel option { background: #080c13; color: #e2e8f0; }
 
 /* ==========================================================
@@ -1218,7 +1218,7 @@
    ========================================================== */
 #rasumi-container .r-info-box {
   display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px;
-  background: rgba(0,240,255,0.04); border: 1px solid var(--rc-border);
+  background: rgba(56,189,248,0.04); border: 1px solid var(--rc-border);
   border-left: 3px solid var(--rc-cyan); border-radius: var(--rc-radius);
   font-size: 12px; line-height: 1.6; margin-bottom: 12px; color: var(--rc-text-dim);
 }
@@ -1226,7 +1226,7 @@
 #rasumi-container .r-info-box i { color: var(--rc-cyan); margin-top: 2px; flex-shrink: 0; }
 #rasumi-container .r-info-box.warn i { color: var(--rc-orange); }
 #rasumi-container .r-info-box strong { color: var(--rc-text); }
-#rasumi-container .r-info-box code  { background: rgba(0,240,255,0.1); padding: 1px 5px; border-radius: 3px; font-family: var(--rc-mono); font-size: 11px; color: var(--rc-cyan); }
+#rasumi-container .r-info-box code  { background: rgba(56,189,248,0.1); padding: 1px 5px; border-radius: 3px; font-family: var(--rc-mono); font-size: 11px; color: var(--rc-cyan); }
 
 #rasumi-container .r-legend        { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 0; font-size: 11px; color: var(--rc-text-dim); margin-bottom: 10px; }
 #rasumi-container .r-vims-legend   { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0 12px; font-size: 11px; color: var(--rc-text-dim); }
@@ -1266,7 +1266,7 @@
 #rasumi-container .r-modal-box {
   background: rgba(10,14,23,0.95); border: 1px solid var(--rc-border-hi); border-radius: 12px;
   width: 480px; max-width: 95vw; max-height: 80vh; display: flex; flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(0,240,255,0.04); backdrop-filter: blur(20px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(56,189,248,0.04); backdrop-filter: blur(20px);
 }
 #rasumi-container .r-modal-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--rc-border); font-size: 13px; font-weight: 700; color: var(--rc-text); letter-spacing: 0.06em; }
 #rasumi-container .r-modal-x   { background: none; border: none; color: var(--rc-text-dim); cursor: pointer; font-size: 14px; padding: 4px; transition: color 0.12s; }

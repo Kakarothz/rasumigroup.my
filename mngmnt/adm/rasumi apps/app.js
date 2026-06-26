@@ -348,9 +348,9 @@
     var darkBtn  = $r('r-mode-dark-btn');
     var lightBtn = $r('r-mode-light-btn');
     if (darkBtn) {
-      darkBtn.style.background  = theme === 'dark' ? 'rgba(0,240,255,0.1)' : 'none';
-      darkBtn.style.color       = theme === 'dark' ? '#00f0ff' : '#6b7a8f';
-      darkBtn.style.borderColor = theme === 'dark' ? 'rgba(0,240,255,0.35)' : 'rgba(255,255,255,0.1)';
+      darkBtn.style.background  = theme === 'dark' ? 'rgba(56,189,248,0.1)' : 'none';
+      darkBtn.style.color       = theme === 'dark' ? '#38bdf8' : '#6b7a8f';
+      darkBtn.style.borderColor = theme === 'dark' ? 'rgba(56,189,248,0.35)' : 'rgba(255,255,255,0.1)';
     }
     if (lightBtn) {
       lightBtn.style.background  = theme === 'light' ? 'rgba(255,255,255,0.1)' : 'none';
@@ -358,32 +358,32 @@
       lightBtn.style.borderColor = theme === 'light' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.1)';
     }
     try { localStorage.setItem('rs_theme', theme); } catch(e) {}
-    if (RS.supa && RS.currentUser) {
-      RS.supa.from('admin_users').update({ display_theme: theme })
-        .eq('email', RS.currentUser.email).then(function(){}).catch(function(){});
+    if (RS.supa) {
+      RS.supa.from('app_settings').update({ ui_theme: theme }).eq('id', 1)
+        .then(function(){}).catch(function(){});
     }
   };
 
   window.rSetBackground = function(bg) {
+    var bgLayer = document.getElementById('r-bg-layer');
+    if (!bgLayer) return;
     if (bg === 'photo') {
-      document.body.style.backgroundImage = "url('../assets/background.jpg')";
-      document.body.style.backgroundSize = 'cover';
-      document.body.style.backgroundPosition = 'center';
-      document.body.style.backgroundAttachment = 'fixed';
-      document.body.style.backgroundColor = '';
+      bgLayer.style.background = "url('../assets/background.jpg') center/cover no-repeat";
+    } else if (bg === 'custom') {
+      var customUrl = localStorage.getItem('rs_bg_custom');
+      if (customUrl) bgLayer.style.background = 'url(' + customUrl + ') center/cover no-repeat';
     } else if (_BG_MAP[bg]) {
-      document.body.style.backgroundImage = '';
-      document.body.style.background = _BG_MAP[bg];
+      bgLayer.style.background = _BG_MAP[bg];
     }
     var opts = document.querySelectorAll('.r-bg-opt');
     for (var i = 0; i < opts.length; i++) {
       opts[i].style.border = opts[i].getAttribute('data-bg') === bg
-        ? '2px solid rgba(0,240,255,0.5)' : '2px solid transparent';
+        ? '2px solid rgba(56,189,248,0.5)' : '2px solid transparent';
     }
     try { localStorage.setItem('rs_bg', bg); } catch(e) {}
-    if (RS.supa && RS.currentUser) {
-      RS.supa.from('admin_users').update({ display_bg: bg })
-        .eq('email', RS.currentUser.email).then(function(){}).catch(function(){});
+    if (RS.supa && bg !== 'custom') {
+      RS.supa.from('app_settings').update({ ui_background: bg }).eq('id', 1)
+        .then(function(){}).catch(function(){});
     }
   };
 
@@ -395,60 +395,134 @@
       if (!file) return;
       var reader = new FileReader();
       reader.onload = function(ev) {
-        var url = ev.target.result;
-        document.body.style.backgroundImage    = 'url(' + url + ')';
-        document.body.style.backgroundSize     = 'cover';
-        document.body.style.backgroundPosition = 'center';
-        document.body.style.backgroundAttachment = 'fixed';
-        try {
-          localStorage.setItem('rs_bg', 'custom');
-          localStorage.setItem('rs_bg_custom', url);
-        } catch(e) {}
-        var opts = document.querySelectorAll('.r-bg-opt');
-        for (var i = 0; i < opts.length; i++) {
-          opts[i].style.border = opts[i].getAttribute('data-bg') === 'custom'
-            ? '2px solid rgba(0,240,255,0.5)' : '2px solid transparent';
-        }
-        var customEl = document.querySelector('.r-bg-opt[data-bg="custom"]');
-        if (customEl) customEl.style.backgroundImage = 'url(' + url + ')';
+        // Compress imej guna canvas sebelum simpan ke localStorage
+        var img = new Image();
+        img.onload = function() {
+          var maxW = 1920, maxH = 1080;
+          var w = img.width, h = img.height;
+          if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+          if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          var url = canvas.toDataURL('image/jpeg', 0.75);
+          var bgLayer = document.getElementById('r-bg-layer');
+          if (bgLayer) bgLayer.style.background = 'url(' + url + ') center/cover no-repeat';
+          try {
+            localStorage.setItem('rs_bg', 'custom');
+            localStorage.setItem('rs_bg_custom', url);
+          } catch(e) {
+            // Cuba kualiti lebih rendah jika masih terlalu besar
+            try {
+              url = canvas.toDataURL('image/jpeg', 0.4);
+              localStorage.setItem('rs_bg_custom', url);
+              if (bgLayer) bgLayer.style.background = 'url(' + url + ') center/cover no-repeat';
+            } catch(e2) {}
+          }
+          var opts = document.querySelectorAll('.r-bg-opt');
+          for (var i = 0; i < opts.length; i++) {
+            opts[i].style.border = opts[i].getAttribute('data-bg') === 'custom'
+              ? '2px solid rgba(56,189,248,0.5)' : '2px solid transparent';
+          }
+          var customEl = document.querySelector('.r-bg-opt[data-bg="custom"]');
+          if (customEl) customEl.style.backgroundImage = 'url(' + url + ')';
+          try { localStorage.setItem('rs_bg', 'custom'); } catch(e) {}
+          // Sync ke Supabase — semua PC/mobile akan guna wallpaper yang sama
+          if (RS.supa) {
+            RS.supa.from('app_settings')
+              .update({ ui_background: 'custom', ui_custom_bg: url })
+              .eq('id', 1)
+              .then(function(){}).catch(function(){});
+          }
+        };
+        img.src = ev.target.result;
       };
       reader.readAsDataURL(file);
     };
     inp.click();
   };
 
+  window.rToggleDisplayPanel = function(ev) {
+    if (ev) ev.stopPropagation();
+    var p = document.getElementById('r-display-panel');
+    if (!p) return;
+    p.classList.toggle('hidden');
+  };
+
   function _restoreDisplayPrefs() {
     try {
-      var theme     = localStorage.getItem('rs_theme') || 'dark';
-      var bg        = localStorage.getItem('rs_bg')    || 'photo';
-      var customUrl = localStorage.getItem('rs_bg_custom');
+      var theme = localStorage.getItem('rs_theme') || 'dark';
+      var bg    = localStorage.getItem('rs_bg')    || 'photo';
       window.rSetTheme(theme);
-      if (bg === 'custom' && customUrl) {
-        document.body.style.backgroundImage    = 'url(' + customUrl + ')';
-        document.body.style.backgroundSize     = 'cover';
-        document.body.style.backgroundPosition = 'center';
-        document.body.style.backgroundAttachment = 'fixed';
-      } else {
-        window.rSetBackground(bg || 'photo');
+      if (bg === 'custom') {
+        var customUrl = localStorage.getItem('rs_bg_custom');
+        if (customUrl) {
+          var bl = document.getElementById('r-bg-layer');
+          if (bl) bl.style.background = 'url(' + customUrl + ') center/cover no-repeat';
+        }
+        // Kalau tiada dalam localStorage: biar dark bg (#0a0f1a) kekal
+        // _loadDisplayPrefsFromSupabase akan apply custom bg selepas 300ms
+      } else if (bg !== 'photo' || localStorage.getItem('rs_bg') === 'photo') {
+        window.rSetBackground(bg);
       }
+      // Kalau rs_bg = null/default = 'photo' tapi tiada key dalam localStorage,
+      // biar dark bg — elak flash photo.jpg sebelum Supabase load
     } catch(e) {}
   }
 
   function _loadDisplayPrefsFromSupabase() {
-    if (!RS.supa || !RS.currentUser) return;
-    RS.supa.from('admin_users')
-      .select('display_theme,display_bg')
-      .eq('email', RS.currentUser.email)
+    if (!RS.supa) return;
+    RS.supa.from('app_settings')
+      .select('ui_theme,ui_background,ui_custom_bg')
+      .eq('id', 1)
       .single()
       .then(function(res) {
         if (res.error || !res.data) return;
-        if (res.data.display_theme) {
-          window.rSetTheme(res.data.display_theme);
-          try { localStorage.setItem('rs_theme', res.data.display_theme); } catch(e) {}
+        var d = res.data;
+        // Apply tema
+        if (d.ui_theme) {
+          window.rSetTheme(d.ui_theme);
+          try { localStorage.setItem('rs_theme', d.ui_theme); } catch(e) {}
         }
-        if (res.data.display_bg) {
-          window.rSetBackground(res.data.display_bg);
-          try { localStorage.setItem('rs_bg', res.data.display_bg); } catch(e) {}
+        // Apply wallpaper
+        if (d.ui_background === 'custom' && d.ui_custom_bg) {
+          var bgLayer = document.getElementById('r-bg-layer');
+          if (bgLayer) bgLayer.style.background = 'url(' + d.ui_custom_bg + ') center/cover no-repeat';
+          // Simpan terus ke localStorage (synchronous) untuk instant next refresh
+          try {
+            localStorage.setItem('rs_bg', 'custom');
+            localStorage.setItem('rs_bg_custom', d.ui_custom_bg);
+          } catch(e) {
+            // Quota exceeded — compress async dan cuba semula
+            (function(srcUrl) {
+              var img = new Image();
+              img.onload = function() {
+                try {
+                  var cv = document.createElement('canvas');
+                  cv.width = 1280; cv.height = 720;
+                  cv.getContext('2d').drawImage(img, 0, 0, 1280, 720);
+                  var small = cv.toDataURL('image/jpeg', 0.4);
+                  localStorage.setItem('rs_bg', 'custom');
+                  localStorage.setItem('rs_bg_custom', small);
+                } catch(e2) {}
+              };
+              img.src = srcUrl;
+            })(d.ui_custom_bg);
+          }
+          // Update custom thumbnail dalam panel
+          var customEl = document.querySelector('.r-bg-opt[data-bg="custom"]');
+          if (customEl) customEl.style.backgroundImage = 'url(' + d.ui_custom_bg + ')';
+          var opts = document.querySelectorAll('.r-bg-opt');
+          for (var i = 0; i < opts.length; i++) {
+            opts[i].style.border = opts[i].getAttribute('data-bg') === 'custom'
+              ? '2px solid rgba(56,189,248,0.5)' : '2px solid transparent';
+          }
+        } else if (d.ui_background && d.ui_background !== 'custom') {
+          window.rSetBackground(d.ui_background);
+          try {
+            localStorage.setItem('rs_bg', d.ui_background);
+            localStorage.removeItem('rs_bg_custom'); // Bersih custom jika dah tukar ke lain
+          } catch(e) {}
         }
       }).catch(function() {});
   }
@@ -459,9 +533,20 @@
     var el = document.createElement('div');
     el.id = 'rasumi-container';
     el.className = 'hidden';
+    // Baca dari localStorage SYNCHRONOUSLY — wallpaper instant tanpa flash
+    var _initBgStyle = (function() {
+      try {
+        var _sb = localStorage.getItem('rs_bg');
+        var _sc = localStorage.getItem('rs_bg_custom');
+        if (_sb === 'custom' && _sc) return 'url(' + _sc + ') center/cover no-repeat';
+        if (_sb && _sb !== 'custom' && _sb !== 'photo' && _BG_MAP[_sb]) return _BG_MAP[_sb];
+        if (_sb === 'photo') return "url('../assets/background.jpg') center/cover no-repeat";
+      } catch(e) {}
+      return '#0a0f1a';
+    })();
     el.innerHTML = [
       // ── BACKGROUND LAYER (controlled via JS for dynamic bg switching) ──
-      '<div id="r-bg-layer" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:url(\'../assets/background.jpg\') center/cover no-repeat;transition:background 0.4s ease"></div>',
+      '<div id="r-bg-layer" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:' + _initBgStyle + ';transition:background 0.4s ease"></div>',
 
       // ── TOP NAVIGATION (Identical to VIMS) ──
       '<nav class="top-nav" style="z-index: 9999;">',
@@ -555,19 +640,19 @@
 
       // ── CUSTOM PROMPT DIALOG ──
       '<div id="r-prompt-overlay" style="display:none;position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);align-items:center;justify-content:center;">',
-      '  <div id="r-prompt-box" style="background:rgba(8,12,19,0.98);border:1px solid rgba(0,240,255,0.25);border-radius:12px;width:420px;max-width:94vw;box-shadow:0 0 40px rgba(0,240,255,0.08),0 24px 60px rgba(0,0,0,0.7);font-family:var(--rc-font);">',
+      '  <div id="r-prompt-box" style="background:rgba(8,12,19,0.98);border:1px solid rgba(56,189,248,0.25);border-radius:12px;width:420px;max-width:94vw;box-shadow:0 0 40px rgba(56,189,248,0.08),0 24px 60px rgba(0,0,0,0.7);font-family:var(--rc-font);">',
       '    <div style="padding:14px 18px 12px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:10px;">',
-      '      <span id="r-prompt-icon" style="color:var(--rc-cyan,#00f0ff);font-size:14px"></span>',
+      '      <span id="r-prompt-icon" style="color:var(--rc-cyan,#38bdf8);font-size:14px"></span>',
       '      <span id="r-prompt-title" style="font-size:13px;font-weight:700;color:var(--rc-text,#e2e8f0);letter-spacing:0.05em;flex:1"></span>',
       '      <button onclick="window._rPromptCancel()" style="background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:15px;padding:2px 4px;line-height:1;transition:color 0.12s" onmouseover="this.style.color=\'#ef4444\'" onmouseout="this.style.color=\'rgba(255,255,255,0.3)\'"><i class="fa-solid fa-xmark"></i></button>',
       '    </div>',
       '    <div style="padding:16px 18px 14px;">',
       '      <label id="r-prompt-label" style="display:block;font-size:11px;color:rgba(255,255,255,0.45);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px"></label>',
-      '      <input id="r-prompt-input" type="text" autocomplete="off" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.04);border:1px solid rgba(0,240,255,0.18);border-radius:6px;color:#e2e8f0;padding:9px 12px;font-size:13px;font-family:var(--rc-font);outline:none;transition:border-color 0.15s,box-shadow 0.15s" onfocus="this.style.borderColor=\'rgba(0,240,255,0.5)\';this.style.boxShadow=\'0 0 0 3px rgba(0,240,255,0.08)\'" onblur="this.style.borderColor=\'rgba(0,240,255,0.18)\';this.style.boxShadow=\'none\'" onkeydown="if(event.key===\'Enter\')window._rPromptConfirm();if(event.key===\'Escape\')window._rPromptCancel()" placeholder="" />',
+      '      <input id="r-prompt-input" type="text" autocomplete="off" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.04);border:1px solid rgba(56,189,248,0.18);border-radius:6px;color:#e2e8f0;padding:9px 12px;font-size:13px;font-family:var(--rc-font);outline:none;transition:border-color 0.15s,box-shadow 0.15s" onfocus="this.style.borderColor=\'rgba(56,189,248,0.5)\';this.style.boxShadow=\'0 0 0 3px rgba(56,189,248,0.08)\'" onblur="this.style.borderColor=\'rgba(56,189,248,0.18)\';this.style.boxShadow=\'none\'" onkeydown="if(event.key===\'Enter\')window._rPromptConfirm();if(event.key===\'Escape\')window._rPromptCancel()" placeholder="" />',
       '    </div>',
       '    <div style="padding:10px 18px 16px;display:flex;gap:8px;justify-content:flex-end;">',
       '      <button onclick="window._rPromptCancel()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:6px;padding:7px 18px;font-size:12px;font-family:var(--rc-font);cursor:pointer;transition:background 0.12s" onmouseover="this.style.background=\'rgba(255,255,255,0.08)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.04)\'">Cancel</button>',
-      '      <button id="r-prompt-confirm-btn" onclick="window._rPromptConfirm()" style="background:rgba(0,240,255,0.1);border:1px solid rgba(0,240,255,0.35);color:var(--rc-cyan,#00f0ff);border-radius:6px;padding:7px 20px;font-size:12px;font-weight:700;font-family:var(--rc-font);cursor:pointer;letter-spacing:0.04em;transition:background 0.12s,box-shadow 0.12s" onmouseover="this.style.background=\'rgba(0,240,255,0.2)\';this.style.boxShadow=\'0 0 12px rgba(0,240,255,0.15)\'" onmouseout="this.style.background=\'rgba(0,240,255,0.1)\';this.style.boxShadow=\'none\'">Confirm</button>',
+      '      <button id="r-prompt-confirm-btn" onclick="window._rPromptConfirm()" style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.35);color:var(--rc-cyan,#38bdf8);border-radius:6px;padding:7px 20px;font-size:12px;font-weight:700;font-family:var(--rc-font);cursor:pointer;letter-spacing:0.04em;transition:background 0.12s,box-shadow 0.12s" onmouseover="this.style.background=\'rgba(56,189,248,0.2)\';this.style.boxShadow=\'0 0 12px rgba(56,189,248,0.15)\'" onmouseout="this.style.background=\'rgba(56,189,248,0.1)\';this.style.boxShadow=\'none\'">Confirm</button>',
       '    </div>',
       '  </div>',
       '</div>',
@@ -588,49 +673,49 @@
       '    <div id="r-profile-modal" class="hidden" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:10000; display:flex; align-items:center; justify-content:center;">',
       '        <div style="background:var(--rc-bg, #111827); border:1px solid var(--rc-border, #374151); border-radius:8px; width:400px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.5); max-height:90vh; overflow-y:auto;">',
       '            <div style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid var(--rc-border, #374151); padding-bottom:10px;">',
-      '                <h3 style="margin:0; font-size:14px; color:var(--rc-cyan, #00f0ff);"><i class="fa-solid fa-user-shield"></i> PROFILE COMMAND</h3>',
+      '                <h3 style="margin:0; font-size:14px; color:var(--rc-cyan, #38bdf8);"><i class="fa-solid fa-user-shield"></i> PROFILE COMMAND</h3>',
       '                <button id="btn-close-r-profile" style="background:none; border:none; color:var(--rc-text-dim, #9ca3af); cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>',
       '            </div>',
       '            <div style="text-align:center;position:relative;">',
-      '                <button onclick="rToggleProfileEdit()" title="Edit profile" style="position:absolute;top:0;right:0;background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:13px;padding:3px 5px;line-height:1;transition:color 0.15s;" onmouseover="this.style.color=\'#00f0ff\'" onmouseout="this.style.color=\'var(--rc-text-dim,#9ca3af)\'"><i class="fa-solid fa-pen-to-square"></i></button>',
+      '                <button onclick="rToggleProfileEdit()" title="Edit profile" style="position:absolute;top:0;right:0;background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:13px;padding:3px 5px;line-height:1;transition:color 0.15s;" onmouseover="this.style.color=\'#38bdf8\'" onmouseout="this.style.color=\'var(--rc-text-dim,#9ca3af)\'"><i class="fa-solid fa-pen-to-square"></i></button>',
       '                <input type="file" id="r-profile-upload" class="hidden" accept="image/*">',
       '                <div style="position:relative;display:inline-block;margin-bottom:14px;">',
-      '                    <img id="r-profile-img-display" src="https://ui-avatars.com/api/?name=SA&background=0d1117&color=06b6d4" style="width:88px;height:88px;border-radius:50%;cursor:pointer;border:2px solid var(--rc-cyan,#00f0ff);display:block;object-fit:cover;" title="Click to change photo">',
+      '                    <img id="r-profile-img-display" src="https://ui-avatars.com/api/?name=SA&background=0d1117&color=06b6d4" style="width:88px;height:88px;border-radius:50%;cursor:pointer;border:2px solid var(--rc-cyan,#38bdf8);display:block;object-fit:cover;" title="Click to change photo">',
       '                    <div id="r-avatar-spinner" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.6);border-radius:50%;align-items:center;justify-content:center;font-size:18px;color:#fff"><i class="fa-solid fa-circle-notch fa-spin"></i></div>',
       '                </div>',
       '                <div id="r-p-displayname" style="font-weight:bold;color:var(--rc-text,#fff);letter-spacing:1px;font-size:13px;">—</div>',
       '                <div id="r-p-email" style="font-size:11px;color:var(--rc-text-dim,#9ca3af);margin-top:3px;">—</div>',
-      '                <div id="r-p-role-badge" style="display:inline-block;margin-top:6px;font-size:9px;font-weight:700;letter-spacing:1.5px;padding:2px 8px;border-radius:10px;background:rgba(0,240,255,0.1);color:var(--rc-cyan,#00f0ff);border:1px solid rgba(0,240,255,0.25);">—</div>',
+      '                <div id="r-p-role-badge" style="display:inline-block;margin-top:6px;font-size:9px;font-weight:700;letter-spacing:1.5px;padding:2px 8px;border-radius:10px;background:rgba(56,189,248,0.1);color:var(--rc-cyan,#38bdf8);border:1px solid rgba(56,189,248,0.25);">—</div>',
       '                <div id="r-p-edit-panel" style="display:none;text-align:left;margin-top:14px;padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--rc-border,#374151);border-radius:6px;">',
       '                    <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:6px;">NICKNAME</div>',
       '                    <input type="text" id="r-p-nickname" placeholder="Display name (e.g. Kakar0th)" style="width:100%;box-sizing:border-box;padding:9px 12px;margin-bottom:10px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;font-size:12px;">',
       '                    <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:6px;">EMAIL</div>',
       '                    <input type="email" id="r-p-edit-email" placeholder="New email address" style="width:100%;box-sizing:border-box;padding:9px 12px;margin-bottom:10px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;font-size:12px;">',
       '                    <div id="r-p-email-note" style="font-size:10px;color:var(--rc-text-dim,#9ca3af);margin-bottom:10px;display:none;">Supabase will send a verification to the new email. Login email updates after confirmation.</div>',
-      '                    <button onclick="rSaveProfile()" style="width:100%;padding:9px;background:rgba(0,240,255,0.12);border:1px solid rgba(0,240,255,0.35);color:var(--rc-cyan,#00f0ff);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;">Save Changes</button>',
+      '                    <button onclick="rSaveProfile()" style="width:100%;padding:9px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);color:var(--rc-cyan,#38bdf8);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;">Save Changes</button>',
       '                </div>',
       '                <div style="text-align:left;margin-top:14px;border-top:1px solid var(--rc-border,#374151);padding-top:16px;">',
       '                    <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">CHANGE PASSWORD</div>',
       '                    <input type="password" id="r-p-curr-pass" placeholder="Current password" style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;">',
       '                    <input type="password" id="r-p-new-pass" placeholder="New password (min 6 chars)" style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;">',
       '                    <input type="password" id="r-p-confirm-pass" placeholder="Confirm new password" style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;">',
-      '                    <button id="btn-update-r-profile" style="width:100%;padding:12px;background:var(--rc-cyan,#00f0ff);color:#000;font-weight:bold;border:none;border-radius:4px;cursor:pointer;letter-spacing:1px;font-family:inherit;">CHANGE PASSWORD</button>',
+      '                    <button id="btn-update-r-profile" style="width:100%;padding:12px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:bold;border:none;border-radius:4px;cursor:pointer;letter-spacing:1px;font-family:inherit;">CHANGE PASSWORD</button>',
       '                    <div id="r-p-pass-status" style="font-size:10px;margin-top:8px;text-align:center;min-height:14px;"></div>',
       '                </div>',
       '                <!-- 2FA SECTION -->',
       '                <div style="text-align:left;margin-top:14px;border-top:1px solid var(--rc-border,#374151);padding-top:16px;">',
       '                    <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">TWO-FACTOR AUTHENTICATION</div>',
       '                    <div id="r-2fa-status" style="font-size:11px;color:#9ca3af;margin-bottom:10px;"><i class="fa-solid fa-circle-notch fa-spin"></i> Checking…</div>',
-      '                    <button id="btn-r-setup-2fa" onclick="rSetup2FA()" style="display:none;width:100%;padding:10px;background:rgba(0,240,255,0.1);border:1px solid rgba(0,240,255,0.35);color:var(--rc-cyan,#00f0ff);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;letter-spacing:0.5px;">ENABLE 2FA (TOTP)</button>',
+      '                    <button id="btn-r-setup-2fa" onclick="rSetup2FA()" style="display:none;width:100%;padding:10px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.35);color:var(--rc-cyan,#38bdf8);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;letter-spacing:0.5px;">ENABLE 2FA (TOTP)</button>',
       '                    <button id="btn-r-remove-2fa" onclick="rRemove2FA()" style="display:none;width:100%;padding:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;letter-spacing:0.5px;">DISABLE 2FA</button>',
       '                    <div id="r-2fa-enroll" style="display:none;margin-top:14px;text-align:center;">',
       '                        <div style="font-size:10px;color:#9ca3af;margin-bottom:10px;line-height:1.5;">Scan with <strong style="color:#fff">Google Authenticator</strong> or <strong style="color:#fff">Authy</strong>, then enter the 6-digit code below to confirm.</div>',
       '                        <img id="r-2fa-qr" src="" style="width:156px;height:156px;background:#fff;padding:8px;border-radius:6px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;">',
       '                        <div style="font-size:9px;color:#6b7280;margin-bottom:6px;letter-spacing:0.5px;">OR ENTER KEY MANUALLY:</div>',
-      '                        <code id="r-2fa-secret" style="font-size:11px;color:var(--rc-cyan,#00f0ff);background:rgba(0,0,0,0.35);padding:6px 10px;border-radius:3px;word-break:break-all;display:block;margin-bottom:14px;text-align:left;"></code>',
+      '                        <code id="r-2fa-secret" style="font-size:11px;color:var(--rc-cyan,#38bdf8);background:rgba(0,0,0,0.35);padding:6px 10px;border-radius:3px;word-break:break-all;display:block;margin-bottom:14px;text-align:left;"></code>',
       '                        <input type="text" id="r-2fa-verify-code" placeholder="Enter 6-digit code" maxlength="6" inputmode="numeric"',
       '                          style="width:100%;box-sizing:border-box;padding:11px 12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;font-size:16px;text-align:center;letter-spacing:6px;">',
-      '                        <button onclick="rVerify2FA()" style="width:100%;padding:10px;background:rgba(0,240,255,0.12);border:1px solid rgba(0,240,255,0.35);color:var(--rc-cyan,#00f0ff);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;margin-bottom:6px;">CONFIRM &amp; ACTIVATE</button>',
+      '                        <button onclick="rVerify2FA()" style="width:100%;padding:10px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);color:var(--rc-cyan,#38bdf8);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;margin-bottom:6px;">CONFIRM &amp; ACTIVATE</button>',
       '                        <button onclick="rCancel2FA()" style="width:100%;padding:8px;background:none;border:1px solid var(--rc-border,#374151);color:#6b7280;border-radius:4px;cursor:pointer;font-size:10px;font-family:inherit;">Cancel</button>',
       '                    </div>',
       '                </div>',
@@ -642,20 +727,20 @@
       '    <div id="r-settings-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
       '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:420px;max-width:95vw;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
       '        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);">',
-      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#00f0ff);letter-spacing:1px;"><i class="fa-solid fa-sliders"></i> SETTINGS</h3>',
+      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#38bdf8);letter-spacing:1px;"><i class="fa-solid fa-sliders"></i> SETTINGS</h3>',
       '          <button id="btn-close-settings" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
       '        </div>',
       '        <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px;">',
-      '          <div onclick="window.rOpenAdminsFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#00f0ff\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
-      '            <i class="fa-solid fa-users-gear" style="font-size:20px;color:var(--rc-cyan,#00f0ff);flex-shrink:0;"></i>',
+      '          <div onclick="window.rOpenAdminsFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#38bdf8\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
+      '            <i class="fa-solid fa-users-gear" style="font-size:20px;color:var(--rc-cyan,#38bdf8);flex-shrink:0;"></i>',
       '            <div>',
       '              <div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;letter-spacing:0.5px;">MANAGE ADMINS</div>',
       '              <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:2px;">Manage admin console access &amp; permissions</div>',
       '            </div>',
       '            <i class="fa-solid fa-chevron-right" style="margin-left:auto;color:var(--rc-text-dim,#6b7280);font-size:11px;"></i>',
       '          </div>',
-      '          <div onclick="window.rOpenAppUsersFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#00f0ff\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
-      '            <i class="fa-solid fa-id-card-clip" style="font-size:20px;color:var(--rc-cyan,#00f0ff);flex-shrink:0;"></i>',
+      '          <div onclick="window.rOpenAppUsersFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#38bdf8\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
+      '            <i class="fa-solid fa-id-card-clip" style="font-size:20px;color:var(--rc-cyan,#38bdf8);flex-shrink:0;"></i>',
       '            <div>',
       '              <div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;letter-spacing:0.5px;">APP USERS</div>',
       '              <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:2px;">Manage access &amp; allowed apps for each Rasumi user</div>',
@@ -667,16 +752,16 @@
       '    </div>',
 
       '    <!-- DISPLAY SETTINGS PANEL (superadmin only) -->',
-      '    <div id="r-display-panel" class="hidden" style="position:fixed;top:62px;right:116px;z-index:10002;background:rgba(8,12,19,0.97);border:1px solid rgba(0,240,255,0.18);border-radius:10px;padding:18px;width:230px;backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,0.6);">',
+      '    <div id="r-display-panel" class="hidden" style="position:fixed;top:62px;right:116px;z-index:10002;background:rgba(8,12,19,0.97);border:1px solid rgba(56,189,248,0.18);border-radius:10px;padding:18px;width:230px;backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,0.6);">',
       '      <div style="font-size:10px;color:#6b7a8f;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px"><i class="fa-solid fa-display" style="margin-right:5px"></i>Display Settings</div>',
       '      <div style="font-size:11px;color:#9ca3af;margin-bottom:8px">Mode</div>',
       '      <div style="display:flex;gap:8px;margin-bottom:16px">',
-      '        <button id="r-mode-dark-btn" onclick="window.rSetTheme(\'dark\')" style="flex:1;padding:7px 0;border-radius:6px;border:1px solid rgba(0,240,255,0.35);background:rgba(0,240,255,0.1);color:#00f0ff;font-size:11px;cursor:pointer;transition:all 0.15s"><i class="fa-solid fa-moon"></i> Dark</button>',
+      '        <button id="r-mode-dark-btn" onclick="window.rSetTheme(\'dark\')" style="flex:1;padding:7px 0;border-radius:6px;border:1px solid rgba(56,189,248,0.35);background:rgba(56,189,248,0.1);color:#38bdf8;font-size:11px;cursor:pointer;transition:all 0.15s"><i class="fa-solid fa-moon"></i> Dark</button>',
       '        <button id="r-mode-light-btn" onclick="window.rSetTheme(\'light\')" style="flex:1;padding:7px 0;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:none;color:#6b7a8f;font-size:11px;cursor:pointer;transition:all 0.15s"><i class="fa-solid fa-sun"></i> Light</button>',
       '      </div>',
       '      <div style="font-size:11px;color:#9ca3af;margin-bottom:8px">Background</div>',
       '      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">',
-      '        <div class="r-bg-opt" data-bg="photo" onclick="window.rSetBackground(\'photo\')" title="Default Photo" style="height:40px;border-radius:6px;border:2px solid rgba(0,240,255,0.5);background:url(\'../assets/background.jpg\') center/cover;cursor:pointer"></div>',
+      '        <div class="r-bg-opt" data-bg="photo" onclick="window.rSetBackground(\'photo\')" title="Default Photo" style="height:40px;border-radius:6px;border:2px solid rgba(56,189,248,0.5);background:url(\'../assets/background.jpg\') center/cover;cursor:pointer"></div>',
       '        <div class="r-bg-opt" data-bg="dark" onclick="window.rSetBackground(\'dark\')" title="Pure Dark" style="height:40px;border-radius:6px;border:2px solid transparent;background:#080c13;cursor:pointer"></div>',
       '        <div class="r-bg-opt" data-bg="navy" onclick="window.rSetBackground(\'navy\')" title="Navy" style="height:40px;border-radius:6px;border:2px solid transparent;background:linear-gradient(135deg,#060d1a,#0d1f35);cursor:pointer"></div>',
       '        <div class="r-bg-opt" data-bg="purple" onclick="window.rSetBackground(\'purple\')" title="Purple" style="height:40px;border-radius:6px;border:2px solid transparent;background:linear-gradient(135deg,#0b0614,#17082e);cursor:pointer"></div>',
@@ -690,7 +775,7 @@
       '    <div id="r-admins-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
       '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:500px;max-height:78vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
       '        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
-      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#00f0ff);letter-spacing:1px;"><i class="fa-solid fa-users-gear"></i> MANAGE ADMINS</h3>',
+      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#38bdf8);letter-spacing:1px;"><i class="fa-solid fa-users-gear"></i> MANAGE ADMINS</h3>',
       '          <button id="btn-close-admins" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
       '        </div>',
       '        <div style="padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
@@ -706,7 +791,7 @@
       '              <option value="write">Read &amp; Write</option>',
       '            </select>',
       '            <span id="r-admin-perm-tick" style="font-size:13px;color:#22c55e;display:inline;flex-shrink:0;">✓</span>',
-      '            <button onclick="rAddAdmin()" style="padding:9px 16px;background:var(--rc-cyan,#00f0ff);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">ADD</button>',
+      '            <button onclick="rAddAdmin()" style="padding:9px 16px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">ADD</button>',
       '          </div>',
       '        </div>',
       '        <div id="r-admins-list" style="overflow-y:auto;padding:0 20px;flex:1;"></div>',
@@ -717,7 +802,7 @@
       '    <div id="r-husers-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
       '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:720px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
       '        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
-      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#00f0ff);letter-spacing:1px;"><i class="fa-solid fa-id-card-clip"></i> APP USERS</h3>',
+      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#38bdf8);letter-spacing:1px;"><i class="fa-solid fa-id-card-clip"></i> APP USERS</h3>',
       '          <button id="btn-close-husers" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
       '        </div>',
       '        <div style="padding:12px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
@@ -729,7 +814,7 @@
       '              <option value="ADMIN">ADMIN</option>',
       '              <option value="VIEWER">VIEWER</option>',
       '            </select>',
-      '            <button onclick="rAddHospitalUser()" style="padding:9px 16px;background:var(--rc-cyan,#00f0ff);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">ADD</button>',
+      '            <button onclick="rAddHospitalUser()" style="padding:9px 16px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">ADD</button>',
       '          </div>',
       '          <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:6px;letter-spacing:0.3px;">Add new users ID.</div>',
       '        </div>',
@@ -741,6 +826,8 @@
     ].join('\n');
     document.body.appendChild(el);
     _restoreDisplayPrefs();
+    // Fetch global display prefs from Supabase early (app_settings is public)
+    setTimeout(function() { _loadDisplayPrefsFromSupabase(); }, 0);
 
     // Close all nav dropdowns when clicking anywhere outside
     document.addEventListener('click', function(ev) {
@@ -1080,11 +1167,11 @@
         // Line 1: email + nickname + role + controls
         row += '<div style="display:flex;align-items:center;justify-content:space-between;">';
         row += '<div>';
-        row += '<div style="font-size:12px;color:var(--rc-text,#fff);">' + esc(em) + (nick ? ' <span style="font-size:10px;color:var(--rc-cyan,#00f0ff);">(' + esc(nick) + ')</span>' : '') + '</div>';
+        row += '<div style="font-size:12px;color:var(--rc-text,#fff);">' + esc(em) + (nick ? ' <span style="font-size:10px;color:var(--rc-cyan,#38bdf8);">(' + esc(nick) + ')</span>' : '') + '</div>';
         row += '<div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:2px;">' + (isSA ? 'SUPER ADMIN' : (canW ? 'ADMIN · Read & Write' : 'ADMIN · Read')) + '</div>';
         row += '</div>';
         if (isSA) {
-          row += '<span style="font-size:10px;color:var(--rc-cyan,#00f0ff);padding:3px 8px;border:1px solid rgba(0,240,255,0.3);border-radius:10px;">Owner</span>';
+          row += '<span style="font-size:10px;color:var(--rc-cyan,#38bdf8);padding:3px 8px;border:1px solid rgba(56,189,248,0.3);border-radius:10px;">Owner</span>';
         } else {
           row += '<div style="display:flex;gap:10px;align-items:center;">';
           row += '<select id="' + permId + '" onchange="rToggleAdminWrite(\'' + safeEm + '\',this.value===\'write\');rUpdateListPermIndicator(this)" style="padding:5px 8px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:11px;font-family:inherit;cursor:pointer;">';
@@ -1092,7 +1179,7 @@
           row += '<option value="write"' + (canW ? ' selected' : '') + '>Read &amp; Write</option>';
           row += '</select>';
           row += '<span style="font-size:13px;color:#22c55e;' + (canW ? 'display:none' : 'display:inline') + ';" id="tick_' + permId + '">✓</span>';
-          row += '<button onclick="rSendAdminResetEmail(\'' + safeEm + '\')" title="Send reset email" style="background:none;border:1px solid rgba(0,240,255,0.4);color:var(--rc-cyan,#00f0ff);padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;"><i class="fa-solid fa-envelope-circle-check"></i></button>';
+          row += '<button onclick="rSendAdminResetEmail(\'' + safeEm + '\')" title="Send reset email" style="background:none;border:1px solid rgba(56,189,248,0.4);color:var(--rc-cyan,#38bdf8);padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;"><i class="fa-solid fa-envelope-circle-check"></i></button>';
           row += '<button onclick="rRemoveAdmin(\'' + safeEm + '\')" style="background:none;border:1px solid rgba(239,68,68,0.5);color:#ef4444;padding:3px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;">Remove</button>';
           row += '</div>';
         }
@@ -2086,14 +2173,14 @@
 
       if (pct > 0.5) {
         var g = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
-        g.addColorStop(0,    '#00f0ff');
+        g.addColorStop(0,    '#38bdf8');
         g.addColorStop(0.45, '#b200ff');
         g.addColorStop(1,    '#ff00aa');
 
         // Effect 1 — Breathing outer glow: spread and opacity oscillate with breathe
         ctx.beginPath();
         ctx.arc(cx, cy, R, startA, endA);
-        ctx.strokeStyle = 'rgba(0,240,255,' + (0.08 + 0.14 * breathe).toFixed(2) + ')';
+        ctx.strokeStyle = 'rgba(56,189,248,' + (0.08 + 0.14 * breathe).toFixed(2) + ')';
         ctx.lineWidth = lw + 6 + 10 * breathe;
         ctx.lineCap = 'round';
         ctx.stroke();
@@ -2223,8 +2310,8 @@
         ctx.rotate(a - Math.PI / 2);  // long axis → radial direction
 
         if (i < filled) {
-          var col = t < 0.33 ? lerpC('#b200ff','#00f0ff', t / 0.33)
-                  : t < 0.66 ? lerpC('#00f0ff','#ff00aa', (t - 0.33) / 0.33)
+          var col = t < 0.33 ? lerpC('#b200ff','#38bdf8', t / 0.33)
+                  : t < 0.66 ? lerpC('#38bdf8','#ff00aa', (t - 0.33) / 0.33)
                   :             lerpC('#ff00aa','#b200ff', (t - 0.66) / 0.34);
 
           // Effect 1 — Breathing glow on all filled capsules
@@ -2610,7 +2697,7 @@
   function _devTh(label, col, width) {
     var active = RS._devSort.col === col;
     var arrow  = active ? (RS._devSort.dir === 1 ? ' ↑' : ' ↓') : ' <span style="opacity:0.25">↕</span>';
-    var style  = _devThStyle() + (active ? ';color:#00f0ff' : '') + (width ? ';width:' + width : '');
+    var style  = _devThStyle() + (active ? ';color:#38bdf8' : '') + (width ? ';width:' + width : '');
     return '<th style="' + style + '" onclick="rSortDevices(\'' + col + '\')">' + label + arrow + '</th>';
   }
 
@@ -2719,7 +2806,7 @@
 
       var jobLabel = _fmtJob(d.current_job);
       var jobCell  = jobLabel
-        ? '<span style="color:#00f0ff;font-size:11px;font-weight:600;letter-spacing:.5px">' + esc(jobLabel) + '</span>'
+        ? '<span style="color:#38bdf8;font-size:11px;font-weight:600;letter-spacing:.5px">' + esc(jobLabel) + '</span>'
         : d._status === 'offline'
           ? '<span style="color:#334155">—</span>'
           : '<span style="color:#475569;font-size:11px">IDLE</span>';
@@ -4377,12 +4464,12 @@
 
             return '<tr>' +
               (isFail && !isAcked && !isFixed
-                ? '<td style="vertical-align:top;padding-top:7px;text-align:center;width:32px"><input type="checkbox" class="r-fail-chk-' + gKey + '" data-id="' + logId + '" onchange="rUpdateFailSelection(\'' + gKey + '\')" style="cursor:pointer;accent-color:var(--rc-cyan,#00f0ff);width:14px;height:14px"></td>'
+                ? '<td style="vertical-align:top;padding-top:7px;text-align:center;width:32px"><input type="checkbox" class="r-fail-chk-' + gKey + '" data-id="' + logId + '" onchange="rUpdateFailSelection(\'' + gKey + '\')" style="cursor:pointer;accent-color:var(--rc-cyan,#38bdf8);width:14px;height:14px"></td>'
                 : '<td></td>') +
               '<td class="r-font-mono" style="white-space:nowrap;vertical-align:top;padding-top:6px">' + _fmtTime(l.timestamp) + '</td>' +
               '<td class="r-cell-trunc" style="max-width:180px;vertical-align:top;padding-top:6px">' + esc(fname) + '</td>' +
               (isRenamer
-                ? '<td class="r-cell-trunc r-font-mono" style="max-width:180px;vertical-align:top;padding-top:6px;color:' + (resultName ? 'var(--rc-cyan,#00f0ff)' : '#475569') + '" title="' + esc(resultName) + '">' + (resultName ? esc(resultName) : '—') + '</td>'
+                ? '<td class="r-cell-trunc r-font-mono" style="max-width:180px;vertical-align:top;padding-top:6px;color:' + (resultName ? 'var(--rc-cyan,#38bdf8)' : '#475569') + '" title="' + esc(resultName) + '">' + (resultName ? esc(resultName) : '—') + '</td>'
                 : '') +
               '<td style="vertical-align:top;padding-top:6px">' +
                 (function(){
@@ -4431,7 +4518,7 @@
                       '<i class="fa-solid fa-circle-check"></i> Mark All Fixed (' + pendingBugCount + ')</button>'
                   : '') +
                 '<button id="r-ack-sel-' + gKey + '" class="r-btn-sm" onclick="rAcknowledgeSelected(\'' + gKey + '\')" ' +
-                  'style="display:none;font-size:11px;color:var(--rc-cyan,#00f0ff);border-color:rgba(0,240,255,0.35)">' +
+                  'style="display:none;font-size:11px;color:var(--rc-cyan,#38bdf8);border-color:rgba(56,189,248,0.35)">' +
                   '<i class="fa-solid fa-eye"></i> Acknowledge Selected</button>' +
                 '<button class="r-btn-sm" onclick="rExportFailCsv(\'' + gKey + '\')" ' +
                   'title="Download failed file list as CSV" style="font-size:11px">' +
@@ -4444,7 +4531,7 @@
             : '';
 
           var chkHeader = pendingSysCount > 0 || pendingBugCount > 0
-            ? '<input type="checkbox" id="chk-all-' + gKey + '" onchange="rSelectAllFailed(\'' + gKey + '\',this.checked)" style="cursor:pointer;accent-color:var(--rc-cyan,#00f0ff);width:14px;height:14px" title="Select all pending">'
+            ? '<input type="checkbox" id="chk-all-' + gKey + '" onchange="rSelectAllFailed(\'' + gKey + '\',this.checked)" style="cursor:pointer;accent-color:var(--rc-cyan,#38bdf8);width:14px;height:14px" title="Select all pending">'
             : '';
           var detailHeaders = isRenamer
             ? [chkHeader, 'Time', 'File', 'Result', 'Status', 'Error / Detail', 'Duration', 'Pages', 'Action']
@@ -4544,7 +4631,7 @@
               '</select>' +
               '<div class="r-ann-sep"></div>' +
               '<button class="r-ann-clr" title="White"  style="background:#ffffff" onmousedown="event.preventDefault();rAnnColor(\'#ffffff\')"></button>' +
-              '<button class="r-ann-clr" title="Cyan"   style="background:#00f0ff" onmousedown="event.preventDefault();rAnnColor(\'#00f0ff\')"></button>' +
+              '<button class="r-ann-clr" title="Cyan"   style="background:#38bdf8" onmousedown="event.preventDefault();rAnnColor(\'#38bdf8\')"></button>' +
               '<button class="r-ann-clr" title="Green"  style="background:#39ff14" onmousedown="event.preventDefault();rAnnColor(\'#39ff14\')"></button>' +
               '<button class="r-ann-clr" title="Red"    style="background:#ff003c" onmousedown="event.preventDefault();rAnnColor(\'#ff003c\')"></button>' +
               '<button class="r-ann-clr" title="Amber"  style="background:#f59e0b" onmousedown="event.preventDefault();rAnnColor(\'#f59e0b\')"></button>' +
@@ -4976,7 +5063,7 @@
         statusBadge +
         '<strong style="font-size:13px;color:var(--rc-text,#f9fafb)">' + esc(e.app_name || '?') + '</strong>' +
         '<span style="color:var(--rc-text-dim,#9ca3af);font-size:11px">on</span>' +
-        '<code style="background:rgba(0,240,255,0.08);padding:2px 7px;border-radius:3px;color:var(--rc-cyan,#00f0ff);font-size:12px">' + esc(e.hostname || '?') + '</code>' +
+        '<code style="background:rgba(56,189,248,0.08);padding:2px 7px;border-radius:3px;color:var(--rc-cyan,#38bdf8);font-size:12px">' + esc(e.hostname || '?') + '</code>' +
         '<span style="color:var(--rc-text-dim,#9ca3af);font-size:11px">×' + (e.recur_count || 1) + ' occurrence(s)</span>' +
       '</div>' +
 
@@ -5080,7 +5167,7 @@
           '</div>';
 
         // Action buttons
-        var detailBtn = '<button onclick="rOpenAppDetails(\'' + esc(e._id) + '\')" style="background:rgba(0,240,255,0.08);border:1px solid rgba(0,240,255,0.3);color:var(--rc-cyan,#00f0ff);border-radius:4px;padding:5px 11px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background=\'rgba(0,240,255,0.16)\'" onmouseout="this.style.background=\'rgba(0,240,255,0.08)\'"><i class="fa-solid fa-magnifying-glass"></i> Details</button>';
+        var detailBtn = '<button onclick="rOpenAppDetails(\'' + esc(e._id) + '\')" style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.3);color:var(--rc-cyan,#38bdf8);border-radius:4px;padding:5px 11px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background=\'rgba(56,189,248,0.16)\'" onmouseout="this.style.background=\'rgba(56,189,248,0.08)\'"><i class="fa-solid fa-magnifying-glass"></i> Details</button>';
         var fixBtn = !isFixed
           ? '<button onclick="rOpenAppFix(\'' + esc(e._id) + '\',\'' + esc(e._host) + '\')" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.5);color:#fca5a5;border-radius:4px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background=\'rgba(239,68,68,0.28)\'" onmouseout="this.style.background=\'rgba(239,68,68,0.15)\'"><i class="fa-solid fa-circle-check"></i> Mark Fixed</button>'
           : '<span style="font-size:11px;color:var(--rc-green,#10b981)"><i class="fa-solid fa-circle-check"></i> Fixed by ' + esc(e.fixed_by || '?') + '</span>';
@@ -5091,7 +5178,7 @@
             badge +
             '<strong style="font-size:13px">' + esc(e.app_name || '?') + '</strong>' +
             '<span class="r-muted-sm">on</span>' +
-            '<code style="background:rgba(0,240,255,0.08);padding:2px 7px;border-radius:3px;color:var(--rc-cyan,#00f0ff);font-size:12px">' + esc(e._host) + '</code>' +
+            '<code style="background:rgba(56,189,248,0.08);padding:2px 7px;border-radius:3px;color:var(--rc-cyan,#38bdf8);font-size:12px">' + esc(e._host) + '</code>' +
             '<span class="r-muted-sm">×' + (e.recur_count || 1) + '</span>' +
             lifecycle +
             '<div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0">' + detailBtn + fixBtn + '</div>' +
@@ -5161,7 +5248,7 @@
       return;
     }
 
-    RS.supa.from('app_settings').select('*').limit(1).then(function(res) {
+    RS.supa.from('app_settings').select('*').order('id',{ascending:true}).limit(1).then(function(res) {
       var cur = (res.data || [])[0] || {};
       var curVer    = cur.latest_version || '—';
       var curUrl    = cur.update_url     || '';
@@ -5332,6 +5419,7 @@
 
     var user = RS.currentUser;
     var payload = {
+      id:             1,
       latest_version: version.trim(),
       update_url:     url.trim(),
       release_notes:  notes.trim() || null,
@@ -5676,7 +5764,7 @@
         var isActive = (status === 'ACTIVE');
         var safeId   = uname.replace(/[^a-z0-9]/gi, '_');
 
-        var roleColor = role === 'SUPER_ADMIN' ? '#00f0ff' : role === 'ADMIN' ? '#8b5cf6' : role === 'BRANCH_USER' ? '#10b981' : '#9ca3af';
+        var roleColor = role === 'SUPER_ADMIN' ? '#38bdf8' : role === 'ADMIN' ? '#8b5cf6' : role === 'BRANCH_USER' ? '#10b981' : '#9ca3af';
 
         var row = '<div style="padding:14px 0;border-bottom:1px solid var(--rc-border,#1f2937);">';
         // Username + role badge + status toggle
@@ -5686,7 +5774,7 @@
         row += '<span style="font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid ' + roleColor + ';color:' + roleColor + ';letter-spacing:0.5px;">' + esc(role) + '</span>';
         row += '</div>';
         if (isMaster) {
-          row += '<span style="font-size:10px;color:var(--rc-cyan,#00f0ff);padding:3px 8px;border:1px solid rgba(0,240,255,0.3);border-radius:10px;">Owner</span>';
+          row += '<span style="font-size:10px;color:var(--rc-cyan,#38bdf8);padding:3px 8px;border:1px solid rgba(56,189,248,0.3);border-radius:10px;">Owner</span>';
         } else {
           var statusStyle = isActive
             ? 'background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.5);color:#10b981;'
@@ -5705,18 +5793,18 @@
           var checked = apps.indexOf(app) !== -1;
           if (isMaster) {
             row += '<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--rc-text-dim,#9ca3af);opacity:0.55;cursor:not-allowed;">';
-            row += '<input type="checkbox"' + (checked ? ' checked' : '') + ' disabled style="cursor:not-allowed;accent-color:var(--rc-cyan,#00f0ff);"> ' + esc(app);
+            row += '<input type="checkbox"' + (checked ? ' checked' : '') + ' disabled style="cursor:not-allowed;accent-color:var(--rc-cyan,#38bdf8);"> ' + esc(app);
             row += '</label>';
           } else {
             row += '<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--rc-text-dim,#d1d5db);cursor:pointer;">';
-            row += '<input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') + ' style="cursor:pointer;accent-color:var(--rc-cyan,#00f0ff);"> ' + esc(app);
+            row += '<input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') + ' style="cursor:pointer;accent-color:var(--rc-cyan,#38bdf8);"> ' + esc(app);
             row += '</label>';
           }
         });
         row += '</div>';
         if (!isMaster) {
           row += '<button onclick="rSaveUserApps(\'' + uname.replace(/'/g, "\\'") + '\')" ';
-          row += 'style="padding:4px 14px;background:var(--rc-cyan,#00f0ff);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;">SAVE APPS</button>';
+          row += 'style="padding:4px 14px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;">SAVE APPS</button>';
         }
         row += '</div>';
         rows.push(row);
