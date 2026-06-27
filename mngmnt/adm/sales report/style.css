@@ -207,7 +207,8 @@ body::after {
     color: var(--text-muted);
     text-align: right;
     padding-top: 10px;
-    margin-top: auto; /* Push to bottom */
+    margin-top: auto;
+    /* Push to bottom */
     border-top: 1px solid var(--glass-border);
     transition: color 0.2s, opacity 0.2s;
     flex-shrink: 0;
@@ -256,21 +257,29 @@ body::after {
     animation: rotation 1s linear infinite;
     box-shadow: 0 0 15px rgba(255, 0, 255, 0.4);
 }
+
 .loader::after {
     content: '';
     box-sizing: border-box;
     position: absolute;
-    left: 50%; top: 50%;
+    left: 50%;
+    top: 50%;
     transform: translate(-50%, -50%);
-    width: 40px; height: 40px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     border: 3px solid transparent;
     border-bottom-color: #fff;
 }
 
 @keyframes rotation {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 .loading-text {
@@ -284,8 +293,13 @@ body::after {
 }
 
 @keyframes flash {
-    from { opacity: 0.3; }
-    to { opacity: 1; }
+    from {
+        opacity: 0.3;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 /* ── AUTH BOX ── */
@@ -329,8 +343,18 @@ body::after {
 }
 
 @keyframes white-glow-pulse {
-    0%, 100% { opacity: 0.6; text-shadow: none; }
-    50% { opacity: 1; text-shadow: 0 0 8px #fff, 0 0 12px rgba(255,255,255,0.5); color: #fff; }
+
+    0%,
+    100% {
+        opacity: 0.6;
+        text-shadow: none;
+    }
+
+    50% {
+        opacity: 1;
+        text-shadow: 0 0 8px #fff, 0 0 12px rgba(255, 255, 255, 0.5);
+        color: #fff;
+    }
 }
 
 .input-group {
@@ -425,12 +449,15 @@ body::after {
     font-size: 13px;
     font-weight: 700;
     letter-spacing: .8px;
+    line-height: 1.5;
 }
 
 .brand-text span {
+    display: block;
     font-size: 8px;
     color: var(--text-muted);
     letter-spacing: 1.5px;
+    margin-top: -0px;
 }
 
 .nav-status-chips {
@@ -744,7 +771,7 @@ body::after {
     height: auto;
     max-height: 500px;
     z-index: 9999;
-    box-shadow: 0 30px 60px rgba(0,0,0,0.8);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
     border: 1px solid rgba(239, 68, 68, .5);
 }
 
@@ -766,13 +793,17 @@ body::after {
     flex-direction: column;
     gap: 9px;
     overflow-y: auto;
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-    flex: 1; /* Allow it to take up available space and scroll */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+    flex: 1;
+    /* Allow it to take up available space and scroll */
 }
 
 .alerts-list::-webkit-scrollbar {
-    display: none; /* Chrome, Safari and Opera */
+    display: none;
+    /* Chrome, Safari and Opera */
 }
 
 .alert-item {

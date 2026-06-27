@@ -262,7 +262,7 @@
   }
 
   function renameBadge(s) {
-    var m = { success: 'r-badge-ok', COMPLETED: 'r-badge-ok', wrong_read: 'r-badge-warn', failed: 'r-badge-err', FAILED: 'r-badge-err', skipped: 'r-badge-muted' };
+    var m = { success: 'r-badge-ok', COMPLETED: 'r-badge-ok', wrong_read: 'r-badge-warn', failed: 'r-badge-err', FAILED: 'r-badge-err', ERROR: 'r-badge-err', skipped: 'r-badge-muted' };
     return m[s] || 'r-badge-muted';
   }
 
@@ -330,6 +330,15 @@
           RS.appSettingsCache = res.data[0] || {};
         }
       });
+
+      // Background prefetch all app log tabs 2s after page load.
+      // Results stored in window._rsLogCache so every tab opens instantly (no spinner).
+      setTimeout(function () {
+        if (!RS.supa) return;
+        ['Renamer HQ', 'FV Branch', 'PDF Splitter', 'PDF Studio', 'Quick Rename', 'Scanify'].forEach(function (app) {
+          _fetchAndCacheAppLogs(app);
+        });
+      }, 2000);
 
       return true;
     } catch (e) {
@@ -1796,12 +1805,12 @@
     // ── Row 1: Metric cards (first full render only) ──
     var metricRow =
       '<div class="r-metric-row" id="r-dash-metrics">' +
-      metricCard('green', on, 'TOTAL ACTIVE NODES', 'fa-circle-check', 'Online now', 'r-devices', null, 'mc-on') +
-      metricCard('danger', off, 'OFFLINE NODES', 'fa-circle-xmark', off > 0 ? off + ' need attention' : 'All clear', 'r-devices', null, 'mc-off') +
-      metricCard('info', runsToday, 'RUNS TODAY', 'fa-play-circle', 'Across all apps', 'r-logs', null, 'mc-runs') +
-      metricCard('warn', errToday, 'ISSUES TODAY', 'fa-bug', 'Failed, partial & skipped', null, 'window.rOpenFailedLogs()', 'mc-err') +
-      metricCard('purple', RS.unresolvedVibes, 'VIBES ERRORS', 'fa-triangle-exclamation', 'Unresolved', 'r-vibes', null, 'mc-vibes') +
-      metricCard('blue', devs.length, 'MACHINES TOTAL', 'fa-server', 'Last sync: ' + lastSync, 'r-devices', null, 'mc-total') +
+      metricCard('green', on, 'TOTAL ACTIVE NODES', 'fa-circle-check', 'Online now', null, 'rCardClick(\'mc-on\')', 'mc-on') +
+      metricCard('danger', off, 'OFFLINE NODES', 'fa-circle-xmark', off > 0 ? off + ' need attention' : 'All clear', null, 'rCardClick(\'mc-off\')', 'mc-off') +
+      metricCard('info', runsToday, 'RUNS TODAY', 'fa-play-circle', 'Across all apps', null, 'rCardClick(\'mc-runs\')', 'mc-runs') +
+      metricCard('warn', errToday, 'ISSUES TODAY', 'fa-bug', 'Failed, partial & skipped', null, 'rCardClick(\'mc-err\')', 'mc-err') +
+      metricCard('purple', RS.unresolvedVibes, 'VIBES ERRORS', 'fa-triangle-exclamation', 'Unresolved', null, 'rCardClick(\'mc-vibes\')', 'mc-vibes') +
+      metricCard('blue', devs.length, 'MACHINES TOTAL', 'fa-server', 'Last sync: ' + lastSync, null, 'rCardClick(\'mc-total\')', 'mc-total') +
       '</div>';
 
     // ── Active Telemetry panel HTML ──
@@ -1898,11 +1907,14 @@
 
   // ── Metric card builder ────────────────────────────────────
   function metricCard(cls, val, lbl, icon, sub, route, customOnclick, mid) {
+    var hasAction = !!(route || customOnclick);
+    var disabled = hasAction && (parseInt(val, 10) || 0) === 0;
     var click = customOnclick ? ' onclick="' + customOnclick + '"'
       : route ? ' onclick="rNav(\'' + route + '\')"' : '';
-    var cursor = (route || customOnclick) ? ' r-metric-card-link' : '';
+    var cursor = hasAction ? ' r-metric-card-link' : '';
     var midAttr = mid ? ' data-mid="' + mid + '"' : '';
-    return '<div class="r-metric-card ' + cls + cursor + '"' + click + midAttr + '>' +
+    var disStyle = disabled ? ' style="opacity:0.4;cursor:not-allowed"' : '';
+    return '<div class="r-metric-card ' + cls + cursor + '"' + click + midAttr + disStyle + '>' +
       '<div class="r-metric-label">' + lbl + '</div>' +
       '<div class="r-metric-val">' + val + '</div>' +
       '<div class="r-metric-sub">' + (sub || '') + '</div>' +
@@ -1918,6 +1930,12 @@
     var s = card.querySelector('.r-metric-sub');
     if (v) v.textContent = String(val);
     if (s && sub !== undefined) s.textContent = sub;
+    // Sync disabled state for actionable cards
+    if (card.classList.contains('r-metric-card-link')) {
+      var disabled = (parseInt(val, 10) || 0) === 0;
+      card.style.opacity = disabled ? '0.4' : '';
+      card.style.cursor = disabled ? 'not-allowed' : '';
+    }
   }
 
   function kpi(cls, val, lbl, icon, extra) {
@@ -1927,6 +1945,30 @@
       '<i class="fa-solid ' + icon + ' r-kpi-ico"></i>' +
       '</div>';
   }
+
+  // ── Metric card click handler ───────────────────────────────
+  // Reads current val from DOM at click time — works with patch-only updates.
+  // Returns early (no-op) if val === 0 so disabled cards don't navigate.
+  window.rNavDevicesFiltered = function (status) {
+    rNav('r-devices'); // renderDevices() is sync, DOM ready immediately
+    var sel = $r('r-dev-stat');
+    if (sel && status) { sel.value = status; rFilterDevices(''); }
+  };
+
+  window.rCardClick = function (mid) {
+    var card = document.querySelector('[data-mid="' + mid + '"]');
+    if (!card) return;
+    var val = parseInt((card.querySelector('.r-metric-val') || {}).textContent, 10) || 0;
+    if (val === 0) return;
+    switch (mid) {
+      case 'mc-on':    rNavDevicesFiltered('online'); break;
+      case 'mc-off':   rNavDevicesFiltered('offline'); break;
+      case 'mc-runs':  rNav('r-logs'); break;
+      case 'mc-err':   window.rOpenFailedLogs && window.rOpenFailedLogs(); break;
+      case 'mc-vibes': rNav('r-vibes'); break;
+      case 'mc-total': rNav('r-devices'); break;
+    }
+  };
 
   // ── Node selection ─────────────────────────────────────────
   window.rSelectNode = function (hostname) {
@@ -3574,6 +3616,24 @@
     });
   };
 
+  // ── App logs in-memory cache (keyed by app_name) ──────────
+  // Avoids re-fetching Supabase on every tab switch.
+  // First open: fetch + cache. Subsequent opens: instant render from cache + silent background refresh.
+  window._rsLogCache = window._rsLogCache || {};
+
+  function _fetchAndCacheAppLogs(appName, onDone) {
+    if (!RS.supa) { if (onDone) onDone([]); return; }
+    RS.supa.from('logs').select('*').eq('app_name', appName)
+      .order('timestamp', { ascending: false }).limit(5000)
+      .then(function (res) {
+        var data = res.data || [];
+        if (!window._rsLogCache) window._rsLogCache = {};
+        window._rsLogCache[appName] = { data: data, ts: Date.now() };
+        if (onDone) onDone(data);
+      })
+      .catch(function () { if (onDone) onDone([]); });
+  }
+
   // ── RENAMER TRACE ──────────────────────────────────────────
   function renderRenamer() {
     var devOpts = Object.keys(RS.devices).map(function (h) { return '<option value="' + esc(h) + '">' + esc(h) + '</option>'; }).join('');
@@ -3587,57 +3647,46 @@
       '<select class="r-filter-sel" id="r-ren-dev"><option value="">All Machines</option>' + devOpts + '</select>' +
       '<select class="r-filter-sel" id="r-ren-stat">' +
       '<option value="">All Status</option>' +
-      '<option value="success">Success</option>' +
-      '<option value="wrong_read">Wrong Read</option>' +
-      '<option value="failed">Failed</option>' +
-      '<option value="skipped">Skipped</option>' +
+      '<option value="COMPLETED">Completed</option>' +
+      '<option value="PARTIAL">Partial</option>' +
+      '<option value="FAILED">Failed</option>' +
+      '<option value="RUNNING">Running</option>' +
       '</select>' +
       '<button class="r-btn-sm" onclick="rLoadRenamer()">Search</button>' +
       '</div>' +
       '</div>' +
       '<div class="r-legend">' +
-      '<span class="r-badge r-badge-ok">success</span> Renamed correctly &nbsp;' +
-      '<span class="r-badge r-badge-warn">wrong_read</span> Bot misread doc name &nbsp;' +
-      '<span class="r-badge r-badge-err">failed</span> Bot error &nbsp;' +
-      '<span class="r-badge r-badge-muted">skipped</span> Skipped by bot' +
+      '<span class="r-badge r-badge-ok">COMPLETED</span> Done &nbsp;' +
+      '<span class="r-badge r-badge-err">FAILED / ERROR</span> Issue occurred &nbsp;' +
+      '<span class="r-badge r-badge-warn">PROCESSING</span> In progress' +
       '</div>' +
       '<div id="r-ren-results"><div class="r-empty">Select filter and click Search</div></div>' +
       '</div>';
-    rEnrichSelect('r-ren-dev', 'renamer_docs', 'hostname');
+    rLoadRenamer();
   }
 
   window.rLoadRenamer = function () {
-    var hostname = ($r('r-ren-dev') || {}).value || '';
-    var status = ($r('r-ren-stat') || {}).value || '';
+    var machine = ($r('r-ren-dev') || {}).value || '';
+    var statusFilter = ($r('r-ren-stat') || {}).value || '';
     var box = $r('r-ren-results');
     if (!box) return;
-    box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
-
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
-    var q = RS.supa.from('renamer_docs').select('*')
-      .order('timestamp', { ascending: false }).limit(150);
-    if (status) q = q.eq('status', status);
-    if (hostname) q = q.eq('hostname', hostname);
 
-    q.then(function (res) {
-      var docs = (res.data || []).map(function (e) {
-        return Object.assign({ _host: e.hostname }, e);
+    function _render(data) {
+      var d = machine ? data.filter(function (l) { return l.machine === machine; }) : data;
+      _processAndRenderLogs(d, box, statusFilter, 'global');
+    }
+
+    var cached = (window._rsLogCache || {})['Renamer HQ'];
+    if (cached) {
+      _render(cached.data);
+      _fetchAndCacheAppLogs('Renamer HQ', function (fresh) {
+        if ($r('r-ren-results') === box) _render(fresh);
       });
-      if (!docs.length) { box.innerHTML = '<div class="r-empty">No records match</div>'; return; }
-      var rows = docs.map(function (e) {
-        return '<tr>' +
-          '<td>' + fmtTs(e.timestamp) + '</td>' +
-          '<td class="r-font-mono">' + esc(e._host) + '</td>' +
-          '<td class="r-font-mono r-cell-trunc" title="' + esc(e.original_name || '') + '">' + esc(e.original_name || '—') + '</td>' +
-          '<td class="r-font-mono r-cell-trunc" title="' + esc(e.renamed_to || '') + '">' + esc(e.renamed_to || '—') + '</td>' +
-          '<td><span class="r-badge ' + renameBadge(e.status) + '">' + esc(e.status || '?') + '</span></td>' +
-          '<td>' + esc(e.error_reason || '—') + '</td>' +
-          '<td class="r-font-mono">' + esc(e.run_id || '—') + '</td>' +
-          '</tr>';
-      }).join('');
-      box.innerHTML = '<div class="r-results-count">' + docs.length + ' record(s)</div>' +
-        tableWrap(['Time', 'Machine', 'Original Name', 'Renamed To', 'Status', 'Reason', 'Run ID'], rows);
-    }).catch(function (err) { box.innerHTML = errBox(err.message); });
+    } else {
+      box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
+      _fetchAndCacheAppLogs('Renamer HQ', _render);
+    }
   };
 
   // ── APP LOG VIEWS (shared renderer for FV Branch / Splitter / Studio / Quick / Scanify) ──
@@ -3674,22 +3723,32 @@
       '</div>' +
       '<div id="al-results-' + safeId + '"><div class="r-empty">Select filter and click Search</div></div>' +
       '</div>';
+    rLoadAppLogs(safeId);
   }
 
   window.rLoadAppLogs = function (safeId) {
     var appName = (window._appNameMap || {})[safeId] || safeId;
-    var hostname = ($r('al-dev-' + safeId) || {}).value || '';
+    var machine = ($r('al-dev-' + safeId) || {}).value || '';
     var statusFilter = ($r('al-stat-' + safeId) || {}).value || '';
     var box = $r('al-results-' + safeId);
     if (!box) return;
-    box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
-    var q = RS.supa.from('logs').select('*').eq('app_name', appName)
-      .order('timestamp', { ascending: false }).limit(5000);
-    if (hostname) q = q.eq('machine', hostname);
-    q.then(function (res) {
-      _processAndRenderLogs(res.data || [], box, statusFilter);
-    }).catch(function (err) { box.innerHTML = errBox(err.message); });
+
+    function _render(data) {
+      var d = machine ? data.filter(function (l) { return l.machine === machine; }) : data;
+      _processAndRenderLogs(d, box, statusFilter, 'global');
+    }
+
+    var cached = (window._rsLogCache || {})[appName];
+    if (cached) {
+      _render(cached.data);
+      _fetchAndCacheAppLogs(appName, function (fresh) {
+        if ($r('al-results-' + safeId) === box) _render(fresh);
+      });
+    } else {
+      box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
+      _fetchAndCacheAppLogs(appName, _render);
+    }
   };
 
   // ── VIBES MONITOR ──────────────────────────────────────────

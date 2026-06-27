@@ -27,12 +27,15 @@
         min-height: 100vh;
     }
 
-    /* ── BACKGROUND — fixed so it doesn't scroll with content ── */
-    #rasumi-container::before {
+    /* ── BACKGROUND — fixed layer so wallpaper doesn't scroll ──
+       iOS Safari ignores background-attachment:fixed and position:fixed
+       on pseudo-elements. The real fix: pin the actual DOM layer element.
+       position:fixed on a real element works on all iOS versions. ── */
+    #r-bg-layer {
         position: fixed !important;
-    }
-    #rasumi-container::after {
-        position: fixed !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
     }
 
     /* ══════════════════════════════════════════════════════════

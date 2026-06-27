@@ -981,8 +981,8 @@
 #rasumi-container .r-filter-input::placeholder { color: var(--rc-text-dim); }
 
 #rasumi-container .r-filter-sel {
-  background: rgba(255,255,255,0.04); border: 1px solid var(--rc-border); border-radius: 6px;
-  color: var(--rc-text); font-family: var(--rc-font); font-size: 12px; padding: 6px 10px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--rc-border); border-radius: 5px;
+  color: var(--rc-text); font-family: var(--rc-font); font-size: 11px; padding: 5px 10px;
   outline: none; cursor: pointer;
 }
 #rasumi-container .r-filter-sel:focus { border-color: var(--rc-cyan); }
