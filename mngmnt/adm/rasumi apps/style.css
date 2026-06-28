@@ -809,6 +809,10 @@
   height: 200px;
 }
 
+#rasumi-container .r-chart-box canvas {
+  touch-action: pan-y;
+}
+
 /* ── Chart header row (title + range tabs) ─────────────────── */
 #rasumi-container .r-chart-hdr {
   display: flex;
@@ -855,6 +859,7 @@
 #rasumi-container .r-cpu-wrap canvas {
   width: 100% !important;
   height: 100% !important;
+  touch-action: pan-y;
 }
 
 /* ── Blinking live dot ─────────────────────────────────────── */
