@@ -1781,7 +1781,7 @@
       // Telemetry title
       var tt = $r('r-tele-title');
       if (tt) tt.innerHTML = '<i class="fa-solid fa-microchip"></i> ACTIVE TELEMETRY' +
-        (selId ? ' &mdash; ' + selId : ' <span style="color:var(--rc-text-dim);font-weight:400">[SELECT A NODE]</span>');
+        (selId ? ' &mdash; ' + selId : '');
       // Telemetry + health panels
       var tb = $r('r-tele-body'); if (tb) tb.innerHTML = buildTelemetryHTML(selDev);
       var hb = $r('r-health-body'); if (hb) hb.innerHTML = buildHealthHTML(selDev);
@@ -1846,7 +1846,7 @@
       '<div class="r-mid-row">' +
       '<div class="r-panel" style="margin:0">' +
       '<div class="r-panel-title" id="r-tele-title"><i class="fa-solid fa-microchip"></i> ACTIVE TELEMETRY' +
-      (selId ? ' &mdash; ' + selId : ' <span style="color:var(--rc-text-dim);font-weight:400">[SELECT A NODE]</span>') +
+      (selId ? ' &mdash; ' + selId : '') +
       '</div>' +
       '<div id="r-tele-body">' + teleHTML + '</div>' +
       '</div>' +
@@ -1865,8 +1865,7 @@
       '<div id="r-recent-act">' + actHTML + '</div>' +
       '</div>' +
       '<div class="r-panel" style="margin:0">' +
-      '<div class="r-panel-title"><i class="fa-solid fa-terminal"></i> COMMAND HISTORY' +
-      '<button class="r-btn-sm" style="margin-left:auto;font-size:9px" onclick="rNav(\'r-commands\')">ALL →</button></div>' +
+      '<div class="r-panel-title"><i class="fa-solid fa-terminal"></i> COMMAND HISTORY</div>' +
       cmdHistHTML +
       '</div>' +
       '<div class="r-panel" style="margin:0">' +
@@ -5415,14 +5414,14 @@
       '<div class="r-cmd-section">' +
       '<h4>Quick Commands <span class="r-muted-sm">— click to fill input</span></h4>' +
       '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">' +
-      _qCmd('PING', 'fa-satellite-dish', 'var(--cyan)', 'Check if machine is alive & responsive') +
-      _qCmd('KILL', 'fa-skull', 'var(--rc-red)', 'Force close Rasumi Apps immediately') +
-      _qCmd('RESTART', 'fa-rotate-right', 'var(--rc-warn)', 'Relaunch Rasumi Apps on target machine') +
-      _qCmd('REFRESH_STATUS', 'fa-arrows-rotate', 'var(--rc-green)', 'Force push machine status to Supabase now') +
-      _qCmd('PAUSE', 'fa-pause', 'var(--rc-warn)', 'Pause all processing jobs') +
-      _qCmd('RESUME', 'fa-play', 'var(--rc-green)', 'Resume paused processing jobs') +
-      _qCmd('RETRY', 'fa-redo', 'var(--cyan)', 'Prompt operator to retry current job') +
-      _qCmd('CLEAR_LOGS', 'fa-trash-can', 'var(--rc-muted)', 'Clear old local log files on machine') +
+      _qCmd('PING', 'fa-satellite-dish', '#0ea5e9', 'Check if machine is alive & responsive') + // Sky Blue
+      _qCmd('KILL', 'fa-skull', 'var(--rc-red)', 'Force close Rasumi Apps immediately') + // Red
+      _qCmd('RESTART', 'fa-rotate-right', '#f59e0b', 'Relaunch Rasumi Apps on target machine') + // Amber/Orange
+      _qCmd('REFRESH', 'fa-arrows-rotate', '#10b981', 'Force push machine status to Supabase now') + // Emerald Green
+      _qCmd('PAUSE', 'fa-pause', '#8b5cf6', 'Pause all processing jobs') + // Purple
+      _qCmd('RESUME', 'fa-play', '#84cc16', 'Resume paused processing jobs') + // Lime Green
+      _qCmd('RERUN', 'fa-redo', '#ec4899', 'Prompt operator to retry current job') + // Pink
+      _qCmd('CLEAR_LOGS', 'fa-trash-can', 'var(--rc-muted)', 'Clear old local log files on machine') + // Gray
       '</div>' +
       '</div>' +
 
@@ -5522,26 +5521,71 @@
 
     // [Fasa 6] Command history — read from Supabase
     if (RS.supa) {
-      RS.supa.from('commands').select('*').order('created_at', { ascending: false }).limit(50)
-        .then(function (res) {
-          var box = $r('r-cmd-hist-main');
-          if (!box) return;
-          var cmds = res.data || [];
-          if (!cmds.length) { box.innerHTML = '<div class="r-empty">No commands sent yet</div>'; return; }
-          var rows = cmds.map(function (c) {
-            return '<tr>' +
-              '<td>' + fmtTs(c.created_at) + '</td>' +
-              '<td class="r-font-mono">' + esc(c.target_machine || 'broadcast') + '</td>' +
-              '<td class="r-font-mono">' + esc(c.type || c.command || c.action || '—') + '</td>' +
-              '<td><span class="r-badge ' + logBadge(c.status) + '">' + esc(c.status || 'PENDING') + '</span></td>' +
-              '<td>' + esc(c.created_by || '—') + '</td>' +
-              '</tr>';
-          }).join('');
-          box.innerHTML = tableWrap(['Time', 'Target Machine', 'Command', 'Status', 'By'], rows);
-        }).catch(function (err) {
-          var box = $r('r-cmd-hist-main');
-          if (box) box.innerHTML = errBox(err.message || 'Supabase error');
+      Promise.all([
+        RS.supa.from('admin_users').select('email,role,nickname'),
+        RS.supa.from('commands').select('*').order('created_at', { ascending: false }).limit(50)
+      ]).then(function (results) {
+        var box = $r('r-cmd-hist-main');
+        if (!box) return;
+        var adminMap = {};
+        (results[0].data || []).forEach(function (u) {
+          adminMap[u.email] = u;
         });
+        var cmds = results[1].data || [];
+        if (!cmds.length) { box.innerHTML = '<div class="r-empty">No commands sent yet</div>'; return; }
+        var rows = cmds.map(function (c) {
+          var createdByStr = esc(c.created_by || '—');
+          var u = adminMap[c.created_by];
+          if (u && u.nickname) {
+            var isSA = (u.role === 'superadmin');
+            var colorStr = '#38bdf8', bgStr = 'rgba(56,189,248,0.1)', borderStr = 'rgba(56,189,248,0.25)';
+            if (!isSA) {
+              var hash = 0, em = c.created_by || '';
+              for (var i = 0; i < em.length; i++) hash = em.charCodeAt(i) + ((hash << 5) - hash);
+              var hue = Math.abs(hash) % 360;
+              colorStr = 'hsl(' + hue + ', 80%, 65%)';
+              bgStr = 'hsla(' + hue + ', 80%, 65%, 0.1)';
+              borderStr = 'hsla(' + hue + ', 80%, 65%, 0.25)';
+            }
+            var label = isSA ? 'SUPER ADMIN' : 'ADMIN';
+            var badgeHtml = '<span style="display:inline-block;font-size:8px;font-weight:700;letter-spacing:1px;padding:2px 6px;border-radius:8px;background:' + bgStr + ';color:' + colorStr + ';border:1px solid ' + borderStr + ';' + (isSA ? '' : 'margin-right:6px;') + 'vertical-align:middle;">' + label + '</span>';
+            if (isSA) {
+              createdByStr = '<div style="display:flex;align-items:center;">' + badgeHtml + '</div>';
+            } else {
+              createdByStr = '<div style="display:flex;align-items:center;">' + badgeHtml + '<span style="font-weight:bold;">' + esc(u.nickname) + '</span></div>';
+            }
+          }
+          var targetMac = c.target_machine || 'broadcast';
+          var cmdTxt = c.type || c.command || c.action || '—';
+          
+          // Normalisasikan arahan lama
+          if (cmdTxt === 'STATUS' || cmdTxt === 'REFRESH_STATUS') cmdTxt = 'REFRESH';
+          
+          var cmdColor = 'var(--rc-text)';
+          if (cmdTxt === 'PING') cmdColor = '#0ea5e9';
+          else if (cmdTxt === 'KILL') cmdColor = 'var(--rc-red)';
+          else if (cmdTxt === 'RESTART') cmdColor = '#f59e0b';
+          else if (cmdTxt === 'REFRESH') cmdColor = '#10b981';
+          else if (cmdTxt === 'PAUSE') cmdColor = '#8b5cf6';
+          else if (cmdTxt === 'RESUME') cmdColor = '#84cc16';
+          else if (cmdTxt === 'RERUN' || cmdTxt === 'RETRY') cmdColor = '#ec4899';
+          else if (cmdTxt === 'CLEAR_LOGS') cmdColor = 'var(--rc-muted)';
+
+          return '<tr>' +
+            '<td>' + fmtTs(c.created_at) + '</td>' +
+            '<td class="r-font-mono">' + esc(targetMac) + '</td>' +
+            '<td class="r-font-mono" style="color:' + cmdColor + '; font-weight: 600;">' + esc(cmdTxt) + '</td>' +
+            '<td><span class="r-badge ' + logBadge(c.status) + '">' + esc(c.status || 'PENDING') + '</span></td>' +
+            '<td>' + esc(c.result_msg || '—') + '</td>' +
+            '<td>' + createdByStr + '</td>' +
+            '<td><button class="r-btn-sm neutral" style="font-size:10px;padding:3px 8px;" onclick="rSendTeleCmd(\'' + esc(targetMac) + '\', \'' + esc(cmdTxt) + '\')" title="Rerun Command"><i class="fa-solid fa-rotate-right"></i> Rerun</button></td>' +
+            '</tr>';
+        }).join('');
+        box.innerHTML = tableWrap(['Time', 'Target Machine', 'Command', 'Status', 'Result / Remarks', 'By', 'Action'], rows);
+      }).catch(function (err) {
+        var box = $r('r-cmd-hist-main');
+        if (box) box.innerHTML = errBox(err.message || 'Supabase error');
+      });
     } else {
       var box = $r('r-cmd-hist-main');
       if (box) box.innerHTML = '<div class="r-empty">Supabase not ready</div>';
@@ -6586,6 +6630,19 @@
   };
 
   // ── Open profile modal (called from inline onclick) ────────────
+  window.rLogout = function () {
+    if (RS && RS.supa) {
+      RS.supa.auth.signOut().then(function() {
+        window.location.reload();
+      }).catch(function(err) {
+        console.error('Logout error:', err);
+        window.location.reload();
+      });
+    } else {
+      window.location.reload();
+    }
+  };
+
   window.rOpenProfile = function () {
     var nav = document.getElementById('r-nav-dropdown');
     if (nav) nav.classList.add('hidden');

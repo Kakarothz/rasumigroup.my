@@ -309,9 +309,16 @@
     }
 
     #rasumi-container .r-panel-hdr {
-        flex-direction: column;
+        flex-direction: row;
         align-items: flex-start;
+        flex-wrap: nowrap;
+        justify-content: space-between;
         gap: 8px;
+    }
+
+    #rasumi-container .r-panel-hdr h3 {
+        margin-top: 4px;
+        flex: 0 0 auto;
     }
 
     #rasumi-container .r-panel-title {
@@ -339,16 +346,29 @@
 
     /* ── FILTER BAR ──────────────────────────────────────────── */
     #rasumi-container .r-filter-bar {
-        flex-direction: column;
-        align-items: stretch;
+        display: grid;
+        grid-template-columns: 110px 110px; /* Uniform width */
+        justify-content: flex-end; /* Push to right */
         gap: 6px;
+        flex: 1;
+        width: 100%;
+    }
+
+    #rasumi-container .r-filter-bar .r-btn-sm {
+        grid-column: 1 / -1;
+        justify-self: end;
+        width: 110px !important; /* Match dropdown width */
+        box-sizing: border-box;
     }
 
     #rasumi-container .r-filter-input,
     #rasumi-container .r-filter-sel {
-        font-size: 16px;
+        font-size: 10px;
+        padding: 5px 8px;
+        height: 24px;
         min-width: unset;
-        width: 100%;
+        width: 110px !important; /* Match search button */
+        box-sizing: border-box;
     }
 
     /* ── FEATURE PILLS ───────────────────────────────────────── */
