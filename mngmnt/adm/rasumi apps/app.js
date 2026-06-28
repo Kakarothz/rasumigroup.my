@@ -1890,11 +1890,39 @@
       '</div>' +
       '<div class="r-chart-box"><div class="r-panel-title" style="margin-bottom:6px;border:none;padding:0"><i class="fa-solid fa-memory"></i> RAM USAGE 24H</div><canvas id="r-chart-ram"></canvas></div>' +
       '<div class="r-chart-box"><div class="r-panel-title" style="margin-bottom:6px;border:none;padding:0"><i class="fa-solid fa-hard-drive"></i> DISK USAGE 24H</div><canvas id="r-chart-disk"></canvas></div>' +
+      '</div>' +
+
+      // ── Row 5: Usage Analytics Chart ──
+      '<div class="r-bot-row" style="margin-top:12px">' +
+      '<div class="r-panel" style="margin:0;grid-column: 1 / -1">' +
+      '<div class="r-panel-title" style="display:flex;align-items:center;gap:8px">' +
+      '<i class="fa-solid fa-chart-line"></i> USAGE ANALYTICS' +
+      '<div style="margin-left:auto;display:flex;gap:4px;align-items:center">' +
+      '<div style="background:rgba(0,0,0,0.3);border-radius:4px;display:flex;padding:2px;margin-right:12px">' +
+      '<button class="r-btn-sm" id="d-chart-by-app" style="background:rgba(56,189,248,0.2);border:none" onclick="window.rToggleDashChartType(\'app\')">By App</button>' +
+      '<button class="r-btn-sm" id="d-chart-by-dev" style="background:transparent;border:none;opacity:0.6;font-weight:400" onclick="window.rToggleDashChartType(\'dev\')">By Device</button>' +
+      '</div>' +
+      '<button class="r-btn-sm" id="d-chart-day" style="opacity:0.45;font-weight:400" onclick="window.rToggleDashChartView(\'day\')">Day</button>' +
+      '<button class="r-btn-sm" id="d-chart-week" onclick="window.rToggleDashChartView(\'week\')">Week</button>' +
+      '<button class="r-btn-sm" id="d-chart-month" style="opacity:0.45;font-weight:400" onclick="window.rToggleDashChartView(\'month\')">Month</button>' +
+      '</div>' +
+      '</div>' +
+      '<div id="d-chart-wrap" style="position:relative;height:220px;margin-top:8px">' +
+      '<canvas id="d-usage-canvas" style="display:block"></canvas>' +
+      '<div id="d-chart-tooltip" style="display:none;position:absolute;background:rgba(8,12,19,0.97);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;font-size:11px;pointer-events:none;z-index:10;line-height:1.9;min-width:140px"></div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-top:12px">' +
+      '<div id="d-chart-legend" style="display:flex;gap:12px;flex-wrap:wrap;flex:1"></div>' +
+      '<button class="r-btn-sm" style="background:rgba(255,255,255,0.05);color:var(--rc-text);border-color:var(--rc-border)" onclick="window.rExportDashChart()"><i class="fa-solid fa-file-excel" style="color:#22c55e"></i> Export</button>' +
+      '</div>' +
+      '</div>' +
       '</div>';
 
     // Load async: command history + charts
     loadDashCmdHist();
     initDashCharts();
+    window.loadDashUsageChart(); // Load the new usage chart
+
     // Start live stream listener
     startLiveStream();
   }
@@ -2239,7 +2267,298 @@
     if (ra) ra.innerHTML = buildRecentActHTML();
   }
 
-  // ── Dashboard Charts ──────────────────────────────────────
+  // ── Dashboard Usage Analytics Chart ──
+  var DASH_APPS = [
+    { label: 'Renamer HQ', color: '#a855f7', re: /renamer\s*hq/i },
+    { label: 'Renamer FV', color: '#8b5cf6', re: /fv[\s._-]branch|renamer\s*fv/i },
+    { label: 'PDF Splitter', color: '#22c55e', re: /pdf[\s._-]?split/i },
+    { label: 'Scanify', color: '#38bdf8', re: /scanify/i },
+    { label: 'PDF Studio', color: '#eab308', re: /pdf[\s._-]?studio/i },
+    { label: 'Quick Rename', color: '#f97316', re: /quick[\s._-]?rename/i },
+    { label: 'Vibes Agent', color: '#ef4444', re: /vibes|vims/i },
+  ];
+
+  window.dashChartState = { view: 'week', type: 'app' }; // view: day|week|month, type: app|dev
+
+  function _ddIsoDate(d) { return d.getFullYear() + '-' + (d.getMonth() < 9 ? '0' : '') + (d.getMonth() + 1) + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate(); }
+  function _ddIsoHour(d) { return _ddIsoDate(d) + 'T' + (d.getHours() < 10 ? '0' : '') + d.getHours() + ':00:00'; }
+
+  window.rToggleDashChartView = function (view) {
+    if (window.dashChartState.view === view) return;
+    window.dashChartState.view = view;
+    ['day', 'week', 'month'].forEach(function (v) {
+      var btn = $r('d-chart-' + v);
+      if (btn) { btn.style.opacity = view === v ? '1' : '0.45'; btn.style.fontWeight = view === v ? '600' : '400'; }
+    });
+    window.loadDashUsageChart();
+  };
+
+  window.rToggleDashChartType = function (type) {
+    if (window.dashChartState.type === type) return;
+    window.dashChartState.type = type;
+    var ab = $r('d-chart-by-app'), db = $r('d-chart-by-dev');
+    if (ab) { ab.style.background = type === 'app' ? 'rgba(56,189,248,0.2)' : 'transparent'; ab.style.opacity = type === 'app' ? '1' : '0.6'; ab.style.fontWeight = type === 'app' ? '600' : '400'; }
+    if (db) { db.style.background = type === 'dev' ? 'rgba(56,189,248,0.2)' : 'transparent'; db.style.opacity = type === 'dev' ? '1' : '0.6'; db.style.fontWeight = type === 'dev' ? '600' : '400'; }
+    window.loadDashUsageChart();
+  };
+
+  window.loadDashUsageChart = function () {
+    var canvas = $r('d-usage-canvas'); if (!canvas || !RS.supa) return;
+    var view = window.dashChartState.view;
+    var type = window.dashChartState.type;
+
+    var now = new Date(), labels = [], starts = [], ends = [];
+    if (view === 'day') {
+      var dStart = new Date(now); dStart.setHours(0, 0, 0, 0);
+      for (var i = 0; i < 24; i++) {
+        var dh = new Date(dStart); dh.setHours(i);
+        var labelTime = i === 0 ? '12 AM' : i < 12 ? i + ' AM' : i === 12 ? '12 PM' : (i - 12) + ' PM';
+        labels.push(labelTime); starts.push(_ddIsoHour(dh)); 
+        var dhe = new Date(dh); dhe.setHours(i, 59, 59); ends.push(_ddIsoDate(dhe) + 'T' + (dhe.getHours() < 10 ? '0' : '') + dhe.getHours() + ':59:59');
+      }
+    } else if (view === 'week') {
+      var dow = now.getDay();
+      var mon = new Date(now); mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1)); mon.setHours(0, 0, 0, 0);
+      ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(function (n, i) {
+        var d = new Date(mon); d.setDate(mon.getDate() + i);
+        labels.push(n); starts.push(_ddIsoDate(d) + 'T00:00:00'); ends.push(_ddIsoDate(d) + 'T23:59:59');
+      });
+    } else { // month
+      var yr = now.getFullYear(), mo = now.getMonth();
+      var dim = new Date(yr, mo + 1, 0).getDate();
+      for (var i = 1; i <= dim; i++) {
+        var d = new Date(yr, mo, i);
+        labels.push(String(i)); starts.push(_ddIsoDate(d) + 'T00:00:00'); ends.push(_ddIsoDate(d) + 'T23:59:59');
+      }
+    }
+
+    canvas.style.opacity = '0.35';
+    // Fetch COMPLETED logs for the full range
+    RS.supa.from('logs').select('app_name,machine,timestamp')
+      .gte('timestamp', starts[0]).lte('timestamp', ends[ends.length - 1]).eq('status', 'COMPLETED')
+      .then(function (res) {
+        canvas.style.opacity = '1';
+        var data = res.data || [];
+        
+        if (view === 'day') {
+          var hasOutside = data.some(function(e) {
+            var hrIdx = starts.findIndex(function(s, idx) { return (e.timestamp || '') >= s && (e.timestamp || '') <= ends[idx]; });
+            return hrIdx !== -1 && (hrIdx < 8 || hrIdx > 17);
+          });
+          if (!hasOutside) {
+            starts = starts.slice(8, 18);
+            ends = ends.slice(8, 18);
+            labels = labels.slice(8, 18);
+          }
+        }
+
+        var datasets = [];
+
+        if (type === 'app') {
+          datasets = DASH_APPS.map(function (grp) {
+            return {
+              label: grp.label, color: grp.color,
+              data: starts.map(function (s, i) {
+                return data.filter(function (e) {
+                  return grp.re.test(e.app_name || '') && (e.timestamp || '') >= s && (e.timestamp || '') <= ends[i];
+                }).length;
+              })
+            };
+          }).filter(function (ds) { return ds.data.some(function (v) { return v > 0; }); });
+        } else {
+          // Dynamic Devices
+          var devMap = {};
+          data.forEach(function (e) {
+            var m = e.machine || 'Unknown';
+            if (!devMap[m]) devMap[m] = { label: m, color: _hashColors(m), data: new Array(starts.length).fill(0) };
+          });
+          data.forEach(function (e) {
+            var m = e.machine || 'Unknown';
+            for (var i = 0; i < starts.length; i++) {
+              if ((e.timestamp || '') >= starts[i] && (e.timestamp || '') <= ends[i]) {
+                devMap[m].data[i]++;
+                break;
+              }
+            }
+          });
+          datasets = Object.keys(devMap).map(function (k) { return devMap[k]; })
+            .filter(function (ds) { return ds.data.some(function (v) { return v > 0; }); });
+        }
+
+        canvas._exportData = { datasets: datasets, labels: labels, title: 'Dash Usage ' + (type === 'app' ? 'By App' : 'By Device') };
+        window.dashDrawUsageChart(canvas, datasets, labels);
+        _renderDashLegend(datasets);
+      }).catch(function () { canvas.style.opacity = '1'; });
+  };
+
+  function _hashColors(str) {
+    if ((str || '').toLowerCase() === 'kakaroth') return ['#facc15', '#f97316', '#ef4444'];
+    var h1 = 0, h2 = 0, h3 = 0;
+    for (var i = 0; i < str.length; i++) {
+      var c = str.charCodeAt(i);
+      h1 = c + ((h1 << 5) - h1);
+      h2 = (c * 31) + ((h2 << 4) - h2);
+      h3 = (c * 17) + ((h3 << 6) - h3);
+    }
+    function hex(h) { var x = (h & 0x00FFFFFF).toString(16).toUpperCase(); return '#' + ('00000'.substring(0, 6 - x.length) + x); }
+    return [hex(h1), hex(h2), hex(h3)];
+  }
+
+  function _renderDashLegend(datasets) {
+    var lg = $r('d-chart-legend'); if (!lg) return;
+    lg.innerHTML = datasets.map(function (ds) {
+      var cStyle = Array.isArray(ds.color) ? 'background:linear-gradient(135deg,'+ds.color.join(',')+')' : 'background:'+ds.color;
+      return '<div style="display:flex;align-items:center;gap:4px;font-size:11px">' +
+        '<div style="width:8px;height:8px;border-radius:50%;' + cStyle + '"></div>' + esc(ds.label) + '</div>';
+    }).join('');
+  }
+
+  window.rExportDashChart = function () {
+    var canvas = $r('d-usage-canvas');
+    if (!canvas || !canvas._exportData) { rToast('No data to export', 'warn'); return; }
+    var data = canvas._exportData;
+    var rows = [['Category'].concat(data.labels)];
+    data.datasets.forEach(function (ds) { rows.push([ds.label].concat(ds.data)); });
+    
+    var doExport = function (XLSX) {
+      var ws = XLSX.utils.aoa_to_sheet(rows);
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Usage Data");
+      XLSX.writeFile(wb, (data.title || 'usage') + '_' + new Date().getTime() + '.xlsx');
+    };
+
+    if (window.XLSX) { doExport(window.XLSX); return; }
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = function () { doExport(window.XLSX); };
+    s.onerror = function () { rToast('XLSX library unavailable', 'err'); };
+    document.head.appendChild(s);
+  };
+
+  window.dashDrawUsageChart = function (canvas, datasets, labels) {
+    var dpr = window.devicePixelRatio || 1;
+    var wrap = canvas.parentElement;
+    var W = wrap ? (wrap.offsetWidth || 800) : 800;
+    var H = 220;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    var pL = 46, pR = 16, pT = 14, pB = 32;
+    var cW = W - pL - pR, cH = H - pT - pB, n = labels.length;
+    var maxVal = 0;
+    datasets.forEach(function (ds) { ds.data.forEach(function (v) { if (v > maxVal) maxVal = v; }); });
+    if (!maxVal) maxVal = 10;
+    var nice = Math.pow(10, Math.floor(Math.log10(maxVal)));
+    maxVal = Math.ceil(maxVal / nice) * nice;
+
+    function xP(i) { return pL + (n > 1 ? i / (n - 1) : 0.5) * cW; }
+    function yP(v) { return pT + cH - (v / maxVal) * cH; }
+
+    // Grid lines + Y labels
+    for (var g = 0; g <= 4; g++) {
+      var gy = pT + g / 4 * cH;
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pL, gy); ctx.lineTo(W - pR, gy); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.font = '10px var(--rc-font)'; ctx.textAlign = 'right';
+      ctx.fillText(Math.round(maxVal * (1 - g / 4)), pL - 5, gy + 3);
+    }
+    // X labels
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    var skip = n > 20 ? 3 : n > 10 ? 2 : 1;
+    labels.forEach(function (l, i) { if (i % skip === 0) ctx.fillText(l, xP(i), H - pB + 14); });
+
+    // Lines + area fills
+    datasets.forEach(function (ds) {
+      var isArr = Array.isArray(ds.color);
+      var mainC = isArr ? ds.color[0] : ds.color;
+      var pts = ds.data.map(function (v, i) { return { x: xP(i), y: yP(v) }; });
+      // Area
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (var i = 1; i < pts.length; i++) {
+        var cx = (pts[i - 1].x + pts[i].x) / 2;
+        ctx.bezierCurveTo(cx, pts[i - 1].y, cx, pts[i].y, pts[i].x, pts[i].y);
+      }
+      ctx.lineTo(pts[pts.length - 1].x, pT + cH); ctx.lineTo(pts[0].x, pT + cH); ctx.closePath();
+      var grad = ctx.createLinearGradient(0, pT, 0, pT + cH);
+      grad.addColorStop(0, mainC + '2e'); grad.addColorStop(1, mainC + '00');
+      ctx.fillStyle = grad; ctx.fill();
+      // Line
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (var i = 1; i < pts.length; i++) {
+        var cx = (pts[i - 1].x + pts[i].x) / 2;
+        ctx.bezierCurveTo(cx, pts[i - 1].y, cx, pts[i].y, pts[i].x, pts[i].y);
+      }
+      if (isArr) {
+        var lineGrad = ctx.createLinearGradient(pL, 0, W - pR, 0);
+        lineGrad.addColorStop(0, ds.color[0]);
+        lineGrad.addColorStop(0.5, ds.color[1]);
+        lineGrad.addColorStop(1, ds.color[2]);
+        ctx.strokeStyle = lineGrad;
+      } else {
+        ctx.strokeStyle = mainC;
+      }
+      ctx.lineWidth = 1; ctx.stroke();
+      // Dots
+      pts.forEach(function (p, i) {
+        if (!ds.data[i]) return;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fillStyle = mainC; ctx.fill();
+      });
+    });
+
+    canvas._base = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    canvas._chart = { datasets: datasets, labels: labels, xP: xP, yP: yP, pL: pL, pR: pR, pT: pT, pB: pB, cW: cW, cH: cH, W: W, H: H, n: n };
+
+    canvas.onmousemove = function (e) {
+      var cd = canvas._chart; if (!cd) return;
+      var rect = canvas.getBoundingClientRect();
+      var mx = e.clientX - rect.left;
+      if (mx < cd.pL) mx = cd.pL; if (mx > cd.W - cd.pR) mx = cd.W - cd.pR;
+      var ratio = (mx - cd.pL) / cd.cW;
+      var idx = Math.round(ratio * (cd.n - 1));
+      if (idx < 0) idx = 0; if (idx >= cd.n) idx = cd.n - 1;
+      
+      var snapX = cd.xP(idx);
+      ctx.putImageData(canvas._base, 0, 0);
+      
+      ctx.beginPath(); ctx.moveTo(snapX, cd.pT); ctx.lineTo(snapX, cd.pT + cd.cH);
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+      
+      var tt = $r('d-chart-tooltip');
+      var lines = ['<div style="color:var(--rc-text-dim);font-size:10px;margin-bottom:6px">' + cd.labels[idx] + '</div>'];
+      var total = 0;
+      cd.datasets.forEach(function (ds) {
+        var v = ds.data[idx];
+        if (!v) return;
+        total += v;
+        var mainC = Array.isArray(ds.color) ? ds.color[0] : ds.color;
+        var cStyle = Array.isArray(ds.color) ? 'background:linear-gradient(135deg,'+ds.color.join(',')+')' : 'background:'+ds.color;
+        ctx.beginPath(); ctx.arc(snapX, cd.yP(v), 5, 0, Math.PI * 2);
+        ctx.fillStyle = mainC; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = '#080c13'; ctx.stroke();
+        lines.push('<div style="display:flex;justify-content:space-between;gap:12px">' +
+          '<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;' + cStyle + ';margin-right:6px"></span>' + esc(ds.label) + '</span>' +
+          '<span style="font-weight:600">' + v + '</span></div>');
+      });
+      if (total === 0) lines.push('<div style="color:#64748b">No data</div>');
+      
+      if (tt) {
+        tt.innerHTML = lines.join('');
+        tt.style.display = 'block';
+        tt.style.left = (snapX > cd.W / 2 ? snapX - tt.offsetWidth - 15 : snapX + 15) + 'px';
+        tt.style.top = (cd.pT + 10) + 'px';
+      }
+    };
+    canvas.onmouseleave = function () {
+      var tt = $r('d-chart-tooltip');
+      if (tt) tt.style.display = 'none';
+      if (canvas._base) ctx.putImageData(canvas._base, 0, 0);
+    };
+  };
+
+  // ── Dashboard Charts ──
   // ── DISK: Animated gradient donut — breathing glow + rotating shimmer + tip pulse ──
   function _drawDiskDonut(canvas, pct, usedLabel) {
     if (canvas._animFrame) { cancelAnimationFrame(canvas._animFrame); canvas._animFrame = null; }
@@ -2577,6 +2896,10 @@
   // ── CPU chart range toggle (called by 24H / 7D / 1M buttons) ──
   window.rCpuRange = function (range, btn) {
     RS._cpuRange = range;
+    RS._cpuUserPanning = false;
+    if (RS._charts.cpu && typeof RS._charts.cpu.resetZoom === 'function') {
+      RS._charts.cpu.resetZoom('none');
+    }
     document.querySelectorAll('.r-ctab').forEach(function (b) { b.classList.remove('r-ctab-active'); });
     if (btn) btn.classList.add('r-ctab-active');
     var d = RS._selectedDevice ? RS.devices[RS._selectedDevice] : null;
@@ -2587,44 +2910,70 @@
   function fetchCpuChart(hostname, range) {
     if (!RS.supa || !hostname) return;
     var now = Date.now();
-    var msBack = range === '7D' ? 7 * 864e5 : range === '1M' ? 30 * 864e5 : 864e5;
-    var since = new Date(now - msBack).toISOString();
     var groupByDay = range !== '24H';
+    var since;
+    if (range === '24H') {
+      var startDt = new Date(); startDt.setDate(startDt.getDate() - 3); startDt.setHours(0,0,0,0);
+      since = startDt.toISOString();
+    } else {
+      var msBack = range === '7D' ? 7 * 864e5 : 30 * 864e5;
+      since = new Date(now - msBack).toISOString();
+    }
 
     RS.supa.from('machine_telemetry')
       .select('cpu_pct,recorded_at')
       .eq('hostname', hostname)
       .gte('recorded_at', since)
       .order('recorded_at', { ascending: true })
-      .limit(groupByDay ? 2000 : 300)
+      .limit(2000)
       .then(function (res) {
         var rows = res.data || [];
         var labels = [], data = [];
 
+        var minLabel = null, maxLabel = null;
         if (!groupByDay) {
-          // 24H — build slots only from first data point to now (avoids wasted 00:00–data gap).
-          var nowSlot = new Date().getHours() * 6 + Math.floor(new Date().getMinutes() / 10);
-          var firstSlot = nowSlot, lastSlot = nowSlot;
-          rows.forEach(function (r) {
-            var dt = new Date(r.recorded_at);
-            var sl = dt.getHours() * 6 + Math.floor(dt.getMinutes() / 10);
-            if (sl < firstSlot) firstSlot = sl;
-            if (sl > lastSlot) lastSlot = sl;
-          });
-          var startSlot = Math.max(0, firstSlot - 3);    // 30-min buffer before first data
-          var endSlot = Math.min(143, Math.max(nowSlot + 2, lastSlot + 1));
-          for (var s = startSlot; s <= endSlot; s++) {
-            var sh = Math.floor(s * 10 / 60), sm = (s * 10) % 60;
-            labels.push(String(sh).padStart(2, '0') + ':' + String(sm).padStart(2, '0'));
-            data.push(null);
+          // 24H: Fetch last 3 days to allow panning (30-min intervals)
+          var startDt = new Date(); startDt.setDate(startDt.getDate() - 3); startDt.setHours(0, 0, 0, 0);
+          var endDt = new Date(); endDt.setHours(23, 30, 0, 0);
+          var slotMap = {};
+          var current = new Date(startDt.getTime());
+          while(current.getTime() <= endDt.getTime()) {
+            var label = String(current.getDate()).padStart(2, '0') + '/' + 
+                        String(current.getMonth() + 1).padStart(2, '0') + ' ' + 
+                        String(current.getHours()).padStart(2, '0') + ':' + 
+                        String(current.getMinutes()).padStart(2, '0');
+            labels.push(label);
+            data.push(0);
+            slotMap[label] = data.length - 1;
+            current = new Date(current.getTime() + 1800000); // add 30 mins
           }
+          
           rows.forEach(function (r) {
             var dt = new Date(r.recorded_at);
-            var sl = dt.getHours() * 6 + Math.floor(dt.getMinutes() / 10);
-            var idx = sl - startSlot;
-            if (idx >= 0 && idx < data.length)
-              data[idx] = r.cpu_pct != null ? Math.round(r.cpu_pct * 10) / 10 : null;
+            dt.setMinutes(Math.floor(dt.getMinutes() / 30) * 30, 0, 0);
+            var label = String(dt.getDate()).padStart(2, '0') + '/' + 
+                        String(dt.getMonth() + 1).padStart(2, '0') + ' ' + 
+                        String(dt.getHours()).padStart(2, '0') + ':' + 
+                        String(dt.getMinutes()).padStart(2, '0');
+            var idx = slotMap[label];
+            if (idx !== undefined) {
+              data[idx] = r.cpu_pct != null ? Math.round(r.cpu_pct * 10) / 10 : 0;
+            }
           });
+
+          // 4-hour sliding window from now
+          var nowDt = new Date();
+          nowDt.setMinutes(Math.floor(nowDt.getMinutes() / 30) * 30, 0, 0);
+          var minDt = new Date(nowDt.getTime() - 4 * 3600000); // 4 hours ago
+          
+          minLabel = String(minDt.getDate()).padStart(2, '0') + '/' + 
+                     String(minDt.getMonth() + 1).padStart(2, '0') + ' ' + 
+                     String(minDt.getHours()).padStart(2, '0') + ':' + 
+                     String(minDt.getMinutes()).padStart(2, '0');
+          maxLabel = String(nowDt.getDate()).padStart(2, '0') + '/' + 
+                     String(nowDt.getMonth() + 1).padStart(2, '0') + ' ' + 
+                     String(nowDt.getHours()).padStart(2, '0') + ':' + 
+                     String(nowDt.getMinutes()).padStart(2, '0');
         } else {
           // 7D / 1M — group by calendar day, average per day
           var days = range === '7D' ? 7 : 30;
@@ -2642,24 +2991,54 @@
             var key = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
             labels.push(range === '7D' ? dayNames[dt.getDay()] : (dt.getDate() + '/' + (dt.getMonth() + 1)));
             var s = dayMap[key];
-            data.push(s && s.n ? Math.round(s.sum / s.n * 10) / 10 : null);
+            data.push(s && s.n ? Math.round(s.sum / s.n * 10) / 10 : 0);
           }
         }
 
         var cpuChart = RS._charts.cpu;
         if (!cpuChart) return;
+        
+        var cpuCanvas = $r('r-chart-cpu');
+        var colors = _hashColors(hostname);
+        if (cpuCanvas) {
+          var cpuCtx = cpuCanvas.getContext('2d');
+          var cpuGrad = cpuCtx.createLinearGradient(0, 0, cpuCanvas.offsetWidth || 400, 0);
+          cpuGrad.addColorStop(0, colors[0]);
+          cpuGrad.addColorStop(0.5, colors[1]);
+          cpuGrad.addColorStop(1, colors[2]);
+          var cpuFill = cpuCtx.createLinearGradient(0, 0, 0, 180);
+          cpuFill.addColorStop(0, colors[0] + '40');
+          cpuFill.addColorStop(1, colors[0] + '00');
+          cpuChart.data.datasets[0].borderColor = cpuGrad;
+          cpuChart.data.datasets[0].backgroundColor = cpuFill;
+          if (cpuChart.options.plugins.tooltip) {
+            cpuChart.options.plugins.tooltip.bodyColor = colors[0];
+            cpuChart.options.plugins.tooltip.borderColor = colors[0] + '40';
+          }
+        }
+
         cpuChart.data.labels = labels;
         cpuChart.data.datasets[0].data = data;
-        // spanGaps only for daily aggregates (7D/1M); keep gaps for 24H sessions
-        cpuChart.data.datasets[0].spanGaps = groupByDay;
+        
+        // Force array of colors for points so Chart.js clears old gradient cache
+        cpuChart.data.datasets[0].pointBackgroundColor = data.map(function() { return colors[2]; });
+        cpuChart.data.datasets[0].pointBorderColor = data.map(function() { return colors[2]; });
+        cpuChart.data.datasets[0].pointHoverBackgroundColor = data.map(function() { return colors[2]; });
+        cpuChart.data.datasets[0].borderWidth = 1;
+        cpuChart.data.datasets[0].pointRadius = 1;
+        
+        // Keep continuous line to show smooth bukit shape
+        cpuChart.data.datasets[0].spanGaps = true;
         if (groupByDay) {
           // 7D/1M: clear any x-axis window so full range is visible
           cpuChart.options.scales.x.min = undefined;
           cpuChart.options.scales.x.max = undefined;
+        } else if (!RS._cpuUserPanning) {
+          // Custom 8am - 5pm window (or wider if active)
+          cpuChart.options.scales.x.min = minLabel;
+          cpuChart.options.scales.x.max = maxLabel;
         }
         cpuChart.update('none');
-        // Auto-scroll to current time window if user not panning
-        if (!groupByDay && !RS._cpuUserPanning) _cpuScrollToNow(cpuChart);
 
         // Live blinking dot — only for 24H when device is currently online
         var dev = RS._selectedDevice ? RS.devices[RS._selectedDevice] : null;
@@ -3165,6 +3544,8 @@
 
     // Lines + area fills
     datasets.forEach(function (ds) {
+      var isArr = Array.isArray(ds.color);
+      var mainC = isArr ? ds.color[0] : ds.color;
       var pts = ds.data.map(function (v, i) { return { x: xP(i), y: yP(v) }; });
       // Area
       ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
@@ -3174,7 +3555,7 @@
       }
       ctx.lineTo(pts[pts.length - 1].x, pT + cH); ctx.lineTo(pts[0].x, pT + cH); ctx.closePath();
       var grad = ctx.createLinearGradient(0, pT, 0, pT + cH);
-      grad.addColorStop(0, ds.color + '2e'); grad.addColorStop(1, ds.color + '00');
+      grad.addColorStop(0, mainC + '2e'); grad.addColorStop(1, mainC + '00');
       ctx.fillStyle = grad; ctx.fill();
       // Line
       ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
@@ -3182,11 +3563,20 @@
         var cx = (pts[i - 1].x + pts[i].x) / 2;
         ctx.bezierCurveTo(cx, pts[i - 1].y, cx, pts[i].y, pts[i].x, pts[i].y);
       }
-      ctx.strokeStyle = ds.color; ctx.lineWidth = 2; ctx.stroke();
+      if (isArr) {
+        var lineGrad = ctx.createLinearGradient(pL, 0, W - pR, 0);
+        lineGrad.addColorStop(0, ds.color[0]);
+        lineGrad.addColorStop(0.5, ds.color[1]);
+        lineGrad.addColorStop(1, ds.color[2]);
+        ctx.strokeStyle = lineGrad;
+      } else {
+        ctx.strokeStyle = mainC;
+      }
+      ctx.lineWidth = 1; ctx.stroke();
       // Dots
       pts.forEach(function (p, i) {
         if (!ds.data[i]) return;
-        ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fillStyle = ds.color; ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fillStyle = mainC; ctx.fill();
       });
     });
 

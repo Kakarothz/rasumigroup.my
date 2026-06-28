@@ -420,6 +420,9 @@
   border-radius: var(--rc-radius);
   padding: 16px;
   margin-bottom: 14px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   backdrop-filter: var(--rc-blur);
   box-shadow: var(--rc-shadow);
 }
@@ -483,6 +486,8 @@
   box-shadow: var(--rc-shadow);
   position: relative;
   overflow: hidden;
+  min-width: 0;
+  box-sizing: border-box;
   cursor: default;
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
@@ -788,6 +793,10 @@
   height: 200px;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
 }
 
 #rasumi-container .r-chart-box canvas {
