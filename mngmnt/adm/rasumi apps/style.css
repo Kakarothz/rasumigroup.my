@@ -702,12 +702,17 @@
 #rasumi-container #r-health-body { min-height: 0; overflow: hidden; }
 #rasumi-container .r-tele-cmds { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 0; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); }
 #rasumi-container .r-tele-chip {
-  border: 1px solid; border-radius: 4px;
+  border: none; border-radius: 4px;
   font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
   padding: 3px 9px; cursor: pointer; font-family: var(--rc-mono);
-  transition: opacity 0.2s; white-space: nowrap; opacity: 0.3;
+  white-space: nowrap; position: relative;
 }
-#rasumi-container .r-tele-chip:hover { opacity: 1; }
+#rasumi-container .r-tele-chip::before {
+  content: ''; position: absolute; inset: 0;
+  border: 1px solid currentColor; border-radius: 4px;
+  opacity: 0.3; transition: opacity 0.2s; pointer-events: none;
+}
+#rasumi-container .r-tele-chip:hover::before { opacity: 1; }
 #rasumi-container .r-tele-chip-nav {
   border-color: rgba(255,255,255,0.2); color: var(--rc-text-dim);
   background: rgba(255,255,255,0.04); margin-left: auto;
