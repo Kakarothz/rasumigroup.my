@@ -599,14 +599,19 @@
    MAIN GRID ROWS (VIMS layout)
    ========================================================== */
 
-/* Row 2: 2 columns (nodes moved to side panel) */
+/* Row 2: 3 columns (Telemetry | Health+ECG | Stream) — fixed height stops realtime updates from resizing */
 #rasumi-container .r-mid-row {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: 410px;
   gap: 12px;
   margin-bottom: 14px;
 }
-@media (max-width: 1100px) { #rasumi-container .r-mid-row { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) { #rasumi-container .r-mid-row { grid-template-columns: 1fr; grid-auto-rows: auto; } }
+
+/* ECG heartbeat — inside NODE HEALTH card, below stats */
+#rasumi-container .r-ecg-wrap { flex: 1; display: flex; flex-direction: column; margin-top: 10px; min-height: 0; background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; overflow: hidden; }
+#rasumi-container #r-ecg-canvas { display: block; width: 100%; flex: 1; height: 0; min-height: 0; }
 
 /* Row 3: 3 columns (sys-tele removed — redundant with Node Health) */
 #rasumi-container .r-bot-row {
@@ -688,10 +693,25 @@
   font-size: 12px;
 }
 #rasumi-container .r-tele-row:last-child { border-bottom: none; }
+#rasumi-container .r-tele-row-sm { padding: 4px 0; }
 #rasumi-container .r-tele-key  { color: var(--rc-text-dim); min-width: 110px; flex-shrink: 0; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; padding-top: 1px; }
 #rasumi-container .r-tele-val  { color: var(--rc-text); font-family: var(--rc-mono); font-size: 11px; word-break: break-all; }
 
-#rasumi-container .r-tele-cmds { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+#rasumi-container #r-tele-panel { display: flex; flex-direction: column; }
+#rasumi-container #r-tele-body { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+#rasumi-container #r-health-body { min-height: 0; overflow: hidden; }
+#rasumi-container .r-tele-cmds { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 0; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); }
+#rasumi-container .r-tele-chip {
+  border: 1px solid; border-radius: 4px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+  padding: 3px 9px; cursor: pointer; font-family: var(--rc-mono);
+  transition: opacity 0.2s; white-space: nowrap; opacity: 0.3;
+}
+#rasumi-container .r-tele-chip:hover { opacity: 1; }
+#rasumi-container .r-tele-chip-nav {
+  border-color: rgba(255,255,255,0.2); color: var(--rc-text-dim);
+  background: rgba(255,255,255,0.04); margin-left: auto;
+}
 
 /* ==========================================================
    NODE HEALTH BARS (VIMS style)
@@ -723,14 +743,14 @@
 #rasumi-container .r-hb-fill.danger { background: var(--rc-red); }
 
 #rasumi-container .r-health-stats {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px;
 }
 #rasumi-container .r-hs-item {
   background: rgba(255,255,255,0.03); border: 1px solid var(--rc-border);
-  border-radius: 6px; padding: 8px 10px;
+  border-radius: 6px; padding: 5px 8px;
 }
-#rasumi-container .r-hs-lbl { font-size: 8px; color: var(--rc-text-dim); letter-spacing: 0.1em; text-transform: uppercase; }
-#rasumi-container .r-hs-val { font-size: 13px; font-weight: 700; font-family: var(--rc-mono); color: var(--rc-cyan); margin-top: 2px; }
+#rasumi-container .r-hs-lbl { font-size: 7px; color: var(--rc-text-dim); letter-spacing: 0.1em; text-transform: uppercase; }
+#rasumi-container .r-hs-val { font-size: 11px; font-weight: 700; font-family: var(--rc-mono); color: var(--rc-cyan); margin-top: 1px; }
 
 /* ==========================================================
    LIVE DATA STREAM TERMINAL
@@ -859,7 +879,7 @@
 #rasumi-container .r-cpu-wrap canvas {
   width: 100% !important;
   height: 100% !important;
-  touch-action: pan-y;
+  touch-action: none;
 }
 
 /* ── Blinking live dot ─────────────────────────────────────── */
@@ -984,7 +1004,8 @@
 /* ==========================================================
    FILTER BAR
    ========================================================== */
-#rasumi-container .r-filter-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#rasumi-container .r-filter-bar { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+#rasumi-container .r-filter-bar > * { flex: 1; text-align: center; justify-content: center; }
 
 #rasumi-container .r-filter-input {
   background: rgba(255,255,255,0.04); border: 1px solid var(--rc-border); border-radius: 6px;
@@ -1023,6 +1044,7 @@
   cursor: pointer; font-family: var(--rc-font); transition: opacity 0.12s;
 }
 #rasumi-container .r-btn-primary:hover { opacity: 0.85; }
+#rasumi-container .r-btn-primary:disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
 
 #rasumi-container .r-btn-warn {
   background: var(--rc-orange); border: none; color: #000;
@@ -1030,6 +1052,7 @@
   cursor: pointer; font-family: var(--rc-font); transition: opacity 0.12s;
 }
 #rasumi-container .r-btn-warn:hover { opacity: 0.85; }
+#rasumi-container .r-btn-warn:disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
 
 /* ==========================================================
    TABLE
@@ -1044,6 +1067,11 @@
 #rasumi-container .r-cell-trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
 #rasumi-container .r-cell-wrap  { max-width: 300px; word-break: break-word; }
 #rasumi-container .r-empty-td   { text-align: center; padding: 24px; color: var(--rc-text-dim); }
+
+/* Command history — fixed 10-row viewport with sticky header */
+#rasumi-container .r-cmd-hist-scroll { max-height: 390px; overflow-y: auto; border-radius: 6px; }
+#rasumi-container .r-cmd-hist-scroll .r-table-wrap { border-radius: 6px; overflow: visible; }
+#rasumi-container .r-cmd-hist-scroll .r-table thead th { position: sticky; top: 0; z-index: 2; background: #080d18; }
 
 /* ==========================================================
    BADGES
@@ -1138,8 +1166,8 @@
 /* ==========================================================
    COMMANDS
    ========================================================== */
-#rasumi-container .r-cmd-section { background: rgba(255,255,255,0.02); border: 1px solid var(--rc-border); border-radius: var(--rc-radius); padding: 14px; margin-bottom: 14px; }
-#rasumi-container .r-cmd-section h4 { font-size: 11px; font-weight: 700; color: var(--rc-text-dim); letter-spacing: 0.1em; margin: 0 0 10px; text-transform: uppercase; }
+#rasumi-container .r-cmd-section { background: rgba(255,255,255,0.02); border: 1px solid var(--rc-border); border-radius: var(--rc-radius); padding: 8px 12px; margin-bottom: 8px; }
+#rasumi-container .r-cmd-section h4 { font-size: 11px; font-weight: 700; color: var(--rc-text-dim); letter-spacing: 0.1em; margin: 0 0 5px; text-transform: uppercase; }
 #rasumi-container .r-cmd-row { display: flex; gap: 8px; flex-wrap: wrap; }
 #rasumi-container .r-cmd-row .r-filter-input { flex: 1; min-width: 200px; }
 #rasumi-container .r-cmd-send { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
@@ -1213,6 +1241,19 @@
   line-height: 1; transition: background 0.1s;
 }
 #rasumi-container .r-ann-emoji:hover { background: rgba(255,255,255,0.1); }
+
+/* Duration stepper */
+#rasumi-container .r-ann-step {
+  background: none; border: none; color: var(--rc-text-dim);
+  font-size: 15px; font-weight: 700; padding: 5px 11px;
+  cursor: pointer; font-family: var(--rc-font);
+  transition: color 0.12s, background 0.12s; line-height: 1;
+}
+#rasumi-container .r-ann-step:hover { color: var(--rc-cyan); background: rgba(56,189,248,0.1); }
+/* Hide browser number spinners on duration input */
+#r-announce-hours::-webkit-inner-spin-button,
+#r-announce-hours::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+#r-announce-hours { -moz-appearance: textfield; }
 #rasumi-container .r-ann-font-sel {
   background: rgba(255,255,255,0.05);
   border: 1px solid var(--rc-border);

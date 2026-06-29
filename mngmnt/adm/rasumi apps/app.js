@@ -1700,6 +1700,7 @@
   };
 
   window.rNav = function (route) {
+    _stopECG();
     RS.route = route;
     // Update horizontal nav active state
     qra('.r-hn-item').forEach(function (el) { el.classList.remove('active'); });
@@ -1744,6 +1745,106 @@
     if (matches.length === 1) { rNav('r-device:' + matches[0]); }
     else if (matches.length > 1) { rNav('r-devices'); }
   };
+
+  // ── ECG Heartbeat Animation ──────────────────────────────
+  var _ecgAnim = null;
+  var _ecgOff  = 0;
+  var _ECG_PTS = (function () {
+    var N = 300, a = [];
+    for (var i = 0; i < N; i++) {
+      var t = i / N, y = 0;
+      // P wave (smooth, small)
+      if (t > 0.08  && t < 0.16)  y += 0.14 * Math.sin(Math.PI * (t - 0.08) / 0.08);
+      // Q (sharp narrow dip)
+      if (t > 0.20  && t < 0.218) y -= 0.14 * Math.sin(Math.PI * (t - 0.20) / 0.018);
+      // R spike (sharp pointy — narrow window + power 0.3)
+      if (t > 0.218 && t < 0.242) {
+        var rp = (t - 0.218) / 0.024;
+        y += Math.pow(Math.sin(Math.PI * rp), 0.3);
+      }
+      // S (sharp narrow dip)
+      if (t > 0.242 && t < 0.262) y -= 0.22 * Math.sin(Math.PI * (t - 0.242) / 0.020);
+      // T wave (pointy peak — sin^4 narrows the tip)
+      if (t > 0.35  && t < 0.50)  { var tp = (t - 0.35) / 0.15; y += 0.30 * Math.pow(Math.sin(Math.PI * tp), 4); }
+      a.push(y);
+    }
+    return a;
+  })();
+
+  function _stopECG() {
+    if (_ecgAnim) { cancelAnimationFrame(_ecgAnim); _ecgAnim = null; }
+  }
+
+  function _startECG() {
+    _stopECG();
+    function frame() {
+      var cv = document.getElementById('r-ecg-canvas');
+      if (!cv) { _ecgAnim = null; return; }
+      var W = cv.offsetWidth, H = cv.offsetHeight;
+      if (!W || !H) { _ecgAnim = requestAnimationFrame(frame); return; }
+      if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+      var ctx = cv.getContext('2d');
+      var d = RS._selectedDevice ? RS.devices[RS._selectedDevice] : null;
+      var online = d && (d.status === 'ONLINE' || d._status === 'online');
+      ctx.clearRect(0, 0, W, H);
+      // two-level grid: fine (5px) + major (25px) — ECG paper style
+      ctx.shadowBlur = 0;
+      ctx.lineWidth  = 0.5;
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+      for (var gx = 0; gx <= W; gx += 5)  { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+      for (var gy = 0; gy <= H; gy += 5)  { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+      ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+      for (var gx2 = 0; gx2 <= W; gx2 += 25) { ctx.beginPath(); ctx.moveTo(gx2,0); ctx.lineTo(gx2,H); ctx.stroke(); }
+      for (var gy2 = 0; gy2 <= H; gy2 += 25) { ctx.beginPath(); ctx.moveTo(0,gy2); ctx.lineTo(W,gy2); ctx.stroke(); }
+      var mid = H * 0.50;
+      var amp = H * 0.35;
+      var N   = _ECG_PTS.length;
+      var pps = (N * 1.6) / W;
+      if (online) {
+        // pass 1: outer soft glow
+        ctx.beginPath();
+        ctx.shadowBlur  = 0;
+        ctx.strokeStyle = 'rgba(34,197,94,0.18)';
+        ctx.lineWidth   = 8;
+        for (var x = 0; x <= W; x++) {
+          var si = Math.floor((_ecgOff + x * pps) % N);
+          var yy = mid - amp * _ECG_PTS[si];
+          x === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+        }
+        ctx.stroke();
+        // pass 2: bright inner line with shadow glow
+        ctx.beginPath();
+        ctx.shadowBlur  = 14;
+        ctx.shadowColor = '#22c55e';
+        ctx.strokeStyle = '#86efac';
+        ctx.lineWidth   = 1.5;
+        for (var x2 = 0; x2 <= W; x2++) {
+          var si2 = Math.floor((_ecgOff + x2 * pps) % N);
+          var yy2 = mid - amp * _ECG_PTS[si2];
+          x2 === 0 ? ctx.moveTo(x2, yy2) : ctx.lineTo(x2, yy2);
+        }
+        ctx.stroke();
+        // blinking dot at lead edge
+        var dotVisible = Math.floor(Date.now() / 400) % 2 === 0;
+        if (dotVisible) {
+          var dotY = mid - amp * _ECG_PTS[Math.floor((_ecgOff + W * pps) % N)];
+          ctx.shadowBlur = 16; ctx.shadowColor = '#22c55e'; ctx.fillStyle = '#4ade80';
+          ctx.beginPath(); ctx.arc(W - 3, dotY, 3, 0, Math.PI * 2); ctx.fill();
+        }
+        _ecgOff = (_ecgOff + 2) % N;
+      } else {
+        // flatline (offline) — dim green, still visible
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(34,197,94,0.35)';
+        ctx.lineWidth   = 1;
+        ctx.moveTo(0, mid); ctx.lineTo(W, mid);
+        ctx.stroke();
+      }
+      _ecgAnim = requestAnimationFrame(frame);
+    }
+    _ecgAnim = requestAnimationFrame(frame);
+  }
 
   // ── DASHBOARD ──────────────────────────────────────────────
   function renderDashboard() {
@@ -1842,19 +1943,26 @@
     view.innerHTML =
       metricRow +
 
-      // ── Row 2: 2 columns (Telemetry | Health+Stream) ──
+      // ── Row 2: 3 columns (Telemetry | Health+ECG | Stream) ──
       '<div class="r-mid-row">' +
-      '<div class="r-panel" style="margin:0">' +
+      '<div class="r-panel" id="r-tele-panel" style="margin:0">' +
       '<div class="r-panel-title" id="r-tele-title"><i class="fa-solid fa-microchip"></i> ACTIVE TELEMETRY' +
       (selId ? ' &mdash; ' + selId : '') +
       '</div>' +
       '<div id="r-tele-body">' + teleHTML + '</div>' +
       '</div>' +
-      '<div class="r-panel" style="margin:0">' +
+      '<div style="display:flex;flex-direction:column;min-height:0;overflow:hidden">' +
+      '<div class="r-panel" style="margin:0;flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden">' +
       '<div class="r-panel-title"><i class="fa-solid fa-heart-pulse"></i> NODE HEALTH</div>' +
       '<div id="r-health-body">' + healthHTML + '</div>' +
-      '<div class="r-panel-title" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--rc-border)"><i class="fa-solid fa-terminal"></i> LIVE DATA STREAM</div>' +
-      '<div class="r-terminal" id="r-terminal"><p class="r-term-line info">Waiting for log events…<span class="r-term-cursor"></span></p></div>' +
+      '<div class="r-ecg-wrap">' +
+      '<canvas id="r-ecg-canvas"></canvas>' +
+      '</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="r-panel" style="margin:0;display:flex;flex-direction:column">' +
+      '<div class="r-panel-title"><i class="fa-solid fa-terminal"></i> LIVE DATA STREAM</div>' +
+      '<div class="r-terminal" id="r-terminal" style="flex:1;height:0;min-height:80px"><p class="r-term-line info">Waiting for log events…<span class="r-term-cursor"></span></p></div>' +
       '</div>' +
       '</div>' +
 
@@ -1924,6 +2032,9 @@
 
     // Start live stream listener
     startLiveStream();
+
+    // Start ECG animation
+    setTimeout(_startECG, 50);
   }
 
   // Navigate to Log Explorer with a pre-set status filter (no flash — flag set before render)
@@ -1988,10 +2099,10 @@
     var val = parseInt((card.querySelector('.r-metric-val') || {}).textContent, 10) || 0;
     if (val === 0) return;
     switch (mid) {
-      case 'mc-on':    rNavDevicesFiltered('online'); break;
-      case 'mc-off':   rNavDevicesFiltered('offline'); break;
-      case 'mc-runs':  rNav('r-logs'); break;
-      case 'mc-err':   window.rOpenFailedLogs && window.rOpenFailedLogs(); break;
+      case 'mc-on': rNavDevicesFiltered('online'); break;
+      case 'mc-off': rNavDevicesFiltered('offline'); break;
+      case 'mc-runs': rNav('r-logs'); break;
+      case 'mc-err': window.rOpenFailedLogs && window.rOpenFailedLogs(); break;
       case 'mc-vibes': rNav('r-vibes'); break;
       case 'mc-total': rNav('r-devices'); break;
     }
@@ -2007,31 +2118,57 @@
   };
 
   // ── Build Telemetry HTML ───────────────────────────────────
+  function _fmtNetSpeed(bps) {
+    if (bps === null || bps === undefined) return '—';
+    if (bps >= 1048576) return (bps / 1048576).toFixed(1) + ' MB/s';
+    if (bps >= 1024) return Math.round(bps / 1024) + ' KB/s';
+    return Math.round(bps) + ' B/s';
+  }
+
   function buildTelemetryHTML(d) {
     if (!d) {
       return '<div class="r-tele-empty"><i class="fa-solid fa-satellite-dish"></i>Select a node from the list</div>';
     }
+    var netVal = (d.net_up_bps !== undefined || d.net_down_bps !== undefined)
+      ? '<span style="color:#4ade80">↑' + _fmtNetSpeed(d.net_up_bps) + '</span> <span style="color:#38bdf8">↓' + _fmtNetSpeed(d.net_down_bps) + '</span>'
+      : '—';
     var rows = [
-      ['STATUS', '<span class="r-badge ' + ({ online: 'r-badge-ok', stale: 'r-badge-warn', offline: 'r-badge-err' }[d._status] || 'r-badge-muted') + '">' + d._status.toUpperCase() + '</span>'],
-      ['HOSTNAME', '<span class="r-font-mono">' + esc(d.id || d.hostname || '—') + '</span>'],
-      ['OS', esc(d.os_name || d.sys_info || '—')],
+      ['STATUS',      '<span class="r-badge ' + ({ online: 'r-badge-ok', stale: 'r-badge-warn', offline: 'r-badge-err' }[d._status] || 'r-badge-muted') + '">' + d._status.toUpperCase() + '</span>'],
+      ['HOSTNAME',    '<span class="r-font-mono">' + esc(d.id || d.hostname || '—') + '</span>'],
+      ['OS',          esc(d.os_name || d.os_version || d.sys_info || '—')],
       ['CURRENT JOB', esc(d.current_job || 'IDLE')],
-      ['PENDING', (d.pending_files !== undefined ? d.pending_files : '—') + ' files'],
-      ['VERSION', esc(d.version || '—')],
-      ['UPTIME', esc(d.uptime || '—')],
-      ['HEARTBEAT', fmtTs(d.last_heartbeat || d.last_seen)]
+      ['PENDING',     (d.pending_files !== undefined ? d.pending_files : '—') + ' files'],
+      ['VERSION',     esc(d.version || '—')],
+      ['UPTIME',      esc(d.uptime || '—')],
+      ['HEARTBEAT',   fmtTs(d.last_heartbeat || d.last_seen)],
+    ];
+    var extraRows = [
+      ['NETWORK',     netVal],
+      ['IP ADDRESS',  esc(d.ip_address || '—')],
+      ['PUBLIC IP',   esc(d.public_ip || '—')],
+      ['BRANCH',      esc(d.branch_id || '—')],
     ];
     var rowsHTML = rows.map(function (r) {
-      return '<div class="r-tele-row"><span class="r-tele-key">' + r[0] + '</span><span class="r-tele-val">' + r[1] + '</span></div>';
+      return '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">' + r[0] + '</span><span class="r-tele-val">' + r[1] + '</span></div>';
+    }).join('') + extraRows.map(function (r) {
+      return '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">' + r[0] + '</span><span class="r-tele-val">' + r[1] + '</span></div>';
     }).join('');
+    function _tc(cmd, color, label) {
+      return '<button class="r-tele-chip" style="border-color:' + color + ';color:' + color + ';background:rgba(0,0,0,0.15)" ' +
+        'onclick="rSendTeleCmd(\'' + esc(d.id) + '\',\'' + cmd + '\')" title="' + cmd + '">' + (label || cmd) + '</button>';
+    }
     var cmds =
       '<div class="r-tele-cmds">' +
-      '<button class="r-btn-sm" onclick="rSendTeleCmd(\'' + esc(d.id) + '\',\'PING\')">Ping</button>' +
-      '<button class="r-btn-sm" onclick="rSendTeleCmd(\'' + esc(d.id) + '\',\'RESTART\')">Restart</button>' +
-      '<button class="r-btn-sm" onclick="rSendTeleCmd(\'' + esc(d.id) + '\',\'STATUS\')">Status</button>' +
-      '<button class="r-btn-sm" onclick="rNav(\'r-device:' + esc(d.id) + '\')">Full Detail →</button>' +
+      _tc('PING',           '#0ea5e9',         'PING') +
+      _tc('RESTART',        '#f59e0b',         'RESTART') +
+      _tc('KILL',           '#ef4444',         'KILL') +
+      _tc('VERSION_CHECK',  '#a78bfa',         'VERSION') +
+      _tc('CHECK_DISK',     '#fb923c',         'DISK') +
+      _tc('GET_LOGS',       '#4ade80',         'LOGS') +
+      _tc('CAPTURE_PUBLIC_IP','#22d3ee',       'LOCATION') +
+      '<button class="r-tele-chip r-tele-chip-nav" onclick="rNav(\'r-device:' + esc(d.id) + '\')"><i class="fa-solid fa-eye"></i> View Details</button>' +
       '</div>';
-    return rowsHTML + cmds;
+    return '<div style="flex:1;overflow-y:auto;min-height:0">' + rowsHTML + '</div>' + cmds;
   }
 
   window.rSendTeleCmd = function (hostname, cmd) {
@@ -2043,6 +2180,47 @@
       created_by: user ? user.email : 'admin'
     }).then(function () { rToast(cmd + ' sent to ' + hostname, 'success'); })
       .catch(function (e) { rToast('Error: ' + e.message, 'error'); });
+  };
+
+  // ── View Full Log (GET_LOGS command output) ───────────────────────────────
+  window.rViewFullLog = function (cmdId) {
+    if (!RS.supa) { rToast('Supabase not ready', 'error'); return; }
+    // Create or reuse a floating log viewer overlay
+    var ovId = 'r-fulllog-overlay';
+    var existing = $r(ovId);
+    if (existing) existing.remove();
+    var ov = document.createElement('div');
+    ov.id = ovId;
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;padding:24px;';
+    ov.innerHTML =
+      '<div style="background:var(--rc-surface,#0d1117);border:1px solid var(--rc-border,#1e293b);border-radius:12px;' +
+      'width:100%;max-width:820px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--rc-border,#1e293b)">' +
+      '<span style="font-size:13px;font-weight:600;color:var(--rc-cyan,#38bdf8)"><i class="fa-solid fa-scroll" style="margin-right:8px"></i>Full Log Output</span>' +
+      '<button onclick="document.getElementById(\'' + ovId + '\').remove()" style="background:none;border:none;color:var(--rc-muted);cursor:pointer;font-size:16px;">✕</button>' +
+      '</div>' +
+      '<pre id="r-fulllog-pre" style="margin:0;padding:16px;overflow:auto;font-size:11px;font-family:\'JetBrains Mono\',monospace;color:var(--rc-text);line-height:1.6;flex:1;">' +
+      '<span style="color:var(--rc-muted)">Loading…</span></pre>' +
+      '</div>';
+    ov.addEventListener('click', function (ev) { if (ev.target === ov) ov.remove(); });
+    document.body.appendChild(ov);
+
+    RS.supa.from('command_outputs').select('content,created_at').eq('cmd_id', cmdId).limit(1)
+      .then(function (res) {
+        var pre = $r('r-fulllog-pre');
+        if (!pre) return;
+        var row = (res.data || [])[0];
+        if (!row || !row.content) {
+          pre.textContent = 'No log content stored for this command.';
+          return;
+        }
+        pre.textContent = row.content;
+        pre.scrollTop = pre.scrollHeight;
+      })
+      .catch(function (e) {
+        var pre = $r('r-fulllog-pre');
+        if (pre) pre.textContent = 'Error loading log: ' + (e.message || e);
+      });
   };
 
   // ── Build Health Bars HTML ─────────────────────────────────
@@ -2096,7 +2274,10 @@
       stBar(ram, 'ram-fill', 'MEMORY', ramNums) +
       stBar(disk, 'disk-fill', 'DISK C:', diskNums) +
       stBar(latPct, 'net-fill', 'LATENCY', latMs !== null ? latMs + 'ms' : 'N/A') +
-      '<div class="r-tele-row"><span class="r-tele-key">OS</span><span class="r-tele-val">' + esc(d.os_name || d.sys_info || '—') + '</span></div>';
+      '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">OS</span><span class="r-tele-val">' + esc(d.os_name || d.os_version || d.sys_info || '—') + '</span></div>' +
+      '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">IP Address</span><span class="r-tele-val">' + esc(d.ip_address || '—') + '</span></div>' +
+      '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">Public IP</span><span class="r-tele-val">' + esc(d.public_ip || '—') + '</span></div>' +
+      '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">Branch</span><span class="r-tele-val">' + esc(d.branch_id || '—') + '</span></div>';
   }
 
   // ── Build Recent Activity HTML ────────────────────────────
@@ -2231,12 +2412,26 @@
   function appendTerminalLine(e) {
     var term = $r('r-terminal');
     if (!term) return;
+
+    // ── PROACTIVE ALERT — toast + skip terminal for CRITICAL ───────────────
+    if ((e.app_name || '').toUpperCase() === 'SYSTEM_ALERT') {
+      var alertMsg = e.file_name || e.status || 'System Alert';
+      var lvl = (e.status || '').toUpperCase();
+      if (lvl === 'CRITICAL') {
+        rToast('🔴 CRITICAL: ' + alertMsg, 'error', 10000);
+      } else {
+        rToast('⚠️ WARNING: ' + alertMsg, 'warn', 6000);
+      }
+      // Also render in terminal as a highlighted line (fall through below)
+    }
+
     var ts = fmtTs(e.timestamp || e.created_at);
     var rawSt = e.status || '';
     var isMsg = rawSt.length > 30;
     var stCode = isMsg ? 'DEBUG' : (rawSt.toUpperCase() || 'INFO');
     var file = e.file_name || e.activity_name || '';
     var cls = stCode === 'FAILED' ? 'err' : stCode === 'COMPLETED' ? 'ok' : stCode === 'DEBUG' ? 'debug' : 'info';
+    if ((e.app_name || '').toUpperCase() === 'SYSTEM_ALERT') cls = stCode === 'CRITICAL' ? 'err' : 'warn';
     var line = '[' + ts + '] [' + (e.app_name || '?') + '] ' + stCode + (file ? ' · ' + file : '');
 
     // Remove cursor from last line
@@ -2312,7 +2507,7 @@
       for (var i = 0; i < 24; i++) {
         var dh = new Date(dStart); dh.setHours(i);
         var labelTime = i === 0 ? '12 AM' : i < 12 ? i + ' AM' : i === 12 ? '12 PM' : (i - 12) + ' PM';
-        labels.push(labelTime); starts.push(_ddIsoHour(dh)); 
+        labels.push(labelTime); starts.push(_ddIsoHour(dh));
         var dhe = new Date(dh); dhe.setHours(i, 59, 59); ends.push(_ddIsoDate(dhe) + 'T' + (dhe.getHours() < 10 ? '0' : '') + dhe.getHours() + ':59:59');
       }
     } else if (view === 'week') {
@@ -2338,10 +2533,10 @@
       .then(function (res) {
         canvas.style.opacity = '1';
         var data = res.data || [];
-        
+
         if (view === 'day') {
-          var hasOutside = data.some(function(e) {
-            var hrIdx = starts.findIndex(function(s, idx) { return (e.timestamp || '') >= s && (e.timestamp || '') <= ends[idx]; });
+          var hasOutside = data.some(function (e) {
+            var hrIdx = starts.findIndex(function (s, idx) { return (e.timestamp || '') >= s && (e.timestamp || '') <= ends[idx]; });
             return hrIdx !== -1 && (hrIdx < 8 || hrIdx > 17);
           });
           if (!hasOutside) {
@@ -2406,7 +2601,7 @@
   function _renderDashLegend(datasets) {
     var lg = $r('d-chart-legend'); if (!lg) return;
     lg.innerHTML = datasets.map(function (ds) {
-      var cStyle = Array.isArray(ds.color) ? 'background:linear-gradient(135deg,'+ds.color.join(',')+')' : 'background:'+ds.color;
+      var cStyle = Array.isArray(ds.color) ? 'background:linear-gradient(135deg,' + ds.color.join(',') + ')' : 'background:' + ds.color;
       return '<div style="display:flex;align-items:center;gap:4px;font-size:11px">' +
         '<div style="width:8px;height:8px;border-radius:50%;' + cStyle + '"></div>' + esc(ds.label) + '</div>';
     }).join('');
@@ -2418,7 +2613,7 @@
     var data = canvas._exportData;
     var rows = [['Category'].concat(data.labels)];
     data.datasets.forEach(function (ds) { rows.push([ds.label].concat(ds.data)); });
-    
+
     var doExport = function (XLSX) {
       var ws = XLSX.utils.aoa_to_sheet(rows);
       var wb = XLSX.utils.book_new();
@@ -2518,13 +2713,13 @@
       var ratio = (mx - cd.pL) / cd.cW;
       var idx = Math.round(ratio * (cd.n - 1));
       if (idx < 0) idx = 0; if (idx >= cd.n) idx = cd.n - 1;
-      
+
       var snapX = cd.xP(idx);
       ctx.putImageData(canvas._base, 0, 0);
-      
+
       ctx.beginPath(); ctx.moveTo(snapX, cd.pT); ctx.lineTo(snapX, cd.pT + cd.cH);
       ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
-      
+
       var tt = $r('d-chart-tooltip');
       var lines = ['<div style="color:var(--rc-text-dim);font-size:10px;margin-bottom:6px">' + cd.labels[idx] + '</div>'];
       var total = 0;
@@ -2533,7 +2728,7 @@
         if (!v) return;
         total += v;
         var mainC = Array.isArray(ds.color) ? ds.color[0] : ds.color;
-        var cStyle = Array.isArray(ds.color) ? 'background:linear-gradient(135deg,'+ds.color.join(',')+')' : 'background:'+ds.color;
+        var cStyle = Array.isArray(ds.color) ? 'background:linear-gradient(135deg,' + ds.color.join(',') + ')' : 'background:' + ds.color;
         ctx.beginPath(); ctx.arc(snapX, cd.yP(v), 5, 0, Math.PI * 2);
         ctx.fillStyle = mainC; ctx.fill();
         ctx.lineWidth = 2; ctx.strokeStyle = '#080c13'; ctx.stroke();
@@ -2542,7 +2737,7 @@
           '<span style="font-weight:600">' + v + '</span></div>');
       });
       if (total === 0) lines.push('<div style="color:#64748b">No data</div>');
-      
+
       if (tt) {
         tt.innerHTML = lines.join('');
         tt.style.display = 'block';
@@ -2912,7 +3107,7 @@
     var groupByDay = range !== '24H';
     var since;
     if (range === '24H') {
-      var startDt = new Date(); startDt.setDate(startDt.getDate() - 3); startDt.setHours(0,0,0,0);
+      var startDt = new Date(); startDt.setDate(startDt.getDate() - 3); startDt.setHours(0, 0, 0, 0);
       since = startDt.toISOString();
     } else {
       var msBack = range === '7D' ? 7 * 864e5 : 30 * 864e5;
@@ -2936,24 +3131,24 @@
           var endDt = new Date(); endDt.setHours(23, 30, 0, 0);
           var slotMap = {};
           var current = new Date(startDt.getTime());
-          while(current.getTime() <= endDt.getTime()) {
-            var label = String(current.getDate()).padStart(2, '0') + '/' + 
-                        String(current.getMonth() + 1).padStart(2, '0') + ' ' + 
-                        String(current.getHours()).padStart(2, '0') + ':' + 
-                        String(current.getMinutes()).padStart(2, '0');
+          while (current.getTime() <= endDt.getTime()) {
+            var label = String(current.getDate()).padStart(2, '0') + '/' +
+              String(current.getMonth() + 1).padStart(2, '0') + ' ' +
+              String(current.getHours()).padStart(2, '0') + ':' +
+              String(current.getMinutes()).padStart(2, '0');
             labels.push(label);
             data.push(0);
             slotMap[label] = data.length - 1;
             current = new Date(current.getTime() + 1800000); // add 30 mins
           }
-          
+
           rows.forEach(function (r) {
             var dt = new Date(r.recorded_at);
             dt.setMinutes(Math.floor(dt.getMinutes() / 30) * 30, 0, 0);
-            var label = String(dt.getDate()).padStart(2, '0') + '/' + 
-                        String(dt.getMonth() + 1).padStart(2, '0') + ' ' + 
-                        String(dt.getHours()).padStart(2, '0') + ':' + 
-                        String(dt.getMinutes()).padStart(2, '0');
+            var label = String(dt.getDate()).padStart(2, '0') + '/' +
+              String(dt.getMonth() + 1).padStart(2, '0') + ' ' +
+              String(dt.getHours()).padStart(2, '0') + ':' +
+              String(dt.getMinutes()).padStart(2, '0');
             var idx = slotMap[label];
             if (idx !== undefined) {
               data[idx] = r.cpu_pct != null ? Math.round(r.cpu_pct * 10) / 10 : 0;
@@ -2964,15 +3159,15 @@
           var nowDt = new Date();
           nowDt.setMinutes(Math.floor(nowDt.getMinutes() / 30) * 30, 0, 0);
           var minDt = new Date(nowDt.getTime() - 4 * 3600000); // 4 hours ago
-          
-          minLabel = String(minDt.getDate()).padStart(2, '0') + '/' + 
-                     String(minDt.getMonth() + 1).padStart(2, '0') + ' ' + 
-                     String(minDt.getHours()).padStart(2, '0') + ':' + 
-                     String(minDt.getMinutes()).padStart(2, '0');
-          maxLabel = String(nowDt.getDate()).padStart(2, '0') + '/' + 
-                     String(nowDt.getMonth() + 1).padStart(2, '0') + ' ' + 
-                     String(nowDt.getHours()).padStart(2, '0') + ':' + 
-                     String(nowDt.getMinutes()).padStart(2, '0');
+
+          minLabel = String(minDt.getDate()).padStart(2, '0') + '/' +
+            String(minDt.getMonth() + 1).padStart(2, '0') + ' ' +
+            String(minDt.getHours()).padStart(2, '0') + ':' +
+            String(minDt.getMinutes()).padStart(2, '0');
+          maxLabel = String(nowDt.getDate()).padStart(2, '0') + '/' +
+            String(nowDt.getMonth() + 1).padStart(2, '0') + ' ' +
+            String(nowDt.getHours()).padStart(2, '0') + ':' +
+            String(nowDt.getMinutes()).padStart(2, '0');
         } else {
           // 7D / 1M — group by calendar day, average per day
           var days = range === '7D' ? 7 : 30;
@@ -2996,7 +3191,7 @@
 
         var cpuChart = RS._charts.cpu;
         if (!cpuChart) return;
-        
+
         var cpuCanvas = $r('r-chart-cpu');
         var colors = _hashColors(hostname);
         if (cpuCanvas) {
@@ -3018,14 +3213,14 @@
 
         cpuChart.data.labels = labels;
         cpuChart.data.datasets[0].data = data;
-        
+
         // Force array of colors for points so Chart.js clears old gradient cache
-        cpuChart.data.datasets[0].pointBackgroundColor = data.map(function() { return colors[2]; });
-        cpuChart.data.datasets[0].pointBorderColor = data.map(function() { return colors[2]; });
-        cpuChart.data.datasets[0].pointHoverBackgroundColor = data.map(function() { return colors[2]; });
+        cpuChart.data.datasets[0].pointBackgroundColor = data.map(function () { return colors[2]; });
+        cpuChart.data.datasets[0].pointBorderColor = data.map(function () { return colors[2]; });
+        cpuChart.data.datasets[0].pointHoverBackgroundColor = data.map(function () { return colors[2]; });
         cpuChart.data.datasets[0].borderWidth = 1;
         cpuChart.data.datasets[0].pointRadius = 1;
-        
+
         // Keep continuous line to show smooth bukit shape
         cpuChart.data.datasets[0].spanGaps = true;
         if (groupByDay) {
@@ -3389,9 +3584,18 @@
       '<div class="r-panel-title"><i class="fa-solid fa-server"></i> SYSTEM TELEMETRY</div>' +
       buildSysTeleHTML(d) +
       '</div>' +
-      '<div class="r-panel" style="margin:0">' +
+      '<div class="r-panel" style="margin:0;display:flex;flex-direction:column;">' +
       '<div class="r-panel-title"><i class="fa-solid fa-terminal"></i> LIVE STREAM</div>' +
-      '<div class="r-terminal" id="r-terminal"><p class="r-term-line info">Showing device logs…<span class="r-term-cursor"></span></p></div>' +
+      '<div class="r-terminal" id="r-terminal" style="flex:1;height:auto;min-height:120px"><p class="r-term-line info">Showing device logs…<span class="r-term-cursor"></span></p></div>' +
+      '</div>' +
+      '<div class="r-panel" style="margin:0;display:flex;flex-direction:column;">' +
+      '<div class="r-panel-title" style="display:flex;align-items:center;justify-content:space-between;">' +
+      '<span><i class="fa-solid fa-map-location-dot"></i> DEVICE LOCATION</span>' +
+      '<span style="font-size:10px;color:#64748b;font-weight:normal;letter-spacing:0.5px">IP: ' + esc(d.public_ip || d.ip_address || 'Unknown') + '</span>' +
+      '</div>' +
+      '<div style="flex:1;position:relative;border-radius:6px;overflow:hidden;background:#0f172a;min-height:200px;">' +
+      '<iframe width="100%" height="100%" frameborder="0" style="border:0;position:absolute;top:0;left:0;" src="https://maps.google.com/maps?q=' + esc(d.location || d.public_ip || 'Kuala Lumpur, Malaysia') + '&t=k&z=13&ie=UTF8&iwloc=&output=embed" allowfullscreen></iframe>' +
+      '</div>' +
       '</div>' +
       '</div>'
     ) : '';
@@ -3940,20 +4144,34 @@
 
   // ── TAB: COMMANDS ──────────────────────────────────────────────
   function ddCmds(hostname, box) {
-    var chips = ['PING', 'KILL', 'RESTART', 'REFRESH_STATUS', 'PAUSE', 'RESUME', 'CLEAR_LOGS'];
-    var chipColors = {
-      PING: 'var(--cyan)', KILL: 'var(--rc-red)', RESTART: 'var(--rc-warn)',
-      REFRESH_STATUS: 'var(--rc-green)', PAUSE: 'var(--rc-warn)',
-      RESUME: 'var(--rc-green)', CLEAR_LOGS: 'var(--rc-muted)'
-    };
-    var chipsHTML = chips.map(function (cmd) {
-      return '<button style="border:none;background:none;color:' + chipColors[cmd] + ';font-size:11px;cursor:pointer;padding:4px 6px" ' +
+    var _chip = function(cmd, color) {
+      return '<button style="border:none;background:none;color:' + color + ';font-size:11px;cursor:pointer;padding:3px 6px;white-space:nowrap" ' +
         'onclick="document.getElementById(\'r-cmd-inp\').value=\'' + cmd + '\'">' + cmd + '</button>';
-    }).join('');
+    };
+    var grp1 =
+      _chip('PING',         '#0ea5e9') +
+      _chip('KILL',         'var(--rc-red)') +
+      _chip('RESTART',      '#f59e0b') +
+      _chip('REFRESH_STATUS','#10b981') +
+      _chip('PAUSE',        '#8b5cf6') +
+      _chip('RESUME',       '#84cc16') +
+      _chip('RERUN',        '#ec4899') +
+      _chip('UPDATE_AGENT', '#facc15');
+    var grp2 =
+      _chip('VERSION_CHECK',     '#a78bfa') +
+      _chip('CHECK_DISK',        '#fb923c') +
+      _chip('GET_LOGS',          '#4ade80') +
+      _chip('SPEED_TEST',        '#e879f9') +
+      _chip('CAPTURE_PUBLIC_IP', '#22d3ee') +
+      _chip('CLEAR_CACHE',       '#94a3b8') +
+      _chip('CLEAR_LOGS',        '#64748b') +
+      _chip('RUN_SCRIPT',        '#f97316');
 
     box.innerHTML =
-      '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;padding:8px 10px;background:var(--rc-bg2);border-radius:6px">' +
-      chipsHTML +
+      '<div style="margin-bottom:10px;padding:8px 10px;background:var(--rc-bg2);border-radius:6px">' +
+      '<div style="display:flex;flex-wrap:wrap;gap:2px">' + grp1 + '</div>' +
+      '<div style="height:1px;background:var(--rc-border);margin:6px 0"></div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:2px">' + grp2 + '</div>' +
       '</div>' +
       '<div class="r-cmd-send">' +
       '<input class="r-filter-input" id="r-cmd-inp" placeholder="Click chip above or type custom command…" style="flex:1">' +
@@ -5047,20 +5265,50 @@
 
       // Detail rows
       var detailHtml;
-      if (isVibes && g.logs.length === 1 && g.logs[0].job_info) {
-        // VIBES: show individual tuntutan numbers from job_info
-        var tNos = g.logs[0].job_info.tuntutan_nos || [];
-        if (tNos.length) {
-          var vibesRows = tNos.map(function (tNo, i) {
-            return '<tr>' +
-              '<td style="color:var(--text-2);font-size:11px">' + (i + 1) + '</td>' +
-              '<td class="r-font-mono">' + esc(String(tNo)) + '</td>' +
-              '<td><span class="r-badge r-badge-ok">UPLOADED</span></td>' +
-              '</tr>';
-          }).join('');
-          detailHtml = tableWrap(['#', 'Tuntutan No', 'Status'], vibesRows);
+      if (isVibes) {
+        // ── VIBES: one log row per invoice, grouped by job_info.tuntutan_no ──
+        var _vibesByTno = {};
+        var _vibesTnoOrder = [];
+        g.logs.forEach(function (l) {
+          var tNo = (l.job_info && l.job_info.tuntutan_no) || '—';
+          if (!_vibesByTno[tNo]) { _vibesByTno[tNo] = []; _vibesTnoOrder.push(tNo); }
+          _vibesByTno[tNo].push(l);
+        });
+        if (!_vibesTnoOrder.length) {
+          detailHtml = '<div class="r-empty" style="padding:8px">No invoice data in this batch</div>';
         } else {
-          detailHtml = '<div class="r-empty" style="padding:8px">No tuntutan data in this batch</div>';
+          detailHtml = _vibesTnoOrder.map(function (tNo) {
+            var invLogs = _vibesByTno[tNo];
+            var invRows = invLogs.map(function (l) {
+              var st = (l.status || '').toUpperCase();
+              var isFail = st === 'FAILED' || st === 'ERROR';
+              var badge = isFail ? 'r-badge-err' : 'r-badge-ok';
+              var badgeLabel = isFail ? st : 'UPLOADED';
+              var invNo = (l.job_info && l.job_info.invoice_no) || '—';
+              var amtRaw = l.job_info && l.job_info.amount != null ? l.job_info.amount : null;
+              var amtStr = amtRaw != null ? 'RM ' + parseFloat(amtRaw).toFixed(2) : '—';
+              var pages = l.job_info && l.job_info.pages != null ? l.job_info.pages : '—';
+              var durVal = l.duration != null ? l.duration
+                : (l.job_info && l.job_info.duration_s != null ? l.job_info.duration_s : null);
+              var errMsg = l.error_msg || (l.job_info && l.job_info.error) || '';
+              return '<tr>' +
+                '<td class="r-font-mono" style="white-space:nowrap;font-size:11px;vertical-align:top;padding-top:6px">' + _fmtTime(l.timestamp) + '</td>' +
+                '<td class="r-cell-trunc r-font-mono" style="max-width:160px;font-size:11px;vertical-align:top;padding-top:6px" title="' + esc(l.file_name || '') + '">' + esc(l.file_name || '—') + '</td>' +
+                '<td class="r-font-mono" style="font-size:11px;vertical-align:top;padding-top:6px">' + esc(invNo) + '</td>' +
+                '<td style="font-size:11px;white-space:nowrap;vertical-align:top;padding-top:6px">' + esc(amtStr) + '</td>' +
+                '<td style="vertical-align:top;padding-top:6px"><span class="r-badge ' + badge + '">' + badgeLabel + '</span></td>' +
+                '<td class="r-cell-trunc" style="max-width:200px;font-size:11px;color:#64748b;vertical-align:top;padding-top:6px">' + (errMsg ? esc(errMsg) : '—') + '</td>' +
+                '<td style="font-size:11px;white-space:nowrap;vertical-align:top;padding-top:6px">' + (durVal != null ? parseFloat(durVal).toFixed(2) + 's' : '—') + '</td>' +
+                '<td style="font-size:11px;text-align:center;vertical-align:top;padding-top:6px">' + esc(String(pages)) + '</td>' +
+                '<td style="vertical-align:top;padding-top:6px">—</td>' +
+                '</tr>';
+            }).join('');
+            return '<div style="margin-bottom:14px">' +
+              '<div style="font-size:11px;font-weight:600;color:var(--rc-cyan,#38bdf8);padding:6px 0 4px;letter-spacing:0.04em">' +
+              '<i class="fa-solid fa-id-card" style="margin-right:5px;opacity:0.7"></i>No. Tuntutan: ' + esc(tNo) + '</div>' +
+              tableWrap(['Time', 'File', 'DO', 'Amount', 'Status', 'Error / Detail', 'Duration', 'Pages', 'Action'], invRows) +
+              '</div>';
+          }).join('');
         }
       } else {
         // Default: one row per file log (non-PROCESSING entries)
@@ -5304,14 +5552,16 @@
         '</tr>';
     }).join('');
 
+    var tbl = tableWrap(
+      ['Date']
+        .concat(showMachine ? ['Machine'] : [])
+        .concat(showBranch ? ['Branch'] : [])
+        .concat(['Application', 'Start', 'End', 'Files', 'Duration', 'Status', 'Job ID', 'Details']),
+      rows);
+
     box.innerHTML =
       '<div class="r-results-count">' + sessions.length + ' session(s) — ' + data.length + ' log entries</div>' +
-      tableWrap(
-        ['Date']
-          .concat(showMachine ? ['Machine'] : [])
-          .concat(showBranch ? ['Branch'] : [])
-          .concat(['Application', 'Start', 'End', 'Files', 'Duration', 'Status', 'Job ID', 'Details']),
-        rows);
+      (context !== 'global' ? '<div class="r-cmd-hist-scroll">' + tbl + '</div>' : tbl);
 
   }
 
@@ -5392,10 +5642,11 @@
 
 
   // ── COMMANDS ───────────────────────────────────────────────
-  function _qCmd(cmd, icon, color, desc) {
+  function _qCmd(cmd, icon, color, desc, label) {
+    var display = label || cmd;
     return '<button class="r-btn-sm" title="' + esc(desc) + '" style="border:none;background:none;color:' + color + ';font-size:11px;cursor:pointer" ' +
-      'onclick="var i=document.getElementById(\'r-cmd-dev-inp\')||document.getElementById(\'r-cmd-inp\');if(i)i.value=\'' + cmd + '\'">' +
-      '<i class="fa-solid ' + icon + '"></i> ' + cmd + '</button>';
+      'onclick="var i=document.getElementById(\'r-cmd-dev-inp\')||document.getElementById(\'r-cmd-inp\');if(i){i.value=\'' + cmd + '\';if(window._rChkSend)window._rChkSend();}">' +
+      '<i class="fa-solid ' + icon + '"></i> ' + display + '</button>';
   }
 
   function renderCommands() {
@@ -5405,23 +5656,32 @@
     view.innerHTML =
       '<div class="r-panel">' +
       '<div class="r-panel-hdr"><h3><i class="fa-solid fa-terminal"></i> Remote Commands</h3></div>' +
-      '<div class="r-info-box">' +
-      '<i class="fa-solid fa-circle-info"></i>' +
-      '<div>Commands write to Supabase <code>commands</code> table. Agent polls every 10s and executes pending commands.</div>' +
-      '</div>' +
 
-      // Quick command chips
+      // Quick command chips — Group 1: System Control
       '<div class="r-cmd-section">' +
       '<h4>Quick Commands <span class="r-muted-sm">— click to fill input</span></h4>' +
-      '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">' +
-      _qCmd('PING', 'fa-satellite-dish', '#0ea5e9', 'Check if machine is alive & responsive') + // Sky Blue
-      _qCmd('KILL', 'fa-skull', 'var(--rc-red)', 'Force close Rasumi Apps immediately') + // Red
-      _qCmd('RESTART', 'fa-rotate-right', '#f59e0b', 'Relaunch Rasumi Apps on target machine') + // Amber/Orange
-      _qCmd('REFRESH', 'fa-arrows-rotate', '#10b981', 'Force push machine status to Supabase now') + // Emerald Green
-      _qCmd('PAUSE', 'fa-pause', '#8b5cf6', 'Pause all processing jobs') + // Purple
-      _qCmd('RESUME', 'fa-play', '#84cc16', 'Resume paused processing jobs') + // Lime Green
-      _qCmd('RERUN', 'fa-redo', '#ec4899', 'Prompt operator to retry current job') + // Pink
-      _qCmd('CLEAR_LOGS', 'fa-trash-can', 'var(--rc-muted)', 'Clear old local log files on machine') + // Gray
+      '<div style="font-size:10px;color:var(--rc-muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px;margin-bottom:3px">System Control</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:5px">' +
+      _qCmd('PING',        'fa-satellite-dish',       '#0ea5e9',        'Check if machine is alive — returns CPU, RAM & uptime') +
+      _qCmd('KILL',        'fa-skull',                'var(--rc-red)',   'Force close Rasumi Apps immediately') +
+      _qCmd('RESTART',     'fa-rotate-right',         '#f59e0b',        'Relaunch Rasumi Apps on target machine') +
+      _qCmd('REFRESH',     'fa-arrows-rotate',        '#10b981',        'Force push machine status to Supabase now') +
+      _qCmd('PAUSE',       'fa-pause',                '#8b5cf6',        'Pause all processing jobs') +
+      _qCmd('RESUME',      'fa-play',                 '#84cc16',        'Resume paused processing jobs') +
+      _qCmd('RERUN',       'fa-redo',                 '#ec4899',        'Prompt operator to retry current job') +
+      _qCmd('UPDATE_AGENT','fa-arrow-up-from-bracket','#facc15',        'Check for latest version and auto-install if available', 'UPDATE') +
+      '</div>' +
+      // Group 2: Diagnostics & Maintenance
+      '<div style="font-size:10px;color:var(--rc-muted);text-transform:uppercase;letter-spacing:1px;margin-top:7px;margin-bottom:3px">Diagnostics &amp; Maintenance</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:5px">' +
+      _qCmd('VERSION_CHECK',    'fa-tag',           '#a78bfa', 'Return agent version, OS info and local IP') +
+      _qCmd('CHECK_DISK',       'fa-hard-drive',    '#fb923c', 'Show free/used space on all drives with health status') +
+      _qCmd('GET_LOGS',         'fa-scroll',        '#4ade80', 'Fetch latest error logs from the machine') +
+      _qCmd('SPEED_TEST',       'fa-gauge-high',    '#e879f9', 'Measure internet ping, download and upload speed') +
+      _qCmd('CAPTURE_PUBLIC_IP','fa-location-dot',  '#22d3ee', 'Fetch public IP and geolocation, update device map pin', 'GET_LOCATION') +
+      _qCmd('CLEAR_CACHE',      'fa-broom',         '#94a3b8', 'Delete temp files and free up disk space') +
+      _qCmd('CLEAR_LOGS',       'fa-trash-can',     '#64748b', 'Clear old local log files on machine') +
+      _qCmd('RUN_SCRIPT',       'fa-terminal',      '#f97316', 'Execute custom PowerShell script silently (SUPER ADMIN)') +
       '</div>' +
       '</div>' +
 
@@ -5430,14 +5690,14 @@
       '<div class="r-cmd-row">' +
       '<select class="r-filter-sel" id="r-cmd-dev-sel"><option value="">Select Machine</option>' + devOpts + '</select>' +
       '<input class="r-filter-input" id="r-cmd-dev-inp" placeholder="Select a quick command above or type custom…">' +
-      '<button class="r-btn-primary" onclick="rSendCmd()">Send</button>' +
+      '<button class="r-btn-primary" id="r-btn-send" disabled onclick="rSendCmd()"><i class="fa-solid fa-paper-plane"></i> Send</button>' +
       '</div>' +
       '</div>' +
       '<div class="r-cmd-section">' +
       '<h4>Broadcast to All Online Machines</h4>' +
       '<div class="r-cmd-row">' +
       '<input class="r-filter-input" id="r-broadcast-inp" placeholder="Broadcast command…">' +
-      '<button class="r-btn-warn" onclick="rSendBroadcast()">Broadcast</button>' +
+      '<button class="r-btn-warn" id="r-btn-broadcast" disabled onclick="rSendBroadcast()"><i class="fa-solid fa-tower-broadcast"></i> Broadcast</button>' +
       '</div>' +
       '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--rc-border)">' +
       '<h4 style="font-size:11px;font-weight:700;color:var(--rc-text-dim);letter-spacing:0.1em;margin:0 0 8px;text-transform:uppercase">📢 Login Screen Announcement</h4>' +
@@ -5508,15 +5768,25 @@
       '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'🦾\')">🦾</button>' +
       '<button class="r-ann-emoji" onmousedown="event.preventDefault();rAnnEmoji(\'👁️\')">👁️</button>' +
       '</div>' +
-      '<div class="r-cmd-row" style="align-items:center;margin-top:8px">' +
-      '<span style="font-size:11px;font-weight:600;color:var(--rc-text-dim);white-space:nowrap;flex-shrink:0">Duration (hours)</span>' +
-      '<input class="r-filter-input" id="r-announce-hours" type="number" min="1" max="720" value="24" style="flex:0 0 70px;text-align:center">' +
-      '<button class="r-btn-primary" onclick="rSendAnnouncement()">Announce</button>' +
+      '<div style="display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap">' +
+      '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
+      '<i class="fa-regular fa-clock" style="color:var(--rc-text-dim);font-size:11px"></i>' +
+      '<span style="font-size:9px;font-weight:700;color:var(--rc-text-dim);letter-spacing:0.1em;text-transform:uppercase">Duration (Hours)</span>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border);border-radius:6px;overflow:hidden">' +
+      '<button class="r-ann-step" onclick="var el=document.getElementById(\'r-announce-hours\');if(el&&+el.value>1)el.value=+el.value-1">−</button>' +
+      '<input id="r-announce-hours" type="number" min="1" max="720" value="24" style="width:46px;text-align:center;background:none;border:none;color:var(--rc-text);font-size:13px;font-weight:600;padding:6px 0;outline:none;font-family:var(--rc-font)">' +
+      '<button class="r-ann-step" onclick="var el=document.getElementById(\'r-announce-hours\');if(el&&+el.value<720)el.value=+el.value+1">+</button>' +
+      '</div>' +
+      '<span style="font-size:10px;color:var(--rc-text-dim);flex:1;min-width:120px">' +
+      '<i class="fa-solid fa-circle-info" style="margin-right:4px;opacity:0.5"></i>Set how long this announcement will be shown' +
+      '</span>' +
+      '<button class="r-btn-primary" id="r-btn-announce" disabled onclick="rSendAnnouncement()" style="flex-shrink:0"><i class="fa-solid fa-paper-plane"></i> Announce</button>' +
       '</div>' +
       '</div>' +
       '</div>' +
       '<div class="r-panel-hdr" style="margin-top:20px"><h3>Command History (Last 50)</h3></div>' +
-      '<div id="r-cmd-hist-main"><div class="r-loading"><span class="r-spin"></span> Loading…</div></div>' +
+      '<div id="r-cmd-hist-main" class="r-cmd-hist-scroll"><div class="r-loading"><span class="r-spin"></span> Loading…</div></div>' +
       '</div>';
 
     // [Fasa 6] Command history — read from Supabase
@@ -5557,10 +5827,10 @@
           }
           var targetMac = c.target_machine || 'broadcast';
           var cmdTxt = c.type || c.command || c.action || '—';
-          
+
           // Normalisasikan arahan lama
           if (cmdTxt === 'STATUS' || cmdTxt === 'REFRESH_STATUS') cmdTxt = 'REFRESH';
-          
+
           var cmdColor = 'var(--rc-text)';
           if (cmdTxt === 'PING') cmdColor = '#0ea5e9';
           else if (cmdTxt === 'KILL') cmdColor = 'var(--rc-red)';
@@ -5569,14 +5839,36 @@
           else if (cmdTxt === 'PAUSE') cmdColor = '#8b5cf6';
           else if (cmdTxt === 'RESUME') cmdColor = '#84cc16';
           else if (cmdTxt === 'RERUN' || cmdTxt === 'RETRY') cmdColor = '#ec4899';
-          else if (cmdTxt === 'CLEAR_LOGS') cmdColor = 'var(--rc-muted)';
+          else if (cmdTxt === 'CLEAR_LOGS' || cmdTxt === 'CLEAR_CACHE') cmdColor = 'var(--rc-muted)';
+          else if (cmdTxt === 'VERSION_CHECK') cmdColor = '#a78bfa';
+          else if (cmdTxt === 'CHECK_DISK') cmdColor = '#fb923c';
+          else if (cmdTxt === 'GET_LOGS') cmdColor = '#34d399';
+          else if (cmdTxt === 'SPEED_TEST') cmdColor = '#f472b6';
+          else if (cmdTxt === 'CAPTURE_PUBLIC_IP') cmdColor = '#38bdf8';
+          else if (cmdTxt === 'UPDATE_AGENT') cmdColor = '#facc15';
+          else if (cmdTxt === 'RUN_SCRIPT') cmdColor = '#f97316';
+
+          // ── Result cell: detect [[FULL_LOG:cmd_id]] tag ──────────────────
+          var rawResult = c.result || c.result_msg || '';
+          var resultHtml;
+          var fullLogMatch = rawResult.match(/\[\[FULL_LOG:([^\]]+)\]\]/);
+          if (fullLogMatch) {
+            var fullCmdId = fullLogMatch[1];
+            var preview = rawResult.replace(/\s*\[\[FULL_LOG:[^\]]+\]\]/, '').trim();
+            resultHtml = '<span style="color:var(--rc-muted);font-size:11px">' + esc(preview || '—') + '</span>' +
+              ' <button class="r-btn-sm neutral" style="font-size:9px;padding:2px 6px;margin-left:4px;" ' +
+              'onclick="rViewFullLog(\'' + esc(fullCmdId) + '\')">' +
+              '<i class="fa-solid fa-scroll" style="margin-right:3px"></i>View Full</button>';
+          } else {
+            resultHtml = rawResult ? esc(rawResult) : '—';
+          }
 
           return '<tr>' +
             '<td>' + fmtTs(c.created_at) + '</td>' +
             '<td class="r-font-mono">' + esc(targetMac) + '</td>' +
             '<td class="r-font-mono" style="color:' + cmdColor + '; font-weight: 600;">' + esc(cmdTxt) + '</td>' +
             '<td><span class="r-badge ' + logBadge(c.status) + '">' + esc(c.status || 'PENDING') + '</span></td>' +
-            '<td>' + esc(c.result_msg || '—') + '</td>' +
+            '<td style="max-width:340px;word-break:break-word">' + resultHtml + '</td>' +
             '<td>' + createdByStr + '</td>' +
             '<td><button class="r-btn-sm neutral" style="font-size:10px;padding:3px 8px;" onclick="rSendTeleCmd(\'' + esc(targetMac) + '\', \'' + esc(cmdTxt) + '\')" title="Rerun Command"><i class="fa-solid fa-rotate-right"></i> Rerun</button></td>' +
             '</tr>';
@@ -5592,6 +5884,40 @@
     }
     // Enrich machine dropdown with command counts
     rEnrichSelect('r-cmd-dev-sel', 'commands', 'target_machine');
+    // Wire button live-validation
+    setTimeout(_initCmdBtns, 0);
+  }
+
+  function _initCmdBtns() {
+    var btnSend   = $r('r-btn-send');
+    var btnBcast  = $r('r-btn-broadcast');
+    var btnAnn    = $r('r-btn-announce');
+    var selDev    = $r('r-cmd-dev-sel');
+    var inpCmd    = $r('r-cmd-dev-inp');
+    var inpBcast  = $r('r-broadcast-inp');
+    var edAnn     = $r('r-announce-inp');
+
+    function chkSend() {
+      var ok = selDev && selDev.value && inpCmd && inpCmd.value.trim();
+      if (btnSend) btnSend.disabled = !ok;
+    }
+    function chkBcast() {
+      var ok = inpBcast && inpBcast.value.trim();
+      if (btnBcast) btnBcast.disabled = !ok;
+    }
+    function chkAnn() {
+      var ok = edAnn && (edAnn.textContent || edAnn.innerText || '').trim();
+      if (btnAnn) btnAnn.disabled = !ok;
+    }
+
+    window._rChkSend = chkSend;
+
+    if (selDev)   selDev.addEventListener('change', chkSend);
+    if (inpCmd)   inpCmd.addEventListener('input',  chkSend);
+    if (inpBcast) inpBcast.addEventListener('input', chkBcast);
+    if (edAnn)    edAnn.addEventListener('input',   chkAnn);
+
+    chkSend(); chkBcast(); chkAnn();
   }
 
   window.rSendCmd = function (hostnameOverride) {
@@ -5605,6 +5931,11 @@
     var user = RS.currentUser;
     var cmdUp = command.toUpperCase();
     var createdBy = user ? user.email : 'admin';
+    // ── RUN_SCRIPT: open script editor instead of sending directly ────────
+    if (cmdUp === 'RUN_SCRIPT') {
+      rOpenScriptEditor(target, createdBy);
+      return;
+    }
     RS.supa.from('commands').insert({
       target_machine: target,
       type: cmdUp,
@@ -5616,6 +5947,60 @@
       var inp = $r('r-cmd-dev-inp') || $r('r-cmd-inp');
       if (inp) inp.value = '';
     }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
+  };
+
+  // ── RUN_SCRIPT: Script editor modal ──────────────────────────────────────
+  window.rOpenScriptEditor = function (target, createdBy) {
+    var ovId = 'r-script-editor-ov';
+    var ex = $r(ovId); if (ex) ex.remove();
+    var ov = document.createElement('div');
+    ov.id = ovId;
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;padding:24px;';
+    ov.innerHTML =
+      '<div style="background:var(--rc-surface,#0d1117);border:1px solid #f97316;border-radius:12px;' +
+      'width:100%;max-width:700px;display:flex;flex-direction:column;overflow:hidden;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--rc-border,#1e293b)">' +
+      '<span style="font-size:13px;font-weight:600;color:#f97316"><i class="fa-solid fa-terminal" style="margin-right:8px"></i>RUN_SCRIPT → ' + esc(target) + '</span>' +
+      '<button onclick="document.getElementById(\'' + ovId + '\').remove()" style="background:none;border:none;color:var(--rc-muted);cursor:pointer;font-size:18px;line-height:1">✕</button>' +
+      '</div>' +
+      '<div style="padding:16px">' +
+      '<div style="font-size:11px;color:var(--rc-muted);margin-bottom:8px">' +
+      '<i class="fa-solid fa-shield-halved" style="color:#f97316;margin-right:4px"></i>' +
+      'PowerShell script — runs hidden on client. Output returned here. SUPER_ADMIN only. Timeout: 30s.' +
+      '</div>' +
+      '<textarea id="r-script-ta" spellcheck="false" style="width:100%;height:220px;background:var(--rc-bg,#05080f);' +
+      'border:1px solid var(--rc-border,#1e293b);border-radius:8px;color:var(--rc-text);' +
+      'font-family:\'JetBrains Mono\',monospace;font-size:12px;line-height:1.6;padding:12px;' +
+      'resize:vertical;box-sizing:border-box;outline:none;" ' +
+      'placeholder="# Example&#10;Write-Output &quot;Hello from $(hostname)&quot;&#10;Get-Process | Select-Object Name,CPU | Sort-Object CPU -Descending | Select-Object -First 10"></textarea>' +
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">' +
+      '<button class="r-btn-sm neutral" onclick="document.getElementById(\'' + ovId + '\').remove()">Cancel</button>' +
+      '<button class="r-btn-sm" style="background:#f97316;color:#000;border-color:#f97316;font-weight:600;" ' +
+      'onclick="rSubmitScript(\'' + esc(target) + '\',\'' + esc(createdBy) + '\',\'' + ovId + '\')">' +
+      '<i class="fa-solid fa-play" style="margin-right:5px"></i>Execute</button>' +
+      '</div></div></div>';
+    ov.addEventListener('click', function (ev) { if (ev.target === ov) ov.remove(); });
+    document.body.appendChild(ov);
+    setTimeout(function () { var ta = $r('r-script-ta'); if (ta) ta.focus(); }, 80);
+  };
+
+  window.rSubmitScript = function (target, createdBy, ovId) {
+    if (!RS.supa) { rToast('Supabase not ready', 'error'); return; }
+    var ta = $r('r-script-ta');
+    var script = (ta ? ta.value : '').trim();
+    if (!script) { rToast('Script cannot be empty', 'warn'); return; }
+    RS.supa.from('commands').insert({
+      target_machine: target,
+      type: 'RUN_SCRIPT',
+      status: 'PENDING',
+      created_at: new Date().toISOString(),
+      created_by: createdBy,
+      payload: { script: script }
+    }).then(function () {
+      rToast('Script sent to ' + target, 'success');
+      var ov = $r(ovId); if (ov) ov.remove();
+      if (typeof renderCommands === 'function') renderCommands();
+    }).catch(function (e) { rToast('Error: ' + (e.message || e), 'error'); });
   };
 
   window.rSendBroadcast = function () {
@@ -6632,9 +7017,9 @@
   // ── Open profile modal (called from inline onclick) ────────────
   window.rLogout = function () {
     if (RS && RS.supa) {
-      RS.supa.auth.signOut().then(function() {
+      RS.supa.auth.signOut().then(function () {
         window.location.reload();
-      }).catch(function(err) {
+      }).catch(function (err) {
         console.error('Logout error:', err);
         window.location.reload();
       });
