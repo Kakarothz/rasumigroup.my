@@ -1762,8 +1762,8 @@
         var rp = (t - 0.218) / 0.024;
         y += Math.pow(Math.sin(Math.PI * rp), 0.3);
       }
-      // S (sharp narrow dip)
-      if (t > 0.242 && t < 0.262) y -= 0.22 * Math.sin(Math.PI * (t - 0.242) / 0.020);
+      // S (sharp downward spike — pronounced)
+      if (t > 0.242 && t < 0.262) y -= 0.55 * Math.sin(Math.PI * (t - 0.242) / 0.020);
       // T wave (pointy peak — sin^4 narrows the tip)
       if (t > 0.35  && t < 0.50)  { var tp = (t - 0.35) / 0.15; y += 0.30 * Math.pow(Math.sin(Math.PI * tp), 4); }
       a.push(y);
@@ -1801,6 +1801,12 @@
       var N   = _ECG_PTS.length;
       var pps = (N * 1.6) / W;
       if (online) {
+        var now = Date.now();
+        // baseline wander (slow breathing ~3.2s cycle)
+        var wander = amp * 0.06 * Math.sin(now / 3200);
+        // beat-to-beat amplitude variation (±9%)
+        var beatAmp = amp * (1 + 0.09 * Math.sin(now / 950 + 1.1));
+        var dynMid  = mid + wander;
         // pass 1: outer soft glow
         ctx.beginPath();
         ctx.shadowBlur  = 0;
@@ -1808,7 +1814,7 @@
         ctx.lineWidth   = 8;
         for (var x = 0; x <= W; x++) {
           var si = Math.floor((_ecgOff + x * pps) % N);
-          var yy = mid - amp * _ECG_PTS[si];
+          var yy = dynMid - beatAmp * _ECG_PTS[si];
           x === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
         }
         ctx.stroke();
@@ -1820,14 +1826,14 @@
         ctx.lineWidth   = 1.5;
         for (var x2 = 0; x2 <= W; x2++) {
           var si2 = Math.floor((_ecgOff + x2 * pps) % N);
-          var yy2 = mid - amp * _ECG_PTS[si2];
+          var yy2 = dynMid - beatAmp * _ECG_PTS[si2];
           x2 === 0 ? ctx.moveTo(x2, yy2) : ctx.lineTo(x2, yy2);
         }
         ctx.stroke();
         // blinking dot at lead edge
         var dotVisible = Math.floor(Date.now() / 400) % 2 === 0;
         if (dotVisible) {
-          var dotY = mid - amp * _ECG_PTS[Math.floor((_ecgOff + W * pps) % N)];
+          var dotY = dynMid - beatAmp * _ECG_PTS[Math.floor((_ecgOff + W * pps) % N)];
           ctx.shadowBlur = 16; ctx.shadowColor = '#22c55e'; ctx.fillStyle = '#4ade80';
           ctx.beginPath(); ctx.arc(W - 3, dotY, 3, 0, Math.PI * 2); ctx.fill();
         }
@@ -2146,7 +2152,7 @@
       ['NETWORK',     netVal],
       ['IP ADDRESS',  esc(d.ip_address || '—')],
       ['PUBLIC IP',   esc(d.public_ip || '—')],
-      ['BRANCH',      esc(d.branch_id || '—')],
+      ['BRANCH',      esc(_branchName(d.branch_id || (RS._devBranchMap && RS._devBranchMap[(d.hostname || '').toLowerCase()]) || null))],
     ];
     var rowsHTML = rows.map(function (r) {
       return '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">' + r[0] + '</span><span class="r-tele-val">' + r[1] + '</span></div>';
@@ -2277,7 +2283,7 @@
       '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">OS</span><span class="r-tele-val">' + esc(d.os_name || d.os_version || d.sys_info || '—') + '</span></div>' +
       '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">IP Address</span><span class="r-tele-val">' + esc(d.ip_address || '—') + '</span></div>' +
       '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">Public IP</span><span class="r-tele-val">' + esc(d.public_ip || '—') + '</span></div>' +
-      '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">Branch</span><span class="r-tele-val">' + esc(d.branch_id || '—') + '</span></div>';
+      '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">Branch</span><span class="r-tele-val">' + esc(_branchName(d.branch_id || (RS._devBranchMap && RS._devBranchMap[(d.hostname || '').toLowerCase()]) || null)) + '</span></div>';
   }
 
   // ── Build Recent Activity HTML ────────────────────────────
@@ -3562,8 +3568,8 @@
 
     // Health panel (if telemetry data exists)
     var healthPanel = d ? (
-      '<div class="r-mid-row" style="margin-bottom:12px">' +
-      '<div class="r-panel" style="margin:0;flex:2;min-width:0">' +
+      '<div class="r-dev-mid-row" style="margin-bottom:12px">' +
+      '<div class="r-panel" style="margin:0;grid-column:span 2;min-width:0">' +
       '<div class="r-panel-title" style="display:flex;align-items:center;gap:8px">' +
       '<i class="fa-solid fa-chart-line"></i> APP USAGE' +
       '<div style="margin-left:auto;display:flex;gap:4px">' +
@@ -3571,7 +3577,7 @@
       '<button class="r-btn-sm" id="dd-chart-month" onclick="rDdChartView(\'month\',\'' + esc(hostname) + '\')">Month</button>' +
       '</div>' +
       '</div>' +
-      '<div id="dd-chart-wrap" style="position:relative;height:200px;margin-top:8px">' +
+      '<div id="dd-chart-wrap" style="position:relative;height:230px;margin-top:8px">' +
       '<canvas id="dd-usage-canvas" style="display:block"></canvas>' +
       '<div id="dd-chart-tooltip" style="display:none;position:absolute;background:rgba(8,12,19,0.97);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;font-size:11px;pointer-events:none;z-index:10;line-height:1.9;min-width:140px"></div>' +
       '</div>' +
@@ -3585,17 +3591,41 @@
       buildSysTeleHTML(d) +
       '</div>' +
       '<div class="r-panel" style="margin:0;display:flex;flex-direction:column;">' +
-      '<div class="r-panel-title"><i class="fa-solid fa-terminal"></i> LIVE STREAM</div>' +
-      '<div class="r-terminal" id="r-terminal" style="flex:1;height:auto;min-height:120px"><p class="r-term-line info">Showing device logs…<span class="r-term-cursor"></span></p></div>' +
-      '</div>' +
-      '<div class="r-panel" style="margin:0;display:flex;flex-direction:column;">' +
       '<div class="r-panel-title" style="display:flex;align-items:center;justify-content:space-between;">' +
       '<span><i class="fa-solid fa-map-location-dot"></i> DEVICE LOCATION</span>' +
-      '<span style="font-size:10px;color:#64748b;font-weight:normal;letter-spacing:0.5px">IP: ' + esc(d.public_ip || d.ip_address || 'Unknown') + '</span>' +
+      '<span style="font-size:10px;color:#64748b;font-weight:normal;letter-spacing:0.5px">' + (d.geo_city ? 'LOCATION: ' + esc((d.geo_city + (d.geo_country ? ', ' + d.geo_country : '')).toUpperCase()) : 'IP: ' + esc(d.public_ip || d.ip_address || 'Unknown')) + '</span>' +
       '</div>' +
       '<div style="flex:1;position:relative;border-radius:6px;overflow:hidden;background:#0f172a;min-height:200px;">' +
-      '<iframe width="100%" height="100%" frameborder="0" style="border:0;position:absolute;top:0;left:0;" src="https://maps.google.com/maps?q=' + esc(d.location || d.public_ip || 'Kuala Lumpur, Malaysia') + '&t=k&z=13&ie=UTF8&iwloc=&output=embed" allowfullscreen></iframe>' +
+      '<iframe width="100%" height="100%" frameborder="0" style="border:0;position:absolute;top:0;left:0;" src="https://maps.google.com/maps?q=' + (d.geo_lat && d.geo_lon ? (d.geo_lat + ',' + d.geo_lon) : esc(d.public_ip || d.location || 'Kuala Lumpur, Malaysia')) + '&t=k&z=15&ie=UTF8&iwloc=&output=embed" allowfullscreen></iframe>' +
       '</div>' +
+      '</div>' +
+      '<div class="r-panel" style="margin:0">' +
+      '<div class="r-panel-title" style="display:flex;align-items:center;gap:8px">' +
+      '<i class="fa-solid fa-heart-pulse"></i> DEVICE HEALTH' +
+      '<div style="margin-left:auto;display:flex;gap:6px;align-items:center">' +
+      '<div style="position:relative">' +
+      '<button class="r-btn-sm" onclick="rDdDiskSettingsToggle(this)" title="Select disks to clean"><i class="fa-solid fa-gear"></i></button>' +
+      '<div id="dd-disk-menu" class="r-health-disk-menu" style="display:none">' +
+      '<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;letter-spacing:0.5px;font-weight:600">SELECT DISKS TO CLEAN</div>' +
+      '<div id="dd-disk-list" style="color:#475569;font-size:11px">— Run health check first —</div>' +
+      '</div>' +
+      '</div>' +
+      '<button class="r-btn-sm" id="dd-cleanup-btn" onclick="rDdDiskCleanup(\'' + esc(hostname) + '\')">' +
+      '<i class="fa-solid fa-broom"></i> Disk Clean Up</button>' +
+      '<button class="r-btn-sm" id="dd-health-refresh-btn" onclick="rDdHealthRefresh(\'' + esc(hostname) + '\')">' +
+      '<i class="fa-solid fa-rotate"></i> Refresh</button>' +
+      '</div>' +
+      '</div>' +
+      '<div id="dd-health-body" style="margin-top:10px">' +
+      '<div class="r-health-placeholder">' +
+      '<i class="fa-solid fa-heart-pulse" style="font-size:22px;opacity:0.3;margin-bottom:8px"></i>' +
+      '<span>Click <strong style="color:#64748b">Refresh</strong> to load device health data</span>' +
+      '</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="r-panel" style="margin:0;display:flex;flex-direction:column;">' +
+      '<div class="r-panel-title"><i class="fa-solid fa-terminal"></i> LIVE STREAM</div>' +
+      '<div class="r-terminal" id="r-terminal" style="height:270px;overflow-y:auto"><p class="r-term-line info">Showing device logs…<span class="r-term-cursor"></span></p></div>' +
       '</div>' +
       '</div>'
     ) : '';
@@ -3621,6 +3651,25 @@
     RS._currentDdHostname = hostname;
     rDdTab('activity', hostname);
     setTimeout(function () { if (window.rDdChartView) window.rDdChartView('week', hostname); }, 80);
+    setTimeout(function () {
+      var cached = RS._healthCache && RS._healthCache[hostname];
+      if (cached) {
+        _rDdRenderHealth(cached, hostname);
+      } else if (RS.supa) {
+        RS.supa.from('commands')
+          .select('result,created_at')
+          .eq('target_machine', hostname)
+          .eq('type', 'HEALTH_CHECK')
+          .in('status', ['COMPLETED', 'EXECUTED'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .then(function (res) {
+            if (res.data && res.data[0] && res.data[0].result) {
+              try { _rDdRenderHealth(JSON.parse(res.data[0].result), hostname); } catch (e) {}
+            }
+          });
+      }
+    }, 50);
   }
 
   window.rDdTab = function (tab, hostname) {
@@ -3864,6 +3913,213 @@
     document.head.appendChild(s);
   };
   // ── End App Usage Chart ────────────────────────────────────────────────
+
+  // ── Device Health Card ─────────────────────────────────────────────────
+
+  function _fmtBytes(b) {
+    if (!b || b === 0) return '0 B';
+    var u = ['B', 'KB', 'MB', 'GB', 'TB'], i = Math.floor(Math.log(b) / Math.log(1024));
+    return (b / Math.pow(1024, i)).toFixed(1) + ' ' + u[i];
+  }
+
+  function _healthRow(label, val) {
+    return '<div class="r-health-row"><span class="r-health-label">' + label + '</span><span class="r-health-val">' + val + '</span></div>';
+  }
+
+  window.rDdHealthRefresh = function (hostname) {
+    if (!_canWrite()) { rToast('Read-only — request write access from Super Admin', 'warn'); return; }
+    var body = $r('dd-health-body');
+    var btn = $r('dd-health-refresh-btn');
+    if (!body) return;
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-rotate fa-spin"></i> Refreshing'; }
+    body.innerHTML = '<div class="r-health-placeholder"><i class="fa-solid fa-rotate fa-spin" style="font-size:22px;opacity:0.5;display:block;margin-bottom:8px"></i>Sending HEALTH_CHECK to device…</div>';
+    if (!RS.supa) {
+      body.innerHTML = '<div class="r-health-placeholder" style="color:#ef4444">Supabase not ready</div>';
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Refresh'; }
+      return;
+    }
+    var user = RS.currentUser;
+    RS.supa.from('commands').insert({
+      target_machine: hostname,
+      type: 'HEALTH_CHECK',
+      status: 'PENDING',
+      created_at: new Date().toISOString(),
+      created_by: user ? user.email : 'admin'
+    }).select('id').then(function (res) {
+      if (res.error || !res.data || !res.data[0]) {
+        body.innerHTML = '<div class="r-health-placeholder" style="color:#ef4444">Failed to send command</div>';
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Refresh'; }
+        return;
+      }
+      var cmdId = res.data[0].id;
+      body.innerHTML = '<div class="r-health-placeholder"><i class="fa-solid fa-rotate fa-spin" style="font-size:22px;opacity:0.5;display:block;margin-bottom:8px"></i>Waiting for device response…</div>';
+      var attempts = 0;
+      var poll = setInterval(function () {
+        attempts++;
+        if (attempts > 30) {
+          clearInterval(poll);
+          body.innerHTML = '<div class="r-health-placeholder" style="color:#f59e0b"><i class="fa-solid fa-clock"></i> Timeout — device did not respond (60s)</div>';
+          if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Refresh'; }
+          return;
+        }
+        RS.supa.from('commands').select('status,result').eq('id', cmdId).single().then(function (r) {
+          if (!r.data) return;
+          if (r.data.status === 'COMPLETED' || r.data.status === 'EXECUTED') {
+            clearInterval(poll);
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Refresh'; }
+            try {
+              _rDdRenderHealth(JSON.parse(r.data.result), hostname);
+            } catch (e) {
+              body.innerHTML = '<div class="r-health-placeholder" style="color:#ef4444">Invalid data from device</div>';
+            }
+          } else if (r.data.status === 'FAILED') {
+            clearInterval(poll);
+            body.innerHTML = '<div class="r-health-placeholder" style="color:#ef4444">Health check failed on device</div>';
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Refresh'; }
+          }
+        });
+      }, 2000);
+    }).catch(function (e) {
+      body.innerHTML = '<div class="r-health-placeholder" style="color:#ef4444">' + esc(e.message || 'Error') + '</div>';
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Refresh'; }
+    });
+  };
+
+  function _rDdRenderHealth(data, hostname) {
+    var body = $r('dd-health-body');
+    if (!body) return;
+    var html = '<div class="r-health-grid">';
+
+    // Storage
+    if (data.disks && data.disks.length) {
+      var diskHtml = data.disks.map(function (d) {
+        var c = d.percent > 90 ? '#ef4444' : d.percent > 75 ? '#f59e0b' : '#22c55e';
+        return '<div style="margin-bottom:5px">' +
+          '<span style="color:#94a3b8;font-size:10px">' + esc(d.device) + '</span>' +
+          '<span style="color:#e2e8f0;margin-left:6px">' + _fmtBytes(d.free) + ' free / ' + _fmtBytes(d.total) + '</span>' +
+          '<div style="height:3px;background:#1e293b;border-radius:2px;margin-top:3px">' +
+          '<div style="height:100%;width:' + d.percent + '%;background:' + c + ';border-radius:2px;transition:width 0.4s"></div>' +
+          '</div></div>';
+      }).join('');
+      html += _healthRow('STORAGE', diskHtml);
+      var dl = $r('dd-disk-list');
+      if (dl) {
+        dl.innerHTML = data.disks.map(function (d) {
+          return '<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;cursor:pointer">' +
+            '<input type="checkbox" class="dd-disk-check" value="' + esc(d.device) + '" checked>' +
+            '<span style="color:#e2e8f0">' + esc(d.device) + '</span>' +
+            '<span style="color:#475569;font-size:10px">' + _fmtBytes(d.total) + '</span>' +
+            '</label>';
+        }).join('');
+      }
+    }
+
+    // Temp files
+    var tempTotal = (data.temp_size || 0) + (data.win_temp_size || 0);
+    var tempClr = tempTotal > 500 * 1024 * 1024 ? '#f59e0b' : '#64748b';
+    html += _healthRow('TEMP FILES',
+      '<span style="color:' + tempClr + '">' + _fmtBytes(tempTotal) + '</span>' +
+      (tempTotal > 500 * 1024 * 1024 ? ' <span style="font-size:10px;color:#f59e0b">⚠ High</span>' : ''));
+
+    // Cache
+    var cacheClr = (data.cache_size || 0) > 300 * 1024 * 1024 ? '#f59e0b' : '#64748b';
+    html += _healthRow('CACHE',
+      '<span style="color:' + cacheClr + '">' + _fmtBytes(data.cache_size || 0) + '</span>' +
+      ((data.cache_size || 0) > 300 * 1024 * 1024 ? ' <span style="font-size:10px;color:#f59e0b">⚠ High</span>' : ''));
+
+    // Battery (hidden if null = desktop)
+    if (data.battery) {
+      var bat = data.battery;
+      var batClr = bat.percent < 20 ? '#ef4444' : bat.percent < 50 ? '#f59e0b' : '#22c55e';
+      html += _healthRow('BATTERY',
+        '<span style="color:' + batClr + '">' + Math.round(bat.percent) + '%</span>' +
+        (bat.plugged ? ' <span style="color:#38bdf8;font-size:10px">⚡ Charging</span>' : '') +
+        '<div style="height:3px;background:#1e293b;border-radius:2px;margin-top:3px;width:100px">' +
+        '<div style="height:100%;width:' + Math.min(100, bat.percent) + '%;background:' + batClr + ';border-radius:2px"></div></div>');
+    }
+
+    // Disk type
+    if (data.disk_types && data.disk_types.length) {
+      html += _healthRow('DISK TYPE', data.disk_types.map(function (t) {
+        var c = t.type === 'NVMe' ? '#38bdf8' : t.type === 'SSD' ? '#22c55e' : t.type === 'HDD' ? '#f59e0b' : '#64748b';
+        // Strip redundant type prefix from friendly name (e.g. "NVMe KINGSTON..." → "KINGSTON...")
+        var dispName = t.name.replace(/^(NVMe|SSD|HDD)\s+/i, '');
+        return '<span style="margin-right:14px"><span style="color:#94a3b8;font-size:10px">' + esc(dispName) + '</span> <span style="color:' + c + '">' + esc(t.type) + '</span></span>';
+      }).join(''));
+    } else {
+      html += _healthRow('DISK TYPE', '<span style="color:#334155">N/A</span>');
+    }
+
+    // Disk health
+    if (data.disk_health && data.disk_health.length) {
+      html += _healthRow('DISK HEALTH', data.disk_health.map(function (h) {
+        var c = h.health < 70 ? '#ef4444' : h.health < 90 ? '#f59e0b' : '#22c55e';
+        return '<span style="margin-right:14px"><span style="color:#94a3b8;font-size:10px">' + esc(h.name) + '</span> <span style="color:' + c + '">' + h.health + '%</span> <span style="color:#334155;font-size:10px">(' + esc(h.status || '') + ')</span></span>';
+      }).join(''));
+    } else {
+      html += _healthRow('DISK HEALTH', '<span style="color:#334155">N/A</span>');
+    }
+
+    // Junk processes
+    if (data.junk_processes && data.junk_processes.length) {
+      var procs = data.junk_processes;
+      html += _healthRow('JUNK PROCESSES',
+        '<div><span style="color:#ef4444;font-size:10px;display:block;margin-bottom:4px">' + procs.length + ' running</span>' +
+        procs.map(function (p) {
+          return '<span class="r-health-pill">' + esc(p.name) + ' <span style="color:#94a3b8">' + p.memory_mb + ' MB</span></span>';
+        }).join('') + '</div>');
+    } else {
+      html += _healthRow('JUNK PROCESSES', '<span style="color:#22c55e">✓ None detected</span>');
+    }
+
+    html += '</div>';
+    html += '<div style="font-size:10px;color:#1e293b;text-align:right;margin-top:6px">Last refreshed ' + new Date().toLocaleTimeString() + '</div>';
+    body.innerHTML = html;
+    RS._healthCache = RS._healthCache || {};
+    RS._healthCache[hostname] = data;
+  }
+
+  window.rDdDiskSettingsToggle = function (btn) {
+    var menu = $r('dd-disk-menu');
+    if (!menu) return;
+    var isOpen = menu.style.display !== 'none';
+    menu.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
+      setTimeout(function () {
+        function _closeMenu(e) {
+          if (!menu.contains(e.target) && e.target !== btn) {
+            menu.style.display = 'none';
+            document.removeEventListener('click', _closeMenu);
+          }
+        }
+        document.addEventListener('click', _closeMenu);
+      }, 0);
+    }
+  };
+
+  window.rDdDiskCleanup = function (hostname) {
+    if (!_canWrite()) { rToast('Read-only — request write access from Super Admin', 'warn'); return; }
+    var checks = document.querySelectorAll('.dd-disk-check:checked');
+    if (!checks.length) { rToast('Select at least one disk from ⚙ settings', 'warn'); return; }
+    var disks = Array.from(checks).map(function (c) { return c.value; });
+    if (!confirm('Remote Disk Clean Up on ' + hostname + '?\n\nDisks: ' + disks.join(', ') + '\n\nWill clear temp, cache and kill junk background processes. Cannot be undone.')) return;
+    if (!RS.supa) { rToast('Supabase not ready', 'error'); return; }
+    var user = RS.currentUser;
+    RS.supa.from('commands').insert({
+      target_machine: hostname,
+      type: 'DISK_CLEANUP',
+      status: 'PENDING',
+      payload: { disks: disks },
+      created_at: new Date().toISOString(),
+      created_by: user ? user.email : 'admin'
+    }).then(function () {
+      rToast('Disk Clean Up sent to ' + hostname + ' — ' + disks.join(', '), 'success');
+      var menu = $r('dd-disk-menu');
+      if (menu) menu.style.display = 'none';
+    }).catch(function (e) { rToast('Error: ' + (e.message || e), 'error'); });
+  };
+
+  // ── End Device Health ──────────────────────────────────────────────────
 
   window.rShowLogDetail = function (idx) {
     var e = RS._logCache[idx];
@@ -6702,6 +6958,7 @@
   };
 
   window.rPublishRelease = function () {
+    if (!_canWrite()) { rToast('Read-only — request write access from Super Admin', 'warn'); return; }
     var version = ($r('rel-version') || {}).value || '';
     var url = ($r('rel-url') || {}).value || '';
     var notes = ($r('rel-notes') || {}).value || '';
