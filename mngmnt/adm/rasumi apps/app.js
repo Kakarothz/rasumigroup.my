@@ -5108,6 +5108,29 @@
         type: 'bug', action: 'fix', icon: 'fa-bug', color: '#ef4444'
       };
     }
+    // ── RENAMER FV — OCR: invoice number not found ──
+    if (m.indexOf('no inv') >= 0 || m.indexOf('invoice number not found') >= 0 ||
+      m.indexOf('ocr failed: no inv') >= 0 || m.indexOf('no invoice') >= 0) {
+      return {
+        code: 'RNM-1001', title: 'OCR: INVOICE NOT FOUND',
+        description: 'Renamer could not extract a valid Invoice/DO number from this file.',
+        rootCause: 'Scan quality too low, barcode interference, or document layout not recognised by OCR engine. File was skipped — manual renaming required.',
+        confirmed: true,
+        type: 'ocr_fail', action: 'ocr_fail', icon: 'fa-magnifying-glass', color: '#f59e0b'
+      };
+    }
+    // ── RENAMER FV — OS rename failure (file locked, duplicate, permission) ──
+    if (m.indexOf('winerror') >= 0 || m.indexOf('file exists') >= 0 ||
+      m.indexOf('already exists') >= 0 || m.indexOf('cannot rename') >= 0 ||
+      (m.indexOf('rename') >= 0 && (m.indexOf('error') >= 0 || m.indexOf('fail') >= 0))) {
+      return {
+        code: 'RNM-2001', title: 'RENAME FAILED',
+        description: 'OCR extracted the invoice number but the OS refused to rename the file.',
+        rootCause: 'File already exists at target path, target folder is read-only, or file is locked by another process. Manual intervention required on the node.',
+        confirmed: true,
+        type: 'rename_fail', action: 'acknowledge', icon: 'fa-file-pen', color: '#a855f7'
+      };
+    }
     if (!errMsg) {
       return {
         code: 'ERR-0000', title: 'UNKNOWN ERROR',
@@ -5460,7 +5483,11 @@
       if (s.hasFail || s.hasCancelled || s.allProcessing) return true; // keep failures, cancels + still-running
       var cCount = s.logs.filter(function (l) { return (l.status || '').toUpperCase() === 'COMPLETED'; }).length;
       var fCount = s.logs.filter(function (l) { var st = (l.status || '').toUpperCase(); return st === 'FAILED' || st === 'ERROR'; }).length;
-      if (cCount === 0 && fCount === 0) {
+      // Keep sessions that have a FINISH log reporting actual work (total_files > 0)
+      // even when individual FAILED log rows are absent from Supabase.
+      var finishLog = s.logs.find(function (l) { return (l.status || '').toUpperCase() === 'FINISH'; });
+      var finishReportsWork = finishLog && finishLog.job_info && (finishLog.job_info.total_files > 0);
+      if (cCount === 0 && fCount === 0 && !finishReportsWork) {
         s.logs.forEach(function (l) { if (l.id) phantomIds.push(l.id); });
         return false;
       }
@@ -5470,9 +5497,25 @@
       RS.supa.from('logs').delete().in('id', phantomIds).then(function () { });
     }
 
-    // Pre-compute session status for filtering + rendering
+    // Pre-compute session status for filtering + rendering.
+    // Also extract FINISH log metadata (total_files, has_errors, failed_count)
+    // as a reliable fallback when FAILED log entries are missing from Supabase
+    // (e.g. because optional columns like error_msg / root_cause don't exist in
+    // the schema and the full insert failed silently before the retry landed).
     sessions.forEach(function (g) {
       var cLen = g.logs.filter(function (l) { return (l.status || '').toUpperCase() === 'COMPLETED'; }).length;
+
+      // Pull FINISH log metadata
+      var finishLog = g.logs.find(function (l) { return (l.status || '').toUpperCase() === 'FINISH'; });
+      if (finishLog) {
+        var fi = finishLog.job_info || {};
+        if (fi.total_files != null) g._totalFiles = parseInt(fi.total_files, 10) || null;
+        if (fi.failed_count != null) g._failedCount = parseInt(fi.failed_count, 10) || 0;
+        // If FINISH log reports errors but no FAILED log entries reached Supabase,
+        // mark the session as having failures so STATUS becomes PARTIAL/FAILED.
+        if (fi.has_errors && !g.hasFail) g.hasFail = true;
+      }
+
       if (g.allProcessing) g._st = 'RUNNING';
       else if (g.hasFail && cLen === 0) g._st = 'FAILED';    // all files failed
       else if (g.hasFail) g._st = 'PARTIAL';   // mix success + failure
@@ -5507,11 +5550,13 @@
       var sessionSt = g._st || 'COMPLETED'; // pre-computed above
       var gKey = 'g' + idx;
 
-      // For VIBES sessions, doc count comes from job_info.doc_count (1 log = 1 batch summary)
+      // For VIBES sessions, doc count comes from job_info.doc_count (1 log = 1 batch summary).
+      // For FV Branch / renamer: prefer total_files from FINISH log (accurate even when
+      // FAILED log entries are absent from Supabase), then fall back to counting log rows.
       var isVibes = (g.app || '').toUpperCase() === 'VIBES';
       var totalDocs = isVibes && g.logs.length === 1 && g.logs[0].job_info && g.logs[0].job_info.doc_count
         ? g.logs[0].job_info.doc_count
-        : completedLogs.length + failedLogs.length;
+        : (g._totalFiles != null ? g._totalFiles : completedLogs.length + failedLogs.length);
 
       // Initialise global stores for this render
       if (!window._rErrStore) window._rErrStore = {};
@@ -5567,9 +5612,12 @@
           }).join('');
         }
       } else {
-        // Default: one row per file log (non-PROCESSING entries)
+        // Default: one row per file log (non-PROCESSING, non-FINISH entries)
         var isRenamer = /renamer|fv.branch|fv branch/i.test(g.app || '');
-        var fileLogs = g.logs.filter(function (l) { return (l.status || '').toUpperCase() !== 'PROCESSING'; });
+        var fileLogs = g.logs.filter(function (l) {
+          var st = (l.status || '').toUpperCase();
+          return st !== 'PROCESSING' && st !== 'FINISH';
+        });
         var fileRows = fileLogs.map(function (l, lIdx) {
           var st = (l.status || '').toUpperCase();
           var isFail = st === 'FAILED' || st === 'ERROR';
@@ -5663,7 +5711,16 @@
             // Type badge
             actionCell += '<div style="font-size:10px;color:' + errType.color + ';margin-bottom:5px">' +
               '<i class="fa-solid ' + errType.icon + '"></i> ' + errType.title + '</div>';
-            if (errType.action === 'acknowledge') {
+            if (errType.action === 'ocr_fail') {
+              // OCR failure — file must be renamed manually by branch staff
+              actionCell +=
+                '<div style="font-size:10px;color:#f59e0b;margin-bottom:5px;font-style:italic">' +
+                '<i class="fa-solid fa-triangle-exclamation" style="margin-right:3px"></i>' +
+                'Rename manually at branch</div>' +
+                '<button class="r-btn-sm" style="font-size:10px;padding:2px 8px;color:#f59e0b;border-color:rgba(245,158,11,0.35)" ' +
+                'onclick="rAcknowledgeLog(\'' + logId + '\',this)" title="Acknowledge — note action taken (e.g. notified branch, renamed manually)">' +
+                '<i class="fa-solid fa-eye"></i> Acknowledge</button>';
+            } else if (errType.action === 'acknowledge') {
               // System/resource crash — admin acknowledge, bukan fix kod
               actionCell +=
                 '<button class="r-btn-sm" style="font-size:10px;padding:2px 8px;color:#94a3b8;border-color:rgba(148,163,184,0.35)" ' +
@@ -5784,7 +5841,20 @@
         var detailHeaders = isRenamer
           ? [chkHeader, 'Time', 'File', 'Result', 'Status', 'Error / Detail', 'Duration', 'Pages', 'Action']
           : [chkHeader, 'Time', 'File', 'Status', 'Error / Detail', 'Duration', 'Pages', 'Action'];
-        detailHtml = failBanner + (fileRows
+        // When FINISH log reports more failures than FAILED log entries in Supabase
+        // (happens when FAILED inserts fail silently due to schema mismatch), show
+        // a notice so the admin knows files failed but names aren't available yet.
+        var missingFailCount = (g._failedCount || 0) - failedLogs.length;
+        // Show notice when FINISH log reports failures but no FAILED log entries
+        // were received (FAILED logs may have failed to insert into Supabase).
+        var missingNotice = (missingFailCount > 0 && failedLogs.length === 0)
+          ? '<div style="margin-bottom:8px;padding:8px 12px;background:rgba(239,68,68,0.07);border-left:3px solid rgba(239,68,68,0.5);border-radius:0 4px 4px 0;font-size:11px;color:#fca5a5">' +
+            '<i class="fa-solid fa-triangle-exclamation" style="margin-right:6px"></i>' +
+            missingFailCount + ' file(s) reported as failed by engine — detailed log entries pending sync. ' +
+            'Check <b>Renamer Docs</b> tab or re-run to confirm files.' +
+            '</div>'
+          : '';
+        detailHtml = failBanner + missingNotice + (fileRows
           ? tableWrap(detailHeaders, fileRows)
           : '<div class="r-empty" style="padding:8px">No file-level data</div>');
       }

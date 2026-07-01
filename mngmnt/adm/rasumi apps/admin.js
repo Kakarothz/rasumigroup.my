@@ -24,6 +24,13 @@ const db   = firebase.firestore();
 // Enable offline persistence
 db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
 
+/* ─── 2b. SUPABASE CLIENT ─────────────────────────────── */
+// app_errors and logs now live in Supabase — vibes_errors stays in Firestore.
+const supa = supabase.createClient(
+  'https://seqlkwdghibmsfkbuwqq.supabase.co',
+  'sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp'
+);
+
 /* ─── 3. STATE ────────────────────────────────────────── */
 const STATE = {
   user:          null,
@@ -1504,6 +1511,7 @@ function renderAlerts() {
             <option value="batch_skip">batch_skip</option>
             <option value="guard_exhausted">guard_exhausted</option>
             <option value="upload_retry_exhausted">upload_retry_exhausted</option>
+            <option value="ocr_failed">ocr_failed (FV Branch)</option>
           </select>
         </div>
       </div>
@@ -1513,6 +1521,8 @@ function renderAlerts() {
     </div>`;
 
   let allAlerts=[];
+  let allAppErrors=[];
+
   const unsub=db.collectionGroup('vibes_errors')
     .where('fix_status','==','unfixed')
     .orderBy('ts_utc','desc').limit(200)
@@ -1520,10 +1530,33 @@ function renderAlerts() {
       allAlerts=snap.docs.map(d=>({id:d.id,...d.data()}));
       const crit=allAlerts.filter(e=>['panic','reconciliation_incomplete'].includes(e.category)).length;
       $('al-crit').textContent=crit;
-      $('al-warn').textContent=allAlerts.length-crit;
+      $('al-warn').textContent=allAlerts.length-crit+allAppErrors.length;
       filterAlerts();
     });
   addListener(unsub);
+
+  // app_errors — migrated from Firestore to Supabase app_errors table.
+  // Poll every 30s; unsub clears the interval when navigating away.
+  let _appErrInterval=null;
+  window._fetchAppErrors=async function(){
+    try{
+      const {data,error}=await supa.from('app_errors')
+        .select('*')
+        .eq('fix_status','unfixed')
+        .order('first_seen',{ascending:false})
+        .limit(100);
+      if(error) throw error;
+      allAppErrors=data||[];
+      const crit=allAlerts.filter(e=>['panic','reconciliation_incomplete'].includes(e.category)).length;
+      $('al-warn').textContent=allAlerts.length-crit+allAppErrors.length;
+      filterAlerts();
+    }catch(err){
+      console.error('[app_errors supabase]',err.message);
+    }
+  };
+  window._fetchAppErrors();
+  _appErrInterval=setInterval(window._fetchAppErrors,30000);
+  addListener(()=>{ if(_appErrInterval){clearInterval(_appErrInterval);_appErrInterval=null;} });
 
   // fixed today
   const today=new Date();today.setHours(0,0,0,0);
@@ -1536,9 +1569,54 @@ function renderAlerts() {
   window.filterAlerts=function(){
     const cat=$('al-cat')?.value||'';
     const rows=allAlerts.filter(e=>!cat||e.category===cat);
+    // FV app_errors shown when no filter or when ocr_failed selected
+    const fvOcrErrors=allAppErrors.filter(e=>
+      e.app_name==='FV Branch' && (!cat || cat==='ocr_failed'));
     const feed=$('alert-feed-main');if(!feed)return;
-    if(!rows.length){feed.innerHTML='<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No open alerts</div></div>';return;}
-    feed.innerHTML=rows.map(e=>{
+    if(!rows.length&&!fvOcrErrors.length){
+      feed.innerHTML='<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No open alerts</div></div>';
+      return;
+    }
+    let html='';
+
+    // ── FV Branch OCR failures banner ─────────────────────────────────────────
+    if(fvOcrErrors.length){
+      const targets=fvOcrErrors.map(e=>{
+        const file=(e.job_info&&e.job_info.file_name)||'?';
+        const recur=e.recur_count>1?` (×${e.recur_count})`:'';
+        const cause=e.root_cause||e.error_msg||'OCR Failed';
+        return `• ${file}${recur} — ${cause}`;
+      }).join('\n');
+      html+=`<div style="
+        background:rgba(255,190,0,0.08);
+        border:1px solid var(--warn);
+        border-left:4px solid var(--warn);
+        border-radius:6px;
+        padding:14px 16px;
+        margin-bottom:14px;
+        font-family:var(--font-mono);
+        font-size:11px;
+        color:var(--text-1);
+        line-height:1.7;
+      ">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+          <span style="color:var(--warn);font-size:12px;font-weight:700;letter-spacing:1px">
+            ⚠ FV BRANCH ERROR — ${fvOcrErrors.length} FILE${fvOcrErrors.length>1?'S':''}
+          </span>
+          <button class="btn btn-outline btn-sm" style="color:var(--warn);border-color:var(--warn)"
+            onclick="dismissAllFvOcrErrors(${JSON.stringify(fvOcrErrors.map(e=>e.id)).replace(/"/g,'&quot;')})">
+            ✕ CLEAR ALL
+          </button>
+        </div>
+        <pre style="margin:0;white-space:pre-wrap;color:var(--text-1)">${targets}</pre>
+        <div style="margin-top:8px;color:var(--text-2);font-size:10px;letter-spacing:1px">
+          Cause: Check root_cause above — may be OCR failure, file lock (WinError 32), or rename error.
+        </div>
+      </div>`;
+    }
+
+    // ── Standard vibes_errors alerts ─────────────────────────────────────────
+    html+=rows.map(e=>{
       const isCrit=['panic','reconciliation_incomplete'].includes(e.category);
       const lvl=isCrit?'crit':'warn';
       return `<div class="alert-item ${lvl}" onclick="navigate('device-detail',{hostname:'${e.device_hostname||''}'})">
@@ -1553,8 +1631,32 @@ function renderAlerts() {
         </div>
       </div>`;
     }).join('');
+
+    feed.innerHTML=html||'<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No open alerts</div></div>';
   };
 }
+
+// One-click dismiss for FV Branch errors (Supabase app_errors table).
+// ids are Supabase row UUIDs from app_errors.id.
+window.dismissAllFvOcrErrors=async function(ids){
+  if(!ids||!ids.length)return;
+  const label=ids.length===1?'1 FV error':`${ids.length} FV errors`;
+  if(!confirm(`Dismiss ${label}? File(s) were not renamed — check FAILED.png in bug/ folder.`))return;
+  try{
+    const {error}=await supa.from('app_errors')
+      .update({
+        fix_status:'fixed',
+        fixed_by:  STATE.user?.email||'admin',
+        fixed_at:  new Date().toISOString(),
+      })
+      .in('id',ids);
+    if(error) throw error;
+    toast(`${label} dismissed.`,'success');
+    if(typeof window._fetchAppErrors==='function') window._fetchAppErrors();
+  }catch(e){
+    toast('Dismiss failed: '+e.message,'error');
+  }
+};
 
 /* ════════════════════════════════════════════════════════
    INIT
