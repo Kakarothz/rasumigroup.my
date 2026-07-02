@@ -95,6 +95,51 @@
     }, dur);
   }
 
+  // ── Command feedback — pure floating text, slides in from bottom-right ──────
+  // No box, no border, no background. Just green monospace text over the page.
+  (function _initCmdFb() {
+    var wrap = document.createElement('div');
+    wrap.id = 'r-cmd-fb';
+    wrap.style.cssText = [
+      'position:fixed', 'bottom:28px', 'right:24px',
+      'display:flex', 'flex-direction:column-reverse', 'gap:4px',
+      'pointer-events:none', 'z-index:99999'
+    ].join(';');
+    document.body.appendChild(wrap);
+  })();
+
+  function rCmdFeedback(msg) {
+    var wrap = document.getElementById('r-cmd-fb');
+    if (!wrap) return;
+    var el = document.createElement('div');
+    el.textContent = '› ' + msg;
+    el.style.cssText = [
+      'color:#22c55e',
+      'font-size:11.5px',
+      'font-family:var(--rc-mono,"JetBrains Mono",monospace)',
+      'font-weight:500',
+      'letter-spacing:0.04em',
+      'opacity:0',
+      'transform:translateX(32px)',
+      'transition:opacity 0.22s ease, transform 0.22s ease',
+      'text-shadow:0 0 12px rgba(34,197,94,0.4)'
+    ].join(';');
+    wrap.appendChild(el);
+    // Trigger slide-in (double rAF ensures transition fires)
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        el.style.opacity = '1';
+        el.style.transform = 'translateX(0)';
+      });
+    });
+    // Slide out + remove
+    setTimeout(function () {
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(20px)';
+      setTimeout(function () { if (el.parentNode) el.remove(); }, 280);
+    }, 2400);
+  }
+
   // ── Modal open/close (r-modal-overlay) ───────────────────────
   window.rModalOpen = function () {
     var o = $r('r-modal-overlay');
@@ -593,7 +638,7 @@
       '    <span class="hotkey">Ctrl + K</span>',
       '  </div>',
       '  <div class="nav-actions">',
-      '    <button class="icon-btn notif-btn" onclick="var p=document.getElementById(\'r-nav-dropdown\'); if(p) p.classList.add(\'hidden\'); document.getElementById(\'notif-dropdown\').classList.toggle(\'hidden\'); event.stopPropagation();"><i class="fa-regular fa-bell"></i><span id="r-nb-alerts" class="badge hidden">0</span></button>',
+      '    <button class="icon-btn notif-btn" onclick="var p=document.getElementById(\'r-nav-dropdown\'); if(p) p.classList.add(\'hidden\'); document.getElementById(\'notif-dropdown\').classList.toggle(\'hidden\'); window._rBellClick(); event.stopPropagation();"><i class="fa-regular fa-bell"></i><span id="r-nb-alerts" class="badge hidden">0</span></button>',
       '    <button class="icon-btn"><i class="fa-regular fa-circle-question"></i></button>',
       '    <button class="icon-btn" id="r-gear-btn" onclick="window.rToggleDisplayPanel(event)"><i class="fa-solid fa-gear"></i></button>',
       '    <div class="user-profile" id="r-profile-trigger" style="cursor:pointer" onclick="var n=document.getElementById(\'notif-dropdown\'); if(n) n.classList.add(\'hidden\'); document.getElementById(\'r-nav-dropdown\').classList.toggle(\'hidden\'); event.stopPropagation();">',
@@ -1537,11 +1582,100 @@
     }
   }
 
+  // ── SYSTEM ALERT in-memory store (proactive monitoring alerts) ──────────────
+  var _sysAlerts      = [];         // [{ts, machine, lvl, msg}] — latest first, max 50
+  var _sysAlertUnread = 0;          // unread count; reset when bell dropdown opened
+  var _lastAlertKey   = {};         // dedup: "machine|msg" → epoch ms of last push
+  var _sysAlertInitMs = Date.now() + 3000; // suppress toasts during 3s init replay window
+
+  function _pushSystemAlert(e) {
+    var lvl     = (e.status || '').toUpperCase();   // 'CRITICAL' | 'WARNING'
+    var machine = e.machine || e.branch_id || '?';
+    var msg     = e.file_name || e.status || 'System Alert';
+    var ts      = e.timestamp || new Date().toISOString();
+
+    // Age check — events older than 5 min are historical replay, not live
+    var evtMs = 0;
+    try { evtMs = ts ? new Date(ts).getTime() : 0; } catch (ex) { evtMs = 0; }
+    var isStale = evtMs > 0 && (Date.now() - evtMs) > 5 * 60 * 1000;
+
+    // Dedup — same machine + message within 90 s treated as one event
+    var key = machine + '|' + msg;
+    var now = Date.now();
+    var isNew = !_lastAlertKey[key] || (now - _lastAlertKey[key]) >= 90000;
+    _lastAlertKey[key] = now;
+
+    // Push to store (always, so bell shows running history)
+    _sysAlerts.unshift({ ts: ts, machine: machine, lvl: lvl, msg: msg });
+    if (_sysAlerts.length > 50) _sysAlerts.pop();
+
+    // Toast only for genuinely new, non-stale, post-init events
+    var withinInitWindow = Date.now() < _sysAlertInitMs;
+    if (isNew && !isStale && !withinInitWindow) {
+      _sysAlertUnread++;
+      updateAlertBadge();
+      if (lvl === 'CRITICAL') {
+        rToast('🔴 CRITICAL — ' + machine + ': ' + msg, 'error', 8000);
+      } else {
+        rToast('⚠️ WARNING — ' + machine + ': ' + msg, 'warn', 5000);
+      }
+    } else if (isNew && !isStale && withinInitWindow) {
+      // Still count as unread even during init window — just no toast
+      _sysAlertUnread++;
+      updateAlertBadge();
+    }
+
+    _updateNotifDropdown();
+  }
+
+  function _updateNotifDropdown() {
+    var list = document.getElementById('notif-dropdown-list');
+    if (!list) return;
+    if (!_sysAlerts.length) {
+      list.innerHTML = '<div style="padding:10px;text-align:center;font-size:11px;color:var(--text-muted)">No new alerts</div>';
+      return;
+    }
+    var html = '';
+    var recent = _sysAlerts.slice(0, 6);
+    for (var i = 0; i < recent.length; i++) {
+      var a = recent[i];
+      var isCrit = a.lvl === 'CRITICAL';
+      var col  = isCrit ? 'var(--rc-red,#ef4444)' : 'var(--rc-warn,#f59e0b)';
+      var icon = isCrit ? 'fa-circle-exclamation' : 'fa-triangle-exclamation';
+      html +=
+        '<div style="padding:7px 12px;border-bottom:1px solid var(--glass-border);display:flex;align-items:flex-start;gap:8px">' +
+        '<i class="fa-solid ' + icon + '" style="color:' + col + ';margin-top:2px;flex-shrink:0;font-size:12px"></i>' +
+        '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:11px;color:' + col + ';font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+          esc(a.lvl) + ' — ' + esc(a.machine) +
+        '</div>' +
+        '<div style="font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px">' +
+          esc(a.msg) +
+        '</div>' +
+        '<div style="font-size:9px;color:var(--text-muted);opacity:0.55;margin-top:2px">' + _fmtTime(a.ts) + '</div>' +
+        '</div></div>';
+    }
+    list.innerHTML = html;
+  }
+
   function updateAlertBadge() {
-    var tot = RS.unresolvedVibes + RS.unresolvedRenamer + RS.unresolvedVims + RS.unresolvedAppErrors;
+    var tot = RS.unresolvedVibes + RS.unresolvedRenamer + RS.unresolvedVims + RS.unresolvedAppErrors + _sysAlertUnread;
     var na = $r('r-nb-alerts');
     if (na) { na.textContent = tot || ''; na.style.display = tot ? '' : 'none'; }
   }
+
+  // Expose alert helpers to global scope (needed by inline onclick attributes)
+  window._rBellClick = function () {
+    _sysAlertUnread = 0;
+    updateAlertBadge();
+  };
+  window._rClearSysAlerts = function () {
+    _sysAlerts = [];
+    _sysAlertUnread = 0;
+    updateAlertBadge();
+    _updateNotifDropdown();
+    renderAlerts();
+  };
 
   // ── Client-side sort helper ───────────────────────────────
   function sortByTs(docs, field) {
@@ -2184,7 +2318,7 @@
       target_machine: hostname, type: cmd, status: 'PENDING',
       created_at: new Date().toISOString(),
       created_by: user ? user.email : 'admin'
-    }).then(function () { rToast(cmd + ' sent to ' + hostname, 'success'); })
+    }).then(function () { rCmdFeedback(cmd + ' sent to ' + hostname); })
       .catch(function (e) { rToast('Error: ' + e.message, 'error'); });
   };
 
@@ -2419,16 +2553,10 @@
     var term = $r('r-terminal');
     if (!term) return;
 
-    // ── PROACTIVE ALERT — toast + skip terminal for CRITICAL ───────────────
+    // ── PROACTIVE ALERT — route to bell dropdown (deduped), NOT toast flood ──
     if ((e.app_name || '').toUpperCase() === 'SYSTEM_ALERT') {
-      var alertMsg = e.file_name || e.status || 'System Alert';
-      var lvl = (e.status || '').toUpperCase();
-      if (lvl === 'CRITICAL') {
-        rToast('🔴 CRITICAL: ' + alertMsg, 'error', 10000);
-      } else {
-        rToast('⚠️ WARNING: ' + alertMsg, 'warn', 6000);
-      }
-      // Also render in terminal as a highlighted line (fall through below)
+      _pushSystemAlert(e);
+      // Fall through — still render in Live Data Stream terminal below
     }
 
     var ts = fmtTs(e.timestamp || e.created_at);
@@ -4113,7 +4241,7 @@
       created_at: new Date().toISOString(),
       created_by: user ? user.email : 'admin'
     }).then(function () {
-      rToast('Disk Clean Up sent to ' + hostname + ' — ' + disks.join(', '), 'success');
+      rCmdFeedback('Disk Clean Up sent to ' + hostname + ' — ' + disks.join(', '));
       var menu = $r('dd-disk-menu');
       if (menu) menu.style.display = 'none';
     }).catch(function (e) { rToast('Error: ' + (e.message || e), 'error'); });
@@ -4915,7 +5043,8 @@
   function renderLogs() {
     var devOpts = Object.keys(RS.devices).map(function (h) { return '<option value="' + esc(h) + '">' + esc(h) + '</option>'; }).join('');
     var appOpts = RASUMI_APPS.map(function (a) {
-      return a.firebaseNames.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
+      // Use firebaseNames[0] as the canonical Supabase app_name value, label for display
+      return '<option value="' + esc(a.firebaseNames[0]) + '">' + esc(a.label) + '</option>';
     }).join('');
     var now = new Date();
     var todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
@@ -4981,7 +5110,77 @@
 
   window.rToggleLogDetail = function (gidKey) {
     var el = document.getElementById('rld-' + gidKey);
-    if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+    if (!el) return;
+    var wasHidden = el.style.display === 'none';
+    el.style.display = wasHidden ? '' : 'none';
+    // Lazy-load VIBES pending section on first expand
+    if (wasHidden && el.dataset && el.dataset.vibesGid && !el.dataset.vibesPendLoaded) {
+      el.dataset.vibesPendLoaded = '1';
+      rLoadVibesPending(gidKey, el.dataset.vibesGid);
+    }
+  };
+
+  // ── VIBES: load pending (not-uploaded) entries for a batch ───────
+  function _vibesPendingAction(errorType) {
+    var map = {
+      'batch_skip':              'Semak DO/IC di portal VIMS — folder mungkin kosong atau tiada PDF',
+      'upload_retry_exhausted':  'Semak log VIBES pada mesin — cuba upload manual semula',
+      'validation_fail':         'Dokumen tidak lengkap — semak senarai dokumen diperlukan',
+      'upload_error':            'Kemungkinan masalah server VIMS — cuba semula kemudian',
+    };
+    return map[errorType] || 'Semak log VIBES pada mesin untuk butiran lanjut';
+  }
+
+  window.rLoadVibesPending = function (gKey, runId) {
+    var box = document.getElementById('r-vibes-pend-' + gKey);
+    if (!box || !RS.supa || !runId || runId.indexOf('|') !== -1) {
+      // runId contains '|' = fallback bucket key, not a real batch ID
+      if (box) box.innerHTML = '';
+      return;
+    }
+    RS.supa.from('vibes_errors')
+      .select('patient_ic,error_type,category,message,detail,fix_status,timestamp')
+      .eq('run_id', runId)
+      .neq('fix_status', 'fixed')
+      .order('timestamp', { ascending: true })
+      .limit(200)
+      .then(function (res) {
+        var rows = (res.data || []);
+        if (!rows.length) {
+          box.innerHTML = '';   // no pending — hide section silently
+          return;
+        }
+        var pendRows = rows.map(function (r) {
+          var tNo    = r.patient_ic || '—';
+          var errT   = r.error_type || '—';
+          var reason = r.message || (r.detail && (r.detail.error || r.detail.summary)) || '—';
+          var action = _vibesPendingAction(r.error_type);
+          var isAck  = r.fix_status === 'acknowledged';
+          return '<tr>' +
+            '<td class="r-font-mono" style="font-size:11px;vertical-align:top;padding-top:5px">' + esc(tNo) + '</td>' +
+            '<td style="vertical-align:top;padding-top:5px">' +
+              '<span class="r-badge r-badge-err" style="font-size:10px">' + esc(errT) + '</span>' +
+            '</td>' +
+            '<td class="r-cell-trunc" style="max-width:220px;font-size:11px;color:#94a3b8;vertical-align:top;padding-top:5px">' + esc(String(reason)) + '</td>' +
+            '<td style="font-size:11px;color:#fbbf24;vertical-align:top;padding-top:5px">' + esc(action) + '</td>' +
+            '<td style="vertical-align:top;padding-top:5px;white-space:nowrap">' +
+              (isAck
+                ? '<span style="font-size:11px;color:#38bdf8">Acknowledged</span>'
+                : '<span style="font-size:11px;color:#64748b">—</span>') +
+            '</td>' +
+            '</tr>';
+        }).join('');
+        box.innerHTML =
+          '<div style="margin-top:4px;padding:8px 0 6px;border-top:1px solid rgba(255,255,255,0.06)">' +
+          '<div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:8px;letter-spacing:0.04em">' +
+          '<i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;opacity:0.85"></i>' +
+          rows.length + ' PENDING — Tidak Diupload</div>' +
+          tableWrap(['No. Tuntutan', 'Jenis Error', 'Sebab', 'Tindakan Admin', 'Status'], pendRows) +
+          '</div>';
+      })
+      .catch(function () {
+        if (box) box.innerHTML = '<div style="color:#ef4444;font-size:11px;padding:4px 0">Gagal muatkan data pending</div>';
+      });
   };
 
   // ── Enterprise error normalizer ───────────────────────────────
@@ -5418,7 +5617,7 @@
   window.rSearchAllLogs = function () {
     var d = document.getElementById('r-log-date');
     if (d) d.value = '';
-    window.rLoadLogs();
+    window.rLoadLogs(true); // force refresh — user explicitly clicked Search/Clear
   };
 
   // ── Shared session renderer — used by Log Explorer + per-app log tabs ──
@@ -5439,7 +5638,8 @@
       if (!groups[gid]) {
         groups[gid] = {
           gid: gid, logs: [], start: null, end: null,
-          machine: log.machine, app: log.app_name, branch: log.branch_id,
+          machine: log.machine, app: log.app_name,
+          branch: log.branch_id || (RS._devBranchMap && RS._devBranchMap[(log.machine || '').toLowerCase()]) || null,
           hasFail: false, hasCancelled: false, allProcessing: true
         };
         gOrder.push(gid);
@@ -5860,6 +6060,13 @@
       }
 
       var colSpan = 9 + (showMachine ? 1 : 0) + (showBranch ? 1 : 0);
+      // For VIBES: append pending placeholder so rLoadVibesPending can fill it
+      var vibesRunId = (isVibes && g.gid && !g.gid.includes('|')) ? g.gid : '';
+      if (isVibes) {
+        detailHtml += '<div id="r-vibes-pend-' + gKey + '" style="margin-top:4px">' +
+          '<div style="color:#64748b;font-size:11px;padding:4px 0">' +
+          '<i class="fa-solid fa-spinner fa-spin" style="margin-right:5px"></i>Memuat data pending…</div></div>';
+      }
       return '<tr>' +
         '<td>' + _fmtDate(g.start) + '</td>' +
         (showMachine ? '<td class="r-font-mono" style="font-size:11px">' + esc(g.machine || '—') + '</td>' : '') +
@@ -5873,7 +6080,7 @@
         '<td class="r-font-mono r-muted-sm" style="font-size:11px">' + esc((g.gid && !g.gid.includes('|') ? g.gid.substring(0, 8) + '…' : '—')) + '</td>' +
         '<td><button class="r-btn-sm" onclick="rToggleLogDetail(\'' + gKey + '\')"><i class="fa-solid fa-list"></i> View</button></td>' +
         '</tr>' +
-        '<tr id="rld-' + gKey + '" style="display:none">' +
+        '<tr id="rld-' + gKey + '"' + (vibesRunId ? ' data-vibes-gid="' + esc(vibesRunId) + '"' : '') + ' style="display:none">' +
         '<td colspan="' + colSpan + '" style="padding:0 8px 12px 36px;background:rgba(0,0,0,0.25)">' + detailHtml + '</td>' +
         '</tr>';
     }).join('');
@@ -5891,7 +6098,12 @@
 
   }
 
-  window.rLoadLogs = function () {
+  // ── Log Explorer in-memory cache ─────────────────────────────
+  // Key = "date|machine|app|status". Cache hit → instant render + silent BG refresh.
+  // Cache miss or forceRefresh → spinner + 3-pass fetch + store + render.
+  if (!RS._logExplorerCache) RS._logExplorerCache = {};
+
+  window.rLoadLogs = function (forceRefresh) {
     var dateVal = ($r('r-log-date') || {}).value || '';
     var hostname = ($r('r-log-dev') || {}).value || '';
     var appName = ($r('r-log-app') || {}).value || '';
@@ -5900,70 +6112,88 @@
     var statusFilter = issueModeActive ? 'ISSUE' : (($r('r-log-stat') || {}).value || '');
     var box = $r('r-log-results');
     if (!box) return;
-    box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
+
+    var cacheKey = (dateVal || '') + '|' + hostname + '|' + appName + '|' + statusFilter;
 
     // Helper: render + optional Issues Today banner
     function _render(data) {
+      if ($r('r-log-results') !== box) return; // navigated away while fetching
       _processAndRenderLogs(data, box, statusFilter, 'global');
       if (issueModeActive) {
         var banner = document.createElement('div');
         banner.style.cssText = 'padding:6px 14px;background:rgba(239,68,68,0.07);border-bottom:1px solid rgba(239,68,68,0.18);font-size:12px;color:#ef4444;display:flex;align-items:center;gap:8px;';
         banner.innerHTML = '<i class="fa-solid fa-bug" style="font-size:11px"></i><span>ISSUE SCAN — surfacing all flagged sessions: FAILED · PARTIAL · CANCELLED</span>' +
-          '<button onclick="window.rLoadLogs()" style="margin-left:auto;background:none;border:1px solid rgba(239,68,68,0.35);color:#ef4444;cursor:pointer;font-size:11px;padding:2px 8px;border-radius:4px;line-height:1.6">✕ Clear</button>';
+          '<button onclick="window.rLoadLogs(true)" style="margin-left:auto;background:none;border:1px solid rgba(239,68,68,0.35);color:#ef4444;cursor:pointer;font-size:11px;padding:2px 8px;border-radius:4px;line-height:1.6">✕ Clear</button>';
         box.insertBefore(banner, box.firstChild);
       }
     }
 
-    // Pass 1: fetch logs (with date filter if set)
-    var q = RS.supa.from('logs').select('*')
-      .order('timestamp', { ascending: false }).limit(20000);
-    if (dateVal) {
-      q = q.gte('timestamp', dateVal + 'T00:00:00').lte('timestamp', dateVal + 'T23:59:59');
-    }
-    if (hostname) q = q.eq('machine', hostname);
-    if (appName) q = q.eq('app_name', appName);
-
-    q.then(function (res) {
-      var data = res.data || [];
-
-      // No date filter or empty — render directly
-      if (!dateVal || !data.length) { _render(data); return; }
-
-      // Multi-pass: capture null-timestamp FAILED logs that get excluded by date filter
-      var gidSet = {}, machineSet = {}, gids = [], machines = [];
-      data.forEach(function (l) {
-        if (l.job_group_id && !gidSet[l.job_group_id]) { gidSet[l.job_group_id] = true; gids.push(l.job_group_id); }
-        if (l.machine && !machineSet[l.machine]) { machineSet[l.machine] = true; machines.push(l.machine); }
-      });
-
-      if (!machines.length) { _render(data); return; }
-
-      // Build base logMap from P1
-      var logMap = {};
-      data.forEach(function (l) { if (l.id) logMap[l.id] = l; });
-
-      // P3 — null-ts logs for today's machines (catches null-ts + null-gid FAILED)
-      function doP3() {
-        if (hostname) { _render(Object.values(logMap)); return; } // machine-specific; P1 already covers it
-        RS.supa.from('logs').select('*').is('timestamp', null).in('machine', machines).limit(500)
-          .then(function (r3) {
-            (r3.data || []).forEach(function (l) { if (l.id) logMap[l.id] = l; });
-            _render(Object.values(logMap));
-          })
-          .catch(function () { _render(Object.values(logMap)); });
+    // Full 3-pass Supabase fetch; calls onDone(mergedArray) or onError(err)
+    function _fetchFull(onDone, onError) {
+      var q = RS.supa.from('logs').select('*')
+        .order('timestamp', { ascending: false }).limit(20000);
+      if (dateVal) {
+        q = q.gte('timestamp', dateVal + 'T00:00:00').lte('timestamp', dateVal + 'T23:59:59');
       }
+      if (hostname) q = q.eq('machine', hostname);
+      if (appName) q = q.eq('app_name', appName);
 
-      // P2 — all logs sharing gids from P1 (catches null-ts FAILED with valid gid)
-      if (!gids.length) { doP3(); return; }
+      q.then(function (res) {
+        var data = res.data || [];
 
-      RS.supa.from('logs').select('*').in('job_group_id', gids).limit(20000)
-        .then(function (r2) {
-          (r2.data || []).forEach(function (l) { if (l.id) logMap[l.id] = l; });
-          doP3();
-        })
-        .catch(function () { doP3(); });
-    }).catch(function (err) { box.innerHTML = errBox(err.message); });
+        // No date filter or empty — no extra passes needed
+        if (!dateVal || !data.length) { onDone(data); return; }
+
+        var gidSet = {}, machineSet = {}, gids = [], machines = [];
+        data.forEach(function (l) {
+          if (l.job_group_id && !gidSet[l.job_group_id]) { gidSet[l.job_group_id] = true; gids.push(l.job_group_id); }
+          if (l.machine && !machineSet[l.machine]) { machineSet[l.machine] = true; machines.push(l.machine); }
+        });
+        if (!machines.length) { onDone(data); return; }
+
+        var logMap = {};
+        data.forEach(function (l) { if (l.id) logMap[l.id] = l; });
+
+        // P3 — null-ts logs for today's machines (catches null-ts + null-gid FAILED)
+        function doP3() {
+          if (hostname) { onDone(Object.values(logMap)); return; }
+          RS.supa.from('logs').select('*').is('timestamp', null).in('machine', machines).limit(500)
+            .then(function (r3) {
+              (r3.data || []).forEach(function (l) { if (l.id) logMap[l.id] = l; });
+              onDone(Object.values(logMap));
+            })
+            .catch(function () { onDone(Object.values(logMap)); });
+        }
+
+        // P2 — all logs sharing gids from P1 (catches null-ts FAILED with valid gid)
+        if (!gids.length) { doP3(); return; }
+        RS.supa.from('logs').select('*').in('job_group_id', gids).limit(20000)
+          .then(function (r2) {
+            (r2.data || []).forEach(function (l) { if (l.id) logMap[l.id] = l; });
+            doP3();
+          })
+          .catch(function () { doP3(); });
+      }).catch(function (err) { if (onError) onError(err); });
+    }
+
+    var cached = RS._logExplorerCache[cacheKey];
+    if (cached && !forceRefresh && !issueModeActive) {
+      // Instant render from cache
+      _render(cached.data);
+      // Silent background refresh — updates cache and re-renders if still on this tab
+      _fetchFull(function (fresh) {
+        RS._logExplorerCache[cacheKey] = { data: fresh, ts: Date.now() };
+        _render(fresh);
+      }, function () { /* ignore BG refresh errors; cached data stays */ });
+    } else {
+      // Cache miss or forced — show spinner, fetch, store, render
+      box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
+      _fetchFull(function (merged) {
+        RS._logExplorerCache[cacheKey] = { data: merged, ts: Date.now() };
+        _render(merged);
+      }, function (err) { box.innerHTML = errBox(err.message); });
+    }
   };
 
 
@@ -6269,7 +6499,7 @@
       created_at: new Date().toISOString(),
       created_by: createdBy
     }).then(function () {
-      rToast('Command "' + cmdUp + '" sent to ' + target, 'success');
+      rCmdFeedback('Command "' + cmdUp + '" sent to ' + target);
       var inp = $r('r-cmd-dev-inp') || $r('r-cmd-inp');
       if (inp) inp.value = '';
     }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
@@ -6323,7 +6553,7 @@
       created_by: createdBy,
       payload: { script: script }
     }).then(function () {
-      rToast('Script sent to ' + target, 'success');
+      rCmdFeedback('Script sent to ' + target);
       var ov = $r(ovId); if (ov) ov.remove();
       if (typeof renderCommands === 'function') renderCommands();
     }).catch(function (e) { rToast('Error: ' + (e.message || e), 'error'); });
@@ -6458,6 +6688,31 @@
       '<button class="r-btn-sm" onclick="rLoadAppErrors()">Refresh Errors</button>' +
       '</div>' +
       '</div>';
+
+    // ── SYSTEM ALERTS (proactive monitoring) ──
+    if (_sysAlerts.length > 0) {
+      var critCount = _sysAlerts.filter(function (a) { return a.lvl === 'CRITICAL'; }).length;
+      html += '<div class="r-alert-section">' +
+        '<div class="r-alert-section-title ' + (critCount ? 'err' : 'warn') + '">' +
+        '<i class="fa-solid fa-satellite-dish"></i> Proactive Monitoring Alerts (' + _sysAlerts.length + ' recent' + (critCount ? ', ' + critCount + ' CRITICAL' : '') + ')' +
+        ' <button class="r-btn-sm" style="margin-left:8px;font-size:10px" onclick="window._rClearSysAlerts()">Clear All</button>' +
+        '</div>';
+      for (var ai = 0; ai < Math.min(_sysAlerts.length, 20); ai++) {
+        var sa = _sysAlerts[ai];
+        var isCrit = sa.lvl === 'CRITICAL';
+        var saCol  = isCrit ? 'var(--rc-red,#ef4444)' : 'var(--rc-warn,#f59e0b)';
+        var saIcon = isCrit ? 'fa-circle-exclamation' : 'fa-triangle-exclamation';
+        html +=
+          '<div class="r-alert-item ' + (isCrit ? 'err' : 'warn') + '" style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px">' +
+          '<i class="fa-solid ' + saIcon + '" style="color:' + saCol + ';margin-top:2px;flex-shrink:0"></i>' +
+          '<div style="flex:1">' +
+          '<div style="font-size:11px;font-weight:600;color:' + saCol + '">' + esc(sa.lvl) + ' — ' + esc(sa.machine) + '</div>' +
+          '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">' + esc(sa.msg) + '</div>' +
+          '<div style="font-size:10px;color:var(--text-muted);opacity:0.6;margin-top:3px">' + _fmtTime(sa.ts) + '</div>' +
+          '</div></div>';
+      }
+      html += '</div>';
+    }
 
     // ── VIBES errors ──
     if (RS.unresolvedVibes > 0) {
