@@ -380,7 +380,7 @@
       // Results stored in window._rsLogCache so every tab opens instantly (no spinner).
       setTimeout(function () {
         if (!RS.supa) return;
-        ['Renamer HQ', 'FV Branch', 'PDF Splitter', 'PDF Studio', 'Quick Rename', 'Scanify'].forEach(function (app) {
+        ['Renamer HQ', 'FV Branch', 'PDF Splitter', 'PDF Studio', 'Quick Rename', 'Scanify', 'VIBES'].forEach(function (app) {
           _fetchAndCacheAppLogs(app);
         });
       }, 2000);
@@ -1456,7 +1456,7 @@
             updateFleetBadges();
             if (RS.route === 'r-dashboard') renderDashboard();
             if (RS.route === 'r-devices') renderDevices();
-            if (RS.route === 'r-alerts') renderAlerts();
+            // Alerts tab not refreshed on heartbeat — user refreshes manually via "Refresh Errors"
           }, function (err) {
             console.warn('[Rasumi] Firebase machine_status bridge error:', err.message);
           }));
@@ -1477,7 +1477,7 @@
             updateFleetBadges();
             if (RS.route === 'r-dashboard') renderDashboard();
             if (RS.route === 'r-devices') renderDevices();
-            if (RS.route === 'r-alerts') renderAlerts();
+            // Alerts tab not refreshed on heartbeat — avoids ~5s re-render loop
           }
         ).subscribe(function (status) {
           if (status === 'SUBSCRIBED') {
@@ -1503,7 +1503,7 @@
         updateFleetBadges();
         if (RS.route === 'r-dashboard') renderDashboard();
         if (RS.route === 'r-devices') renderDevices();
-        if (RS.route === 'r-alerts') renderAlerts();
+        // Alerts tab not refreshed on heartbeat
       }, function (err) {
         console.warn('[Rasumi] machine_status listener error:', err.message);
       }));
@@ -1528,7 +1528,8 @@
           if (nb) { nb.textContent = display; nb.style.display = cnt ? '' : 'none'; }
           updateAlertBadge();
           if (RS.route === 'r-dashboard') renderDashboard();
-          if (RS.route === 'r-alerts') renderAlerts();
+          // Note: do NOT call renderAlerts() here — it collapses expanded rows.
+          // Badge number already updated via updateAlertBadge() above.
         }).catch(function () { });
 
       RS.supa.from('renamer_docs').select('id', { count: 'exact', head: true })
@@ -1559,7 +1560,7 @@
           var cnt = Math.min(res.count || 0, 51);
           RS.unresolvedAppErrors = cnt;
           updateAlertBadge();
-          if (RS.route === 'r-alerts') renderAlerts();
+          // Note: do NOT call renderAlerts() here — it collapses expanded rows.
         }).catch(function () { });
     }
     _pollBadgeCounts(); // immediate first load
@@ -1825,7 +1826,7 @@
     'r-studio': 'PDF Studio Logs',
     'r-quick': 'Quick Rename Logs',
     'r-scanify': 'Scanify Logs',
-    'r-vibes': 'VIBES Monitor',
+    'r-vibes': 'VIBES Agent',
     'r-vims': 'VIMS Scrape',
     'r-logs': 'Log Explorer',
     'r-commands': 'Commands',
@@ -2128,6 +2129,7 @@
       '<div class="r-chart-hdr">' +
       '<div class="r-panel-title" style="border:none;padding:0;margin:0"><i class="fa-solid fa-microchip"></i> CPU USAGE</div>' +
       '<div class="r-chart-tabs">' +
+      '<button class="r-ctab" onclick="rCpuRange(\'1H\',this)">1H</button>' +
       '<button class="r-ctab r-ctab-active" onclick="rCpuRange(\'24H\',this)">24H</button>' +
       '<button class="r-ctab" onclick="rCpuRange(\'7D\',this)">7D</button>' +
       '<button class="r-ctab" onclick="rCpuRange(\'1M\',this)">1M</button>' +
@@ -3238,9 +3240,13 @@
   function fetchCpuChart(hostname, range) {
     if (!RS.supa || !hostname) return;
     var now = Date.now();
-    var groupByDay = range !== '24H';
+    var groupByDay = range === '7D' || range === '1M';
     var since;
-    if (range === '24H') {
+    if (range === '1H') {
+      // From 8am today — enough to fill full pan range
+      var startDt = new Date(); startDt.setHours(8, 0, 0, 0);
+      since = startDt.toISOString();
+    } else if (range === '24H') {
       var startDt = new Date(); startDt.setDate(startDt.getDate() - 3); startDt.setHours(0, 0, 0, 0);
       since = startDt.toISOString();
     } else {
@@ -3259,7 +3265,58 @@
         var labels = [], data = [];
 
         var minLabel = null, maxLabel = null;
-        if (!groupByDay) {
+        if (range === '1H') {
+          // 1H: 1-minute slots from 8am today.
+          // maxLabel = CEILING 5-min mark of now → axis always ends on a gridline, no trailing empty canvas.
+          // Forward-fill between telemetry writes → continuous line when panning to historical data.
+          var nowDt1H = new Date(); nowDt1H.setSeconds(0, 0); // actual current minute (for live pin)
+          var ceilMins1H = Math.ceil(nowDt1H.getMinutes() / 5) * 5;
+          var maxDt1H = new Date(nowDt1H.getTime());
+          if (ceilMins1H >= 60) {
+            maxDt1H.setHours(maxDt1H.getHours() + 1, 0, 0, 0);
+          } else {
+            maxDt1H.setMinutes(ceilMins1H, 0, 0);
+          }
+          var minDt1H = new Date(maxDt1H.getTime() - 45 * 60000); // 9×5min intervals = 10 gridlines
+          var eightAm1H = new Date(); eightAm1H.setHours(8, 0, 0, 0);
+          if (minDt1H < eightAm1H) minDt1H = eightAm1H;
+
+          var slotStart = new Date(); slotStart.setHours(8, 0, 0, 0);
+          var slotEnd = new Date(maxDt1H); // extend to ceil mark so maxLabel is in the labels array
+          var slotMap1H = {};
+          var cur1H = new Date(slotStart.getTime());
+          while (cur1H.getTime() <= slotEnd.getTime()) {
+            var lbl1H = String(cur1H.getHours()).padStart(2, '0') + ':' + String(cur1H.getMinutes()).padStart(2, '0');
+            labels.push(lbl1H);
+            data.push(null);
+            slotMap1H[lbl1H] = data.length - 1;
+            cur1H = new Date(cur1H.getTime() + 60000); // +1 min
+          }
+          rows.forEach(function (r) {
+            var dt = new Date(r.recorded_at);
+            dt.setSeconds(0, 0);
+            var lbl = String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+            var idx = slotMap1H[lbl];
+            if (idx !== undefined) data[idx] = r.cpu_pct != null ? Math.round(r.cpu_pct * 10) / 10 : null;
+          });
+          // Pin actual current-minute slot to live CPU (before forward-fill so it propagates forward)
+          var _liveDev = RS.devices && RS.devices[hostname];
+          if (_liveDev && _liveDev.cpu_pct != null) {
+            var _nowLbl = String(nowDt1H.getHours()).padStart(2, '0') + ':' + String(nowDt1H.getMinutes()).padStart(2, '0');
+            var _nowIdx = slotMap1H[_nowLbl];
+            if (_nowIdx !== undefined) data[_nowIdx] = Math.round(_liveDev.cpu_pct * 10) / 10;
+          }
+          // Forward-fill: carry each non-null value forward through null gaps between 10-min writes.
+          // Ensures the line is continuous across ALL panned viewports.
+          // Slots before the very first telemetry write remain null (machine was offline).
+          var _ffVal = null;
+          for (var _fi = 0; _fi < data.length; _fi++) {
+            if (data[_fi] !== null) { _ffVal = data[_fi]; }
+            else if (_ffVal !== null) { data[_fi] = _ffVal; }
+          }
+          minLabel = String(minDt1H.getHours()).padStart(2, '0') + ':' + String(minDt1H.getMinutes()).padStart(2, '0');
+          maxLabel = String(maxDt1H.getHours()).padStart(2, '0') + ':' + String(maxDt1H.getMinutes()).padStart(2, '0');
+        } else if (!groupByDay) {
           // 24H: Fetch last 3 days to allow panning (30-min intervals)
           var startDt = new Date(); startDt.setDate(startDt.getDate() - 3); startDt.setHours(0, 0, 0, 0);
           var endDt = new Date(); endDt.setHours(23, 30, 0, 0);
@@ -3353,34 +3410,76 @@
         cpuChart.data.datasets[0].pointBorderColor = data.map(function () { return colors[2]; });
         cpuChart.data.datasets[0].pointHoverBackgroundColor = data.map(function () { return colors[2]; });
         cpuChart.data.datasets[0].borderWidth = 1;
-        cpuChart.data.datasets[0].pointRadius = 1;
 
         // Keep continuous line to show smooth bukit shape
         cpuChart.data.datasets[0].spanGaps = true;
+
+        // All views: explicit label-lookup callback so Chart.js never falls back to raw indices
+        cpuChart.options.scales.x.ticks.callback = function (val) {
+          var lbl = cpuChart.data.labels[val];
+          return lbl !== undefined ? lbl : '';
+        };
+
+        if (range === '1H') {
+          // 1H: no dots on line — only live overlay dot at current time
+          cpuChart.data.datasets[0].pointRadius = 0;
+          cpuChart.data.datasets[0].pointHoverRadius = 3;
+          // afterBuildTicks: physically removes non-5-min ticks → exactly 10 gridlines
+          // t.value is the index at this stage — use labels array for lookup
+          var _1hLabels = labels;
+          cpuChart.options.scales.x.afterBuildTicks = function (axis) {
+            axis.ticks = axis.ticks.filter(function (t) {
+              var lbl = _1hLabels[t.value] || '';
+              var parts = lbl.split(':');
+              if (parts.length < 2) return false;
+              return parseInt(parts[1], 10) % 5 === 0;
+            });
+          };
+          cpuChart.options.scales.x.ticks.autoSkip = false;
+          cpuChart.options.scales.x.ticks.maxTicksLimit = 200;
+        } else {
+          cpuChart.data.datasets[0].pointRadius = 1;
+          // Restore default tick behaviour for 24H / 7D / 1M
+          cpuChart.options.scales.x.afterBuildTicks = undefined;
+          cpuChart.options.scales.x.ticks.autoSkip = true;
+          cpuChart.options.scales.x.ticks.maxTicksLimit = 8;
+        }
+
         if (groupByDay) {
           // 7D/1M: clear any x-axis window so full range is visible
           cpuChart.options.scales.x.min = undefined;
           cpuChart.options.scales.x.max = undefined;
         } else if (!RS._cpuUserPanning) {
-          // Custom 8am - 5pm window (or wider if active)
           cpuChart.options.scales.x.min = minLabel;
           cpuChart.options.scales.x.max = maxLabel;
         }
         cpuChart.update('none');
 
-        // Live blinking dot — only for 24H when device is currently online
+        // Live blinking dot — for 24H and 1H when device is currently online
         var dev = RS._selectedDevice ? RS.devices[RS._selectedDevice] : null;
         var isLive = !groupByDay && dev && deviceStatus(dev) === 'online';
-        _updateCpuLiveDot(cpuChart, isLive, data);
+        _updateCpuLiveDot(cpuChart, isLive, data, colors[2]);
       }).catch(function () { });
   }
 
-  // Position the blinking overlay dot on the last non-null point
-  function _updateCpuLiveDot(chart, isLive, data) {
+  // Position the blinking overlay dot on the last non-null point within the visible viewport
+  function _updateCpuLiveDot(chart, isLive, data, color) {
     var dot = document.getElementById('r-cpu-live');
     if (!dot) return;
     if (!isLive) { dot.style.display = 'none'; return; }
-    var lastIdx = data.length - 1;
+    // Apply device-matched color via CSS variable
+    if (color) {
+      dot.style.setProperty('--cpu-dot-color', color);
+      // Convert hex to rgba for glow — works for 6-char hex
+      var r = parseInt(color.slice(1, 3), 16) || 0;
+      var g = parseInt(color.slice(3, 5), 16) || 0;
+      var b = parseInt(color.slice(5, 7), 16) || 0;
+      dot.style.setProperty('--cpu-dot-glow', 'rgba(' + r + ',' + g + ',' + b + ',0.7)');
+    }
+    // Find last non-null index within the current x-axis viewport
+    var maxLabel = chart.options.scales.x.max;
+    var lastIdx = maxLabel !== undefined ? chart.data.labels.indexOf(maxLabel) : data.length - 1;
+    if (lastIdx < 0) lastIdx = data.length - 1;
     while (lastIdx >= 0 && data[lastIdx] == null) lastIdx--;
     if (lastIdx < 0) { dot.style.display = 'none'; return; }
     try {
@@ -4742,15 +4841,32 @@
     }
   };
 
-  // ── VIBES MONITOR ──────────────────────────────────────────
+  // ── VIBES AGENT (Section 1: Upload Activity + Section 2: Error Monitor) ──
   function renderVibes() {
     var devOpts = Object.keys(RS.devices).map(function (h) { return '<option value="' + esc(h) + '">' + esc(h) + '</option>'; }).join('');
     var view = $r('r-view-area');
     if (!view) return;
     view.innerHTML =
+      // ── SECTION 1: Upload Activity ───────────────────────────
+      '<div class="r-panel" style="margin-bottom:16px">' +
+      '<div class="r-panel-hdr">' +
+      '<h3><i class="fa-solid fa-cloud-arrow-up"></i> Upload Activity</h3>' +
+      '<div class="r-filter-bar">' +
+      '<select class="r-filter-sel" id="r-vact-dev"><option value="">All Machines</option>' + devOpts + '</select>' +
+      '<select class="r-filter-sel" id="r-vact-stat">' +
+      '<option value="">All Status</option>' +
+      '<option value="COMPLETED">Completed</option>' +
+      '<option value="FAILED">Failed</option>' +
+      '</select>' +
+      '<button class="r-btn-sm" onclick="rLoadVibesActivity()">Search</button>' +
+      '</div>' +
+      '</div>' +
+      '<div id="r-vact-results"><div class="r-loading"><span class="r-spin"></span> Loading…</div></div>' +
+      '</div>' +
+      // ── SECTION 2: Error Monitor ─────────────────────────────
       '<div class="r-panel">' +
       '<div class="r-panel-hdr">' +
-      '<h3><i class="fa-solid fa-file-arrow-up"></i> VIBES Upload Monitor</h3>' +
+      '<h3><i class="fa-solid fa-triangle-exclamation"></i> Error Monitor</h3>' +
       '<div class="r-filter-bar">' +
       '<select class="r-filter-sel" id="r-vib-dev"><option value="">All Machines</option>' + devOpts + '</select>' +
       '<select class="r-filter-sel" id="r-vib-res">' +
@@ -4762,10 +4878,10 @@
       '</div>' +
       '</div>' +
       '<div class="r-legend">' +
-      '<span class="r-badge r-badge-err">guard_exhausted</span> Batch aborted (15-doc stop) &nbsp;' +
-      '<span class="r-badge r-badge-warn">upload_retry_exhausted</span> Max retries &nbsp;' +
-      '<span class="r-badge r-badge-muted">batch_skip</span> Row skipped &nbsp;' +
-      '<span class="r-badge r-badge-info">reconciliation_incomplete</span> Recon failed' +
+      '<span class="r-badge r-badge-err">GUARD_EXHAUSTED</span> Batch aborted &nbsp;' +
+      '<span class="r-badge r-badge-warn">UPLOAD_RETRY_EXHAUSTED</span> Max retries &nbsp;' +
+      '<span class="r-badge r-badge-warn">BATCH_INCOMPLETE</span> Partial batch &nbsp;' +
+      '<span class="r-badge r-badge-info">RECONCILIATION_INCOMPLETE</span> Recon failed' +
       '</div>' +
       '<div class="r-info-box">' +
       '<i class="fa-solid fa-circle-info"></i>' +
@@ -4774,7 +4890,35 @@
       '</div>' +
       '<div id="r-vib-results"><div class="r-empty">Select filter and click Search</div></div>' +
       '</div>';
+
+    // Auto-load both sections
+    rLoadVibesActivity();
+    rLoadVibes();
   }
+
+  window.rLoadVibesActivity = function () {
+    var machine = ($r('r-vact-dev') || {}).value || '';
+    var statusFilter = ($r('r-vact-stat') || {}).value || '';
+    var box = $r('r-vact-results');
+    if (!box) return;
+    if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
+
+    function _render(data) {
+      var d = machine ? data.filter(function (l) { return l.machine === machine; }) : data;
+      _processAndRenderLogs(d, box, statusFilter, 'global');
+    }
+
+    var cached = (window._rsLogCache || {})['VIBES'];
+    if (cached) {
+      _render(cached.data);
+      _fetchAndCacheAppLogs('VIBES', function (fresh) {
+        if ($r('r-vact-results') === box) _render(fresh);
+      });
+    } else {
+      box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
+      _fetchAndCacheAppLogs('VIBES', _render);
+    }
+  };
 
   window.rLoadVibes = function () {
     var hostname = ($r('r-vib-dev') || {}).value || '';
@@ -4785,7 +4929,12 @@
 
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
 
-    var supaQ = RS.supa.from('vibes_errors').select('*').order('timestamp', { ascending: false }).limit(150);
+    // Exclude skipped-doc error types at DB level (not client-side) so limit is not polluted
+    var _skipTypeFilter = '(batch_skip,amount_unresolved,folder_not_found,row_skip_portal_lag)';
+    var supaQ = RS.supa.from('vibes_errors').select('*')
+      .not('error_type', 'in', _skipTypeFilter)
+      .order('timestamp', { ascending: false })
+      .limit(500);
     if (resolved === 'open') supaQ = supaQ.eq('resolved', false);
     else if (resolved === 'resolved') supaQ = supaQ.eq('resolved', true);
     if (hostname) supaQ = supaQ.eq('hostname', hostname);
@@ -4794,52 +4943,125 @@
       if (res.error) { box.innerHTML = errBox(res.error.message); return; }
       var docs = (res.data || []).map(function (d) {
         return Object.assign({ id: d.id, _host: d.hostname }, d);
-      }).filter(function (d) {
-        // Skip alerts handled in Alerts page — exclude from VIBES Monitor
-        var _skipTypes = ['batch_skip', 'amount_unresolved', 'folder_not_found', 'row_skip_portal_lag'];
-        return _skipTypes.indexOf(d.error_type || d.category || '') === -1;
       });
       if (!docs.length) { box.innerHTML = '<div class="r-empty">No VIBES errors match</div>'; return; }
 
-      var runs = {};
+      // ── Admin action guidance per error type ────────────────────
+      var _VIBES_META = {
+        BATCH_INCOMPLETE:          { badge: 'r-badge-warn', action: 'Bot terminated mid-batch — partial payload injected to portal. Unfinished rows remain. REQUEUE bot. Audit portal for duplicate entries before re-run to avoid double-insert.' },
+        GUARD_EXHAUSTED:           { badge: 'r-badge-err',  action: 'batch_retry_guard threshold breached (15-doc abort). Bot self-terminated to prevent runaway loop. Claims pre-inserted in portal. Next run auto-resumes remaining rows — no manual intervention needed unless count mismatch.' },
+        SAVE_TIMEOUT_PORTAL_LAG:   { badge: 'r-badge-err',  action: 'Portal ACK timeout on save sequence — bot exhausted retry window before server acknowledgment. Suspected: portal congestion or session drop. REQUEUE affected claims after portal stabilises.' },
+        UPLOAD_RETRY_EXHAUSTED:    { badge: 'r-badge-warn', action: 'Max retry quota exhausted for invoice upload. Portal failed to return success ACK within threshold. CHECK portal for ghost entries before REQUEUE to prevent duplicate upload.' },
+        RECONCILIATION_INCOMPLETE: { badge: 'r-badge-info', action: 'Post-upload reconciliation failed — bot could not verify portal record matches local payload. DO NOT CLEAR until operator manually cross-checks portal vs local record. Flag for audit if persistent.' },
+        BATCH_SKIP:                { badge: 'r-badge-muted', action: 'Zero uploadable rows found in bot execution context. Vectors: [1] operator manual upload already completed, [2] AJAX hydration failed, [3] session retry quota exhausted. Verify portal state. CLEAR only if portal confirmed populated.' }
+      };
+
+      // Group: error_type → hostname → [rows]
+      var etypeMap2 = {}, etypeOrder = [];
       docs.forEach(function (e) {
-        var rid = e.run_id || 'no-run-id';
-        if (!runs[rid]) runs[rid] = { rid: rid, host: e._host, time: e.timestamp, errors: [] };
-        runs[rid].errors.push(e);
+        var etype = e.error_type || e.category || 'unknown';
+        var host  = e._host || '—';
+        if (!etypeMap2[etype]) { etypeMap2[etype] = {}; etypeOrder.push(etype); }
+        if (!etypeMap2[etype][host]) etypeMap2[etype][host] = [];
+        etypeMap2[etype][host].push(e);
       });
 
-      var html = '<div class="r-results-count">' + docs.length + ' error(s) across ' + Object.keys(runs).length + ' run(s)</div>';
-      Object.values(runs).forEach(function (run) {
-        var openCnt = run.errors.filter(function (e) { return !e.resolved; }).length;
-        var errRows = run.errors.map(function (e) {
-          return '<tr>' +
-            '<td>' + fmtTs(e.timestamp) + '</td>' +
-            '<td style="font-size:11px">' + esc(e.patient_ic || e.tuntutan_no || e.context || '—') + '</td>' +
-            '<td><span class="r-badge ' + errBadge(e.error_type || e.category) + '">' + esc(e.error_type || e.category || 'unknown') + '</span></td>' +
-            '<td class="r-cell-trunc">' + esc(e.message || e.summary || '—') + '</td>' +
-            '<td><span class="r-badge ' + (e.resolved ? 'r-badge-ok' : 'r-badge-err') + '">' + (e.resolved ? 'FIXED' : 'OPEN') + '</span></td>' +
-            '<td>' + (!e.resolved
-              ? '<button class="r-btn-sm" onclick="rOpenFix(\'' + esc(e.id) + '\',\'' + esc(e._host) + '\',\'vibes_errors\')">Fix</button>'
-              : '<span class="r-muted-sm">' + esc(e.fix_note || '✓') + '</span>') +
-            '</td>' +
-            '</tr>';
-        }).join('');
+      var totalOpen = docs.filter(function (e) { return !e.resolved; }).length;
+      var allDevices = {};
+      docs.forEach(function (e) { allDevices[e._host || '—'] = 1; });
+      var html = '<div class="r-results-count">' + docs.length + ' error(s) — ' + totalOpen + ' open | ' +
+        etypeOrder.length + ' error type(s) | ' + Object.keys(allDevices).length + ' device(s)</div>';
+
+      etypeOrder.forEach(function (etype) {
+        var hostMap = etypeMap2[etype];
+        var etAllRows = [];
+        Object.values(hostMap).forEach(function (arr) { etAllRows = etAllRows.concat(arr); });
+        var etTotalOpen = etAllRows.filter(function (e) { return !e.resolved; }).length;
+        var etLastTs    = etAllRows.reduce(function (mx, e) { return (!mx || e.timestamp > mx) ? e.timestamp : mx; }, null);
+        var etDevCount  = Object.keys(hostMap).length;
+        var etKey       = etype.replace(/[^a-z0-9]/gi, '_');
+        var meta        = _VIBES_META[etype] || null;
+        var badgeCls    = errBadge(etype) || (meta ? meta.badge : 'r-badge-muted');
+
+        // ── Level 1: Error Type header ───────────────────────────
         html +=
-          '<div class="r-run-group">' +
-          '<div class="r-run-hdr">' +
-          '<span class="r-run-id"><i class="fa-solid fa-layer-group"></i> Run: <code>' + esc(run.rid) + '</code></span>' +
-          '<span class="r-font-mono r-muted-sm">' + esc(run.host) + '</span>' +
-          '<span class="r-run-time">' + fmtTs(run.time) + '</span>' +
-          '<span class="r-badge ' + (openCnt ? 'r-badge-err' : 'r-badge-ok') + '">' + (openCnt ? openCnt + ' OPEN' : 'ALL FIXED') + '</span>' +
-          '<div class="r-run-actions">' +
-          (openCnt > 0 ? '<button class="r-btn-sm warn" onclick="rClearErrors(\'' + esc(run.rid) + '\',\'' + esc(run.host) + '\')">Clear All</button>' : '') +
-          '<button class="r-btn-sm" onclick="rDownloadLog(\'' + esc(run.rid) + '\',\'' + esc(run.host) + '\')">↓ JSONL</button>' +
+          '<div style="margin-bottom:10px;border:1px solid rgba(255,255,255,0.08);border-radius:6px;overflow:hidden">' +
+          // Header row — always visible, clickable to expand
+          '<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(255,255,255,0.04);cursor:pointer;flex-wrap:wrap" ' +
+          'onclick="(function(el){var d=document.getElementById(\'vetg-' + etKey + '\');var o=d.style.display!==\'none\';d.style.display=o?\'none\':\'\';var a=el.querySelector(\'.vet-arr\');if(a)a.textContent=o?\'▼\':\'▲\';})(this)">' +
+          '<span class="r-badge ' + badgeCls + '" style="font-size:11px;min-width:auto">' + esc(etype) + '</span>' +
+          (etTotalOpen > 0
+            ? '<span class="r-badge r-badge-err" style="font-size:10px">' + etTotalOpen + ' OPEN</span>'
+            : '<span class="r-badge r-badge-ok" style="font-size:10px">ALL FIXED</span>') +
+          '<span style="font-size:11px;color:var(--text-muted)"><i class="fa-solid fa-server" style="font-size:9px"></i> ' + etDevCount + ' device(s)</span>' +
+          '<span style="font-size:10px;color:rgba(255,255,255,0.3)">Last: ' + (etLastTs ? fmtTs(etLastTs) : '—') + '</span>' +
+          '<span class="vet-arr" style="margin-left:auto;color:var(--text-muted);font-size:11px">▼</span>' +
+          (etTotalOpen > 0
+            ? '<button class="r-btn-sm warn" style="font-size:10px" onclick="event.stopPropagation();rClearVibesEtypeAll(\'' + esc(etype) + '\',this)">✓ Clear All</button>'
+            : '') +
+          '<button class="r-btn-sm" style="font-size:10px" onclick="event.stopPropagation();rDownloadVibesEtype(\'' + esc(etype) + '\')">↓ JSONL</button>' +
           '</div>' +
-          '</div>' +
-          '<div class="r-run-body">' +
-          tableWrap(['Time', 'Claim No', 'Error Type', 'Message', 'Status', 'Action'], errRows) +
-          '</div>' +
-          '</div>';
+          // Admin action note — only if meta defined for this error type
+          (meta ? '<div style="padding:5px 14px 6px;font-size:10px;font-family:\'JetBrains Mono\',Consolas,monospace;' +
+          'color:var(--neon-amber,#f59e0b);opacity:0.85;background:rgba(0,0,0,0.15);line-height:1.5">' +
+          '// ADMIN: ' + esc(meta.action) + '</div>' : '') +
+          // Expandable device list
+          '<div id="vetg-' + etKey + '" style="display:none;padding:6px 8px">';
+
+        // ── Level 2: Device sub-headers ──────────────────────────
+        Object.keys(hostMap).forEach(function (host) {
+          var devRows   = hostMap[host];
+          var devOpen   = devRows.filter(function (e) { return !e.resolved; }).length;
+          var devKey2   = (etKey + '_' + host).replace(/[^a-z0-9]/gi, '_');
+
+          // Detail table rows
+          var detailRows = devRows.map(function (e) {
+            var batch = e.run_id || '—';
+            var batchShort = batch.length > 24 ? batch.substring(0, 24) + '…' : batch;
+            var det = {};
+            try { det = typeof e.detail === 'string' ? JSON.parse(e.detail) : (e.detail || {}); } catch (x) {}
+            var batchDisplay = det.batch_no || batchShort;
+            return '<tr style="border-top:1px solid rgba(255,255,255,0.03)">' +
+              '<td style="padding:3px 8px;color:var(--text-muted);font-size:10px;white-space:nowrap">' + fmtTs(e.timestamp) + '</td>' +
+              '<td style="padding:3px 8px;font-size:11px;font-family:monospace;color:var(--neon-cyan,#22d3ee)">' + esc(e.patient_ic || e.tuntutan_no || '—') + '</td>' +
+              '<td style="padding:3px 8px;font-size:10px;color:var(--text-muted);font-family:monospace">' + esc(batchDisplay) + '</td>' +
+              '<td style="padding:3px 8px;font-size:10px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(e.message || '') + '">' + esc(e.message || '—') + '</td>' +
+              '<td style="padding:3px 8px"><span class="r-badge ' + (e.resolved ? 'r-badge-ok' : 'r-badge-err') + '" style="font-size:9px">' + (e.resolved ? 'FIXED' : 'OPEN') + '</span></td>' +
+              '<td style="padding:3px 8px;text-align:right">' + (!e.resolved
+                ? '<button class="r-btn-sm" style="font-size:10px" onclick="rOpenFix(\'' + esc(String(e.id)) + '\',\'' + esc(e._host) + '\',\'vibes_errors\')">Fix</button>'
+                : '<span class="r-muted-sm" style="font-size:10px" title="' + esc(e.fix_note || '') + '">' + esc((e.fix_note || '✓').substring(0, 20)) + '</span>') +
+              '</td></tr>';
+          }).join('');
+
+          // Device sub-header — clickable (Level 2)
+          html +=
+            '<div style="padding:5px 8px;background:rgba(255,255,255,0.025);border-radius:4px;margin-bottom:4px;cursor:pointer" ' +
+            'onclick="(function(el){var d=document.getElementById(\'vmdd-' + devKey2 + '\');var o=d.style.display!==\'none\';d.style.display=o?\'none\':\'\';var a=el.querySelector(\'.vmd-arr\');if(a)a.textContent=o?\'▼\':\'▲\';})(this)">' +
+            '<div style="display:flex;align-items:center;gap:6px;font-size:11px">' +
+            '<i class="fa-solid fa-server" style="font-size:9px;color:var(--neon-cyan,#22d3ee)"></i>' +
+            '<span style="font-family:monospace;color:var(--neon-cyan,#22d3ee);font-weight:600">' + esc(host) + '</span>' +
+            '<span class="r-badge ' + (devOpen ? 'r-badge-err' : 'r-badge-ok') + '" style="font-size:9px">' + (devOpen ? devOpen + ' OPEN' : 'ALL FIXED') + '</span>' +
+            '<span class="vmd-arr" style="margin-left:auto;color:var(--text-muted);font-size:10px">▼</span>' +
+            (devOpen > 0
+              ? '<button class="r-btn-sm" style="font-size:10px" onclick="event.stopPropagation();rClearVibesEtype(\'' + esc(host) + '\',\'' + esc(etype) + '\',\'' + devKey2 + '\',this)">✓ Clear</button>'
+              : '') +
+            '</div>' +
+            // Detail table (Level 3)
+            '<div id="vmdd-' + devKey2 + '" style="display:none;margin-top:5px">' +
+            '<table style="width:100%;font-size:11px;border-collapse:collapse">' +
+            '<thead><tr style="color:var(--text-muted);font-size:10px;border-bottom:1px solid rgba(255,255,255,0.07)">' +
+            '<th style="text-align:left;padding:2px 8px;font-weight:500;white-space:nowrap">Time</th>' +
+            '<th style="text-align:left;padding:2px 8px;font-weight:500">Claim No</th>' +
+            '<th style="text-align:left;padding:2px 8px;font-weight:500">Batch</th>' +
+            '<th style="text-align:left;padding:2px 8px;font-weight:500">Message</th>' +
+            '<th style="text-align:left;padding:2px 8px;font-weight:500">Status</th>' +
+            '<th style="text-align:left;padding:2px 8px;font-weight:500">Action</th>' +
+            '</tr></thead><tbody>' +
+            detailRows +
+            '</tbody></table></div></div>';
+        });
+
+        html += '</div></div>'; // close vetg + error-type card
       });
       box.innerHTML = html;
     }).catch(function (err) { box.innerHTML = errBox(err.message); });
@@ -4932,27 +5154,178 @@
     }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
   };
 
-  // ── VIBES: Download run errors as JSONL ────────────────────
+  // ── VIBES: Download errors as JSONL (by hostname; runId unused but kept for compat) ──
   window.rDownloadLog = function (runId, hostname) {
     if (!RS.supa) { rToast('Supabase not ready', 'error'); return; }
     rToast('Preparing JSONL download…', 'info');
-    RS.supa.from('vibes_errors').select('*').eq('run_id', runId)
+    var q = RS.supa.from('vibes_errors').select('*').order('timestamp', { ascending: true });
+    if (hostname) q = q.eq('hostname', hostname);
+    else if (runId) q = q.eq('run_id', runId);
+    q.then(function (res) {
+      if (res.error) { rToast('Query error: ' + res.error.message, 'error'); return; }
+      var rows = (res.data || []);
+      if (!rows.length) { rToast('No records found', 'warn'); return; }
+      var jsonl = rows.map(function (r) { return JSON.stringify(r); }).join('\n');
+      var blob = new Blob([jsonl], { type: 'application/jsonl' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      var safeName = (hostname || runId || 'device').replace(/[^a-zA-Z0-9_-]/g, '_');
+      a.href = url;
+      a.download = 'vibes_' + safeName + '.jsonl';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+      rToast('Downloaded ' + rows.length + ' error records', 'success');
+    }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
+  };
+
+  // ── VIBES: Clear all open errors for a device ──────────────
+  window.rClearVibesDevice = function (hostname, btn) {
+    if (!_canWrite()) { rToast('Read-only — request write access from Super Admin', 'warn'); return; }
+    var title = $r('r-modal-title');
+    var body = $r('r-modal-body');
+    var footer = $r('r-modal-footer');
+    if (!body) return;
+    if (title) title.innerHTML = '<i class="fa-solid fa-broom" style="color:var(--rc-orange,#f59e0b)"></i> Clear All Open Errors';
+    body.innerHTML =
+      '<div style="padding:4px 0">' +
+      '<div style="margin-bottom:12px;color:var(--rc-text,#f9fafb);font-size:13px">Mark <strong>all OPEN</strong> errors for this device as fixed?</div>' +
+      '<div style="margin-bottom:12px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:4px;font-size:11px;color:var(--rc-text-dim,#9ca3af)">' +
+      '<div><i class="fa-solid fa-server"></i> Device: <code>' + esc(hostname) + '</code></div>' +
+      '</div>' +
+      '<div class="r-fix-field">' +
+      '<label style="font-size:11px;color:var(--rc-text-dim,#9ca3af);letter-spacing:0.5px">FIX NOTE <span style="color:#ef4444">*</span></label>' +
+      '<textarea id="r-vibes-clear-note" rows="3" class="r-textarea" placeholder="e.g. Batch re-run cleared all errors…" style="width:100%;box-sizing:border-box;margin-top:6px"></textarea>' +
+      '</div></div>';
+    if (footer) footer.innerHTML =
+      '<button style="background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.5);color:#fcd34d;border-radius:4px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit" ' +
+      'onclick="rSubmitClearVibesDevice(\'' + esc(hostname) + '\')"><i class="fa-solid fa-broom"></i> Clear All</button>' +
+      '<button class="r-btn-sm" onclick="rModalClose()">Cancel</button>';
+    rModalOpen();
+  };
+
+  window.rSubmitClearVibesDevice = function (hostname) {
+    var note = ($r('r-vibes-clear-note') || {}).value || '';
+    if (note.trim().length < 5) { rToast('Fix note required (min 5 chars)', 'warn'); return; }
+    if (!RS.supa) return;
+    var user = RS.currentUser;
+    RS.supa.from('vibes_errors').update({
+      resolved: true, fix_note: note.trim(),
+      fix_by: user ? user.email : 'admin',
+      fixed_at: new Date().toISOString()
+    }).eq('hostname', hostname).eq('resolved', false)
+      .then(function (res) {
+        if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
+        rToast('All open errors for ' + hostname + ' cleared', 'success');
+        rModalClose();
+        rLoadVibes();
+      }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
+  };
+
+  // ── VIBES: Clear open errors for a specific error type on a device ──
+  window.rClearVibesEtype = function (hostname, etype, etKey, btn) {
+    if (!_canWrite()) { rToast('Read-only — request write access from Super Admin', 'warn'); return; }
+    var title = $r('r-modal-title');
+    var body = $r('r-modal-body');
+    var footer = $r('r-modal-footer');
+    if (!body) return;
+    if (title) title.innerHTML = '<i class="fa-solid fa-broom" style="color:var(--rc-orange,#f59e0b)"></i> Clear Open Errors';
+    body.innerHTML =
+      '<div style="padding:4px 0">' +
+      '<div style="margin-bottom:12px;color:var(--rc-text,#f9fafb);font-size:13px">Mark all <strong>' + esc(etype) + '</strong> OPEN errors as fixed?</div>' +
+      '<div style="margin-bottom:12px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:4px;font-size:11px;color:var(--rc-text-dim,#9ca3af)">' +
+      '<div><i class="fa-solid fa-server"></i> Device: <code>' + esc(hostname) + '</code></div>' +
+      '<div style="margin-top:4px"><i class="fa-solid fa-triangle-exclamation"></i> Type: <code>' + esc(etype) + '</code></div>' +
+      '</div>' +
+      '<div class="r-fix-field">' +
+      '<label style="font-size:11px;color:var(--rc-text-dim,#9ca3af);letter-spacing:0.5px">FIX NOTE <span style="color:#ef4444">*</span></label>' +
+      '<textarea id="r-vibes-clear-note" rows="3" class="r-textarea" placeholder="e.g. Re-queued batch, errors cleared…" style="width:100%;box-sizing:border-box;margin-top:6px"></textarea>' +
+      '</div></div>';
+    if (footer) footer.innerHTML =
+      '<button style="background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.5);color:#fcd34d;border-radius:4px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit" ' +
+      'onclick="rSubmitClearVibesEtype(\'' + esc(hostname) + '\',\'' + esc(etype) + '\',\'' + etKey + '\')"><i class="fa-solid fa-broom"></i> Clear</button>' +
+      '<button class="r-btn-sm" onclick="rModalClose()">Cancel</button>';
+    rModalOpen();
+  };
+
+  // ── VIBES: Clear ALL open errors of one error type across all devices ──
+  window.rClearVibesEtypeAll = function (etype, btn) {
+    if (!_canWrite()) { rToast('Read-only — request write access from Super Admin', 'warn'); return; }
+    var title = $r('r-modal-title');
+    var body  = $r('r-modal-body');
+    var footer = $r('r-modal-footer');
+    if (!body) return;
+    if (title) title.innerHTML = '<i class="fa-solid fa-broom" style="color:var(--rc-orange,#f59e0b)"></i> Clear All — ' + esc(etype);
+    body.innerHTML =
+      '<div style="padding:4px 0">' +
+      '<div style="margin-bottom:12px;color:var(--rc-text,#f9fafb);font-size:13px">Mark <strong>semua</strong> error <code>' + esc(etype) + '</code> sebagai fixed <strong>merentas semua device</strong>?</div>' +
+      '<div class="r-fix-field">' +
+      '<label style="font-size:11px;color:var(--rc-text-dim,#9ca3af);letter-spacing:0.5px">FIX NOTE <span style="color:#ef4444">*</span></label>' +
+      '<textarea id="r-vibes-clear-note" rows="3" class="r-textarea" placeholder="e.g. Re-run bot selesai, semua tuntutan dah upload…" style="width:100%;box-sizing:border-box;margin-top:6px"></textarea>' +
+      '</div></div>';
+    if (footer) footer.innerHTML =
+      '<button style="background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.5);color:#fcd34d;border-radius:4px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit" ' +
+      'onclick="rSubmitClearVibesEtypeAll(\'' + esc(etype) + '\')"><i class="fa-solid fa-broom"></i> Clear All</button>' +
+      '<button class="r-btn-sm" onclick="rModalClose()">Cancel</button>';
+    rModalOpen();
+  };
+
+  window.rSubmitClearVibesEtypeAll = function (etype) {
+    var note = ($r('r-vibes-clear-note') || {}).value || '';
+    if (note.trim().length < 5) { rToast('Fix note required (min 5 chars)', 'warn'); return; }
+    if (!RS.supa) return;
+    var user = RS.currentUser;
+    RS.supa.from('vibes_errors').update({
+      resolved: true, fix_note: note.trim(),
+      fix_by: user ? user.email : 'admin',
+      fixed_at: new Date().toISOString()
+    }).eq('error_type', etype).eq('resolved', false)
+      .then(function (res) {
+        if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
+        rToast('Semua ' + etype + ' errors cleared', 'success');
+        rModalClose();
+        rLoadVibes();
+      }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
+  };
+
+  // ── VIBES: Download JSONL for one error type across all devices ──
+  window.rDownloadVibesEtype = function (etype) {
+    if (!RS.supa) { rToast('Supabase not ready', 'error'); return; }
+    rToast('Preparing JSONL download…', 'info');
+    RS.supa.from('vibes_errors').select('*').eq('error_type', etype)
       .order('timestamp', { ascending: true })
       .then(function (res) {
         if (res.error) { rToast('Query error: ' + res.error.message, 'error'); return; }
-        var rows = (res.data || []);
-        if (!rows.length) { rToast('No records for this run', 'warn'); return; }
+        var rows = res.data || [];
+        if (!rows.length) { rToast('No records found', 'warn'); return; }
         var jsonl = rows.map(function (r) { return JSON.stringify(r); }).join('\n');
         var blob = new Blob([jsonl], { type: 'application/jsonl' });
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
-        var safeName = (hostname || 'device').replace(/[^a-zA-Z0-9_-]/g, '_');
         a.href = url;
-        a.download = 'vibes_' + safeName + '_' + runId + '.jsonl';
+        a.download = 'vibes_' + etype.replace(/[^a-zA-Z0-9_-]/g, '_') + '.jsonl';
         document.body.appendChild(a);
         a.click();
         setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-        rToast('Downloaded ' + rows.length + ' error records', 'success');
+        rToast('Downloaded ' + rows.length + ' records', 'success');
+      }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
+  };
+
+  window.rSubmitClearVibesEtype = function (hostname, etype, etKey) {
+    var note = ($r('r-vibes-clear-note') || {}).value || '';
+    if (note.trim().length < 5) { rToast('Fix note required (min 5 chars)', 'warn'); return; }
+    if (!RS.supa) return;
+    var user = RS.currentUser;
+    RS.supa.from('vibes_errors').update({
+      resolved: true, fix_note: note.trim(),
+      fix_by: user ? user.email : 'admin',
+      fixed_at: new Date().toISOString()
+    }).eq('hostname', hostname).eq('error_type', etype).eq('resolved', false)
+      .then(function (res) {
+        if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
+        rToast('Cleared all ' + etype + ' errors for ' + hostname, 'success');
+        rModalClose();
+        rLoadVibes();
       }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
   };
 
@@ -6748,25 +7121,25 @@
       label: 'Amount Unresolved',
       faultColor: 'var(--neon-amber)',
       badge: 'r-badge-warn',
-      cause: 'Cause: manual entry mismatch. No action required from system. Clear when acknowledged.'
+      cause: 'INTEGRITY CHECK FAILED — amount field mismatch detected between local record and portal entry. No system fault. Bot operation nominal. ADMIN: manual cross-check required. CLEAR after operator confirms.'
     },
     folder_not_found: {
-      label: 'Unmatch',
+      label: 'Folder Not Found',
       faultColor: 'var(--neon-amber)',
       badge: 'r-badge-warn',
-      cause: 'Cause: local storage folder missing or DO mismatch. Verify folder exists in scanner base. No system action required.'
+      cause: 'LOCAL PATH RESOLUTION FAILED — scanner base returned no matching directory for target tuntutan. DO identifier mismatch or folder not provisioned. No system fault. ADMIN: verify folder exists in scanner root. CLEAR if confirmed non-existent or already handled.'
     },
     row_skip_portal_lag: {
       label: 'Portal Unresponsive',
       faultColor: 'var(--neon-red)',
       badge: 'r-badge-err',
-      cause: 'Cause: portal page lag — bot could not click Kemaskini Invois after max retries. Re-run bot to retry these rows.'
+      cause: 'PORTAL RESPONSE TIMEOUT — bot exhausted max-retry sequence on Kemaskini Invois click. Portal failed to acknowledge within threshold window. Suspected: network congestion or portal server overload. ADMIN: REQUEUE bot to retry affected rows.'
     },
     batch_skip: {
       label: 'Batch Skip',
       faultColor: 'var(--neon-amber)',
       badge: 'r-badge-warn',
-      cause: 'Cause: tuntutan was skipped during batch processing. Verify DO details in VIBES portal.'
+      cause: 'AGENT TERMINATED BATCH CYCLE — zero uploadable invoice rows found in JS execution context. Root vectors: [1] portal already holds payload (manual upload by operator), [2] session retry quota exhausted for all rows, [3] portal AJAX failed to hydrate invoice array. Bot process nominal — no fault. ADMIN: verify portal state. If docs present → CLEAR. If docs absent → REQUEUE bot.'
     }
   };
 
@@ -6780,7 +7153,7 @@
       .in('error_type', ['amount_unresolved', 'folder_not_found', 'row_skip_portal_lag', 'batch_skip'])
       .eq('resolved', false)
       .order('timestamp', { ascending: false })
-      .limit(100)
+      .limit(2000)
       .then(function (res) {
         var rows = res.data || [];
         if (cnt) cnt.textContent = rows.length;
@@ -6788,46 +7161,369 @@
           box.innerHTML = '<div class="r-empty">Tiada doc yang di-skip. Semua tuntutan OK.</div>';
           return;
         }
-        var html = rows.map(function (e) {
-          var meta = _SKIP_META[e.error_type] || _SKIP_META['batch_skip'];
-          var ts = e.timestamp ? new Date(e.timestamp).toLocaleString('ms-MY') : '—';
-          var machine = e.hostname || '—';
-          var msg = e.message || '';
 
-          // Parse "INV {tuntutan}-{DO}-... [{name}] — {description}"
-          // Extract tuntutan and DO number, and description after "—"
-          var tuntutan = '—', doNum = '—', desc = msg;
-          var parsed = msg.match(/^INV\s+([A-Z0-9]+)-(\d+)-[^\s]+(?:\s+\[[^\]]*\])?\s+[—\-]+\s*([\s\S]*)/);
-          if (parsed) {
-            tuntutan = parsed[1];
-            doNum = parsed[2];
-            desc = parsed[3] || '';
-          }
+        // Group: hostname → error_type → [rows]
+        var deviceMap = {};
+        var deviceOrder = [];
+        rows.forEach(function (e) {
+          var host = e.hostname || '—';
+          var etype = e.error_type || 'batch_skip';
+          if (!deviceMap[host]) { deviceMap[host] = {}; deviceOrder.push(host); }
+          if (!deviceMap[host][etype]) deviceMap[host][etype] = [];
+          deviceMap[host][etype].push(e);
+        });
 
-          var detId = 'vskip-det-' + String(e.id).replace(/[^a-z0-9]/gi, '_');
-          return '<div class="r-alert-item" style="border-left:3px solid ' + meta.faultColor + ';padding:8px 14px">' +
-            // Compact header row (always visible)
-            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
-            '<span class="r-badge ' + meta.badge + '" style="font-size:10px">' + esc(meta.label) + '</span>' +
-            '<span class="r-muted-sm"><i class="fa-solid fa-server" style="font-size:9px"></i> ' + esc(machine) + '</span>' +
-            '<span class="r-muted-sm">' + esc(ts) + '</span>' +
-            '<button class="r-btn-sm" style="margin-left:auto" onclick="var d=document.getElementById(\'' + detId + '\');d.style.display=d.style.display===\'none\'?\'\':\'none\'">Details</button>' +
-            '<button class="r-btn-sm" onclick="rResolveSkip(\'' + esc(String(e.id)) + '\',this)">✓ Clear</button>' +
-            '</div>' +
-            // Detail block (hidden by default)
-            '<div id="' + detId + '" style="display:none;margin-top:8px;font-size:11px;line-height:1.7">' +
-            '<div>- <span class="r-font-mono">' + esc(tuntutan) + ' | ' + esc(doNum) + ' |</span></div>' +
-            '<div style="color:var(--text-2)">- ' + esc(desc) + ' ' + esc(meta.cause) + '</div>' +
-            '</div>' +
+        window._vDevEtypeIds = {};
+        var html = '';
+        deviceOrder.forEach(function (host) {
+          var etypeMap = deviceMap[host];
+          var totalDev = Object.values(etypeMap).reduce(function (s, a) { return s + a.length; }, 0);
+          // Collect ALL ids for this device (for device-level Clear All)
+          var allDevIds = [];
+          Object.values(etypeMap).forEach(function (arr) {
+            arr.forEach(function (r) { allDevIds.push(String(r.id)); });
+          });
+          var devKey = host.replace(/[^a-z0-9]/gi, '_');
+
+          // Build per-etype IDs map for dropdown-filtered Clear All
+          var etypeIdsMap = { all: allDevIds };
+          Object.keys(etypeMap).forEach(function (et) {
+            etypeIdsMap[et] = etypeMap[et].map(function (r) { return String(r.id); });
+          });
+          window._vDevEtypeIds[devKey] = etypeIdsMap;
+
+          // Build dropdown options (All Issues + one per etype present)
+          var dropOpts = '<option value="all">All Issues</option>';
+          Object.keys(etypeMap).forEach(function (et) {
+            var lbl = (_SKIP_META[et] || {}).label || et;
+            dropOpts += '<option value="' + et + '">' + esc(lbl) + '</option>';
+          });
+
+          // Date from the most recent entry across all error types for this device
+          var latestTs = null;
+          Object.values(etypeMap).forEach(function (arr) {
+            arr.forEach(function (r) {
+              if (r.timestamp && (!latestTs || r.timestamp > latestTs)) latestTs = r.timestamp;
+            });
+          });
+          var dateLabel = latestTs ? new Date(latestTs).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+
+          // Wrap entire device section for targeted slide-out
+          html += '<div id="vdev-' + devKey + '">';
+
+          // Date separator above device group
+          html +=
+            '<div style="padding:8px 14px 3px;font-size:10px;font-weight:600;letter-spacing:1.5px;' +
+            'color:rgba(255,255,255,0.3);border-top:1px solid rgba(255,255,255,0.05);margin-top:4px">' +
+            dateLabel.replace(/\//g, '/') +
             '</div>';
-        }).join('');
+
+          // Device header — dropdown filter + Clear All
+          html +=
+            '<div style="display:flex;align-items:center;gap:8px;padding:5px 14px 5px;' +
+            'background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(255,255,255,0.05)">' +
+            '<i class="fa-solid fa-server" style="font-size:10px;color:var(--neon-cyan,#22d3ee)"></i>' +
+            '<span style="font-size:12px;font-weight:600;color:var(--neon-cyan,#22d3ee)">' + esc(host) + '</span>' +
+            '<span style="font-size:11px;color:var(--text-muted)">' + totalDev + ' item(s)</span>' +
+            '<select id="vdsel-' + devKey + '" style="margin-left:auto;font-size:11px;' +
+            'background:rgba(15,15,25,0.95);border:1px solid rgba(255,255,255,0.18);border-radius:4px;' +
+            'color:var(--rc-text,#f9fafb);padding:2px 6px;height:24px;cursor:pointer;outline:none">' +
+            dropOpts +
+            '</select>' +
+            '<button class="r-btn-sm" onclick="rClearDeviceByType(this,\'' + devKey + '\')">✓ Clear All</button>' +
+            '</div>';
+
+          // One summary row per error type — entire row is clickable
+          Object.keys(etypeMap).forEach(function (etype) {
+            var grpRows = etypeMap[etype];
+            var meta = _SKIP_META[etype] || _SKIP_META['batch_skip'];
+            var gKey = (host + '_' + etype).replace(/[^a-z0-9]/gi, '_');
+
+            // ── Build expanded content ──────────────────────────────
+            // Count unique tuntutan (patient_ic) — NOT total rows
+            var _tCountSet = {};
+            grpRows.forEach(function (e) { _tCountSet[e.patient_ic || '—'] = 1; });
+            var uniqueTuntutanCount = Object.keys(_tCountSet).length;
+
+            var listHtml = '<div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px">';
+
+            if (etype === 'row_skip_portal_lag') {
+              // ── PORTAL LAG: group by tuntutan → show invoice rows ──
+              var tMap = {}, tOrder = [];
+              grpRows.forEach(function (e) {
+                var t = e.patient_ic || '—';
+                if (!tMap[t]) { tMap[t] = []; tOrder.push(t); }
+                tMap[t].push(e);
+              });
+
+              tOrder.forEach(function (tuntutan) {
+                var tRows = tMap[tuntutan];
+                var rowCount = tRows.length;
+                var tKey = (gKey + '_' + tuntutan).replace(/[^a-z0-9]/gi, '_');
+                var tIds = tRows.map(function (r) { return String(r.id); });
+                // Extract batch_no from the first row's detail JSON; fall back to run_id
+                var firstDet = {};
+                try { firstDet = typeof tRows[0].detail === 'string' ? JSON.parse(tRows[0].detail) : (tRows[0].detail || {}); } catch (x) {}
+                var batchDisplay = firstDet.batch_no || tRows[0].run_id || '—';
+
+                // Tuntutan sub-header — clickable to expand/collapse detail
+                listHtml +=
+                  '<div style="padding:6px 8px;background:rgba(255,255,255,0.025);border-radius:4px;margin-bottom:4px;cursor:pointer" ' +
+                  'onclick="(function(el){var d=document.getElementById(\'vtd-' + tKey + '\');var o=d.style.display!==\'none\';d.style.display=o?\'none\':\'\';var a=el.querySelector(\'.vt-arr\');if(a)a.textContent=o?\'▼\':\'▲\';})(this)">' +
+                  '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px">' +
+                  '<span style="color:var(--text-muted)">No. Tuntutan:</span>' +
+                  '<span style="font-family:monospace;color:var(--neon-cyan,#22d3ee)">' + esc(tuntutan) + '</span>' +
+                  '<span style="color:rgba(255,255,255,0.2)">|</span>' +
+                  '<span style="color:var(--text-muted)">Batch:</span>' +
+                  '<span style="font-family:monospace;color:var(--rc-text,#f9fafb)">' + esc(String(batchDisplay).length > 30 ? String(batchDisplay).substring(0, 30) + '…' : batchDisplay) + '</span>' +
+                  '<span style="color:rgba(255,255,255,0.2)">|</span>' +
+                  '<span style="color:var(--neon-red,#ef4444)">Issues:</span>' +
+                  '<span style="color:var(--rc-text,#f9fafb)">Kemaskini Invois button unclickable (' + rowCount + ' row' + (rowCount > 1 ? 's' : '') + ')</span>' +
+                  '<span class="vt-arr" style="color:var(--text-muted);font-size:10px;margin-left:4px">▼</span>' +
+                  '<button class="r-btn-sm" style="margin-left:auto;font-size:10px" ' +
+                  'onclick="event.stopPropagation();rResolveSkipGroup(' + JSON.stringify(tIds) + ',this)">✓ Clear</button>' +
+                  '</div>' +
+                  '<div id="vtd-' + tKey + '" style="display:none">' +
+                  // Invoice rows table
+                  '<table style="width:100%;font-size:11px;border-collapse:collapse;margin-top:5px">' +
+                  '<thead><tr style="color:var(--text-muted);font-size:10px;border-bottom:1px solid rgba(255,255,255,0.07)">' +
+                  '<th style="text-align:left;padding:2px 8px;font-weight:500;width:50px">BIL</th>' +
+                  '<th style="text-align:left;padding:2px 8px;font-weight:500">Invoice</th>' +
+                  '<th style="text-align:left;padding:2px 8px;font-weight:500">Time</th>' +
+                  '</tr></thead><tbody>';
+
+                tRows.forEach(function (e, idx) {
+                  var rowId = 'vskrow-' + String(e.id).replace(/[^a-z0-9]/gi, '_');
+                  // Extract invoice_no and bil from detail JSON or message
+                  var invNo = '—';
+                  var bilVal = idx + 1;
+                  try {
+                    var det = typeof e.detail === 'string' ? JSON.parse(e.detail) : (e.detail || {});
+                    invNo = det.invoice_no || '';
+                    if (det.bil != null) bilVal = det.bil;
+                  } catch (x) { }
+                  if (!invNo) {
+                    var mParse = (e.message || '').match(/Row\s+(\S+)\s+skipped/);
+                    if (mParse) invNo = mParse[1];
+                  }
+                  var timeOnly = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('en-US') : '—';
+                  listHtml +=
+                    '<tr id="' + rowId + '" style="border-top:1px solid rgba(255,255,255,0.03)">' +
+                    '<td style="padding:3px 8px;color:var(--text-muted)">' + bilVal + '</td>' +
+                    '<td style="padding:3px 8px;font-family:monospace">' + esc(invNo) + '</td>' +
+                    '<td style="padding:3px 8px;color:var(--text-muted)">' + esc(timeOnly) + '</td>' +
+                    '</tr>';
+                });
+
+                listHtml += '</tbody></table></div></div>';
+              });
+
+            } else {
+              // ── OTHER TYPES: group by tuntutan → sub-header + detail table ──
+              var tMap2 = {}, tOrder2 = [];
+              grpRows.forEach(function (e) {
+                var t = e.patient_ic || '—';
+                if (!tMap2[t]) { tMap2[t] = []; tOrder2.push(t); }
+                tMap2[t].push(e);
+              });
+
+              tOrder2.forEach(function (tuntutan) {
+                var tRows2 = tMap2[tuntutan];
+                var rowCount2 = tRows2.length;
+                var tIds2 = tRows2.map(function (r) { return String(r.id); });
+                var tKey2 = (gKey + '_' + tuntutan).replace(/[^a-z0-9]/gi, '_');
+                // amount_unresolved → BIL | Invoice | Time (same as portal unresponsive, no Info)
+                // folder_not_found  → Invoice | Info | Time
+                // batch_skip        → Info | Time
+                var showBilCol  = (etype === 'amount_unresolved');
+                var showInvCol  = (etype === 'amount_unresolved' || etype === 'folder_not_found');
+                var showInfoCol = (etype !== 'amount_unresolved');
+
+                // Per-etype issue description (mirrors Portal Unresponsive "Kemaskini Invois..." format)
+                var _issueDesc = {
+                  amount_unresolved: 'Amount field mismatch',
+                  folder_not_found:  'Local path unresolved',
+                  batch_skip:        'No uploadable rows found'
+                };
+                var issueText2 = (_issueDesc[etype] || meta.label) + ' (' + rowCount2 + ' row' + (rowCount2 > 1 ? 's' : '') + ')';
+
+                // For amount_unresolved: show truncated message as Info (replaces Batch field)
+                var firstMsg2 = tRows2[0].message || '';
+                var infoSnippet2 = showBilCol
+                  ? '<span style="color:var(--text-muted)">Info:</span>' +
+                    '<span style="color:var(--rc-text,#f9fafb)">' + esc(firstMsg2.length > 45 ? firstMsg2.substring(0, 45) + '…' : firstMsg2) + '</span>' +
+                    '<span style="color:rgba(255,255,255,0.2)">|</span>'
+                  : '';
+
+                // Tuntutan sub-header — clickable to expand/collapse detail
+                listHtml +=
+                  '<div style="padding:6px 8px;background:rgba(255,255,255,0.025);border-radius:4px;margin-bottom:4px;cursor:pointer" ' +
+                  'onclick="(function(el){var d=document.getElementById(\'vtd-' + tKey2 + '\');var o=d.style.display!==\'none\';d.style.display=o?\'none\':\'\';var a=el.querySelector(\'.vt-arr\');if(a)a.textContent=o?\'▼\':\'▲\';})(this)">' +
+                  '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px">' +
+                  '<span style="color:var(--text-muted)">No. Tuntutan:</span>' +
+                  '<span style="font-family:monospace;color:var(--neon-cyan,#22d3ee)">' + esc(tuntutan) + '</span>' +
+                  '<span style="color:rgba(255,255,255,0.2)">|</span>' +
+                  infoSnippet2 +
+                  '<span style="color:' + meta.faultColor + '">Issues:</span>' +
+                  '<span style="color:var(--rc-text,#f9fafb)">' + esc(issueText2) + '</span>' +
+                  '<span class="vt-arr" style="color:var(--text-muted);font-size:10px;margin-left:4px">▼</span>' +
+                  '<button class="r-btn-sm" style="margin-left:auto;font-size:10px" ' +
+                  'onclick="event.stopPropagation();rResolveSkipGroup(' + JSON.stringify(tIds2) + ',this)">✓ Clear</button>' +
+                  '</div>' +
+                  '<div id="vtd-' + tKey2 + '" style="display:none">' +
+                  '<table style="width:100%;font-size:11px;border-collapse:collapse;margin-top:5px">' +
+                  '<thead><tr style="color:var(--text-muted);font-size:10px;border-bottom:1px solid rgba(255,255,255,0.07)">' +
+                  (showBilCol  ? '<th style="text-align:left;padding:2px 8px;font-weight:500;width:50px">BIL</th>' : '') +
+                  (showInvCol  ? '<th style="text-align:left;padding:2px 8px;font-weight:500">Invoice</th>' : '') +
+                  (showInfoCol ? '<th style="text-align:left;padding:2px 8px;font-weight:500">Info</th>' : '') +
+                  '<th style="text-align:left;padding:2px 8px;font-weight:500">Time</th>' +
+                  '<th style="width:32px"></th>' +
+                  '</tr></thead><tbody>';
+
+                tRows2.forEach(function (e, idx2) {
+                  var rowId = 'vskrow-' + String(e.id).replace(/[^a-z0-9]/gi, '_');
+                  var det2 = {};
+                  try { det2 = typeof e.detail === 'string' ? JSON.parse(e.detail) : (e.detail || {}); } catch (x) {}
+                  var invNo2 = det2.invoice_no || (function () { var m = (e.message || '').match(/INV\s+(\S+)/i); return m ? m[1] : '—'; })();
+                  var info2 = (function () { var m = e.message || ''; return m.length > 60 ? m.substring(0, 60) + '…' : m; })();
+                  var timeOnly2 = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('en-US') : '—';
+                  listHtml +=
+                    '<tr id="' + rowId + '" style="border-top:1px solid rgba(255,255,255,0.03)">' +
+                    (showBilCol  ? '<td style="padding:3px 8px;color:var(--text-muted)">' + (idx2 + 1) + '</td>' : '') +
+                    (showInvCol  ? '<td style="padding:3px 8px;font-family:monospace">' + esc(invNo2) + '</td>' : '') +
+                    (showInfoCol ? '<td style="padding:3px 8px;color:var(--text-muted)">' + esc(info2) + '</td>' : '') +
+                    '<td style="padding:3px 8px;color:var(--text-muted)">' + esc(timeOnly2) + '</td>' +
+                    '<td style="padding:3px 8px;text-align:right">' +
+                    '<button class="r-btn-sm" style="font-size:10px" onclick="event.stopPropagation();rResolveSkip(\'' + esc(String(e.id)) + '\',this,\'' + rowId + '\')">✓</button>' +
+                    '</td></tr>';
+                });
+
+                listHtml += '</tbody></table></div></div>';
+              });
+            }
+
+            listHtml +=
+              '<div style="font-size:11px;color:var(--neon-amber,#f59e0b);padding:8px 8px 2px;line-height:1.6;font-family:\'JetBrains Mono\',Consolas,monospace;opacity:0.85">' +
+              '// ' + esc(meta.cause) + '</div>' +
+              '</div>';
+
+            // Clickable summary row — click anywhere to expand
+            html +=
+              '<div id="vetype-' + gKey + '" class="r-alert-item" style="border-left:3px solid ' + meta.faultColor + ';padding:7px 14px;cursor:pointer" ' +
+              'onclick="(function(el){' +
+              'var d=document.getElementById(\'vsg-' + gKey + '\');' +
+              'var o=d.style.display!==\'none\';' +
+              'd.style.display=o?\'none\':\'\';' +
+              'var arr=el.querySelector(\'.vs-arr\');if(arr)arr.textContent=o?\'▼\':\'▲\';' +
+              '})(this)">' +
+              '<div style="display:flex;align-items:center;gap:8px;width:100%;pointer-events:none">' +
+              '<span class="r-badge ' + meta.badge + '" style="font-size:10px;min-width:120px;justify-content:center">' + esc(meta.label) + '</span>' +
+              '<span class="r-muted-sm">' + uniqueTuntutanCount + ' tuntutan</span>' +
+              '<span class="vs-arr r-muted-sm" style="margin-left:auto">▼</span>' +
+              '</div>' +
+              '<div id="vsg-' + gKey + '" style="display:none" onclick="event.stopPropagation()">' + listHtml + '</div>' +
+              '</div>';
+          });
+          html += '</div>'; // close vdev-{devKey} wrapper
+        });
+
         box.innerHTML = html;
       }).catch(function (err) {
         if (box) box.innerHTML = '<div class="r-empty">Gagal load: ' + esc(err.message) + '</div>';
       });
   }
 
-  window.rResolveSkip = function (id, btn) {
+  // Animate element slide-out then hide; calls cb when done
+  function _slideOut(el, cb) {
+    if (!el) { if (cb) cb(); return; }
+    el.style.overflow = 'hidden';
+    el.style.maxHeight = el.scrollHeight + 'px';
+    el.style.opacity = '1';
+    el.style.transition = 'max-height 0.32s ease, opacity 0.22s ease, margin 0.32s ease, padding 0.32s ease';
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        el.style.maxHeight = '0';
+        el.style.opacity = '0';
+        el.style.marginTop = '0';
+        el.style.marginBottom = '0';
+        el.style.paddingTop = '0';
+        el.style.paddingBottom = '0';
+        setTimeout(function () {
+          el.style.display = 'none';
+          if (cb) cb();
+        }, 340);
+      });
+    });
+  }
+
+  // Clear All with dropdown filter — slide out matched elements then resolve in Supabase
+  window.rClearDeviceByType = function (btn, devKey) {
+    var sel = document.getElementById('vdsel-' + devKey);
+    var chosen = sel ? sel.value : 'all';
+    var etypeIdsMap = (window._vDevEtypeIds || {})[devKey] || {};
+    var ids = chosen === 'all' ? (etypeIdsMap.all || []) : (etypeIdsMap[chosen] || []);
+    if (!ids.length) return;
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+    RS.supa.from('vibes_errors')
+      .update({ resolved: true, fix_status: 'fixed' })
+      .in('id', ids.map(Number))
+      .then(function () {
+        rToast('Resolved ' + ids.length + ' item(s)', 'ok');
+        if (chosen === 'all') {
+          // Slide out entire device block then reload
+          var devEl = document.getElementById('vdev-' + devKey);
+          _slideOut(devEl, function () { _loadVibesSkipped(); });
+        } else {
+          // Slide out just the targeted etype row
+          var etypeEl = document.getElementById('vetype-' + devKey + '_' + chosen);
+          _slideOut(etypeEl, function () {
+            // Remove that option from the select
+            if (sel) {
+              for (var i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value === chosen) { sel.remove(i); break; }
+              }
+              // If no more specific types remain, slide out device and reload
+              if (sel.options.length <= 1) {
+                var devEl2 = document.getElementById('vdev-' + devKey);
+                _slideOut(devEl2, function () { _loadVibesSkipped(); });
+              } else {
+                sel.value = 'all';
+                // Update stored all-IDs to exclude cleared ones
+                if (window._vDevEtypeIds && window._vDevEtypeIds[devKey]) {
+                  delete window._vDevEtypeIds[devKey][chosen];
+                  var remaining = [];
+                  Object.keys(window._vDevEtypeIds[devKey]).forEach(function (k) {
+                    if (k !== 'all') remaining = remaining.concat(window._vDevEtypeIds[devKey][k]);
+                  });
+                  window._vDevEtypeIds[devKey].all = remaining;
+                }
+              }
+            }
+          });
+        }
+      }).catch(function (e) {
+        rToast('Failed: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '✓ Clear All'; }
+      });
+  };
+
+  window.rResolveSkipGroup = function (ids, btn) {
+    if (!RS.supa || !ids || !ids.length) return;
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    RS.supa.from('vibes_errors')
+      .update({ resolved: true, fix_status: 'fixed' })
+      .in('id', ids.map(Number))
+      .then(function () {
+        rToast('Resolved ' + ids.length + ' item(s)', 'ok');
+        _loadVibesSkipped();
+      }).catch(function (e) {
+        rToast('Failed: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '✓ Clear All'; }
+      });
+  };
+
+  window.rResolveSkip = function (id, btn, rowId) {
     if (!RS.supa || !id) return;
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     RS.supa.from('vibes_errors')
@@ -6835,10 +7531,16 @@
       .eq('id', id)
       .then(function () {
         rToast('Marked resolved', 'ok');
-        _loadVibesSkipped();
+        // Hide the individual row without full reload
+        if (rowId) {
+          var row = document.getElementById(rowId);
+          if (row) row.style.display = 'none';
+        } else {
+          _loadVibesSkipped();
+        }
       }).catch(function (e) {
         rToast('Failed: ' + e.message, 'error');
-        if (btn) { btn.disabled = false; btn.textContent = 'Mark Resolved'; }
+        if (btn) { btn.disabled = false; btn.textContent = '✓'; }
       });
   };
 
