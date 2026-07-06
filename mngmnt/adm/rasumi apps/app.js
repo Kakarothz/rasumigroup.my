@@ -1737,7 +1737,7 @@
     RS.supa.from('logs')
       .select('id,status,job_group_id,machine,app_name,branch_id,timestamp')
       .gte('timestamp', todayIso)
-      .order('timestamp', { ascending: false }).limit(5000)
+      .order('timestamp', { ascending: false }).limit(1000)
       .then(function (r1) {
         var logMap = {}, machineSet = {}, gidSet = {}, gids = [], machines = [];
         (r1.data || []).forEach(function (d) {
@@ -1765,7 +1765,7 @@
 
         RS.supa.from('logs')
           .select('id,status,job_group_id,machine,app_name,branch_id,timestamp')
-          .in('job_group_id', gids).limit(5000)
+          .in('job_group_id', gids).limit(1000)
           .then(function (r2) {
             (r2.data || []).forEach(function (d) { if (d.id) logMap[d.id] = d; });
             doP3();
@@ -2666,6 +2666,7 @@
     // Fetch COMPLETED logs for the full range
     RS.supa.from('logs').select('app_name,machine,timestamp')
       .gte('timestamp', starts[0]).lte('timestamp', ends[ends.length - 1]).eq('status', 'COMPLETED')
+      .limit(2000)
       .then(function (res) {
         canvas.style.opacity = '1';
         var data = res.data || [];
@@ -3964,6 +3965,7 @@
     canvas.style.opacity = '0.35';
     RS.supa.from('logs').select('app_name,timestamp,status')
       .eq('machine', hostname).gte('timestamp', starts[0]).lte('timestamp', ends[ends.length - 1])
+      .limit(2000)
       .then(function (res) {
         canvas.style.opacity = '1';
         var data = res.data || [];
@@ -5158,7 +5160,7 @@
   window.rDownloadLog = function (runId, hostname) {
     if (!RS.supa) { rToast('Supabase not ready', 'error'); return; }
     rToast('Preparing JSONL download…', 'info');
-    var q = RS.supa.from('vibes_errors').select('*').order('timestamp', { ascending: true });
+    var q = RS.supa.from('vibes_errors').select('*').order('timestamp', { ascending: true }).limit(5000);
     if (hostname) q = q.eq('hostname', hostname);
     else if (runId) q = q.eq('run_id', runId);
     q.then(function (res) {
@@ -6489,10 +6491,13 @@
 
     var cacheKey = (dateVal || '') + '|' + hostname + '|' + appName + '|' + statusFilter;
 
-    // Helper: render + optional Issues Today banner
-    function _render(data) {
+    // Helper: render + optional Issues Today banner + Load More button
+    var _loadMoreCursor = null;
+    var _logAllData = [];
+    function _render(data, isBatch) {
       if ($r('r-log-results') !== box) return; // navigated away while fetching
-      _processAndRenderLogs(data, box, statusFilter, 'global');
+      if (isBatch) { _logAllData = _logAllData.concat(data); } else { _logAllData = data.slice(); }
+      _processAndRenderLogs(_logAllData, box, statusFilter, 'global');
       if (issueModeActive) {
         var banner = document.createElement('div');
         banner.style.cssText = 'padding:6px 14px;background:rgba(239,68,68,0.07);border-bottom:1px solid rgba(239,68,68,0.18);font-size:12px;color:#ef4444;display:flex;align-items:center;gap:8px;';
@@ -6500,12 +6505,46 @@
           '<button onclick="window.rLoadLogs(true)" style="margin-left:auto;background:none;border:1px solid rgba(239,68,68,0.35);color:#ef4444;cursor:pointer;font-size:11px;padding:2px 8px;border-radius:4px;line-height:1.6">✕ Clear</button>';
         box.insertBefore(banner, box.firstChild);
       }
+      var oldBtn = box.querySelector('.r-log-loadmore');
+      if (oldBtn) oldBtn.remove();
+      if (data.length >= 500) {
+        var oldest = null;
+        data.forEach(function(d) { if (d.timestamp && (!oldest || d.timestamp < oldest)) oldest = d.timestamp; });
+        if (oldest) {
+          _loadMoreCursor = oldest;
+          var lmDiv = document.createElement('div');
+          lmDiv.className = 'r-log-loadmore';
+          lmDiv.style.cssText = 'text-align:center;padding:16px 0 8px;';
+          lmDiv.innerHTML = '<button class="r-btn-sm" style="padding:5px 20px" onclick="window._rLogLoadMore()"><i class="fa-solid fa-chevron-down" style="margin-right:4px"></i> Load More</button>';
+          box.appendChild(lmDiv);
+        }
+      }
     }
+    window._rLogLoadMore = function() {
+      if (!RS.supa || !_loadMoreCursor) return;
+      var lmBox = box.querySelector('.r-log-loadmore');
+      if (lmBox) lmBox.innerHTML = '<span class="r-spin" style="display:inline-block;margin:8px"></span>';
+      var q = RS.supa.from('logs').select('*')
+        .order('timestamp', { ascending: false })
+        .lt('timestamp', _loadMoreCursor)
+        .limit(500);
+      if (hostname) q = q.eq('machine', hostname);
+      if (appName) q = q.eq('app_name', appName);
+      q.then(function(res) {
+        var more = res.data || [];
+        var merged = _logAllData.concat(more);
+        RS._logExplorerCache[cacheKey] = { data: merged, ts: Date.now() };
+        _render(more, true);
+      }).catch(function() {
+        var lmBox2 = box.querySelector('.r-log-loadmore');
+        if (lmBox2) lmBox2.innerHTML = '<button class="r-btn-sm" style="padding:5px 20px" onclick="window._rLogLoadMore()"><i class="fa-solid fa-chevron-down" style="margin-right:4px"></i> Load More</button>';
+      });
+    };
 
     // Full 3-pass Supabase fetch; calls onDone(mergedArray) or onError(err)
     function _fetchFull(onDone, onError) {
       var q = RS.supa.from('logs').select('*')
-        .order('timestamp', { ascending: false }).limit(20000);
+        .order('timestamp', { ascending: false }).limit(500);
       if (dateVal) {
         q = q.gte('timestamp', dateVal + 'T00:00:00').lte('timestamp', dateVal + 'T23:59:59');
       }
@@ -6541,7 +6580,7 @@
 
         // P2 — all logs sharing gids from P1 (catches null-ts FAILED with valid gid)
         if (!gids.length) { doP3(); return; }
-        RS.supa.from('logs').select('*').in('job_group_id', gids).limit(20000)
+        RS.supa.from('logs').select('*').in('job_group_id', gids).limit(500)
           .then(function (r2) {
             (r2.data || []).forEach(function (l) { if (l.id) logMap[l.id] = l; });
             doP3();
