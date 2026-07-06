@@ -39,7 +39,7 @@
   // All apps in the Rasumi Apps ecosystem
   var RASUMI_APPS = [
     { key: 'renamer_hq', label: 'Renamer HQ', icon: 'fa-file-signature', firebaseNames: ['Renamer HQ'] },
-    { key: 'fv_branch', label: 'FV Branch', icon: 'fa-code-branch', firebaseNames: ['FV Branch'] },
+    { key: 'fv_branch', label: 'Renamer FV', icon: 'fa-code-branch', firebaseNames: ['FV Branch'] },
     { key: 'quick_rename', label: 'Quick Rename', icon: 'fa-bolt', firebaseNames: ['Quick Rename'] },
     { key: 'vibes', label: 'VIBES Agent', icon: 'fa-file-arrow-up', firebaseNames: ['VIBES', 'Vibes Agent'] },
     { key: 'vims', label: 'VIMS Scraper', icon: 'fa-magnifying-glass-chart', firebaseNames: ['VIMS', 'Vims Scraper'] },
@@ -2568,7 +2568,9 @@
     var file = e.file_name || e.activity_name || '';
     var cls = stCode === 'FAILED' ? 'err' : stCode === 'COMPLETED' ? 'ok' : stCode === 'DEBUG' ? 'debug' : 'info';
     if ((e.app_name || '').toUpperCase() === 'SYSTEM_ALERT') cls = stCode === 'CRITICAL' ? 'err' : 'warn';
-    var line = '[' + ts + '] [' + (e.app_name || '?') + '] ' + stCode + (file ? ' · ' + file : '');
+    var _streamApp = (e.app_name || '?');
+    if (_streamApp === 'FV Branch') _streamApp = 'Renamer FV';
+    var line = '[' + ts + '] [' + _streamApp + '] ' + stCode + (file ? ' · ' + file : '');
 
     // Remove cursor from last line
     var last = term.querySelector('.r-term-cursor');
