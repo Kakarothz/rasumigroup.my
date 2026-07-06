@@ -3461,6 +3461,7 @@
         // Live blinking dot — for 24H and 1H when device is currently online
         var dev = RS._selectedDevice ? RS.devices[RS._selectedDevice] : null;
         var isLive = !groupByDay && dev && deviceStatus(dev) === 'online';
+        RS._cpuLiveDotParams = { isLive: isLive, data: data.slice(), color: colors[2] };
         _updateCpuLiveDot(cpuChart, isLive, data, colors[2]);
       }).catch(function () { });
   }
@@ -3479,12 +3480,19 @@
       var b = parseInt(color.slice(5, 7), 16) || 0;
       dot.style.setProperty('--cpu-dot-glow', 'rgba(' + r + ',' + g + ',' + b + ',0.7)');
     }
-    // Find last non-null index within the current x-axis viewport
-    var maxLabel = chart.options.scales.x.max;
-    var lastIdx = maxLabel !== undefined ? chart.data.labels.indexOf(maxLabel) : data.length - 1;
-    if (lastIdx < 0) lastIdx = data.length - 1;
+    // Find actual last non-null data point across the full dataset
+    var lastIdx = data.length - 1;
     while (lastIdx >= 0 && data[lastIdx] == null) lastIdx--;
     if (lastIdx < 0) { dot.style.display = 'none'; return; }
+    // Hide dot if user has panned the live point outside the visible viewport
+    var lbls = chart.data.labels;
+    var maxLabel = chart.options.scales.x.max;
+    var minLabel = chart.options.scales.x.min;
+    var viewMaxIdx = maxLabel !== undefined ? lbls.indexOf(maxLabel) : lbls.length - 1;
+    var viewMinIdx = minLabel !== undefined ? lbls.indexOf(minLabel) : 0;
+    if (viewMaxIdx < 0) viewMaxIdx = lbls.length - 1;
+    if (viewMinIdx < 0) viewMinIdx = 0;
+    if (lastIdx > viewMaxIdx || lastIdx < viewMinIdx) { dot.style.display = 'none'; return; }
     try {
       var meta = chart.getDatasetMeta(0);
       var point = meta.data[lastIdx];
@@ -3521,6 +3529,10 @@
         chart.options.scales.x.min = lbls[newMin];
         chart.options.scales.x.max = lbls[newMax];
         chart.update('none');
+        // Re-position / hide live dot after viewport shift
+        if (RS._cpuLiveDotParams) {
+          _updateCpuLiveDot(chart, RS._cpuLiveDotParams.isLive, RS._cpuLiveDotParams.data, RS._cpuLiveDotParams.color);
+        }
       } catch (e) { }
     }
 
