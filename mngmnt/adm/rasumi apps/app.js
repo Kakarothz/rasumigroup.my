@@ -507,6 +507,10 @@
 
   window.rToggleDisplayPanel = function (ev) {
     if (ev) ev.stopPropagation();
+    var nd = document.getElementById('notif-dropdown');
+    var pd = document.getElementById('r-nav-dropdown');
+    if (nd) nd.classList.add('hidden');
+    if (pd) pd.classList.add('hidden');
     var p = document.getElementById('r-display-panel');
     if (!p) return;
     p.classList.toggle('hidden');
@@ -638,10 +642,10 @@
       '    <span class="hotkey">Ctrl + K</span>',
       '  </div>',
       '  <div class="nav-actions">',
-      '    <button class="icon-btn notif-btn" onclick="var p=document.getElementById(\'r-nav-dropdown\'); if(p) p.classList.add(\'hidden\'); document.getElementById(\'notif-dropdown\').classList.toggle(\'hidden\'); window._rBellClick(); event.stopPropagation();"><i class="fa-regular fa-bell"></i><span id="r-nb-alerts" class="badge hidden">0</span></button>',
+      '    <button class="icon-btn notif-btn" onclick="var p=document.getElementById(\'r-nav-dropdown\'); if(p) p.classList.add(\'hidden\'); var dp=document.getElementById(\'r-display-panel\'); if(dp) dp.classList.add(\'hidden\'); document.getElementById(\'notif-dropdown\').classList.toggle(\'hidden\'); window._rBellClick(); event.stopPropagation();"><i class="fa-regular fa-bell"></i><span id="r-nb-alerts" class="badge hidden">0</span></button>',
       '    <button class="icon-btn"><i class="fa-regular fa-circle-question"></i></button>',
       '    <button class="icon-btn" id="r-gear-btn" onclick="window.rToggleDisplayPanel(event)"><i class="fa-solid fa-gear"></i></button>',
-      '    <div class="user-profile" id="r-profile-trigger" style="cursor:pointer" onclick="var n=document.getElementById(\'notif-dropdown\'); if(n) n.classList.add(\'hidden\'); document.getElementById(\'r-nav-dropdown\').classList.toggle(\'hidden\'); event.stopPropagation();">',
+      '    <div class="user-profile" id="r-profile-trigger" style="cursor:pointer" onclick="var n=document.getElementById(\'notif-dropdown\'); if(n) n.classList.add(\'hidden\'); var dp=document.getElementById(\'r-display-panel\'); if(dp) dp.classList.add(\'hidden\'); document.getElementById(\'r-nav-dropdown\').classList.toggle(\'hidden\'); event.stopPropagation();">',
       '      <img src="https://ui-avatars.com/api/?name=Super+Admin&background=8b5cf6&color=fff" alt="User">',
       '      <div class="user-info">',
       '        <span class="name">SUPER ADMIN</span>',
@@ -661,10 +665,16 @@
       '    </div>',
       '    <!-- NOTIFICATION DROPDOWN -->',
       '    <div id="notif-dropdown" class="nav-dropdown hidden" style="top: 46px; right: 100px; min-width: 300px; padding-bottom: 5px; position:absolute; z-index:9999;">',
-      '        <div style="padding: 12px 15px; font-size: 10px; color: var(--text-muted); border-bottom: 1px solid var(--glass-border-hi); margin-bottom: 5px;">RECENT ALERTS</div>',
-      '        <div id="notif-dropdown-list" style="padding: 10px; font-size: 11px; text-align: center; color: var(--text-muted);">No new alerts</div>',
+      '        <div style="padding:8px 12px;border-bottom:1px solid var(--glass-border-hi);display:flex;align-items:center;justify-content:space-between">',
+      '          <span style="font-size:10px;color:var(--text-muted);font-weight:600;letter-spacing:0.5px">RECENT ALERTS</span>',
+      '          <div style="display:flex;gap:4px">',
+      '            <button onclick="window._rBellClick()" style="background:none;border:1px solid var(--glass-border);border-radius:4px;padding:2px 8px;font-size:9px;color:var(--text-muted);cursor:pointer"><i class="fa-solid fa-check-double"></i> Read All</button>',
+      '            <button onclick="window._rClearSysAlerts()" style="background:none;border:1px solid var(--glass-border);border-radius:4px;padding:2px 8px;font-size:9px;color:var(--rc-red,#ef4444);cursor:pointer"><i class="fa-solid fa-trash"></i> Clear All</button>',
+      '          </div>',
+      '        </div>',
+      '        <div id="notif-dropdown-list" style="min-height:155px;max-height:155px;overflow:hidden;font-size:11px;">No new alerts</div>',
       '        <div class="dropdown-sep"></div>',
-      '        <div class="dropdown-item" onclick="rNav(\'r-alerts\')" style="justify-content: center; color: var(--cyan);"><i class="fa-solid fa-arrow-right"></i> View All Alerts</div>',
+      '        <div class="dropdown-item" onclick="rNav(\'r-alerts\')" style="justify-content:center;color:var(--cyan);font-size:10px;padding:5px 15px"><i class="fa-solid fa-arrow-right"></i> View All Alerts</div>',
       '    </div>',
       '  </div>',
       '</nav>',
@@ -1637,24 +1647,25 @@
       return;
     }
     var html = '';
-    var recent = _sysAlerts.slice(0, 6);
+    var recent = _sysAlerts.slice(0, 5);
     for (var i = 0; i < recent.length; i++) {
       var a = recent[i];
       var isCrit = a.lvl === 'CRITICAL';
       var col  = isCrit ? 'var(--rc-red,#ef4444)' : 'var(--rc-warn,#f59e0b)';
       var icon = isCrit ? 'fa-circle-exclamation' : 'fa-triangle-exclamation';
       html +=
-        '<div style="padding:7px 12px;border-bottom:1px solid var(--glass-border);display:flex;align-items:flex-start;gap:8px">' +
-        '<i class="fa-solid ' + icon + '" style="color:' + col + ';margin-top:2px;flex-shrink:0;font-size:12px"></i>' +
+        '<div style="padding:4px 10px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:7px">' +
+        '<i class="fa-solid ' + icon + '" style="color:' + col + ';flex-shrink:0;font-size:11px"></i>' +
         '<div style="flex:1;min-width:0">' +
-        '<div style="font-size:11px;color:' + col + ';font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+        '<div style="font-size:10px;color:' + col + ';font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
           esc(a.lvl) + ' — ' + esc(a.machine) +
         '</div>' +
-        '<div style="font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px">' +
+        '<div style="font-size:9px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
           esc(a.msg) +
         '</div>' +
-        '<div style="font-size:9px;color:var(--text-muted);opacity:0.55;margin-top:2px">' + _fmtTime(a.ts) + '</div>' +
-        '</div></div>';
+        '</div>' +
+        '<div style="font-size:9px;color:var(--text-muted);opacity:0.55;flex-shrink:0">' + _fmtTime(a.ts) + '</div>' +
+        '</div>';
     }
     list.innerHTML = html;
   }
@@ -3838,7 +3849,7 @@
       '<span style="font-size:10px;color:#64748b;font-weight:normal;letter-spacing:0.5px">' + (d.geo_region ? 'LOCATION: ' + esc(([d.geo_region, d.geo_country].filter(Boolean).join(', ')).toUpperCase()) : 'IP: ' + esc(d.public_ip || d.ip_address || 'Unknown')) + '</span>' +
       '</div>' +
       '<div style="flex:1;position:relative;border-radius:6px;overflow:hidden;background:#0f172a;min-height:200px;">' +
-      '<iframe width="100%" height="100%" frameborder="0" style="border:0;position:absolute;top:0;left:0;" src="https://maps.google.com/maps?q=' + (d.geo_lat && d.geo_lon ? (d.geo_lat + ',' + d.geo_lon) : esc(d.public_ip || d.location || 'Kuala Lumpur, Malaysia')) + '&t=k&z=15&ie=UTF8&iwloc=&output=embed" allowfullscreen></iframe>' +
+      '<iframe width="100%" height="100%" frameborder="0" style="border:0;position:absolute;top:0;left:0;" src="https://maps.google.com/maps?q=' + (d.geo_manual ? esc([d.geo_region, d.geo_country].filter(Boolean).join(', ')) : (d.geo_lat && d.geo_lon ? (d.geo_lat + ',' + d.geo_lon) : esc(d.public_ip || d.location || 'Kuala Lumpur, Malaysia'))) + '&t=k&z=13&ie=UTF8&iwloc=&output=embed" allowfullscreen></iframe>' +
       '</div>' +
       '</div>' +
       '<div class="r-panel" style="margin:0">' +
