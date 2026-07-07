@@ -3835,7 +3835,7 @@
       '<div class="r-panel" style="margin:0;display:flex;flex-direction:column;">' +
       '<div class="r-panel-title" style="display:flex;align-items:center;justify-content:space-between;">' +
       '<span><i class="fa-solid fa-map-location-dot"></i> DEVICE LOCATION</span>' +
-      '<span style="font-size:10px;color:#64748b;font-weight:normal;letter-spacing:0.5px">' + (d.geo_city ? 'LOCATION: ' + esc((d.geo_city + (d.geo_country ? ', ' + d.geo_country : '')).toUpperCase()) : 'IP: ' + esc(d.public_ip || d.ip_address || 'Unknown')) + '</span>' +
+      '<span style="font-size:10px;color:#64748b;font-weight:normal;letter-spacing:0.5px">' + (d.geo_region ? 'LOCATION: ' + esc(([d.geo_region, d.geo_country].filter(Boolean).join(', ')).toUpperCase()) : 'IP: ' + esc(d.public_ip || d.ip_address || 'Unknown')) + '</span>' +
       '</div>' +
       '<div style="flex:1;position:relative;border-radius:6px;overflow:hidden;background:#0f172a;min-height:200px;">' +
       '<iframe width="100%" height="100%" frameborder="0" style="border:0;position:absolute;top:0;left:0;" src="https://maps.google.com/maps?q=' + (d.geo_lat && d.geo_lon ? (d.geo_lat + ',' + d.geo_lon) : esc(d.public_ip || d.location || 'Kuala Lumpur, Malaysia')) + '&t=k&z=15&ie=UTF8&iwloc=&output=embed" allowfullscreen></iframe>' +
