@@ -83,16 +83,35 @@
 
   function rToast(msg, type, dur) {
     type = type || 'info'; dur = dur || 3500;
-    var box = $r('r-toasts');
-    if (!box) return;
-    var t = document.createElement('div');
-    t.className = 'r-toast r-toast-' + type;
-    t.textContent = msg;
-    box.appendChild(t);
+    var wrap = document.getElementById('r-cmd-fb');
+    if (!wrap) return;
+    var colors = { success: '#22c55e', error: '#ef4444', warn: '#f59e0b', info: '#38bdf8' };
+    var color  = colors[type] || colors.info;
+    var el = document.createElement('div');
+    el.textContent = '› ' + msg;
+    el.style.cssText = [
+      'color:' + color,
+      'font-size:11.5px',
+      'font-family:var(--rc-mono,"JetBrains Mono",monospace)',
+      'font-weight:500',
+      'letter-spacing:0.04em',
+      'opacity:0',
+      'transform:translateX(32px)',
+      'transition:opacity 0.22s ease,transform 0.22s ease',
+      'text-shadow:0 0 12px ' + color + '55'
+    ].join(';');
+    wrap.appendChild(el);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        el.style.opacity = '1';
+        el.style.transform = 'translateX(0)';
+      });
+    });
     setTimeout(function () {
-      t.classList.add('r-toast-out');
-      setTimeout(function () { if (t.parentNode) t.remove(); }, 400);
-    }, dur);
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(20px)';
+      setTimeout(function () { if (el.parentNode) el.remove(); }, 280);
+    }, dur - 280);
   }
 
   // ── Command feedback — pure floating text, slides in from bottom-right ──────
@@ -1487,6 +1506,7 @@
             updateFleetBadges();
             if (RS.route === 'r-dashboard') renderDashboard();
             if (RS.route === 'r-devices') renderDevices();
+            if (RS.route === 'r-release') rRefreshFleetStatus();
             // Alerts tab not refreshed on heartbeat — avoids ~5s re-render loop
           }
         ).subscribe(function (status) {
@@ -1499,6 +1519,15 @@
         });
 
       addL(function () { if (RS.supa) RS.supa.removeChannel(supaChannel); });
+
+      // Realtime: device_releases — fires when agent marks override installed
+      var drChannel = RS.supa.channel('supa-device-releases')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'device_releases' },
+          function () {
+            if (RS.route === 'r-release') rRefreshFleetStatus();
+          }
+        ).subscribe();
+      addL(function () { if (RS.supa) RS.supa.removeChannel(drChannel); });
 
     } else {
       // Fallback: Firebase onSnapshot only (no Supabase connection)
@@ -1594,16 +1623,16 @@
   }
 
   // ── SYSTEM ALERT in-memory store (proactive monitoring alerts) ──────────────
-  var _sysAlerts      = [];         // [{ts, machine, lvl, msg}] — latest first, max 50
+  var _sysAlerts = [];         // [{ts, machine, lvl, msg}] — latest first, max 50
   var _sysAlertUnread = 0;          // unread count; reset when bell dropdown opened
-  var _lastAlertKey   = {};         // dedup: "machine|msg" → epoch ms of last push
+  var _lastAlertKey = {};         // dedup: "machine|msg" → epoch ms of last push
   var _sysAlertInitMs = Date.now() + 3000; // suppress toasts during 3s init replay window
 
   function _pushSystemAlert(e) {
-    var lvl     = (e.status || '').toUpperCase();   // 'CRITICAL' | 'WARNING'
+    var lvl = (e.status || '').toUpperCase();   // 'CRITICAL' | 'WARNING'
     var machine = e.machine || e.branch_id || '?';
-    var msg     = e.file_name || e.status || 'System Alert';
-    var ts      = e.timestamp || new Date().toISOString();
+    var msg = e.file_name || e.status || 'System Alert';
+    var ts = e.timestamp || new Date().toISOString();
 
     // Age check — events older than 5 min are historical replay, not live
     var evtMs = 0;
@@ -1651,17 +1680,17 @@
     for (var i = 0; i < recent.length; i++) {
       var a = recent[i];
       var isCrit = a.lvl === 'CRITICAL';
-      var col  = isCrit ? 'var(--rc-red,#ef4444)' : 'var(--rc-warn,#f59e0b)';
+      var col = isCrit ? 'var(--rc-red,#ef4444)' : 'var(--rc-warn,#f59e0b)';
       var icon = isCrit ? 'fa-circle-exclamation' : 'fa-triangle-exclamation';
       html +=
         '<div style="padding:4px 10px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:7px">' +
         '<i class="fa-solid ' + icon + '" style="color:' + col + ';flex-shrink:0;font-size:11px"></i>' +
         '<div style="flex:1;min-width:0">' +
         '<div style="font-size:10px;color:' + col + ';font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
-          esc(a.lvl) + ' — ' + esc(a.machine) +
+        esc(a.lvl) + ' — ' + esc(a.machine) +
         '</div>' +
         '<div style="font-size:9px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
-          esc(a.msg) +
+        esc(a.msg) +
         '</div>' +
         '</div>' +
         '<div style="font-size:9px;color:var(--text-muted);opacity:0.55;flex-shrink:0">' + _fmtTime(a.ts) + '</div>' +
@@ -1894,15 +1923,15 @@
 
   // ── ECG Heartbeat Animation ──────────────────────────────
   var _ecgAnim = null;
-  var _ecgOff  = 0;
+  var _ecgOff = 0;
   var _ECG_PTS = (function () {
     var N = 300, a = [];
     for (var i = 0; i < N; i++) {
       var t = i / N, y = 0;
       // P wave (smooth, small)
-      if (t > 0.08  && t < 0.16)  y += 0.14 * Math.sin(Math.PI * (t - 0.08) / 0.08);
+      if (t > 0.08 && t < 0.16) y += 0.14 * Math.sin(Math.PI * (t - 0.08) / 0.08);
       // Q (sharp narrow dip)
-      if (t > 0.20  && t < 0.218) y -= 0.14 * Math.sin(Math.PI * (t - 0.20) / 0.018);
+      if (t > 0.20 && t < 0.218) y -= 0.14 * Math.sin(Math.PI * (t - 0.20) / 0.018);
       // R spike (sharp pointy — narrow window + power 0.3)
       if (t > 0.218 && t < 0.242) {
         var rp = (t - 0.218) / 0.024;
@@ -1911,7 +1940,9 @@
       // S (sharp downward spike — pronounced)
       if (t > 0.242 && t < 0.262) y -= 0.55 * Math.sin(Math.PI * (t - 0.242) / 0.020);
       // T wave (pointy peak — sin^4 narrows the tip)
-      if (t > 0.35  && t < 0.50)  { var tp = (t - 0.35) / 0.15; y += 0.30 * Math.pow(Math.sin(Math.PI * tp), 4); }
+      if (t > 0.35 && t < 0.50) { var tp = (t - 0.35) / 0.15; y += 0.30 * Math.pow(Math.sin(Math.PI * tp), 4); }
+      // Additional P-wave in the middle of the flatline gap (between current beat's T and next beat's P)
+      if (t > 0.75 && t < 0.83) y += 0.14 * Math.sin(Math.PI * (t - 0.75) / 0.08);
       a.push(y);
     }
     return a;
@@ -1935,16 +1966,16 @@
       ctx.clearRect(0, 0, W, H);
       // two-level grid: fine (5px) + major (25px) — ECG paper style
       ctx.shadowBlur = 0;
-      ctx.lineWidth  = 0.5;
+      ctx.lineWidth = 0.5;
       ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-      for (var gx = 0; gx <= W; gx += 5)  { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
-      for (var gy = 0; gy <= H; gy += 5)  { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+      for (var gx = 0; gx <= W; gx += 5) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke(); }
+      for (var gy = 0; gy <= H; gy += 5) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
       ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-      for (var gx2 = 0; gx2 <= W; gx2 += 25) { ctx.beginPath(); ctx.moveTo(gx2,0); ctx.lineTo(gx2,H); ctx.stroke(); }
-      for (var gy2 = 0; gy2 <= H; gy2 += 25) { ctx.beginPath(); ctx.moveTo(0,gy2); ctx.lineTo(W,gy2); ctx.stroke(); }
+      for (var gx2 = 0; gx2 <= W; gx2 += 25) { ctx.beginPath(); ctx.moveTo(gx2, 0); ctx.lineTo(gx2, H); ctx.stroke(); }
+      for (var gy2 = 0; gy2 <= H; gy2 += 25) { ctx.beginPath(); ctx.moveTo(0, gy2); ctx.lineTo(W, gy2); ctx.stroke(); }
       var mid = H * 0.50;
       var amp = H * 0.35;
-      var N   = _ECG_PTS.length;
+      var N = _ECG_PTS.length;
       var pps = (N * 1.6) / W;
       if (online) {
         var now = Date.now();
@@ -1952,36 +1983,43 @@
         var wander = amp * 0.06 * Math.sin(now / 3200);
         // beat-to-beat amplitude variation (±9%)
         var beatAmp = amp * (1 + 0.09 * Math.sin(now / 950 + 1.1));
-        var dynMid  = mid + wander;
+        var dynMid = mid + wander;
+        var midX = Math.floor(W * 0.7);
         // pass 1: outer soft glow
         ctx.beginPath();
-        ctx.shadowBlur  = 0;
+        ctx.shadowBlur = 0;
         ctx.strokeStyle = 'rgba(34,197,94,0.18)';
-        ctx.lineWidth   = 8;
+        ctx.lineWidth = 8;
         for (var x = 0; x <= W; x++) {
-          var si = Math.floor((_ecgOff + x * pps) % N);
-          var yy = dynMid - beatAmp * _ECG_PTS[si];
+          var yy = dynMid;
+          if (x <= midX) {
+            var si = Math.floor((_ecgOff + x * pps) % N);
+            yy = dynMid - beatAmp * _ECG_PTS[si];
+          }
           x === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
         }
         ctx.stroke();
         // pass 2: bright inner line with shadow glow
         ctx.beginPath();
-        ctx.shadowBlur  = 14;
+        ctx.shadowBlur = 14;
         ctx.shadowColor = '#22c55e';
         ctx.strokeStyle = '#86efac';
-        ctx.lineWidth   = 1.5;
+        ctx.lineWidth = 1.5;
         for (var x2 = 0; x2 <= W; x2++) {
-          var si2 = Math.floor((_ecgOff + x2 * pps) % N);
-          var yy2 = dynMid - beatAmp * _ECG_PTS[si2];
+          var yy2 = dynMid;
+          if (x2 <= midX) {
+            var si2 = Math.floor((_ecgOff + x2 * pps) % N);
+            yy2 = dynMid - beatAmp * _ECG_PTS[si2];
+          }
           x2 === 0 ? ctx.moveTo(x2, yy2) : ctx.lineTo(x2, yy2);
         }
         ctx.stroke();
-        // blinking dot at lead edge
+        // blinking dot at lead edge (centered)
         var dotVisible = Math.floor(Date.now() / 400) % 2 === 0;
         if (dotVisible) {
-          var dotY = dynMid - beatAmp * _ECG_PTS[Math.floor((_ecgOff + W * pps) % N)];
+          var dotY = dynMid - beatAmp * _ECG_PTS[Math.floor((_ecgOff + midX * pps) % N)];
           ctx.shadowBlur = 16; ctx.shadowColor = '#22c55e'; ctx.fillStyle = '#4ade80';
-          ctx.beginPath(); ctx.arc(W - 3, dotY, 3, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(midX, dotY, 3, 0, Math.PI * 2); ctx.fill();
         }
         _ecgOff = (_ecgOff + 2) % N;
       } else {
@@ -1989,7 +2027,7 @@
         ctx.shadowBlur = 0;
         ctx.beginPath();
         ctx.strokeStyle = 'rgba(34,197,94,0.35)';
-        ctx.lineWidth   = 1;
+        ctx.lineWidth = 1;
         ctx.moveTo(0, mid); ctx.lineTo(W, mid);
         ctx.stroke();
       }
@@ -2286,20 +2324,20 @@
       ? '<span style="color:#4ade80">↑' + _fmtNetSpeed(d.net_up_bps) + '</span> <span style="color:#38bdf8">↓' + _fmtNetSpeed(d.net_down_bps) + '</span>'
       : '—';
     var rows = [
-      ['STATUS',      '<span class="r-badge ' + ({ online: 'r-badge-ok', stale: 'r-badge-warn', offline: 'r-badge-err' }[d._status] || 'r-badge-muted') + '">' + d._status.toUpperCase() + '</span>'],
-      ['HOSTNAME',    '<span class="r-font-mono">' + esc(d.id || d.hostname || '—') + '</span>'],
-      ['OS',          esc(d.os_name || d.os_version || d.sys_info || '—')],
+      ['STATUS', '<span class="r-badge ' + ({ online: 'r-badge-ok', stale: 'r-badge-warn', offline: 'r-badge-err' }[d._status] || 'r-badge-muted') + '">' + d._status.toUpperCase() + '</span>'],
+      ['HOSTNAME', '<span class="r-font-mono">' + esc(d.id || d.hostname || '—') + '</span>'],
+      ['OS', esc(d.os_name || d.os_version || d.sys_info || '—')],
       ['CURRENT JOB', esc(d.current_job || 'IDLE')],
-      ['PENDING',     (d.pending_files !== undefined ? d.pending_files : '—') + ' files'],
-      ['VERSION',     esc(d.version || '—')],
-      ['UPTIME',      esc(d.uptime || '—')],
-      ['HEARTBEAT',   fmtTs(d.last_heartbeat || d.last_seen)],
+      ['PENDING', (d.pending_files !== undefined ? d.pending_files : '—') + ' files'],
+      ['VERSION', esc(d.version || '—')],
+      ['UPTIME', esc(d.uptime || '—')],
+      ['HEARTBEAT', fmtTs(d.last_heartbeat || d.last_seen)],
     ];
     var extraRows = [
-      ['NETWORK',     netVal],
-      ['IP ADDRESS',  esc(d.ip_address || '—')],
-      ['PUBLIC IP',   esc(d.public_ip || '—')],
-      ['BRANCH',      esc(_branchName(d.branch_id || (RS._devBranchMap && RS._devBranchMap[(d.hostname || '').toLowerCase()]) || null))],
+      ['NETWORK', netVal],
+      ['IP ADDRESS', esc(d.ip_address || '—')],
+      ['PUBLIC IP', esc(d.public_ip || '—')],
+      ['BRANCH', esc(_branchName(d.branch_id || (RS._devBranchMap && RS._devBranchMap[(d.hostname || '').toLowerCase()]) || null))],
     ];
     var rowsHTML = rows.map(function (r) {
       return '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">' + r[0] + '</span><span class="r-tele-val">' + r[1] + '</span></div>';
@@ -2312,13 +2350,13 @@
     }
     var cmds =
       '<div class="r-tele-cmds">' +
-      _tc('PING',           '#0ea5e9',         'PING') +
-      _tc('RESTART',        '#f59e0b',         'RESTART') +
-      _tc('KILL',           '#ef4444',         'KILL') +
-      _tc('VERSION_CHECK',  '#a78bfa',         'VERSION') +
-      _tc('CHECK_DISK',     '#fb923c',         'DISK') +
-      _tc('GET_LOGS',       '#4ade80',         'LOGS') +
-      _tc('CAPTURE_PUBLIC_IP','#22d3ee',       'LOCATION') +
+      _tc('PING', '#0ea5e9', 'PING') +
+      _tc('RESTART', '#f59e0b', 'RESTART') +
+      _tc('KILL', '#ef4444', 'KILL') +
+      _tc('VERSION_CHECK', '#a78bfa', 'VERSION') +
+      _tc('CHECK_DISK', '#fb923c', 'DISK') +
+      _tc('GET_LOGS', '#4ade80', 'LOGS') +
+      _tc('CAPTURE_PUBLIC_IP', '#22d3ee', 'LOCATION') +
       '<button class="r-tele-chip r-tele-chip-nav" onclick="rNav(\'r-device:' + esc(d.id) + '\')"><i class="fa-solid fa-eye"></i> View Details</button>' +
       '</div>';
     return '<div style="flex:1;overflow-y:auto;min-height:0">' + rowsHTML + '</div>' + cmds;
@@ -3918,7 +3956,7 @@
           .limit(1)
           .then(function (res) {
             if (res.data && res.data[0] && res.data[0].result) {
-              try { _rDdRenderHealth(JSON.parse(res.data[0].result), hostname); } catch (e) {}
+              try { _rDdRenderHealth(JSON.parse(res.data[0].result), hostname); } catch (e) { }
             }
           });
       }
@@ -4654,28 +4692,28 @@
 
   // ── TAB: COMMANDS ──────────────────────────────────────────────
   function ddCmds(hostname, box) {
-    var _chip = function(cmd, color) {
+    var _chip = function (cmd, color) {
       return '<button style="border:none;background:none;color:' + color + ';font-size:11px;cursor:pointer;padding:3px 6px;white-space:nowrap" ' +
         'onclick="document.getElementById(\'r-cmd-inp\').value=\'' + cmd + '\'">' + cmd + '</button>';
     };
     var grp1 =
-      _chip('PING',         '#0ea5e9') +
-      _chip('KILL',         'var(--rc-red)') +
-      _chip('RESTART',      '#f59e0b') +
-      _chip('REFRESH_STATUS','#10b981') +
-      _chip('PAUSE',        '#8b5cf6') +
-      _chip('RESUME',       '#84cc16') +
-      _chip('RERUN',        '#ec4899') +
+      _chip('PING', '#0ea5e9') +
+      _chip('KILL', 'var(--rc-red)') +
+      _chip('RESTART', '#f59e0b') +
+      _chip('REFRESH_STATUS', '#10b981') +
+      _chip('PAUSE', '#8b5cf6') +
+      _chip('RESUME', '#84cc16') +
+      _chip('RERUN', '#ec4899') +
       _chip('UPDATE_AGENT', '#facc15');
     var grp2 =
-      _chip('VERSION_CHECK',     '#a78bfa') +
-      _chip('CHECK_DISK',        '#fb923c') +
-      _chip('GET_LOGS',          '#4ade80') +
-      _chip('SPEED_TEST',        '#e879f9') +
+      _chip('VERSION_CHECK', '#a78bfa') +
+      _chip('CHECK_DISK', '#fb923c') +
+      _chip('GET_LOGS', '#4ade80') +
+      _chip('SPEED_TEST', '#e879f9') +
       _chip('CAPTURE_PUBLIC_IP', '#22d3ee') +
-      _chip('CLEAR_CACHE',       '#94a3b8') +
-      _chip('CLEAR_LOGS',        '#64748b') +
-      _chip('RUN_SCRIPT',        '#f97316');
+      _chip('CLEAR_CACHE', '#94a3b8') +
+      _chip('CLEAR_LOGS', '#64748b') +
+      _chip('RUN_SCRIPT', '#f97316');
 
     box.innerHTML =
       '<div style="margin-bottom:10px;padding:8px 10px;background:var(--rc-bg2);border-radius:6px">' +
@@ -4975,19 +5013,19 @@
 
       // ── Admin action guidance per error type ────────────────────
       var _VIBES_META = {
-        BATCH_INCOMPLETE:          { badge: 'r-badge-warn', action: 'Bot terminated mid-batch — partial payload injected to portal. Unfinished rows remain. REQUEUE bot. Audit portal for duplicate entries before re-run to avoid double-insert.' },
-        GUARD_EXHAUSTED:           { badge: 'r-badge-err',  action: 'batch_retry_guard threshold breached (15-doc abort). Bot self-terminated to prevent runaway loop. Claims pre-inserted in portal. Next run auto-resumes remaining rows — no manual intervention needed unless count mismatch.' },
-        SAVE_TIMEOUT_PORTAL_LAG:   { badge: 'r-badge-err',  action: 'Portal ACK timeout on save sequence — bot exhausted retry window before server acknowledgment. Suspected: portal congestion or session drop. REQUEUE affected claims after portal stabilises.' },
-        UPLOAD_RETRY_EXHAUSTED:    { badge: 'r-badge-warn', action: 'Max retry quota exhausted for invoice upload. Portal failed to return success ACK within threshold. CHECK portal for ghost entries before REQUEUE to prevent duplicate upload.' },
+        BATCH_INCOMPLETE: { badge: 'r-badge-warn', action: 'Bot terminated mid-batch — partial payload injected to portal. Unfinished rows remain. REQUEUE bot. Audit portal for duplicate entries before re-run to avoid double-insert.' },
+        GUARD_EXHAUSTED: { badge: 'r-badge-err', action: 'batch_retry_guard threshold breached (15-doc abort). Bot self-terminated to prevent runaway loop. Claims pre-inserted in portal. Next run auto-resumes remaining rows — no manual intervention needed unless count mismatch.' },
+        SAVE_TIMEOUT_PORTAL_LAG: { badge: 'r-badge-err', action: 'Portal ACK timeout on save sequence — bot exhausted retry window before server acknowledgment. Suspected: portal congestion or session drop. REQUEUE affected claims after portal stabilises.' },
+        UPLOAD_RETRY_EXHAUSTED: { badge: 'r-badge-warn', action: 'Max retry quota exhausted for invoice upload. Portal failed to return success ACK within threshold. CHECK portal for ghost entries before REQUEUE to prevent duplicate upload.' },
         RECONCILIATION_INCOMPLETE: { badge: 'r-badge-info', action: 'Post-upload reconciliation failed — bot could not verify portal record matches local payload. DO NOT CLEAR until operator manually cross-checks portal vs local record. Flag for audit if persistent.' },
-        BATCH_SKIP:                { badge: 'r-badge-muted', action: 'Zero uploadable rows found in bot execution context. Vectors: [1] operator manual upload already completed, [2] AJAX hydration failed, [3] session retry quota exhausted. Verify portal state. CLEAR only if portal confirmed populated.' }
+        BATCH_SKIP: { badge: 'r-badge-muted', action: 'Zero uploadable rows found in bot execution context. Vectors: [1] operator manual upload already completed, [2] AJAX hydration failed, [3] session retry quota exhausted. Verify portal state. CLEAR only if portal confirmed populated.' }
       };
 
       // Group: error_type → hostname → [rows]
       var etypeMap2 = {}, etypeOrder = [];
       docs.forEach(function (e) {
         var etype = e.error_type || e.category || 'unknown';
-        var host  = e._host || '—';
+        var host = e._host || '—';
         if (!etypeMap2[etype]) { etypeMap2[etype] = {}; etypeOrder.push(etype); }
         if (!etypeMap2[etype][host]) etypeMap2[etype][host] = [];
         etypeMap2[etype][host].push(e);
@@ -5004,11 +5042,11 @@
         var etAllRows = [];
         Object.values(hostMap).forEach(function (arr) { etAllRows = etAllRows.concat(arr); });
         var etTotalOpen = etAllRows.filter(function (e) { return !e.resolved; }).length;
-        var etLastTs    = etAllRows.reduce(function (mx, e) { return (!mx || e.timestamp > mx) ? e.timestamp : mx; }, null);
-        var etDevCount  = Object.keys(hostMap).length;
-        var etKey       = etype.replace(/[^a-z0-9]/gi, '_');
-        var meta        = _VIBES_META[etype] || null;
-        var badgeCls    = errBadge(etype) || (meta ? meta.badge : 'r-badge-muted');
+        var etLastTs = etAllRows.reduce(function (mx, e) { return (!mx || e.timestamp > mx) ? e.timestamp : mx; }, null);
+        var etDevCount = Object.keys(hostMap).length;
+        var etKey = etype.replace(/[^a-z0-9]/gi, '_');
+        var meta = _VIBES_META[etype] || null;
+        var badgeCls = errBadge(etype) || (meta ? meta.badge : 'r-badge-muted');
 
         // ── Level 1: Error Type header ───────────────────────────
         html +=
@@ -5030,23 +5068,23 @@
           '</div>' +
           // Admin action note — only if meta defined for this error type
           (meta ? '<div style="padding:5px 14px 6px;font-size:10px;font-family:\'JetBrains Mono\',Consolas,monospace;' +
-          'color:var(--neon-amber,#f59e0b);opacity:0.85;background:rgba(0,0,0,0.15);line-height:1.5">' +
-          '// ADMIN: ' + esc(meta.action) + '</div>' : '') +
+            'color:var(--neon-amber,#f59e0b);opacity:0.85;background:rgba(0,0,0,0.15);line-height:1.5">' +
+            '// ADMIN: ' + esc(meta.action) + '</div>' : '') +
           // Expandable device list
           '<div id="vetg-' + etKey + '" style="display:none;padding:6px 8px">';
 
         // ── Level 2: Device sub-headers ──────────────────────────
         Object.keys(hostMap).forEach(function (host) {
-          var devRows   = hostMap[host];
-          var devOpen   = devRows.filter(function (e) { return !e.resolved; }).length;
-          var devKey2   = (etKey + '_' + host).replace(/[^a-z0-9]/gi, '_');
+          var devRows = hostMap[host];
+          var devOpen = devRows.filter(function (e) { return !e.resolved; }).length;
+          var devKey2 = (etKey + '_' + host).replace(/[^a-z0-9]/gi, '_');
 
           // Detail table rows
           var detailRows = devRows.map(function (e) {
             var batch = e.run_id || '—';
             var batchShort = batch.length > 24 ? batch.substring(0, 24) + '…' : batch;
             var det = {};
-            try { det = typeof e.detail === 'string' ? JSON.parse(e.detail) : (e.detail || {}); } catch (x) {}
+            try { det = typeof e.detail === 'string' ? JSON.parse(e.detail) : (e.detail || {}); } catch (x) { }
             var batchDisplay = det.batch_no || batchShort;
             return '<tr style="border-top:1px solid rgba(255,255,255,0.03)">' +
               '<td style="padding:3px 8px;color:var(--text-muted);font-size:10px;white-space:nowrap">' + fmtTs(e.timestamp) + '</td>' +
@@ -5279,16 +5317,16 @@
   window.rClearVibesEtypeAll = function (etype, btn) {
     if (!_canWrite()) { rToast('Read-only — request write access from Super Admin', 'warn'); return; }
     var title = $r('r-modal-title');
-    var body  = $r('r-modal-body');
+    var body = $r('r-modal-body');
     var footer = $r('r-modal-footer');
     if (!body) return;
     if (title) title.innerHTML = '<i class="fa-solid fa-broom" style="color:var(--rc-orange,#f59e0b)"></i> Clear All — ' + esc(etype);
     body.innerHTML =
       '<div style="padding:4px 0">' +
-      '<div style="margin-bottom:12px;color:var(--rc-text,#f9fafb);font-size:13px">Mark <strong>semua</strong> error <code>' + esc(etype) + '</code> sebagai fixed <strong>merentas semua device</strong>?</div>' +
+      '<div style="margin-bottom:12px;color:var(--rc-text,#f9fafb);font-size:13px">Purge all <code>' + esc(etype) + '</code> exceptions from telemetry database <strong>globally across all active nodes</strong>?</div>' +
       '<div class="r-fix-field">' +
       '<label style="font-size:11px;color:var(--rc-text-dim,#9ca3af);letter-spacing:0.5px">FIX NOTE <span style="color:#ef4444">*</span></label>' +
-      '<textarea id="r-vibes-clear-note" rows="3" class="r-textarea" placeholder="e.g. Re-run bot selesai, semua tuntutan dah upload…" style="width:100%;box-sizing:border-box;margin-top:6px"></textarea>' +
+      '<textarea id="r-vibes-clear-note" rows="3" class="r-textarea" placeholder="e.g. Ingestion loop resolved, all Tuntutan synced to database…" style="width:100%;box-sizing:border-box;margin-top:6px"></textarea>' +
       '</div></div>';
     if (footer) footer.innerHTML =
       '<button style="background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.5);color:#fcd34d;border-radius:4px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit" ' +
@@ -5309,7 +5347,7 @@
     }).eq('error_type', etype).eq('resolved', false)
       .then(function (res) {
         if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
-        rToast('Semua ' + etype + ' errors cleared', 'success');
+        rToast('All ' + etype + ' exceptions successfully purged from registry', 'success');
         rModalClose();
         rLoadVibes();
       }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
@@ -5523,12 +5561,12 @@
   // ── VIBES: load pending (not-uploaded) entries for a batch ───────
   function _vibesPendingAction(errorType) {
     var map = {
-      'batch_skip':              'Semak DO/IC di portal VIMS — folder mungkin kosong atau tiada PDF',
-      'upload_retry_exhausted':  'Semak log VIBES pada mesin — cuba upload manual semula',
-      'validation_fail':         'Dokumen tidak lengkap — semak senarai dokumen diperlukan',
-      'upload_error':            'Kemungkinan masalah server VIMS — cuba semula kemudian',
+      'batch_skip': 'Inspect the VIMS DO/IC directory — payload missing or PDF stream unreadable.',
+      'upload_retry_exhausted': 'Analyze the VIBES host logs — execute the manual re-injection protocol.',
+      'validation_fail': 'Invalid payload schema — verify the required document registry.',
+      'upload_error': 'VIMS gateway handshake timed out — retry the session later.',
     };
-    return map[errorType] || 'Semak log VIBES pada mesin untuk butiran lanjut';
+    return map[errorType] || 'Analyze local VIBES host logs for detailed debugger';
   }
 
   window.rLoadVibesPending = function (gKey, runId) {
@@ -5551,22 +5589,22 @@
           return;
         }
         var pendRows = rows.map(function (r) {
-          var tNo    = r.patient_ic || '—';
-          var errT   = r.error_type || '—';
+          var tNo = r.patient_ic || '—';
+          var errT = r.error_type || '—';
           var reason = r.message || (r.detail && (r.detail.error || r.detail.summary)) || '—';
           var action = _vibesPendingAction(r.error_type);
-          var isAck  = r.fix_status === 'acknowledged';
+          var isAck = r.fix_status === 'acknowledged';
           return '<tr>' +
             '<td class="r-font-mono" style="font-size:11px;vertical-align:top;padding-top:5px">' + esc(tNo) + '</td>' +
             '<td style="vertical-align:top;padding-top:5px">' +
-              '<span class="r-badge r-badge-err" style="font-size:10px">' + esc(errT) + '</span>' +
+            '<span class="r-badge r-badge-err" style="font-size:10px">' + esc(errT) + '</span>' +
             '</td>' +
             '<td class="r-cell-trunc" style="max-width:220px;font-size:11px;color:#94a3b8;vertical-align:top;padding-top:5px">' + esc(String(reason)) + '</td>' +
             '<td style="font-size:11px;color:#fbbf24;vertical-align:top;padding-top:5px">' + esc(action) + '</td>' +
             '<td style="vertical-align:top;padding-top:5px;white-space:nowrap">' +
-              (isAck
-                ? '<span style="font-size:11px;color:#38bdf8">Acknowledged</span>'
-                : '<span style="font-size:11px;color:#64748b">—</span>') +
+            (isAck
+              ? '<span style="font-size:11px;color:#38bdf8">Acknowledged</span>'
+              : '<span style="font-size:11px;color:#64748b">—</span>') +
             '</td>' +
             '</tr>';
         }).join('');
@@ -5574,12 +5612,12 @@
           '<div style="margin-top:4px;padding:8px 0 6px;border-top:1px solid rgba(255,255,255,0.06)">' +
           '<div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:8px;letter-spacing:0.04em">' +
           '<i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;opacity:0.85"></i>' +
-          rows.length + ' PENDING — Tidak Diupload</div>' +
-          tableWrap(['No. Tuntutan', 'Jenis Error', 'Sebab', 'Tindakan Admin', 'Status'], pendRows) +
+          rows.length + ' PENDING — Stalled Transmission</div>' +
+          tableWrap(['No. Tuntutan', 'Exception Class', 'Root Cause', 'Override Vector', 'State'], pendRows) +
           '</div>';
       })
       .catch(function () {
-        if (box) box.innerHTML = '<div style="color:#ef4444;font-size:11px;padding:4px 0">Gagal muatkan data pending</div>';
+        if (box) box.innerHTML = '<div style="color:#ef4444;font-size:11px;padding:4px 0">Unable to process the pending payload stream.</div>';
       });
   };
 
@@ -6449,10 +6487,10 @@
         // were received (FAILED logs may have failed to insert into Supabase).
         var missingNotice = (missingFailCount > 0 && failedLogs.length === 0)
           ? '<div style="margin-bottom:8px;padding:8px 12px;background:rgba(239,68,68,0.07);border-left:3px solid rgba(239,68,68,0.5);border-radius:0 4px 4px 0;font-size:11px;color:#fca5a5">' +
-            '<i class="fa-solid fa-triangle-exclamation" style="margin-right:6px"></i>' +
-            missingFailCount + ' file(s) reported as failed by engine — detailed log entries pending sync. ' +
-            'Check <b>Renamer Docs</b> tab or re-run to confirm files.' +
-            '</div>'
+          '<i class="fa-solid fa-triangle-exclamation" style="margin-right:6px"></i>' +
+          missingFailCount + ' file(s) reported as failed by engine — detailed log entries pending sync. ' +
+          'Check <b>Renamer Docs</b> tab or re-run to confirm files.' +
+          '</div>'
           : '';
         detailHtml = failBanner + missingNotice + (fileRows
           ? tableWrap(detailHeaders, fileRows)
@@ -6534,7 +6572,7 @@
       if (oldBtn) oldBtn.remove();
       if (data.length >= 500) {
         var oldest = null;
-        data.forEach(function(d) { if (d.timestamp && (!oldest || d.timestamp < oldest)) oldest = d.timestamp; });
+        data.forEach(function (d) { if (d.timestamp && (!oldest || d.timestamp < oldest)) oldest = d.timestamp; });
         if (oldest) {
           _loadMoreCursor = oldest;
           var lmDiv = document.createElement('div');
@@ -6545,7 +6583,7 @@
         }
       }
     }
-    window._rLogLoadMore = function() {
+    window._rLogLoadMore = function () {
       if (!RS.supa || !_loadMoreCursor) return;
       var lmBox = box.querySelector('.r-log-loadmore');
       if (lmBox) lmBox.innerHTML = '<span class="r-spin" style="display:inline-block;margin:8px"></span>';
@@ -6555,12 +6593,12 @@
         .limit(500);
       if (hostname) q = q.eq('machine', hostname);
       if (appName) q = q.eq('app_name', appName);
-      q.then(function(res) {
+      q.then(function (res) {
         var more = res.data || [];
         var merged = _logAllData.concat(more);
         RS._logExplorerCache[cacheKey] = { data: merged, ts: Date.now() };
         _render(more, true);
-      }).catch(function() {
+      }).catch(function () {
         var lmBox2 = box.querySelector('.r-log-loadmore');
         if (lmBox2) lmBox2.innerHTML = '<button class="r-btn-sm" style="padding:5px 20px" onclick="window._rLogLoadMore()"><i class="fa-solid fa-chevron-down" style="margin-right:4px"></i> Load More</button>';
       });
@@ -6655,26 +6693,26 @@
       '<h4>Quick Commands <span class="r-muted-sm">— click to fill input</span></h4>' +
       '<div style="font-size:10px;color:var(--rc-muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px;margin-bottom:3px">System Control</div>' +
       '<div style="display:flex;flex-wrap:wrap;gap:5px">' +
-      _qCmd('PING',        'fa-satellite-dish',       '#0ea5e9',        'Check if machine is alive — returns CPU, RAM & uptime') +
-      _qCmd('KILL',        'fa-skull',                'var(--rc-red)',   'Force close Rasumi Apps immediately') +
-      _qCmd('RESTART',     'fa-rotate-right',         '#f59e0b',        'Relaunch Rasumi Apps on target machine') +
-      _qCmd('REFRESH',     'fa-arrows-rotate',        '#10b981',        'Force push machine status to Supabase now') +
-      _qCmd('PAUSE',       'fa-pause',                '#8b5cf6',        'Pause all processing jobs') +
-      _qCmd('RESUME',      'fa-play',                 '#84cc16',        'Resume paused processing jobs') +
-      _qCmd('RERUN',       'fa-redo',                 '#ec4899',        'Prompt operator to retry current job') +
-      _qCmd('UPDATE_AGENT','fa-arrow-up-from-bracket','#facc15',        'Check for latest version and auto-install if available', 'UPDATE') +
+      _qCmd('PING', 'fa-satellite-dish', '#0ea5e9', 'Check if machine is alive — returns CPU, RAM & uptime') +
+      _qCmd('KILL', 'fa-skull', 'var(--rc-red)', 'Force close Rasumi Apps immediately') +
+      _qCmd('RESTART', 'fa-rotate-right', '#f59e0b', 'Relaunch Rasumi Apps on target machine') +
+      _qCmd('REFRESH', 'fa-arrows-rotate', '#10b981', 'Force push machine status to Supabase now') +
+      _qCmd('PAUSE', 'fa-pause', '#8b5cf6', 'Pause all processing jobs') +
+      _qCmd('RESUME', 'fa-play', '#84cc16', 'Resume paused processing jobs') +
+      _qCmd('RERUN', 'fa-redo', '#ec4899', 'Prompt operator to retry current job') +
+      _qCmd('UPDATE_AGENT', 'fa-arrow-up-from-bracket', '#facc15', 'Check for latest version and auto-install if available', 'UPDATE') +
       '</div>' +
       // Group 2: Diagnostics & Maintenance
       '<div style="font-size:10px;color:var(--rc-muted);text-transform:uppercase;letter-spacing:1px;margin-top:7px;margin-bottom:3px">Diagnostics &amp; Maintenance</div>' +
       '<div style="display:flex;flex-wrap:wrap;gap:5px">' +
-      _qCmd('VERSION_CHECK',    'fa-tag',           '#a78bfa', 'Return agent version, OS info and local IP') +
-      _qCmd('CHECK_DISK',       'fa-hard-drive',    '#fb923c', 'Show free/used space on all drives with health status') +
-      _qCmd('GET_LOGS',         'fa-scroll',        '#4ade80', 'Fetch latest error logs from the machine') +
-      _qCmd('SPEED_TEST',       'fa-gauge-high',    '#e879f9', 'Measure internet ping, download and upload speed') +
-      _qCmd('CAPTURE_PUBLIC_IP','fa-location-dot',  '#22d3ee', 'Fetch public IP and geolocation, update device map pin', 'GET_LOCATION') +
-      _qCmd('CLEAR_CACHE',      'fa-broom',         '#94a3b8', 'Delete temp files and free up disk space') +
-      _qCmd('CLEAR_LOGS',       'fa-trash-can',     '#64748b', 'Clear old local log files on machine') +
-      _qCmd('RUN_SCRIPT',       'fa-terminal',      '#f97316', 'Execute custom PowerShell script silently (SUPER ADMIN)') +
+      _qCmd('VERSION_CHECK', 'fa-tag', '#a78bfa', 'Return agent version, OS info and local IP') +
+      _qCmd('CHECK_DISK', 'fa-hard-drive', '#fb923c', 'Show free/used space on all drives with health status') +
+      _qCmd('GET_LOGS', 'fa-scroll', '#4ade80', 'Fetch latest error logs from the machine') +
+      _qCmd('SPEED_TEST', 'fa-gauge-high', '#e879f9', 'Measure internet ping, download and upload speed') +
+      _qCmd('CAPTURE_PUBLIC_IP', 'fa-location-dot', '#22d3ee', 'Fetch public IP and geolocation, update device map pin', 'GET_LOCATION') +
+      _qCmd('CLEAR_CACHE', 'fa-broom', '#94a3b8', 'Delete temp files and free up disk space') +
+      _qCmd('CLEAR_LOGS', 'fa-trash-can', '#64748b', 'Clear old local log files on machine') +
+      _qCmd('RUN_SCRIPT', 'fa-terminal', '#f97316', 'Execute custom PowerShell script silently (SUPER ADMIN)') +
       '</div>' +
       '</div>' +
 
@@ -6882,13 +6920,13 @@
   }
 
   function _initCmdBtns() {
-    var btnSend   = $r('r-btn-send');
-    var btnBcast  = $r('r-btn-broadcast');
-    var btnAnn    = $r('r-btn-announce');
-    var selDev    = $r('r-cmd-dev-sel');
-    var inpCmd    = $r('r-cmd-dev-inp');
-    var inpBcast  = $r('r-broadcast-inp');
-    var edAnn     = $r('r-announce-inp');
+    var btnSend = $r('r-btn-send');
+    var btnBcast = $r('r-btn-broadcast');
+    var btnAnn = $r('r-btn-announce');
+    var selDev = $r('r-cmd-dev-sel');
+    var inpCmd = $r('r-cmd-dev-inp');
+    var inpBcast = $r('r-broadcast-inp');
+    var edAnn = $r('r-announce-inp');
 
     function chkSend() {
       var ok = selDev && selDev.value && inpCmd && inpCmd.value.trim();
@@ -6905,10 +6943,10 @@
 
     window._rChkSend = chkSend;
 
-    if (selDev)   selDev.addEventListener('change', chkSend);
-    if (inpCmd)   inpCmd.addEventListener('input',  chkSend);
+    if (selDev) selDev.addEventListener('change', chkSend);
+    if (inpCmd) inpCmd.addEventListener('input', chkSend);
     if (inpBcast) inpBcast.addEventListener('input', chkBcast);
-    if (edAnn)    edAnn.addEventListener('input',   chkAnn);
+    if (edAnn) edAnn.addEventListener('input', chkAnn);
 
     chkSend(); chkBcast(); chkAnn();
   }
@@ -7137,7 +7175,7 @@
       for (var ai = 0; ai < Math.min(_sysAlerts.length, 20); ai++) {
         var sa = _sysAlerts[ai];
         var isCrit = sa.lvl === 'CRITICAL';
-        var saCol  = isCrit ? 'var(--rc-red,#ef4444)' : 'var(--rc-warn,#f59e0b)';
+        var saCol = isCrit ? 'var(--rc-red,#ef4444)' : 'var(--rc-warn,#f59e0b)';
         var saIcon = isCrit ? 'fa-circle-exclamation' : 'fa-triangle-exclamation';
         html +=
           '<div class="r-alert-item ' + (isCrit ? 'err' : 'warn') + '" style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px">' +
@@ -7222,7 +7260,7 @@
         var rows = res.data || [];
         if (cnt) cnt.textContent = rows.length;
         if (!rows.length) {
-          box.innerHTML = '<div class="r-empty">Tiada doc yang di-skip. Semua tuntutan OK.</div>';
+          box.innerHTML = '<div class="r-empty">Zero exceptions detected. All tuntutan integrity checks verified.</div>';
           return;
         }
 
@@ -7327,7 +7365,7 @@
                 var tIds = tRows.map(function (r) { return String(r.id); });
                 // Extract batch_no from the first row's detail JSON; fall back to run_id
                 var firstDet = {};
-                try { firstDet = typeof tRows[0].detail === 'string' ? JSON.parse(tRows[0].detail) : (tRows[0].detail || {}); } catch (x) {}
+                try { firstDet = typeof tRows[0].detail === 'string' ? JSON.parse(tRows[0].detail) : (tRows[0].detail || {}); } catch (x) { }
                 var batchDisplay = firstDet.batch_no || tRows[0].run_id || '—';
 
                 // Tuntutan sub-header — clickable to expand/collapse detail
@@ -7399,15 +7437,15 @@
                 // amount_unresolved → BIL | Invoice | Time (same as portal unresponsive, no Info)
                 // folder_not_found  → Invoice | Info | Time
                 // batch_skip        → Info | Time
-                var showBilCol  = (etype === 'amount_unresolved');
-                var showInvCol  = (etype === 'amount_unresolved' || etype === 'folder_not_found');
+                var showBilCol = (etype === 'amount_unresolved');
+                var showInvCol = (etype === 'amount_unresolved' || etype === 'folder_not_found');
                 var showInfoCol = (etype !== 'amount_unresolved');
 
                 // Per-etype issue description (mirrors Portal Unresponsive "Kemaskini Invois..." format)
                 var _issueDesc = {
                   amount_unresolved: 'Amount field mismatch',
-                  folder_not_found:  'Local path unresolved',
-                  batch_skip:        'No uploadable rows found'
+                  folder_not_found: 'Local path unresolved',
+                  batch_skip: 'No uploadable rows found'
                 };
                 var issueText2 = (_issueDesc[etype] || meta.label) + ' (' + rowCount2 + ' row' + (rowCount2 > 1 ? 's' : '') + ')';
 
@@ -7415,8 +7453,8 @@
                 var firstMsg2 = tRows2[0].message || '';
                 var infoSnippet2 = showBilCol
                   ? '<span style="color:var(--text-muted)">Info:</span>' +
-                    '<span style="color:var(--rc-text,#f9fafb)">' + esc(firstMsg2.length > 45 ? firstMsg2.substring(0, 45) + '…' : firstMsg2) + '</span>' +
-                    '<span style="color:rgba(255,255,255,0.2)">|</span>'
+                  '<span style="color:var(--rc-text,#f9fafb)">' + esc(firstMsg2.length > 45 ? firstMsg2.substring(0, 45) + '…' : firstMsg2) + '</span>' +
+                  '<span style="color:rgba(255,255,255,0.2)">|</span>'
                   : '';
 
                 // Tuntutan sub-header — clickable to expand/collapse detail
@@ -7437,8 +7475,8 @@
                   '<div id="vtd-' + tKey2 + '" style="display:none">' +
                   '<table style="width:100%;font-size:11px;border-collapse:collapse;margin-top:5px">' +
                   '<thead><tr style="color:var(--text-muted);font-size:10px;border-bottom:1px solid rgba(255,255,255,0.07)">' +
-                  (showBilCol  ? '<th style="text-align:left;padding:2px 8px;font-weight:500;width:50px">BIL</th>' : '') +
-                  (showInvCol  ? '<th style="text-align:left;padding:2px 8px;font-weight:500">Invoice</th>' : '') +
+                  (showBilCol ? '<th style="text-align:left;padding:2px 8px;font-weight:500;width:50px">BIL</th>' : '') +
+                  (showInvCol ? '<th style="text-align:left;padding:2px 8px;font-weight:500">Invoice</th>' : '') +
                   (showInfoCol ? '<th style="text-align:left;padding:2px 8px;font-weight:500">Info</th>' : '') +
                   '<th style="text-align:left;padding:2px 8px;font-weight:500">Time</th>' +
                   '<th style="width:32px"></th>' +
@@ -7447,14 +7485,14 @@
                 tRows2.forEach(function (e, idx2) {
                   var rowId = 'vskrow-' + String(e.id).replace(/[^a-z0-9]/gi, '_');
                   var det2 = {};
-                  try { det2 = typeof e.detail === 'string' ? JSON.parse(e.detail) : (e.detail || {}); } catch (x) {}
+                  try { det2 = typeof e.detail === 'string' ? JSON.parse(e.detail) : (e.detail || {}); } catch (x) { }
                   var invNo2 = det2.invoice_no || (function () { var m = (e.message || '').match(/INV\s+(\S+)/i); return m ? m[1] : '—'; })();
                   var info2 = (function () { var m = e.message || ''; return m.length > 60 ? m.substring(0, 60) + '…' : m; })();
                   var timeOnly2 = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('en-US') : '—';
                   listHtml +=
                     '<tr id="' + rowId + '" style="border-top:1px solid rgba(255,255,255,0.03)">' +
-                    (showBilCol  ? '<td style="padding:3px 8px;color:var(--text-muted)">' + (idx2 + 1) + '</td>' : '') +
-                    (showInvCol  ? '<td style="padding:3px 8px;font-family:monospace">' + esc(invNo2) + '</td>' : '') +
+                    (showBilCol ? '<td style="padding:3px 8px;color:var(--text-muted)">' + (idx2 + 1) + '</td>' : '') +
+                    (showInvCol ? '<td style="padding:3px 8px;font-family:monospace">' + esc(invNo2) + '</td>' : '') +
                     (showInfoCol ? '<td style="padding:3px 8px;color:var(--text-muted)">' + esc(info2) + '</td>' : '') +
                     '<td style="padding:3px 8px;color:var(--text-muted)">' + esc(timeOnly2) + '</td>' +
                     '<td style="padding:3px 8px;text-align:right">' +
@@ -7493,7 +7531,7 @@
 
         box.innerHTML = html;
       }).catch(function (err) {
-        if (box) box.innerHTML = '<div class="r-empty">Gagal load: ' + esc(err.message) + '</div>';
+        if (box) box.innerHTML = '<div class="r-empty">Fetch failed: ' + esc(err.message) + '</div>';
       });
   }
 
@@ -7925,6 +7963,74 @@
         '<button id="btn-cancel" class="r-btn-sm" style="flex:1;max-width:120px" onclick="rCancelScheduled()" title="Cancel scheduled time">Cancel</button>' +
         '</div>' +
         '</div>' +
+
+        // ── Section A: Targeted Release ───────────────────────────
+        '<div class="r-panel-hdr" style="margin-top:8px">' +
+          '<h3><i class="fa-solid fa-bullseye"></i> Targeted Release</h3>' +
+        '</div>' +
+        '<div class="r-fix-form" style="margin-bottom:24px">' +
+          '<div class="r-muted-sm" style="margin-bottom:10px">' +
+            'Push a specific version to selected devices only. Overrides global release — other devices are unaffected.' +
+          '</div>' +
+          '<div style="position:relative;margin-bottom:12px" id="tr-dropdown-wrap">' +
+            '<button id="tr-dropdown-btn" class="r-filter-input" style="width:300px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="rToggleDeviceDropdown(event)">' +
+              '<span id="tr-selected-count" style="flex:1">Select devices…</span>' +
+              '<i class="fa-solid fa-chevron-down" style="opacity:0.5;font-size:10px;flex-shrink:0"></i>' +
+            '</button>' +
+            '<div id="tr-dropdown-panel" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:9999;background:#0f1520;border:1px solid #2a3550;border-radius:8px;width:380px;box-shadow:0 12px 40px rgba(0,0,0,0.85)">' +
+              '<div style="padding:8px 8px 0">' +
+                '<input id="tr-filter" class="r-filter-input" style="width:100%;box-sizing:border-box" placeholder="Search hostname…" oninput="rFilterTargetDevices()" onclick="event.stopPropagation()">' +
+              '</div>' +
+              '<div style="display:flex;gap:6px;padding:6px 8px 8px;align-items:center;flex-wrap:wrap">' +
+                '<button class="r-btn-sm" style="font-size:10px" onclick="rSelectAllTargetDevices(true)">Select All</button>' +
+                '<button class="r-btn-sm" style="font-size:10px" onclick="rSelectAllTargetDevices(false)">Deselect All</button>' +
+                '<div style="position:relative" id="tr-filtby-wrap">' +
+                  '<button id="tr-filtby-btn" class="r-btn-sm" style="font-size:10px" onclick="rToggleTrFilterBy(event)">Filter by <i class="fa-solid fa-chevron-down" style="font-size:8px;margin-left:2px"></i></button>' +
+                  '<div id="tr-filtby-menu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:10001;background:#0f1520;border:1px solid #2a3550;border-radius:6px;min-width:130px;box-shadow:0 8px 24px rgba(0,0,0,0.7);overflow:hidden">' +
+                    '<div class="tr-filtby-opt" onclick="rSetTrFilterBy(\'branch\')" style="padding:8px 12px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:8px"><i class="fa-solid fa-building" style="width:12px;opacity:0.6"></i> By Branch</div>' +
+                    '<div class="tr-filtby-opt" onclick="rSetTrFilterBy(\'version\')" style="padding:8px 12px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:8px"><i class="fa-solid fa-code-branch" style="width:12px;opacity:0.6"></i> By Version</div>' +
+                    '<div class="tr-filtby-opt" onclick="rSetTrFilterBy(\'status\')" style="padding:8px 12px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:8px"><i class="fa-solid fa-circle-dot" style="width:12px;opacity:0.6"></i> By Status</div>' +
+                  '</div>' +
+                '</div>' +
+                '<div style="position:relative;display:none" id="tr-filtval-wrap">' +
+                  '<button id="tr-filtval-btn" class="r-btn-sm" style="font-size:10px" onclick="rToggleTrFilterVal(event)">All <i class="fa-solid fa-chevron-down" style="font-size:8px;margin-left:2px"></i></button>' +
+                  '<div id="tr-filtval-menu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:10001;background:#0f1520;border:1px solid #2a3550;border-radius:6px;min-width:130px;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.7)"></div>' +
+                '</div>' +
+                '<button id="tr-filt-clear" class="r-btn-sm" style="font-size:10px;display:none;color:#ef4444;border-color:#ef4444" onclick="rClearTrFilter()"><i class="fa-solid fa-xmark"></i> Clear</button>' +
+              '</div>' +
+              '<div id="tr-device-table" style="max-height:260px;overflow-y:auto;border-top:1px solid var(--rc-border)">' +
+                '<div class="r-empty" style="padding:16px;font-size:12px">Loading devices…</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">' +
+            '<div class="r-fix-field" style="margin-bottom:0">' +
+              '<label>Target Version <span class="r-required">*</span></label>' +
+              '<input id="tr-version" class="r-filter-input" style="width:120px" placeholder="e.g. 10.5">' +
+            '</div>' +
+            '<div class="r-fix-field" style="flex:1;min-width:240px;margin-bottom:0">' +
+              '<label>Override URL <span class="r-muted-sm">(leave empty to reuse current global URL)</span></label>' +
+              '<input id="tr-url" class="r-filter-input" style="width:100%" placeholder="Leave empty → use current global URL">' +
+            '</div>' +
+            '<div class="r-fix-field" style="flex:1;min-width:200px;margin-bottom:0">' +
+              '<label>Notes <span class="r-muted-sm">(optional)</span></label>' +
+              '<input id="tr-notes" class="r-filter-input" style="width:100%" placeholder="e.g. Beta test — internal only">' +
+            '</div>' +
+          '</div>' +
+          '<button class="r-btn-primary" onclick="rPushTargetedRelease()">' +
+            '<i class="fa-solid fa-bullseye"></i> Push to Selected Devices' +
+          '</button>' +
+        '</div>' +
+
+        // ── Section B: Fleet Version Status ───────────────────────
+        '<div class="r-panel-hdr" style="margin-top:0">' +
+          '<h3><i class="fa-solid fa-layer-group"></i> Fleet Version Status</h3>' +
+          '<button class="r-btn-sm" onclick="rRefreshFleetStatus()"><i class="fa-solid fa-rotate"></i> Refresh</button>' +
+        '</div>' +
+        '<div id="r-fleet-version-table" style="margin-bottom:8px">' +
+          '<div class="r-empty" style="padding:16px;font-size:12px">Loading…</div>' +
+        '</div>' +
+
         '</div>';
     }
 
@@ -7988,6 +8094,8 @@
       // Re-render with real data
       view.innerHTML = _buildUI(curVer, curUrl, curNotes, curSched, curBy, curTime, smtpEmail, smtpPass, statusBadge, false);
       if (window.rCheckReleaseForm) rCheckReleaseForm();
+      rRenderTargetDeviceTable();
+      rRefreshFleetStatus();
 
       // If released_by is an email (old format), async-resolve to role+nickname
       if (curBy.includes('@') && RS.supa) {
@@ -8212,6 +8320,471 @@
       if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
       rToast('SMTP credentials saved — all machines will use this on next request', 'success');
     }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // TARGETED RELEASE — Section A helpers
+  // ══════════════════════════════════════════════════════════════
+
+  window._trFilterState = { type: null, value: null };
+
+  function _trDevBranch(hostname) {
+    var branchId = (RS._devBranchMap && RS._devBranchMap[(hostname || '').toLowerCase()]) || '';
+    return { id: branchId, label: _branchName(branchId || null) };
+  }
+
+  function rRenderTargetDeviceTable() {
+    var container = document.getElementById('tr-device-table');
+    if (!container) return;
+    var devices = Object.keys(RS.devices);
+    if (!devices.length) {
+      container.innerHTML = '<div class="r-empty" style="padding:14px;font-size:12px">No devices detected — machines must connect first</div>';
+      return;
+    }
+
+    var searchVal = ((document.getElementById('tr-filter') || {}).value || '').toLowerCase();
+    var filtType  = (window._trFilterState || {}).type;
+    var filtVal   = (window._trFilterState || {}).value;
+
+    var filtered = devices.filter(function (h) {
+      if (searchVal && h.toLowerCase().indexOf(searchVal) === -1) return false;
+      if (filtType && filtVal) {
+        var d      = RS.devices[h] || {};
+        var ver    = String(d.version || d.app_version || '—');
+        var online = d.is_online !== false && (d._status || '').toLowerCase() !== 'offline';
+        var branch = _trDevBranch(h);
+        if (filtType === 'branch'  && branch.label.toLowerCase() !== filtVal.toLowerCase()) return false;
+        if (filtType === 'version' && ver !== filtVal) return false;
+        if (filtType === 'status'  && (online ? 'online' : 'offline') !== filtVal) return false;
+      }
+      return true;
+    });
+
+    if (!filtered.length) {
+      container.innerHTML = '<div class="r-empty" style="padding:14px;font-size:12px">No devices match filter</div>';
+      rUpdateTargetCount();
+      return;
+    }
+
+    container.innerHTML = filtered.map(function (hostname) {
+      var d      = RS.devices[hostname] || {};
+      var ver    = String(d.version || d.app_version || '—');
+      var online = d.is_online !== false && (d._status || '').toLowerCase() !== 'offline';
+      var branch = _trDevBranch(hostname);
+      var branchBadge = branch.id
+        ? '<span style="font-size:9px;font-weight:600;color:var(--cyan);background:rgba(0,224,255,0.08);border:1px solid rgba(0,224,255,0.2);border-radius:4px;padding:1px 5px;flex-shrink:0">' + esc(branch.label) + '</span>'
+        : '';
+      return '<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--rc-border)">' +
+        '<input type="checkbox" class="tr-dev-check" value="' + esc(hostname) + '" onchange="rUpdateTargetCount()">' +
+        '<span style="flex:1;font-family:monospace;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(hostname) + '</span>' +
+        branchBadge +
+        '<span class="r-badge ' + (online ? 'r-badge-ok' : 'r-badge-err') + '" style="font-size:9px;padding:1px 6px;flex-shrink:0">' + (online ? 'online' : 'offline') + '</span>' +
+        '<span class="r-muted-sm" style="font-size:11px;min-width:38px;text-align:right;flex-shrink:0">v' + esc(ver) + '</span>' +
+        '</div>';
+    }).join('');
+
+    rUpdateTargetCount();
+  }
+
+  window.rFilterTargetDevices = function () { rRenderTargetDeviceTable(); };
+
+  window.rSelectAllTargetDevices = function (select) {
+    document.querySelectorAll('.tr-dev-check').forEach(function (el) { el.checked = select; });
+    rUpdateTargetCount();
+  };
+
+  window.rUpdateTargetCount = function () {
+    var count = document.querySelectorAll('.tr-dev-check:checked').length;
+    var el = document.getElementById('tr-selected-count');
+    if (el) el.textContent = count > 0 ? count + ' device' + (count === 1 ? '' : 's') + ' selected' : 'Select devices…';
+  };
+
+  // ── Filter-by helpers ──────────────────────────────────────────
+
+  function _trCloseMinis() {
+    var m1 = document.getElementById('tr-filtby-menu');
+    var m2 = document.getElementById('tr-filtval-menu');
+    if (m1) m1.style.display = 'none';
+    if (m2) m2.style.display = 'none';
+  }
+
+  window.rToggleTrFilterBy = function (e) {
+    if (e) e.stopPropagation();
+    var menu = document.getElementById('tr-filtby-menu');
+    if (!menu) return;
+    var open = menu.style.display !== 'none';
+    _trCloseMinis();
+    if (!open) {
+      menu.style.display = 'block';
+      setTimeout(function () {
+        document.addEventListener('click', function _c(ev) {
+          var wrap = document.getElementById('tr-filtby-wrap');
+          if (!wrap || !wrap.contains(ev.target)) { _trCloseMinis(); document.removeEventListener('click', _c); }
+        });
+      }, 0);
+    }
+  };
+
+  window.rSetTrFilterBy = function (type) {
+    _trCloseMinis();
+    window._trFilterState = { type: type, value: null };
+
+    // Update button label
+    var labels = { branch: 'By Branch', version: 'By Version', status: 'By Status' };
+    var btn = document.getElementById('tr-filtby-btn');
+    if (btn) btn.innerHTML = (labels[type] || type) + ' <i class="fa-solid fa-chevron-down" style="font-size:8px;margin-left:2px"></i>';
+
+    // Collect unique values for the selected type
+    var values = [];
+    var seen   = {};
+    Object.keys(RS.devices).forEach(function (h) {
+      var d   = RS.devices[h] || {};
+      var val = '';
+      if (type === 'branch')  val = _trDevBranch(h).label;
+      if (type === 'version') val = String(d.version || d.app_version || '—');
+      if (type === 'status')  val = (d.is_online !== false && (d._status || '').toLowerCase() !== 'offline') ? 'online' : 'offline';
+      if (val && !seen[val]) { seen[val] = true; values.push(val); }
+    });
+    values.sort();
+
+    // Populate value dropdown
+    var valMenu = document.getElementById('tr-filtval-menu');
+    if (valMenu) {
+      valMenu.innerHTML =
+        '<div class="tr-filtby-opt" onclick="rSetTrFilterVal(\'\')" style="padding:8px 12px;font-size:11px;cursor:pointer;border-bottom:1px solid #1e2d45">All</div>' +
+        values.map(function (v) {
+          return '<div class="tr-filtby-opt" onclick="rSetTrFilterVal(\'' + esc(v) + '\')" style="padding:8px 12px;font-size:11px;cursor:pointer">' + esc(v) + '</div>';
+        }).join('');
+    }
+
+    // Show value wrap
+    var valWrap = document.getElementById('tr-filtval-wrap');
+    if (valWrap) valWrap.style.display = 'block';
+    var valBtn = document.getElementById('tr-filtval-btn');
+    if (valBtn) valBtn.innerHTML = 'All <i class="fa-solid fa-chevron-down" style="font-size:8px;margin-left:2px"></i>';
+
+    rRenderTargetDeviceTable();
+  };
+
+  window.rToggleTrFilterVal = function (e) {
+    if (e) e.stopPropagation();
+    var menu = document.getElementById('tr-filtval-menu');
+    if (!menu) return;
+    var open = menu.style.display !== 'none';
+    _trCloseMinis();
+    if (!open) {
+      menu.style.display = 'block';
+      setTimeout(function () {
+        document.addEventListener('click', function _c(ev) {
+          var wrap = document.getElementById('tr-filtval-wrap');
+          if (!wrap || !wrap.contains(ev.target)) { _trCloseMinis(); document.removeEventListener('click', _c); }
+        });
+      }, 0);
+    }
+  };
+
+  window.rSetTrFilterVal = function (val) {
+    _trCloseMinis();
+    if (window._trFilterState) window._trFilterState.value = val || null;
+    var valBtn = document.getElementById('tr-filtval-btn');
+    if (valBtn) valBtn.innerHTML = (val || 'All') + ' <i class="fa-solid fa-chevron-down" style="font-size:8px;margin-left:2px"></i>';
+    // Show/hide clear button
+    var clearBtn = document.getElementById('tr-filt-clear');
+    if (clearBtn) clearBtn.style.display = val ? 'inline-flex' : 'none';
+    rRenderTargetDeviceTable();
+  };
+
+  window.rClearTrFilter = function () {
+    window._trFilterState = { type: null, value: null };
+    var filtByBtn = document.getElementById('tr-filtby-btn');
+    if (filtByBtn) filtByBtn.innerHTML = 'Filter by <i class="fa-solid fa-chevron-down" style="font-size:8px;margin-left:2px"></i>';
+    var valWrap = document.getElementById('tr-filtval-wrap');
+    if (valWrap) valWrap.style.display = 'none';
+    var clearBtn = document.getElementById('tr-filt-clear');
+    if (clearBtn) clearBtn.style.display = 'none';
+    rRenderTargetDeviceTable();
+  };
+
+  function _trCloseDropdown() {
+    var panel = document.getElementById('tr-dropdown-panel');
+    var btn   = document.getElementById('tr-dropdown-btn');
+    if (panel) panel.style.display = 'none';
+    if (btn) { var ico = btn.querySelector('i'); if (ico) ico.style.transform = ''; }
+    document.removeEventListener('click', window._trDropdownClose);
+    if (window._trAutoCollapseTimer) { clearTimeout(window._trAutoCollapseTimer); window._trAutoCollapseTimer = null; }
+    if (window._trPanelResetHandler) {
+      var p = document.getElementById('tr-dropdown-panel');
+      if (p) p.removeEventListener('click', window._trPanelResetHandler);
+      if (p) p.removeEventListener('scroll', window._trPanelResetHandler, true);
+    }
+  }
+
+  function _trResetAutoCollapse() {
+    if (window._trAutoCollapseTimer) clearTimeout(window._trAutoCollapseTimer);
+    window._trAutoCollapseTimer = setTimeout(function() {
+      var panel = document.getElementById('tr-dropdown-panel');
+      if (panel && panel.style.display !== 'none') _trCloseDropdown();
+    }, 5000);
+  }
+
+  window.rToggleDeviceDropdown = function (e) {
+    if (e) e.stopPropagation();
+    var panel = document.getElementById('tr-dropdown-panel');
+    var btn   = document.getElementById('tr-dropdown-btn');
+    if (!panel) return;
+    var isOpen = panel.style.display !== 'none';
+    if (isOpen) {
+      _trCloseDropdown();
+    } else {
+      panel.style.display = 'block';
+      if (btn) { var ico = btn.querySelector('i'); if (ico) ico.style.transform = 'rotate(180deg)'; }
+      // Focus search immediately
+      var fi = document.getElementById('tr-filter');
+      if (fi) setTimeout(function(){ fi.focus(); }, 0);
+      // Close on outside click
+      window._trDropdownClose = function(ev) {
+        var wrap = document.getElementById('tr-dropdown-wrap');
+        if (wrap && !wrap.contains(ev.target)) _trCloseDropdown();
+      };
+      setTimeout(function(){ document.addEventListener('click', window._trDropdownClose); }, 0);
+      // Auto-collapse: reset timer on any click or scroll inside panel
+      window._trPanelResetHandler = function() { _trResetAutoCollapse(); };
+      panel.addEventListener('click', window._trPanelResetHandler);
+      panel.addEventListener('scroll', window._trPanelResetHandler, true);
+      _trResetAutoCollapse();
+    }
+  };
+
+  window.rPushTargetedRelease = function () {
+    if (!_canWrite()) { rToast('Read-only — request write access from Super Admin', 'warn'); return; }
+    if (!RS.supa)     { rToast('Supabase not available', 'error'); return; }
+
+    var version = (($r('tr-version') || {}).value || '').trim();
+    var url     = (($r('tr-url')     || {}).value || '').trim();
+    var notes   = (($r('tr-notes')   || {}).value || '').trim();
+
+    if (!version)                     { rToast('Enter target version (e.g. 10.5)', 'warn'); return; }
+    if (!/^\d+\.\d+$/.test(version)) { rToast('Version format must be numeric: 10.5, 9.8 …', 'warn'); return; }
+
+    var checked = Array.from(document.querySelectorAll('.tr-dev-check:checked')).map(function (el) { return el.value; });
+    if (!checked.length) { rToast('Select at least one device', 'warn'); return; }
+
+    var user = RS.currentUser;
+    var releasedBy = (function () {
+      var nick = RS.userNickname || '';
+      var isSA = user && user.email && user.email.toLowerCase() === _SUPER_ADMIN_EMAIL;
+      var role = isSA ? 'Super Admin' : 'Admin';
+      return nick ? (role + ' ' + nick) : (user ? user.email : 'admin');
+    })();
+
+    if (!url) {
+      RS.supa.from('app_settings').select('update_url').eq('id', 1).single()
+        .then(function (res) {
+          var globalUrl = ((res.data || {}).update_url || '').trim();
+          if (!globalUrl) { rToast('No URL provided and no global URL set in app_settings', 'warn'); return; }
+          _doPushTargetedRelease(checked, version, globalUrl, notes, releasedBy);
+        }).catch(function (err) { rToast('Error fetching global URL: ' + err.message, 'error'); });
+    } else {
+      _doPushTargetedRelease(checked, version, url, notes, releasedBy);
+    }
+  };
+
+  function _doPushTargetedRelease(hostnames, version, url, notes, releasedBy) {
+    var now = new Date().toISOString();
+    var rows = hostnames.map(function (h) {
+      return {
+        hostname:       h,
+        target_version: version,
+        update_url:     url,
+        status:         'pending',
+        released_by:    releasedBy,
+        notes:          notes || null,
+        created_at:     now,
+        updated_at:     now,
+        installed_at:   null
+      };
+    });
+
+    RS.supa.from('device_releases')
+      .upsert(rows, { onConflict: 'hostname' })
+      .then(function (res) {
+        if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
+        rToast('v' + version + ' pushed to ' + hostnames.length + ' device(s) — pending install', 'success');
+        ['tr-version', 'tr-url', 'tr-notes'].forEach(function (id) { var el = $r(id); if (el) el.value = ''; });
+        rSelectAllTargetDevices(false);
+        rRefreshFleetStatus();
+      }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // TARGETED RELEASE — Section B (Fleet Version Status)
+  // ══════════════════════════════════════════════════════════════
+
+  // Fleet sort state: default = version desc (latest first)
+  window._fleetSort  = { col: 'version', dir: 'desc' };
+  window._fleetCache = null;
+
+  function _fleetBuildRows(devices, overrides, latestVer) {
+    var col = (window._fleetSort || {}).col || 'version';
+    var dir = (window._fleetSort || {}).dir || 'desc';
+    var mul = dir === 'asc' ? 1 : -1;
+
+    var sorted = devices.slice().sort(function (a, b) {
+      var va  = String(a.version || a.app_version || '0');
+      var vb  = String(b.version || b.app_version || '0');
+      var ha  = (a.hostname || a.id || '').toLowerCase();
+      var hb  = (b.hostname || b.id || '').toLowerCase();
+      var ova = overrides[a.hostname || a.id] || null;
+      var ovb = overrides[b.hostname || b.id] || null;
+      var sa  = ova ? ova.status : (latestVer && va === latestVer ? 'uptodate' : 'global');
+      var sb  = ovb ? ovb.status : (latestVer && vb === latestVer ? 'uptodate' : 'global');
+
+      if (col === 'device') {
+        return mul * (ha < hb ? -1 : ha > hb ? 1 : 0);
+      }
+      if (col === 'status') {
+        return mul * (sa < sb ? -1 : sa > sb ? 1 : 0);
+      }
+      // col === 'version' (default)
+      // Latest version always floats to top regardless of direction
+      var aLatest = latestVer && va === latestVer;
+      var bLatest = latestVer && vb === latestVer;
+      if (aLatest && !bLatest) return -1;
+      if (!aLatest && bLatest) return  1;
+      var pa = va.split('.').map(Number);
+      var pb = vb.split('.').map(Number);
+      for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+        var diff = (pb[i] || 0) - (pa[i] || 0);
+        if (diff !== 0) return mul * diff;
+      }
+      return mul * (ha < hb ? -1 : ha > hb ? 1 : 0);
+    });
+
+    return sorted.map(function (d) {
+      var hostname = d.hostname || d.id || '?';
+      var curVer   = String(d.version || d.app_version || '—');
+      var online   = d.is_online !== false && (d._status || '').toLowerCase() !== 'offline';
+      var ov       = overrides[hostname];
+      var isLatest = latestVer && curVer === latestVer;
+
+      var verCell = curVer === '—'
+        ? '<span class="r-muted-sm">—</span>'
+        : '<span class="r-badge ' + (isLatest ? 'r-badge-ok' : 'r-badge-info') + '">' +
+            (isLatest ? '<i class="fa-solid fa-check" style="font-size:9px;margin-right:3px"></i>' : '') +
+            esc(curVer) + '</span>';
+
+      var targetCell = ov
+        ? '<span class="r-muted-sm">v' + esc(ov.target_version) + '</span>'
+        : '<span class="r-muted-sm" style="opacity:0.4">global</span>';
+
+      var statusCell;
+      if (!ov) {
+        statusCell = isLatest
+          ? '<span class="r-badge r-badge-ok">Up to date</span>'
+          : '<span class="r-badge r-badge-muted">Global</span>';
+      } else if (ov.status === 'installed' && curVer === ov.target_version) {
+        statusCell = '<span class="r-badge r-badge-ok"><i class="fa-solid fa-check"></i> Installed</span>';
+      } else if (ov.status === 'installed') {
+        statusCell = '<span class="r-badge r-badge-warn">Installed (mismatch)</span>';
+      } else if (ov.status === 'pending') {
+        statusCell = online
+          ? '<span class="r-badge r-badge-warn"><i class="fa-solid fa-clock"></i> Pending</span>'
+          : '<span class="r-badge r-badge-muted"><i class="fa-solid fa-wifi-slash"></i> Queued (offline)</span>';
+      } else if (ov.status === 'cancelled') {
+        statusCell = '<span class="r-badge r-badge-muted">Cancelled</span>';
+      } else {
+        statusCell = '<span class="r-badge r-badge-err">' + esc(ov.status) + '</span>';
+      }
+
+      var canCancel = ov && ov.status === 'pending' && _canWrite();
+      var actionCell = canCancel
+        ? '<button class="r-btn-sm" style="padding:2px 8px;font-size:10px" onclick="rCancelDeviceOverride(\'' + esc(hostname) + '\')">Cancel</button>'
+        : '<span style="opacity:0.3;font-size:10px">—</span>';
+
+      return '<tr>' +
+        '<td><span style="font-family:monospace;font-size:12px">' + esc(hostname) + '</span>' +
+          (online ? '' : ' <span class="r-badge r-badge-err" style="font-size:9px;padding:1px 5px">offline</span>') +
+        '</td>' +
+        '<td>' + verCell + '</td>' +
+        '<td>' + targetCell + '</td>' +
+        '<td>' + statusCell + '</td>' +
+        '<td>' + actionCell + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function _fleetBuildHeader() {
+    var col = (window._fleetSort || {}).col || 'version';
+    var dir = (window._fleetSort || {}).dir || 'desc';
+    function th(label, key, style) {
+      var active = col === key;
+      var arrow  = active ? (dir === 'asc' ? ' <i class="fa-solid fa-arrow-up" style="font-size:9px"></i>' : ' <i class="fa-solid fa-arrow-down" style="font-size:9px"></i>') : ' <i class="fa-solid fa-arrows-up-down" style="font-size:9px;opacity:0.3"></i>';
+      return '<th style="cursor:pointer;user-select:none;' + (style || '') + '" onclick="rSortFleet(\'' + key + '\')">' + label + arrow + '</th>';
+    }
+    return '<thead><tr>' +
+      th('Device', 'device') +
+      th('Current Version', 'version') +
+      '<th>Target Override</th>' +
+      th('Status', 'status') +
+      '<th>Action</th>' +
+    '</tr></thead>';
+  }
+
+  window.rSortFleet = function (col) {
+    var cur = window._fleetSort || { col: null, dir: 'desc' };
+    window._fleetSort = { col: col, dir: (cur.col === col && cur.dir === 'desc') ? 'asc' : 'desc' };
+    var cache = window._fleetCache;
+    if (!cache) return;
+    var table = document.getElementById('r-fleet-version-table');
+    if (!table) return;
+    table.innerHTML =
+      '<table class="r-table" style="width:100%;font-size:12px">' +
+        _fleetBuildHeader() +
+        '<tbody>' + _fleetBuildRows(cache.devices, cache.overrides, cache.latestVer) + '</tbody>' +
+      '</table>';
+  };
+
+  window.rRefreshFleetStatus = function () {
+    var table = document.getElementById('r-fleet-version-table');
+    if (!table || !RS.supa) return;
+
+    RS.supa.from('device_releases').select('*').then(function (res) {
+      var overrides = {};
+      (res.data || []).forEach(function (row) { overrides[row.hostname] = row; });
+
+      var latestVer = ((RS.appSettingsCache || {}).latest_version || '').trim();
+      var devices   = Object.values(RS.devices);
+
+      if (!devices.length) {
+        table.innerHTML = '<div class="r-empty" style="padding:16px;font-size:12px">No devices connected</div>';
+        return;
+      }
+
+      window._fleetCache = { devices: devices, overrides: overrides, latestVer: latestVer };
+
+      table.innerHTML =
+        '<table class="r-table" style="width:100%;font-size:12px">' +
+          _fleetBuildHeader() +
+          '<tbody>' + _fleetBuildRows(devices, overrides, latestVer) + '</tbody>' +
+        '</table>';
+    }).catch(function (err) {
+      if (table) table.innerHTML = '<div class="r-alert-item err" style="font-size:12px">Failed to load fleet status: ' + esc(err.message) + '</div>';
+    });
+  };
+
+  window.rCancelDeviceOverride = function (hostname) {
+    if (!_canWrite()) { rToast('Read-only', 'warn'); return; }
+    if (!RS.supa)     { rToast('Supabase not available', 'error'); return; }
+    if (!confirm('Cancel targeted release override for ' + hostname + '?\n\nDevice will revert to following the global release.')) return;
+    RS.supa.from('device_releases')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('hostname', hostname)
+      .eq('status', 'pending')
+      .then(function (res) {
+        if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
+        rToast('Override cancelled for ' + hostname, 'success');
+        rRefreshFleetStatus();
+      }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
   };
 
   // ── Compress image to 150x150 JPEG base64 ─────────────────────
