@@ -1449,16 +1449,25 @@
         if (RS.route === 'r-dashboard') renderDashboard();
         if (RS.route === 'r-alerts') renderAlerts();
 
-        // Build machine→branch_id map from logs (machine_status has no branch_id column).
-        // One query per device using ilike (case-insensitive) — guarantees coverage
-        // regardless of log volume or hostname capitalisation differences.
+        // Build machine→branch_id map.
+        // Primary: machine_status.branch_id already in RS.devices (zero extra queries).
+        // Fallback: query logs table for any device that still has no branch_id.
         RS._devBranchMap = {};
         var _hostnames = Object.keys(RS.devices);
-        if (!RS.supa || !_hostnames.length) {
+
+        // Step 1 — populate from machine_status (already fetched above)
+        _hostnames.forEach(function (h) {
+          var bid = RS.devices[h] && RS.devices[h].branch_id;
+          if (bid) RS._devBranchMap[h.toLowerCase()] = bid.toLowerCase();
+        });
+
+        // Step 2 — fallback: query logs for devices still missing a branch_id
+        var _missing = _hostnames.filter(function (h) { return !RS._devBranchMap[h.toLowerCase()]; });
+        if (!RS.supa || !_missing.length) {
           if (RS.route === 'r-devices') renderDevices();
         } else {
-          var _pending = _hostnames.length;
-          _hostnames.forEach(function (h) {
+          var _pending = _missing.length;
+          _missing.forEach(function (h) {
             RS.supa.from('logs').select('branch_id')
               .ilike('machine', h)
               .not('branch_id', 'is', null)
@@ -8728,7 +8737,9 @@
           ? '<span class="r-badge r-badge-warn"><i class="fa-solid fa-clock"></i> Pending</span>'
           : '<span class="r-badge r-badge-muted"><i class="fa-solid fa-wifi-slash"></i> Queued (offline)</span>';
       } else if (ov.status === 'cancelled') {
-        statusCell = '<span class="r-badge r-badge-muted">Cancelled</span>';
+        statusCell = isLatest
+          ? '<span class="r-badge r-badge-ok">Up to date</span>'
+          : '<span class="r-badge r-badge-muted">Cancelled</span>';
       } else {
         statusCell = '<span class="r-badge r-badge-err">' + esc(ov.status) + '</span>';
       }
