@@ -6277,9 +6277,11 @@
                 '<td style="vertical-align:top;padding-top:6px">—</td>' +
                 '</tr>';
             }).join('');
+            var _tnoMaxTs = invLogs.reduce(function(m, l) { return (l.timestamp || '') > m ? (l.timestamp || '') : m; }, '');
             return '<div style="margin-bottom:14px">' +
               '<div style="font-size:11px;font-weight:600;color:var(--rc-cyan,#38bdf8);padding:6px 0 4px;letter-spacing:0.04em">' +
-              '<i class="fa-solid fa-id-card" style="margin-right:5px;opacity:0.7"></i>No. Tuntutan: ' + esc(tNo) + '</div>' +
+              '<i class="fa-solid fa-id-card" style="margin-right:5px;opacity:0.7"></i>No. Tuntutan: ' + esc(tNo) +
+              (_tnoMaxTs ? '<span style="font-size:10px;font-weight:400;color:#64748b;margin-left:10px;letter-spacing:0.02em">' + _fmtDate(_tnoMaxTs) + '</span>' : '') + '</div>' +
               tableWrap(['Time', 'File', 'DO', 'Amount', 'Status', 'Error / Detail', 'Duration', 'Pages', 'Action'], invRows) +
               '</div>';
           }).join('');
@@ -6541,7 +6543,7 @@
           '<i class="fa-solid fa-spinner fa-spin" style="margin-right:5px"></i>Memuat data pending…</div></div>';
       }
       return '<tr>' +
-        '<td>' + _fmtDate(g.start) + '</td>' +
+        '<td>' + _fmtDate(g.end) + '</td>' +
         (showMachine ? '<td class="r-font-mono" style="font-size:11px">' + esc(g.machine || '—') + '</td>' : '') +
         (showBranch ? '<td class="r-font-mono" style="font-size:11px">' + esc(_branchName(g.branch)) + '</td>' : '') +
         '<td><span class="r-badge r-badge-purple">' + esc((/^fv.branch$/i.test(g.app || '') ? 'Renamer FV' : g.app) || '—') + '</span></td>' +
