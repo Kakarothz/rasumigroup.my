@@ -81,8 +81,43 @@
   var $r = function (id) { return document.getElementById(id); };
   var qra = function (sel) { return [].slice.call(document.querySelectorAll('#rasumi-container ' + sel)); };
 
+  function _rBeep(type) {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var gain = ctx.createGain();
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+
+      function _tone(freq, start, dur, vol) {
+        var osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+        osc.connect(gain);
+        gain.gain.setValueAtTime(0, ctx.currentTime + start);
+        gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.01);
+        gain.gain.setValueAtTime(vol, ctx.currentTime + start + dur - 0.03);
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + start + dur);
+        osc.start(ctx.currentTime + start);
+        osc.stop(ctx.currentTime + start + dur);
+      }
+
+      if (type === 'warn') {
+        // Two short ascending pings
+        _tone(660, 0,    0.10, 0.18);
+        _tone(880, 0.13, 0.10, 0.15);
+      } else if (type === 'error') {
+        // Low descending double thud
+        _tone(220, 0,    0.14, 0.22);
+        _tone(160, 0.18, 0.18, 0.18);
+      }
+
+      setTimeout(function() { ctx.close(); }, 1000);
+    } catch(e) {}
+  }
+
   function rToast(msg, type, dur) {
     type = type || 'info'; dur = dur || 3500;
+    if (type === 'warn' || type === 'error') _rBeep(type);
     var wrap = document.getElementById('r-cmd-fb');
     if (!wrap) return;
     var colors = { success: '#22c55e', error: '#ef4444', warn: '#f59e0b', info: '#38bdf8' };
