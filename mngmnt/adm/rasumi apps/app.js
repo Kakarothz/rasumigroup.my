@@ -103,16 +103,16 @@
 
       if (type === 'warn') {
         // Two short ascending pings
-        _tone(660, 0,    0.10, 0.18);
+        _tone(660, 0, 0.10, 0.18);
         _tone(880, 0.13, 0.10, 0.15);
       } else if (type === 'error') {
         // Low descending double thud
-        _tone(220, 0,    0.14, 0.22);
+        _tone(220, 0, 0.14, 0.22);
         _tone(160, 0.18, 0.18, 0.18);
       }
 
-      setTimeout(function() { ctx.close(); }, 1000);
-    } catch(e) {}
+      setTimeout(function () { ctx.close(); }, 1000);
+    } catch (e) { }
   }
 
   function rToast(msg, type, dur) {
@@ -121,7 +121,7 @@
     var wrap = document.getElementById('r-cmd-fb');
     if (!wrap) return;
     var colors = { success: '#22c55e', error: '#ef4444', warn: '#f59e0b', info: '#38bdf8' };
-    var color  = colors[type] || colors.info;
+    var color = colors[type] || colors.info;
     var el = document.createElement('div');
     el.textContent = '› ' + msg;
     el.style.cssText = [
@@ -341,6 +341,8 @@
       // Device went offline — clear timer so next online session starts fresh
       delete RS._onlineFrom[hostname];
       try { sessionStorage.removeItem('rs_on_' + hostname); } catch (e) { }
+      // Clear dedup SYSTEM_ALERT entries for this device from Live Data Stream
+      _clearSysAlerts(hostname);
     }
   }
 
@@ -1602,6 +1604,7 @@
       RS.supa.from('vibes_errors').select('id', { count: 'exact', head: true })
         .eq('resolved', false)
         .not('error_type', 'in', '("batch_skip","amount_unresolved","folder_not_found","row_skip_portal_lag")')
+        .or('error_type.neq.batch_incomplete,detail->>still_unfinished.gt.0')
         .limit(51)
         .then(function (res) {
           var cnt = Math.min(res.count || 0, 51);
@@ -1671,6 +1674,7 @@
   var _sysAlertUnread = 0;          // unread count; reset when bell dropdown opened
   var _lastAlertKey = {};         // dedup: "machine|msg" → epoch ms of last push
   var _sysAlertInitMs = Date.now() + 3000; // suppress toasts during 3s init replay window
+  var _sysAlertMap = {};   // dedup: "machine|TYPE" → {el, count} for live terminal entries
 
   function _pushSystemAlert(e) {
     var lvl = (e.status || '').toUpperCase();   // 'CRITICAL' | 'WARNING'
@@ -1710,6 +1714,18 @@
     }
 
     _updateNotifDropdown();
+  }
+
+  // Remove all live terminal entries belonging to a device (call on offline)
+  function _clearSysAlerts(hostname) {
+    var term = $r('r-terminal');
+    Object.keys(_sysAlertMap).forEach(function (key) {
+      if (key.indexOf(hostname + '|') === 0) {
+        var entry = _sysAlertMap[key];
+        if (entry && entry.el && term && term.contains(entry.el)) entry.el.remove();
+        delete _sysAlertMap[key];
+      }
+    });
   }
 
   function _updateNotifDropdown() {
@@ -2665,6 +2681,31 @@
     if (_streamApp === 'FV Branch') _streamApp = 'Renamer FV';
     var line = '[' + ts + '] [' + _streamApp + '] ' + stCode + (file ? ' · ' + file : '');
 
+    // ── SYSTEM_ALERT dedup — collapse repeated WARNING/CRITICAL from same device ──
+    if ((e.app_name || '').toUpperCase() === 'SYSTEM_ALERT' && (stCode === 'WARNING' || stCode === 'CRITICAL')) {
+      var _aMachine = e.machine || e.branch_id || '?';
+      var _aType = /cpu/i.test(file) ? 'CPU' : /ram/i.test(file) ? 'RAM' : 'SYS';
+      var _aKey = _aMachine + '|' + _aType;
+      var _aEntry = _sysAlertMap[_aKey];
+      if (_aEntry && _aEntry.el && term.contains(_aEntry.el)) {
+        // Update existing entry in-place — bump counter + refresh timestamp
+        _aEntry.count++;
+        var _hadCursor = !!_aEntry.el.querySelector('.r-term-cursor');
+        _aEntry.el.textContent = line + ' (×' + _aEntry.count + ')';
+        if (_hadCursor) {
+          var _rc = document.createElement('span');
+          _rc.className = 'r-term-cursor';
+          _aEntry.el.appendChild(_rc);
+        }
+        term.scrollTop = term.scrollHeight;
+        RS._recentLogs.unshift(e);
+        if (RS._recentLogs.length > 50) RS._recentLogs.pop();
+        var ra = $r('r-recent-act');
+        if (ra) ra.innerHTML = buildRecentActHTML();
+        return; // no new DOM element
+      }
+    }
+
     // Remove cursor from last line
     var last = term.querySelector('.r-term-cursor');
     if (last) last.remove();
@@ -2678,6 +2719,13 @@
     var cursor = document.createElement('span');
     cursor.className = 'r-term-cursor';
     p.appendChild(cursor);
+
+    // Register new SYSTEM_ALERT WARNING/CRITICAL element in dedup map
+    if ((e.app_name || '').toUpperCase() === 'SYSTEM_ALERT' && (stCode === 'WARNING' || stCode === 'CRITICAL')) {
+      var _rMachine = e.machine || e.branch_id || '?';
+      var _rType = /cpu/i.test(file) ? 'CPU' : /ram/i.test(file) ? 'RAM' : 'SYS';
+      _sysAlertMap[_rMachine + '|' + _rType] = { el: p, count: 1 };
+    }
 
     // Keep only last 80 lines
     var lines = term.querySelectorAll('.r-term-line');
@@ -5015,6 +5063,18 @@
     function _render(data) {
       var d = machine ? data.filter(function (l) { return l.machine === machine; }) : data;
       _processAndRenderLogs(d, box, statusFilter, 'global');
+      // Constrain to ~10 rows with sticky header + scroll
+      var tw = box.querySelector('.r-table-wrap');
+      if (tw) {
+        tw.style.maxHeight = '490px';
+        tw.style.overflowY = 'auto';
+        tw.querySelectorAll('thead th').forEach(function (th) {
+          th.style.position = 'sticky';
+          th.style.top = '0';
+          th.style.zIndex = '2';
+          th.style.background = '#080d18';
+        });
+      }
     }
 
     var cached = (window._rsLogCache || {})['VIBES'];
@@ -5048,12 +5108,78 @@
     else if (resolved === 'resolved') supaQ = supaQ.eq('resolved', true);
     if (hostname) supaQ = supaQ.eq('hostname', hostname);
 
-    supaQ.then(function (res) {
+    // Parallel fetch: VIBES logs for batch cross-reference
+    var logsQ = RS.supa.from('logs').select('job_group_id,job_info')
+      .eq('app_name', 'VIBES').not('job_group_id', 'is', null)
+      .order('timestamp', { ascending: false }).limit(2000);
+
+    Promise.all([supaQ, logsQ]).then(function (results) {
+      var res = results[0]; var logRes = results[1];
       if (res.error) { box.innerHTML = errBox(res.error.message); return; }
       var docs = (res.data || []).map(function (d) {
         return Object.assign({ id: d.id, _host: d.hostname }, d);
+      }).filter(function (d) {
+        // Suppress false-positive batch_incomplete from old builds where still_unfinished=0
+        var etype = (d.error_type || d.category || '').toLowerCase();
+        if (etype === 'batch_incomplete') {
+          var det = d.detail || {};
+          if (typeof det === 'string') { try { det = JSON.parse(det); } catch (e) { det = {}; } }
+          var su = det.still_unfinished;
+          if (su === 0 || su === '0' || su === null) return false;
+        }
+        return true;
       });
       if (!docs.length) { box.innerHTML = '<div class="r-empty">No VIBES errors match</div>'; return; }
+
+      // ── Normalize legacy batch_incomplete messages ───────────────
+      function _normBatchMsg(msg, errorType) {
+        if (!msg) return msg;
+        var up, pend, total, skip;
+        // Malay format: 'Batch incomplete: dari {total} baris — {uploaded} berjaya diupload, {pending} masih belum selesai dalam portal ({skipped} tiada folder tempatan).'
+        var m = msg.match(/dari (\d+) baris.*?(\d+) berjaya diupload.*?(\d+) masih belum selesai.*?\((\d+) tiada/);
+        if (m) { total = +m[1]; up = +m[2]; pend = +m[3]; skip = +m[4]; }
+        // New English format: 'Batch incomplete: {uploaded} row(s) uploaded this run — {pending} still unfinished in portal | {total} total rows in claim ({skipped} skipped, no local folder).'
+        if (!m) {
+          var m2 = msg.match(/(\d+) row.*?uploaded this run.*?(\d+) still unfinished.*?(\d+) total rows.*?\((\d+) skipped/);
+          if (m2) { up = +m2[1]; pend = +m2[2]; total = +m2[3]; skip = +m2[4]; }
+        }
+        // Old English format: 'bot uploaded {uploaded} row(s) but {pending} row(s) still unfinished in portal.'
+        if (up !== undefined) {
+          var attempted = up + pend;
+          var alreadyDone = total !== undefined ? (total - attempted) : null;
+          var skipNote;
+          if (skip > 0) {
+            skipNote = skip + ' skipped (no local folder)';
+            if (pend > skip) skipNote += ', ' + (pend - skip) + ' unfinished — bot error';
+          } else {
+            var _et = (errorType || '').toLowerCase();
+            var _reason = _et === 'batch_incomplete_no_file' ? 'no local folder' : 'bot error (upload failed)';
+            skipNote = pend + ' row(s) still unfinished — ' + _reason;
+          }
+          var out = up + '/' + attempted + ' rows uploaded \u2014 ' + skipNote + '.';
+          if (total !== undefined) out += ' Claim: ' + total + ' rows' + (alreadyDone > 0 ? ' (' + alreadyDone + ' already completed)' : '') + '.';
+          return out;
+        }
+        var m3 = msg.match(/bot uploaded (\d+) row.*?but (\d+) row.*?still unfinished/);
+        if (m3) { return m3[1] + ' rows uploaded this run \u2014 unfinished count unreliable (legacy record, pre-scoped logging).'; }
+        return msg;
+      }
+      docs = docs.map(function (d) {
+        var _det = (d.error_type || d.category || '').toLowerCase();
+        if (_det === 'batch_incomplete' || _det === 'batch_incomplete_no_file') {
+          d = Object.assign({}, d, { message: _normBatchMsg(d.message, _det) });
+        }
+        return d;
+      });
+
+      // ── Build tuntutan_no → job_group_id map from parallel logs fetch ──
+      var _tnoJobMap = {};
+      (logRes.data || []).forEach(function (l) {
+        var ji = l.job_info;
+        if (typeof ji === 'string') { try { ji = JSON.parse(ji); } catch (x) { ji = null; } }
+        var tNo = ji && ji.tuntutan_no;
+        if (tNo && l.job_group_id && !_tnoJobMap[tNo]) _tnoJobMap[tNo] = l.job_group_id;
+      });
 
       // ── Admin action guidance per error type ────────────────────
       var _VIBES_META = {
@@ -5085,7 +5211,8 @@
         var hostMap = etypeMap2[etype];
         var etAllRows = [];
         Object.values(hostMap).forEach(function (arr) { etAllRows = etAllRows.concat(arr); });
-        var etTotalOpen = etAllRows.filter(function (e) { return !e.resolved; }).length;
+        var _isNoFile = etype === 'batch_incomplete_no_file';
+        var etTotalOpen = _isNoFile ? 0 : etAllRows.filter(function (e) { return !e.resolved; }).length;
         var etLastTs = etAllRows.reduce(function (mx, e) { return (!mx || e.timestamp > mx) ? e.timestamp : mx; }, null);
         var etDevCount = Object.keys(hostMap).length;
         var etKey = etype.replace(/[^a-z0-9]/gi, '_');
@@ -5099,9 +5226,11 @@
           '<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(255,255,255,0.04);cursor:pointer;flex-wrap:wrap" ' +
           'onclick="(function(el){var d=document.getElementById(\'vetg-' + etKey + '\');var o=d.style.display!==\'none\';d.style.display=o?\'none\':\'\';var a=el.querySelector(\'.vet-arr\');if(a)a.textContent=o?\'▼\':\'▲\';})(this)">' +
           '<span class="r-badge ' + badgeCls + '" style="font-size:11px;min-width:auto">' + esc(etype) + '</span>' +
-          (etTotalOpen > 0
-            ? '<span class="r-badge r-badge-err" style="font-size:10px">' + etTotalOpen + ' OPEN</span>'
-            : '<span class="r-badge r-badge-ok" style="font-size:10px">ALL FIXED</span>') +
+          (_isNoFile
+            ? '<span class="r-badge r-badge-muted" style="font-size:10px">EXPECTED — NO ACTION</span>'
+            : etTotalOpen > 0
+              ? '<span class="r-badge r-badge-err" style="font-size:10px">' + etTotalOpen + ' OPEN</span>'
+              : '<span class="r-badge r-badge-ok" style="font-size:10px">ALL FIXED</span>') +
           '<span style="font-size:11px;color:var(--text-muted)"><i class="fa-solid fa-server" style="font-size:9px"></i> ' + etDevCount + ' device(s)</span>' +
           '<span style="font-size:10px;color:rgba(255,255,255,0.3)">Last: ' + (etLastTs ? fmtTs(etLastTs) : '—') + '</span>' +
           '<span class="vet-arr" style="margin-left:auto;color:var(--text-muted);font-size:11px">▼</span>' +
@@ -5120,7 +5249,7 @@
         // ── Level 2: Device sub-headers ──────────────────────────
         Object.keys(hostMap).forEach(function (host) {
           var devRows = hostMap[host];
-          var devOpen = devRows.filter(function (e) { return !e.resolved; }).length;
+          var devOpen = _isNoFile ? 0 : devRows.filter(function (e) { return !e.resolved; }).length;
           var devKey2 = (etKey + '_' + host).replace(/[^a-z0-9]/gi, '_');
 
           // Detail table rows
@@ -5129,16 +5258,20 @@
             var batchShort = batch.length > 24 ? batch.substring(0, 24) + '…' : batch;
             var det = {};
             try { det = typeof e.detail === 'string' ? JSON.parse(e.detail) : (e.detail || {}); } catch (x) { }
-            var batchDisplay = det.batch_no || batchShort;
-            return '<tr style="border-top:1px solid rgba(255,255,255,0.03)">' +
-              '<td style="padding:3px 8px;color:var(--text-muted);font-size:10px;white-space:nowrap">' + fmtTs(e.timestamp) + '</td>' +
-              '<td style="padding:3px 8px;font-size:11px;font-family:monospace;color:var(--neon-cyan,#22d3ee)">' + esc(e.patient_ic || e.tuntutan_no || '—') + '</td>' +
-              '<td style="padding:3px 8px;font-size:10px;color:var(--text-muted);font-family:monospace">' + esc(batchDisplay) + '</td>' +
-              '<td style="padding:3px 8px;font-size:10px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(e.message || '') + '">' + esc(e.message || '—') + '</td>' +
-              '<td style="padding:3px 8px"><span class="r-badge ' + (e.resolved ? 'r-badge-ok' : 'r-badge-err') + '" style="font-size:9px">' + (e.resolved ? 'FIXED' : 'OPEN') + '</span></td>' +
-              '<td style="padding:3px 8px;text-align:right">' + (!e.resolved
-                ? '<button class="r-btn-sm" style="font-size:10px" onclick="rOpenFix(\'' + esc(String(e.id)) + '\',\'' + esc(e._host) + '\',\'vibes_errors\')">Fix</button>'
-                : '<span class="r-muted-sm" style="font-size:10px" title="' + esc(e.fix_note || '') + '">' + esc((e.fix_note || '✓').substring(0, 20)) + '</span>') +
+            var _errTno = e.patient_ic || e.tuntutan_no;
+            var batchDisplay = (_errTno && _tnoJobMap[_errTno]) || det.batch_no || batchShort;
+            var _rowExpected = _isNoFile && !e.resolved;
+            return '<tr style="border-top:1px solid rgba(255,255,255,0.03)' + (_rowExpected ? ';opacity:0.55' : '') + '">' +
+              '<td style="padding:3px 8px;color:var(--text-muted);font-size:10px;white-space:nowrap;width:108px">' + fmtTs(e.timestamp) + '</td>' +
+              '<td style="padding:3px 8px;font-size:11px;font-family:monospace;color:var(--neon-cyan,#22d3ee);width:130px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(e.patient_ic || e.tuntutan_no || '—') + '</td>' +
+              '<td style="padding:3px 8px;font-size:10px;color:var(--text-muted);font-family:monospace;width:140px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(batchDisplay) + '</td>' +
+              '<td style="padding:3px 8px;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(e.message || '') + '">' + esc(e.message || '—') + '</td>' +
+              '<td style="padding:3px 8px"><span class="r-badge ' + (_rowExpected ? 'r-badge-muted' : e.resolved ? 'r-badge-ok' : 'r-badge-err') + '" style="font-size:9px">' + (_rowExpected ? 'EXPECTED' : e.resolved ? 'FIXED' : 'OPEN') + '</span></td>' +
+              '<td style="padding:3px 8px;text-align:right">' + (_rowExpected
+                ? '<span style="opacity:0.3;font-size:10px">—</span>'
+                : !e.resolved
+                  ? '<button class="r-btn-sm" style="font-size:10px" onclick="rOpenFix(\'' + esc(String(e.id)) + '\',\'' + esc(e._host) + '\',\'vibes_errors\')">Fix</button>'
+                  : '<span class="r-muted-sm" style="font-size:10px" title="' + esc(e.fix_note || '') + '">' + esc((e.fix_note || '✓').substring(0, 20)) + '</span>') +
               '</td></tr>';
           }).join('');
 
@@ -5149,7 +5282,7 @@
             '<div style="display:flex;align-items:center;gap:6px;font-size:11px">' +
             '<i class="fa-solid fa-server" style="font-size:9px;color:var(--neon-cyan,#22d3ee)"></i>' +
             '<span style="font-family:monospace;color:var(--neon-cyan,#22d3ee);font-weight:600">' + esc(host) + '</span>' +
-            '<span class="r-badge ' + (devOpen ? 'r-badge-err' : 'r-badge-ok') + '" style="font-size:9px">' + (devOpen ? devOpen + ' OPEN' : 'ALL FIXED') + '</span>' +
+            '<span class="r-badge ' + (devOpen ? 'r-badge-err' : _isNoFile ? 'r-badge-muted' : 'r-badge-ok') + '" style="font-size:9px">' + (devOpen ? devOpen + ' OPEN' : _isNoFile ? 'EXPECTED' : 'ALL FIXED') + '</span>' +
             '<span class="vmd-arr" style="margin-left:auto;color:var(--text-muted);font-size:10px">▼</span>' +
             (devOpen > 0
               ? '<button class="r-btn-sm" style="font-size:10px" onclick="event.stopPropagation();rClearVibesEtype(\'' + esc(host) + '\',\'' + esc(etype) + '\',\'' + devKey2 + '\',this)">✓ Clear</button>'
@@ -5159,12 +5292,12 @@
             '<div id="vmdd-' + devKey2 + '" style="display:none;margin-top:5px">' +
             '<table style="width:100%;font-size:11px;border-collapse:collapse">' +
             '<thead><tr style="color:var(--text-muted);font-size:10px;border-bottom:1px solid rgba(255,255,255,0.07)">' +
-            '<th style="text-align:left;padding:2px 8px;font-weight:500;white-space:nowrap">Time</th>' +
-            '<th style="text-align:left;padding:2px 8px;font-weight:500">Claim No</th>' +
-            '<th style="text-align:left;padding:2px 8px;font-weight:500">Batch</th>' +
+            '<th style="text-align:left;padding:2px 8px;font-weight:500;white-space:nowrap;width:108px">Time</th>' +
+            '<th style="text-align:left;padding:2px 8px;font-weight:500;width:130px">Claim No</th>' +
+            '<th style="text-align:left;padding:2px 8px;font-weight:500;width:140px">Batch</th>' +
             '<th style="text-align:left;padding:2px 8px;font-weight:500">Message</th>' +
-            '<th style="text-align:left;padding:2px 8px;font-weight:500">Status</th>' +
-            '<th style="text-align:left;padding:2px 8px;font-weight:500">Action</th>' +
+            '<th style="text-align:left;padding:2px 8px;font-weight:500;width:62px">Status</th>' +
+            '<th style="text-align:left;padding:2px 8px;font-weight:500;width:52px">Action</th>' +
             '</tr></thead><tbody>' +
             detailRows +
             '</tbody></table></div></div>';
@@ -5585,8 +5718,17 @@
     if (!startTs || !endTs) return '—';
     var ms = new Date(endTs) - new Date(startTs);
     if (ms <= 0) return '—';
-    var min = Math.floor(ms / 60000);
-    var sec = Math.floor((ms % 60000) / 1000);
+    return _fmtSecDur(Math.floor(ms / 1000));
+  }
+  function _fmtSecDur(totalSec) {
+    totalSec = Math.round(totalSec);
+    if (totalSec <= 0) return '—';
+    var days = Math.floor(totalSec / 86400);
+    var hours = Math.floor((totalSec % 86400) / 3600);
+    var min = Math.floor((totalSec % 3600) / 60);
+    var sec = totalSec % 60;
+    if (days > 0) return days + 'd ' + hours + 'h ' + min + 'm ' + sec + 's';
+    if (hours > 0) return hours + 'h ' + min + 'm ' + sec + 's';
     return min > 0 ? min + 'm ' + sec + 's' : sec + 's';
   }
 
@@ -6286,7 +6428,7 @@
                 '<td style="vertical-align:top;padding-top:6px">—</td>' +
                 '</tr>';
             }).join('');
-            var _tnoMaxTs = invLogs.reduce(function(m, l) { return (l.timestamp || '') > m ? (l.timestamp || '') : m; }, '');
+            var _tnoMaxTs = invLogs.reduce(function (m, l) { return (l.timestamp || '') > m ? (l.timestamp || '') : m; }, '');
             return '<div style="margin-bottom:14px">' +
               '<div style="font-size:11px;font-weight:600;color:var(--rc-cyan,#38bdf8);padding:6px 0 4px;letter-spacing:0.04em">' +
               '<i class="fa-solid fa-id-card" style="margin-right:5px;opacity:0.7"></i>No. Tuntutan: ' + esc(tNo) +
@@ -6559,7 +6701,9 @@
         '<td class="r-font-mono">' + _fmtTime(g.start) + '</td>' +
         '<td class="r-font-mono">' + _fmtTime(g.end) + '</td>' +
         '<td>' + (totalDocs > 0 ? totalDocs : g.allProcessing ? 'running…' : '—') + '</td>' +
-        '<td>' + _fmtDur(g.start, g.end) + '</td>' +
+        '<td>' + (isVibes
+          ? _fmtSecDur(g.logs.reduce(function (s, l) { return s + (l.duration != null ? parseFloat(l.duration) : 0); }, 0))
+          : _fmtDur(g.start, g.end)) + '</td>' +
         '<td><span class="r-badge ' + ({ COMPLETED: 'r-badge-ok', PARTIAL: 'r-badge-warn', FAILED: 'r-badge-err', RUNNING: 'r-badge-info', CANCELLED: 'r-badge-muted' }[sessionSt] || 'r-badge-muted') + '">' + sessionSt + '</span></td>' +
         '<td class="r-font-mono r-muted-sm" style="font-size:11px">' + esc((g.gid && !g.gid.includes('|') ? g.gid.substring(0, 8) + '…' : '—')) + '</td>' +
         '<td><button class="r-btn-sm" onclick="rToggleLogDetail(\'' + gKey + '\')"><i class="fa-solid fa-list"></i> View</button></td>' +
@@ -7947,134 +8091,138 @@
         '<h3><i class="fa-solid fa-rocket"></i> Release Management</h3>' +
         '</div>' +
 
-        // Current release card
-        '<div class="r-fix-form" style="margin-bottom:24px;background:var(--rc-bg2);border-radius:8px;padding:18px">' +
-        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">' +
-        '<div style="display:flex;flex-direction:column;line-height:1.1">' +
+        // ── 2-column layout: left (version+smtp) | right (publish form) ──
+        '<div style="display:grid;grid-template-columns:270px 1fr;gap:14px;align-items:start;margin-bottom:4px">' +
+
+        // LEFT column — current version + smtp
+        '<div style="background:var(--rc-bg2);border-radius:8px;padding:16px">' +
         '<span style="font-size:9px;font-weight:600;color:var(--rc-text-dim);text-transform:uppercase;letter-spacing:0.08em">version</span>' +
-        '<span style="font-size:34px;font-weight:700;color:var(--cyan)">' + esc(curVer) + '</span>' +
-        '</div>' +
+        '<div style="display:flex;align-items:center;gap:10px;margin:4px 0 6px">' +
+        '<span style="font-size:60px;font-weight:700;color:var(--cyan);line-height:1">' + esc(curVer) + '</span>' +
         statusBadge +
         '</div>' +
-        '<div class="r-muted-sm">Released by: <b id="r-released-by-txt">' + esc(curBy) + '</b> &nbsp;·&nbsp; ' + esc(curTime) + '</div>' +
+        '<div class="r-muted-sm">Released by: <b id="r-released-by-txt">' + esc(curBy) + '</b></div>' +
+        '<div class="r-muted-sm">' + esc(curTime) + '</div>' +
         (curNotes ? '<div class="r-muted-sm" style="margin-top:4px">' + esc(curNotes) + '</div>' : '') +
+        '<hr style="border:none;border-top:1px solid var(--rc-border);margin:12px 0">' +
+        '<div style="display:flex;align-items:center;gap:6px;font-size:9px;font-weight:700;letter-spacing:0.12em;color:var(--rc-text-dim);text-transform:uppercase;margin-bottom:10px">' +
+        '<i class="fa-solid fa-envelope-open-text" style="color:var(--rc-cyan)"></i> SMTP Config' +
+        '<button onclick="rEditSmtp()" style="background:none;border:none;cursor:pointer;color:var(--rc-text-dim);font-size:10px;padding:2px;margin-left:4px" title="Edit SMTP"><i class="fa-solid fa-pencil"></i></button>' +
+        '</div>' +
+        '<div class="r-fix-field" style="margin-bottom:10px">' +
+        '<label>Email</label>' +
+        '<input id="smtp-email" class="r-filter-input" style="width:100%;pointer-events:none" tabindex="-1" placeholder="it.rasumigroup@gmail.com" value="' + esc(smtpEmail) + '" readonly oninput="rHandleSmtpInput()">' +
+        '</div>' +
+        '<div class="r-fix-field" style="margin-bottom:8px">' +
+        '<label>Password <span class="r-muted-sm">(Google App Password)</span></label>' +
+        '<input id="smtp-pass" type="password" class="r-filter-input" style="width:100%;pointer-events:none" tabindex="-1" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" value="' + esc(smtpPass) + '" readonly oninput="rHandleSmtpInput()">' +
+        '</div>' +
+        '<span class="r-muted-sm" style="font-size:10px">Fetched by all machines \u2014 no env var needed</span>' +
         '</div>' +
 
-        // SMTP config card
-        '<div class="r-panel-hdr" style="margin-top:0"><h3><i class="fa-solid fa-envelope-open-text"></i> SMTP Config (Contact Admin Email) <button onclick="rEditSmtp()" style="background:none;border:none;cursor:pointer;color:var(--rc-text-dim);font-size:10px;padding:4px;margin-left:8px;" title="Edit SMTP"><i class="fa-solid fa-pencil"></i></button></h3></div>' +
-        '<div class="r-fix-form" style="margin-bottom:24px">' +
-        '<div style="display:flex;gap:12px;flex-wrap:wrap">' +
-        '<div class="r-fix-field" style="flex:1;min-width:200px;margin-bottom:0;">' +
-        '<label>Email Address</label>' +
-        '<input id="smtp-email" class="r-filter-input" style="width:100%; pointer-events:none;" tabindex="-1" placeholder="it.rasumigroup@gmail.com" value="' + esc(smtpEmail) + '" readonly oninput="rHandleSmtpInput()">' +
-        '</div>' +
-        '<div class="r-fix-field" style="flex:1;min-width:200px;margin-bottom:0;">' +
-        '<label>Password <span class="r-muted-sm">(16-char, from Google Account → App Passwords)</span></label>' +
-        '<input id="smtp-pass" type="password" class="r-filter-input" style="width:100%; pointer-events:none;" tabindex="-1" placeholder="••••••••••••••••" value="' + esc(smtpPass) + '" readonly oninput="rHandleSmtpInput()">' +
-        '</div>' +
-        '</div>' +
-        '<div style="margin-top:4px;display:flex;gap:10px;align-items:center">' +
-        '<span class="r-muted-sm" style="font-size:10px">Saved credentials are fetched by all machines — no env var needed</span>' +
-        '</div>' +
-        '</div>' +
-
-        // Publish new version form
+        // RIGHT column — publish form
+        '<div style="background:var(--rc-bg2);border-radius:8px;padding:16px">' +
         '<div class="r-panel-hdr" style="margin-top:0"><h3>Publish New Version</h3></div>' +
         '<div class="r-fix-form">' +
-        '<div class="r-fix-field">' +
-        '<div id="rel-version-warn" style="font-size:10px;color:#ef4444;margin-bottom:4px;font-family:monospace;display:none;"></div>' +
+        '<div style="margin-bottom:12px">' +
+        '<span style="font-size:10px;font-weight:600;color:var(--rc-text-dim);text-transform:uppercase;letter-spacing:0.06em">Current URL</span>' +
+        '<input id="rel-cur-url" style="display:block;width:100%;background:none;border:none;outline:none;color:var(--rc-text-dim);font-size:11px;font-family:monospace;padding:3px 0;cursor:default;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" tabindex="-1" readonly value="' + esc(curUrl) + '">' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:155px 1fr;gap:10px;margin-bottom:0">' +
+        '<div class="r-fix-field" style="margin-bottom:0">' +
+        '<div id="rel-version-warn" style="font-size:10px;color:#ef4444;margin-bottom:4px;font-family:monospace;display:none"></div>' +
         '<label>New Version <span class="r-required">*</span></label>' +
-        '<input id="rel-version" class="r-filter-input" placeholder="e.g. ' + esc(nextVer) + '" style="width:160px" value="" oninput="rClearFieldWarn(\'rel-version-warn\'); rCheckReleaseForm()">' +
+        '<input id="rel-version" class="r-filter-input" placeholder="e.g. ' + esc(nextVer) + '" style="width:100%" value="" oninput="rClearFieldWarn(\'rel-version-warn\'); rCheckReleaseForm()">' +
         '</div>' +
-        '<div class="r-fix-field">' +
-        '<label>Current URL</label>' +
-        '<input id="rel-cur-url" class="r-filter-input" style="width:100%;opacity:0.55;cursor:default;pointer-events:none;" tabindex="-1" readonly value="' + esc(curUrl) + '">' +
-        '</div>' +
-        '<div class="r-fix-field">' +
-        '<div id="rel-url-warn" style="font-size:10px;color:#ef4444;margin-bottom:4px;font-family:monospace;display:none;"></div>' +
+        '<div class="r-fix-field" style="margin-bottom:0">' +
+        '<div id="rel-url-warn" style="font-size:10px;color:#ef4444;margin-bottom:4px;font-family:monospace;display:none"></div>' +
         '<label>New Version URL <span class="r-required">*</span></label>' +
         '<input id="rel-url" class="r-filter-input" style="width:100%" placeholder="https://drive.usercontent.google.com/download?id=..." value="" oninput="rClearFieldWarn(\'rel-url-warn\'); rCheckReleaseForm()">' +
         '</div>' +
-        '<div class="r-fix-field">' +
-        '<label>Release Notes</label>' +
-        '<textarea id="rel-notes" rows="3" class="r-textarea" placeholder="What\'s new in this version…"></textarea>' +
         '</div>' +
-        '<div class="r-fix-field">' +
+        '<div class="r-fix-field" style="margin-top:12px">' +
+        '<label>Release Notes</label>' +
+        '<textarea id="rel-notes" rows="3" class="r-textarea" placeholder="What\'s new in this version\u2026"></textarea>' +
+        '</div>' +
+        '<div class="r-fix-field" style="margin-bottom:0">' +
         '<label><i class="fa-solid fa-clock"></i> Scheduled Release Time <span class="r-muted-sm">(optional)</span></label>' +
-        '<input id="rel-sched" type="datetime-local" class="r-filter-input" style="width:260px" value="" oninput="rCheckReleaseForm()">' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+        '<input id="rel-sched" type="datetime-local" class="r-filter-input" style="width:170px;flex-shrink:0" value="" oninput="rCheckReleaseForm()">' +
+        '<button id="btn-deploy" class="r-btn-primary" style="width:100px;flex-shrink:0;height:30px;box-sizing:border-box;padding:0" onclick="rPublishRelease()"><i class="fa-solid fa-rocket"></i> Deploy</button>' +
+        '<button id="btn-cancel" class="r-btn-sm" style="width:100px;flex-shrink:0;height:30px;box-sizing:border-box;padding:0" onclick="rCancelScheduled()" title="Cancel scheduled time">Cancel</button>' +
+        '</div>' +
         '<div class="r-muted-sm" style="margin-top:4px">Update prompts are triggered instantly when a new version is released.</div>' +
         '</div>' +
-        '<div style="display:flex;gap:10px;margin-top:8px">' +
-        '<button id="btn-deploy" class="r-btn-primary" style="flex:1;max-width:120px" onclick="rPublishRelease()"><i class="fa-solid fa-rocket"></i> Deploy</button>' +
-        '<button id="btn-cancel" class="r-btn-sm" style="flex:1;max-width:120px" onclick="rCancelScheduled()" title="Cancel scheduled time">Cancel</button>' +
         '</div>' +
+        '</div>' +
+
         '</div>' +
 
         // ── Section A: Targeted Release ───────────────────────────
         '<div class="r-panel-hdr" style="margin-top:8px">' +
-          '<h3><i class="fa-solid fa-bullseye"></i> Targeted Release</h3>' +
+        '<h3><i class="fa-solid fa-bullseye"></i> Targeted Release</h3>' +
         '</div>' +
         '<div class="r-fix-form" style="margin-bottom:24px">' +
-          '<div class="r-muted-sm" style="margin-bottom:10px">' +
-            'Push a specific version to selected devices only. Overrides global release — other devices are unaffected.' +
-          '</div>' +
-          '<div style="position:relative;margin-bottom:12px" id="tr-dropdown-wrap">' +
-            '<button id="tr-dropdown-btn" class="r-filter-input" style="width:300px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="rToggleDeviceDropdown(event)">' +
-              '<span id="tr-selected-count" style="flex:1">Select devices…</span>' +
-              '<i class="fa-solid fa-chevron-down" style="opacity:0.5;font-size:10px;flex-shrink:0"></i>' +
-            '</button>' +
-            '<div id="tr-dropdown-panel" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:9999;background:#0f1520;border:1px solid #2a3550;border-radius:8px;width:380px;box-shadow:0 12px 40px rgba(0,0,0,0.85)">' +
-              '<div style="padding:8px 8px 0">' +
-                '<input id="tr-filter" class="r-filter-input" style="width:100%;box-sizing:border-box" placeholder="Search hostname…" oninput="rFilterTargetDevices()" onclick="event.stopPropagation()">' +
-              '</div>' +
-              '<div style="display:flex;gap:6px;padding:6px 8px 8px;align-items:center;flex-wrap:wrap">' +
-                '<button class="r-btn-sm" style="font-size:10px" onclick="rSelectAllTargetDevices(true)">Select All</button>' +
-                '<button class="r-btn-sm" style="font-size:10px" onclick="rSelectAllTargetDevices(false)">Deselect All</button>' +
-                '<div style="position:relative" id="tr-filtby-wrap">' +
-                  '<button id="tr-filtby-btn" class="r-btn-sm" style="font-size:10px" onclick="rToggleTrFilterBy(event)">Filter by <i class="fa-solid fa-chevron-down" style="font-size:8px;margin-left:2px"></i></button>' +
-                  '<div id="tr-filtby-menu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:10001;background:#0f1520;border:1px solid #2a3550;border-radius:6px;min-width:130px;box-shadow:0 8px 24px rgba(0,0,0,0.7);overflow:hidden">' +
-                    '<div class="tr-filtby-opt" onclick="rSetTrFilterBy(\'branch\')" style="padding:8px 12px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:8px"><i class="fa-solid fa-building" style="width:12px;opacity:0.6"></i> By Branch</div>' +
-                    '<div class="tr-filtby-opt" onclick="rSetTrFilterBy(\'version\')" style="padding:8px 12px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:8px"><i class="fa-solid fa-code-branch" style="width:12px;opacity:0.6"></i> By Version</div>' +
-                    '<div class="tr-filtby-opt" onclick="rSetTrFilterBy(\'status\')" style="padding:8px 12px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:8px"><i class="fa-solid fa-circle-dot" style="width:12px;opacity:0.6"></i> By Status</div>' +
-                  '</div>' +
-                '</div>' +
-                '<div style="position:relative;display:none" id="tr-filtval-wrap">' +
-                  '<button id="tr-filtval-btn" class="r-btn-sm" style="font-size:10px" onclick="rToggleTrFilterVal(event)">All <i class="fa-solid fa-chevron-down" style="font-size:8px;margin-left:2px"></i></button>' +
-                  '<div id="tr-filtval-menu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:10001;background:#0f1520;border:1px solid #2a3550;border-radius:6px;min-width:130px;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.7)"></div>' +
-                '</div>' +
-                '<button id="tr-filt-clear" class="r-btn-sm" style="font-size:10px;display:none;color:#ef4444;border-color:#ef4444" onclick="rClearTrFilter()"><i class="fa-solid fa-xmark"></i> Clear</button>' +
-              '</div>' +
-              '<div id="tr-device-table" style="max-height:260px;overflow-y:auto;border-top:1px solid var(--rc-border)">' +
-                '<div class="r-empty" style="padding:16px;font-size:12px">Loading devices…</div>' +
-              '</div>' +
-            '</div>' +
-          '</div>' +
-          '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">' +
-            '<div class="r-fix-field" style="margin-bottom:0">' +
-              '<label>Target Version <span class="r-required">*</span></label>' +
-              '<input id="tr-version" class="r-filter-input" style="width:120px" placeholder="e.g. 10.5">' +
-            '</div>' +
-            '<div class="r-fix-field" style="flex:1;min-width:240px;margin-bottom:0">' +
-              '<label>Override URL <span class="r-muted-sm">(leave empty to reuse current global URL)</span></label>' +
-              '<input id="tr-url" class="r-filter-input" style="width:100%" placeholder="Leave empty → use current global URL">' +
-            '</div>' +
-            '<div class="r-fix-field" style="flex:1;min-width:200px;margin-bottom:0">' +
-              '<label>Notes <span class="r-muted-sm">(optional)</span></label>' +
-              '<input id="tr-notes" class="r-filter-input" style="width:100%" placeholder="e.g. Beta test — internal only">' +
-            '</div>' +
-          '</div>' +
-          '<button class="r-btn-primary" onclick="rPushTargetedRelease()">' +
-            '<i class="fa-solid fa-bullseye"></i> Push to Selected Devices' +
-          '</button>' +
+        '<div class="r-muted-sm" style="margin-bottom:10px">' +
+        'Push a specific version to selected devices only. Overrides global release — other devices are unaffected.' +
+        '</div>' +
+        '<div style="position:relative;margin-bottom:12px" id="tr-dropdown-wrap">' +
+        '<button id="tr-dropdown-btn" class="r-filter-input" style="width:300px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="rToggleDeviceDropdown(event)">' +
+        '<span id="tr-selected-count" style="flex:1">Select devices…</span>' +
+        '<i class="fa-solid fa-chevron-down" style="opacity:0.5;font-size:10px;flex-shrink:0"></i>' +
+        '</button>' +
+        '<div id="tr-dropdown-panel" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:9999;background:#0f1520;border:1px solid #2a3550;border-radius:8px;width:380px;box-shadow:0 12px 40px rgba(0,0,0,0.85)">' +
+        '<div style="padding:8px 8px 0">' +
+        '<input id="tr-filter" class="r-filter-input" style="width:100%;box-sizing:border-box" placeholder="Search hostname…" oninput="rFilterTargetDevices()" onclick="event.stopPropagation()">' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;padding:6px 8px 8px;align-items:center;flex-wrap:wrap">' +
+        '<button class="r-btn-sm" style="font-size:10px" onclick="rSelectAllTargetDevices(true)">Select All</button>' +
+        '<button class="r-btn-sm" style="font-size:10px" onclick="rSelectAllTargetDevices(false)">Deselect All</button>' +
+        '<div style="position:relative" id="tr-filtby-wrap">' +
+        '<button id="tr-filtby-btn" class="r-btn-sm" style="font-size:10px" onclick="rToggleTrFilterBy(event)">Filter by <i class="fa-solid fa-chevron-down" style="font-size:8px;margin-left:2px"></i></button>' +
+        '<div id="tr-filtby-menu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:10001;background:#0f1520;border:1px solid #2a3550;border-radius:6px;min-width:130px;box-shadow:0 8px 24px rgba(0,0,0,0.7);overflow:hidden">' +
+        '<div class="tr-filtby-opt" onclick="rSetTrFilterBy(\'branch\')" style="padding:8px 12px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:8px"><i class="fa-solid fa-building" style="width:12px;opacity:0.6"></i> By Branch</div>' +
+        '<div class="tr-filtby-opt" onclick="rSetTrFilterBy(\'version\')" style="padding:8px 12px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:8px"><i class="fa-solid fa-code-branch" style="width:12px;opacity:0.6"></i> By Version</div>' +
+        '<div class="tr-filtby-opt" onclick="rSetTrFilterBy(\'status\')" style="padding:8px 12px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:8px"><i class="fa-solid fa-circle-dot" style="width:12px;opacity:0.6"></i> By Status</div>' +
+        '</div>' +
+        '</div>' +
+        '<div style="position:relative;display:none" id="tr-filtval-wrap">' +
+        '<button id="tr-filtval-btn" class="r-btn-sm" style="font-size:10px" onclick="rToggleTrFilterVal(event)">All <i class="fa-solid fa-chevron-down" style="font-size:8px;margin-left:2px"></i></button>' +
+        '<div id="tr-filtval-menu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:10001;background:#0f1520;border:1px solid #2a3550;border-radius:6px;min-width:130px;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.7)"></div>' +
+        '</div>' +
+        '<button id="tr-filt-clear" class="r-btn-sm" style="font-size:10px;display:none;color:#ef4444;border-color:#ef4444" onclick="rClearTrFilter()"><i class="fa-solid fa-xmark"></i> Clear</button>' +
+        '</div>' +
+        '<div id="tr-device-table" style="max-height:260px;overflow-y:auto;border-top:1px solid var(--rc-border)">' +
+        '<div class="r-empty" style="padding:16px;font-size:12px">Loading devices…</div>' +
+        '</div>' +
+        '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">' +
+        '<div class="r-fix-field" style="margin-bottom:0">' +
+        '<label>Target Version <span class="r-required">*</span></label>' +
+        '<input id="tr-version" class="r-filter-input" style="width:120px" placeholder="e.g. 10.5">' +
+        '</div>' +
+        '<div class="r-fix-field" style="flex:1;min-width:240px;margin-bottom:0">' +
+        '<label>Override URL <span class="r-muted-sm">(leave empty to reuse current global URL)</span></label>' +
+        '<input id="tr-url" class="r-filter-input" style="width:100%" placeholder="Leave empty → use current global URL">' +
+        '</div>' +
+        '<div class="r-fix-field" style="flex:1;min-width:200px;margin-bottom:0">' +
+        '<label>Notes <span class="r-muted-sm">(optional)</span></label>' +
+        '<input id="tr-notes" class="r-filter-input" style="width:100%" placeholder="e.g. Beta test — internal only">' +
+        '</div>' +
+        '</div>' +
+        '<button class="r-btn-primary" onclick="rPushTargetedRelease()">' +
+        '<i class="fa-solid fa-bullseye"></i> Push to Selected Devices' +
+        '</button>' +
         '</div>' +
 
         // ── Section B: Fleet Version Status ───────────────────────
         '<div class="r-panel-hdr" style="margin-top:0">' +
-          '<h3><i class="fa-solid fa-layer-group"></i> Fleet Version Status</h3>' +
-          '<button class="r-btn-sm" onclick="rRefreshFleetStatus()"><i class="fa-solid fa-rotate"></i> Refresh</button>' +
+        '<h3><i class="fa-solid fa-layer-group"></i> Fleet Version Status</h3>' +
+        '<button class="r-btn-sm" onclick="rRefreshFleetStatus()"><i class="fa-solid fa-rotate"></i> Refresh</button>' +
         '</div>' +
         '<div id="r-fleet-version-table" style="margin-bottom:8px">' +
-          '<div class="r-empty" style="padding:16px;font-size:12px">Loading…</div>' +
+        '<div class="r-empty" style="padding:16px;font-size:12px">Loading…</div>' +
         '</div>' +
 
         '</div>';
@@ -8096,9 +8244,9 @@
         var cD = new Date(cSched);
         cBadge = cD > nowD
           ? '<span class="r-badge r-badge-warn"><i class="fa-solid fa-clock"></i> Scheduled: ' + fmtTs(cSched) + '</span>'
-          : '<span class="r-badge r-badge-green"><i class="fa-solid fa-check"></i> Released</span>';
+          : '<span class="r-badge r-badge-ok"><i class="fa-solid fa-check"></i> Released</span>';
       } else if (cVer !== '—') {
-        cBadge = '<span class="r-badge r-badge-green"><i class="fa-solid fa-check"></i> Live</span>';
+        cBadge = '<span class="r-badge r-badge-ok r-live-blink"><i class="fa-solid fa-check"></i> Live</span>';
       }
 
       var syncBadge = '<span class="r-badge" style="background:transparent;border:1px solid var(--rc-text-dim);color:var(--rc-text-dim);margin-left:8px;font-size:9px;"><i class="fa-solid fa-arrows-rotate fa-spin"></i> Syncing...</span>';
@@ -8132,9 +8280,9 @@
         var schedD = new Date(curSched);
         statusBadge = schedD > now
           ? '<span class="r-badge r-badge-warn"><i class="fa-solid fa-clock"></i> Scheduled: ' + fmtTs(curSched) + '</span>'
-          : '<span class="r-badge r-badge-green"><i class="fa-solid fa-check"></i> Released</span>';
+          : '<span class="r-badge r-badge-ok"><i class="fa-solid fa-check"></i> Released</span>';
       } else if (curVer !== '—') {
-        statusBadge = '<span class="r-badge r-badge-green"><i class="fa-solid fa-check"></i> Live</span>';
+        statusBadge = '<span class="r-badge r-badge-ok r-live-blink"><i class="fa-solid fa-check"></i> Live</span>';
       }
 
       // Re-render with real data
@@ -8389,19 +8537,19 @@
     }
 
     var searchVal = ((document.getElementById('tr-filter') || {}).value || '').toLowerCase();
-    var filtType  = (window._trFilterState || {}).type;
-    var filtVal   = (window._trFilterState || {}).value;
+    var filtType = (window._trFilterState || {}).type;
+    var filtVal = (window._trFilterState || {}).value;
 
     var filtered = devices.filter(function (h) {
       if (searchVal && h.toLowerCase().indexOf(searchVal) === -1) return false;
       if (filtType && filtVal) {
-        var d      = RS.devices[h] || {};
-        var ver    = String(d.version || d.app_version || '—');
+        var d = RS.devices[h] || {};
+        var ver = String(d.version || d.app_version || '—');
         var online = d.is_online !== false && (d._status || '').toLowerCase() !== 'offline';
         var branch = _trDevBranch(h);
-        if (filtType === 'branch'  && branch.label.toLowerCase() !== filtVal.toLowerCase()) return false;
+        if (filtType === 'branch' && branch.label.toLowerCase() !== filtVal.toLowerCase()) return false;
         if (filtType === 'version' && ver !== filtVal) return false;
-        if (filtType === 'status'  && (online ? 'online' : 'offline') !== filtVal) return false;
+        if (filtType === 'status' && (online ? 'online' : 'offline') !== filtVal) return false;
       }
       return true;
     });
@@ -8413,8 +8561,8 @@
     }
 
     container.innerHTML = filtered.map(function (hostname) {
-      var d      = RS.devices[hostname] || {};
-      var ver    = String(d.version || d.app_version || '—');
+      var d = RS.devices[hostname] || {};
+      var ver = String(d.version || d.app_version || '—');
       var online = d.is_online !== false && (d._status || '').toLowerCase() !== 'offline';
       var branch = _trDevBranch(hostname);
       var branchBadge = branch.id
@@ -8482,13 +8630,13 @@
 
     // Collect unique values for the selected type
     var values = [];
-    var seen   = {};
+    var seen = {};
     Object.keys(RS.devices).forEach(function (h) {
-      var d   = RS.devices[h] || {};
+      var d = RS.devices[h] || {};
       var val = '';
-      if (type === 'branch')  val = _trDevBranch(h).label;
+      if (type === 'branch') val = _trDevBranch(h).label;
       if (type === 'version') val = String(d.version || d.app_version || '—');
-      if (type === 'status')  val = (d.is_online !== false && (d._status || '').toLowerCase() !== 'offline') ? 'online' : 'offline';
+      if (type === 'status') val = (d.is_online !== false && (d._status || '').toLowerCase() !== 'offline') ? 'online' : 'offline';
       if (val && !seen[val]) { seen[val] = true; values.push(val); }
     });
     values.sort();
@@ -8553,7 +8701,7 @@
 
   function _trCloseDropdown() {
     var panel = document.getElementById('tr-dropdown-panel');
-    var btn   = document.getElementById('tr-dropdown-btn');
+    var btn = document.getElementById('tr-dropdown-btn');
     if (panel) panel.style.display = 'none';
     if (btn) { var ico = btn.querySelector('i'); if (ico) ico.style.transform = ''; }
     document.removeEventListener('click', window._trDropdownClose);
@@ -8567,7 +8715,7 @@
 
   function _trResetAutoCollapse() {
     if (window._trAutoCollapseTimer) clearTimeout(window._trAutoCollapseTimer);
-    window._trAutoCollapseTimer = setTimeout(function() {
+    window._trAutoCollapseTimer = setTimeout(function () {
       var panel = document.getElementById('tr-dropdown-panel');
       if (panel && panel.style.display !== 'none') _trCloseDropdown();
     }, 5000);
@@ -8576,7 +8724,7 @@
   window.rToggleDeviceDropdown = function (e) {
     if (e) e.stopPropagation();
     var panel = document.getElementById('tr-dropdown-panel');
-    var btn   = document.getElementById('tr-dropdown-btn');
+    var btn = document.getElementById('tr-dropdown-btn');
     if (!panel) return;
     var isOpen = panel.style.display !== 'none';
     if (isOpen) {
@@ -8586,15 +8734,15 @@
       if (btn) { var ico = btn.querySelector('i'); if (ico) ico.style.transform = 'rotate(180deg)'; }
       // Focus search immediately
       var fi = document.getElementById('tr-filter');
-      if (fi) setTimeout(function(){ fi.focus(); }, 0);
+      if (fi) setTimeout(function () { fi.focus(); }, 0);
       // Close on outside click
-      window._trDropdownClose = function(ev) {
+      window._trDropdownClose = function (ev) {
         var wrap = document.getElementById('tr-dropdown-wrap');
         if (wrap && !wrap.contains(ev.target)) _trCloseDropdown();
       };
-      setTimeout(function(){ document.addEventListener('click', window._trDropdownClose); }, 0);
+      setTimeout(function () { document.addEventListener('click', window._trDropdownClose); }, 0);
       // Auto-collapse: reset timer on any click or scroll inside panel
-      window._trPanelResetHandler = function() { _trResetAutoCollapse(); };
+      window._trPanelResetHandler = function () { _trResetAutoCollapse(); };
       panel.addEventListener('click', window._trPanelResetHandler);
       panel.addEventListener('scroll', window._trPanelResetHandler, true);
       _trResetAutoCollapse();
@@ -8603,13 +8751,13 @@
 
   window.rPushTargetedRelease = function () {
     if (!_canWrite()) { rToast('Read-only — request write access from Super Admin', 'warn'); return; }
-    if (!RS.supa)     { rToast('Supabase not available', 'error'); return; }
+    if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
 
     var version = (($r('tr-version') || {}).value || '').trim();
-    var url     = (($r('tr-url')     || {}).value || '').trim();
-    var notes   = (($r('tr-notes')   || {}).value || '').trim();
+    var url = (($r('tr-url') || {}).value || '').trim();
+    var notes = (($r('tr-notes') || {}).value || '').trim();
 
-    if (!version)                     { rToast('Enter target version (e.g. 10.5)', 'warn'); return; }
+    if (!version) { rToast('Enter target version (e.g. 10.5)', 'warn'); return; }
     if (!/^\d+\.\d+$/.test(version)) { rToast('Version format must be numeric: 10.5, 9.8 …', 'warn'); return; }
 
     var checked = Array.from(document.querySelectorAll('.tr-dev-check:checked')).map(function (el) { return el.value; });
@@ -8639,15 +8787,15 @@
     var now = new Date().toISOString();
     var rows = hostnames.map(function (h) {
       return {
-        hostname:       h,
+        hostname: h,
         target_version: version,
-        update_url:     url,
-        status:         'pending',
-        released_by:    releasedBy,
-        notes:          notes || null,
-        created_at:     now,
-        updated_at:     now,
-        installed_at:   null
+        update_url: url,
+        status: 'pending',
+        released_by: releasedBy,
+        notes: notes || null,
+        created_at: now,
+        updated_at: now,
+        installed_at: null
       };
     });
 
@@ -8667,7 +8815,7 @@
   // ══════════════════════════════════════════════════════════════
 
   // Fleet sort state: default = version desc (latest first)
-  window._fleetSort  = { col: 'version', dir: 'desc' };
+  window._fleetSort = { col: 'version', dir: 'desc' };
   window._fleetCache = null;
 
   function _fleetBuildRows(devices, overrides, latestVer) {
@@ -8676,14 +8824,14 @@
     var mul = dir === 'asc' ? 1 : -1;
 
     var sorted = devices.slice().sort(function (a, b) {
-      var va  = String(a.version || a.app_version || '0');
-      var vb  = String(b.version || b.app_version || '0');
-      var ha  = (a.hostname || a.id || '').toLowerCase();
-      var hb  = (b.hostname || b.id || '').toLowerCase();
+      var va = String(a.version || a.app_version || '0');
+      var vb = String(b.version || b.app_version || '0');
+      var ha = (a.hostname || a.id || '').toLowerCase();
+      var hb = (b.hostname || b.id || '').toLowerCase();
       var ova = overrides[a.hostname || a.id] || null;
       var ovb = overrides[b.hostname || b.id] || null;
-      var sa  = ova ? ova.status : (latestVer && va === latestVer ? 'uptodate' : 'global');
-      var sb  = ovb ? ovb.status : (latestVer && vb === latestVer ? 'uptodate' : 'global');
+      var sa = ova ? ova.status : (latestVer && va === latestVer ? 'uptodate' : 'global');
+      var sb = ovb ? ovb.status : (latestVer && vb === latestVer ? 'uptodate' : 'global');
 
       if (col === 'device') {
         return mul * (ha < hb ? -1 : ha > hb ? 1 : 0);
@@ -8696,7 +8844,7 @@
       var aLatest = latestVer && va === latestVer;
       var bLatest = latestVer && vb === latestVer;
       if (aLatest && !bLatest) return -1;
-      if (!aLatest && bLatest) return  1;
+      if (!aLatest && bLatest) return 1;
       var pa = va.split('.').map(Number);
       var pb = vb.split('.').map(Number);
       for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
@@ -8708,16 +8856,16 @@
 
     return sorted.map(function (d) {
       var hostname = d.hostname || d.id || '?';
-      var curVer   = String(d.version || d.app_version || '—');
-      var online   = d.is_online !== false && (d._status || '').toLowerCase() !== 'offline';
-      var ov       = overrides[hostname];
+      var curVer = String(d.version || d.app_version || '—');
+      var online = d.is_online !== false && (d._status || '').toLowerCase() !== 'offline';
+      var ov = overrides[hostname];
       var isLatest = latestVer && curVer === latestVer;
 
       var verCell = curVer === '—'
         ? '<span class="r-muted-sm">—</span>'
         : '<span class="r-badge ' + (isLatest ? 'r-badge-ok' : 'r-badge-info') + '">' +
-            (isLatest ? '<i class="fa-solid fa-check" style="font-size:9px;margin-right:3px"></i>' : '') +
-            esc(curVer) + '</span>';
+        (isLatest ? '<i class="fa-solid fa-check" style="font-size:9px;margin-right:3px"></i>' : '') +
+        esc(curVer) + '</span>';
 
       var targetCell = ov
         ? '<span class="r-muted-sm">v' + esc(ov.target_version) + '</span>'
@@ -8751,7 +8899,7 @@
 
       return '<tr>' +
         '<td><span style="font-family:monospace;font-size:12px">' + esc(hostname) + '</span>' +
-          (online ? '' : ' <span class="r-badge r-badge-err" style="font-size:9px;padding:1px 5px">offline</span>') +
+        (online ? '' : ' <span class="r-badge r-badge-err" style="font-size:9px;padding:1px 5px">offline</span>') +
         '</td>' +
         '<td>' + verCell + '</td>' +
         '<td>' + targetCell + '</td>' +
@@ -8764,18 +8912,19 @@
   function _fleetBuildHeader() {
     var col = (window._fleetSort || {}).col || 'version';
     var dir = (window._fleetSort || {}).dir || 'desc';
+    var stickyBase = 'position:sticky;top:0;z-index:2;background:#080d18;';
     function th(label, key, style) {
       var active = col === key;
-      var arrow  = active ? (dir === 'asc' ? ' <i class="fa-solid fa-arrow-up" style="font-size:9px"></i>' : ' <i class="fa-solid fa-arrow-down" style="font-size:9px"></i>') : ' <i class="fa-solid fa-arrows-up-down" style="font-size:9px;opacity:0.3"></i>';
-      return '<th style="cursor:pointer;user-select:none;' + (style || '') + '" onclick="rSortFleet(\'' + key + '\')">' + label + arrow + '</th>';
+      var arrow = active ? (dir === 'asc' ? ' <i class="fa-solid fa-arrow-up" style="font-size:9px"></i>' : ' <i class="fa-solid fa-arrow-down" style="font-size:9px"></i>') : ' <i class="fa-solid fa-arrows-up-down" style="font-size:9px;opacity:0.3"></i>';
+      return '<th style="' + stickyBase + 'cursor:pointer;user-select:none;' + (style || '') + '" onclick="rSortFleet(\'' + key + '\')">' + label + arrow + '</th>';
     }
     return '<thead><tr>' +
       th('Device', 'device') +
       th('Current Version', 'version') +
-      '<th>Target Override</th>' +
+      '<th style="' + stickyBase + '">Target Override</th>' +
       th('Status', 'status') +
-      '<th>Action</th>' +
-    '</tr></thead>';
+      '<th style="' + stickyBase + '">Action</th>' +
+      '</tr></thead>';
   }
 
   window.rSortFleet = function (col) {
@@ -8786,10 +8935,11 @@
     var table = document.getElementById('r-fleet-version-table');
     if (!table) return;
     table.innerHTML =
+      '<div style="max-height:400px;overflow-y:auto">' +
       '<table class="r-table" style="width:100%;font-size:12px">' +
-        _fleetBuildHeader() +
-        '<tbody>' + _fleetBuildRows(cache.devices, cache.overrides, cache.latestVer) + '</tbody>' +
-      '</table>';
+      _fleetBuildHeader() +
+      '<tbody>' + _fleetBuildRows(cache.devices, cache.overrides, cache.latestVer) + '</tbody>' +
+      '</table></div>';
   };
 
   window.rRefreshFleetStatus = function () {
@@ -8801,7 +8951,7 @@
       (res.data || []).forEach(function (row) { overrides[row.hostname] = row; });
 
       var latestVer = ((RS.appSettingsCache || {}).latest_version || '').trim();
-      var devices   = Object.values(RS.devices);
+      var devices = Object.values(RS.devices);
 
       if (!devices.length) {
         table.innerHTML = '<div class="r-empty" style="padding:16px;font-size:12px">No devices connected</div>';
@@ -8811,10 +8961,11 @@
       window._fleetCache = { devices: devices, overrides: overrides, latestVer: latestVer };
 
       table.innerHTML =
+        '<div style="max-height:490px;overflow-y:auto">' +
         '<table class="r-table" style="width:100%;font-size:12px">' +
-          _fleetBuildHeader() +
-          '<tbody>' + _fleetBuildRows(devices, overrides, latestVer) + '</tbody>' +
-        '</table>';
+        _fleetBuildHeader() +
+        '<tbody>' + _fleetBuildRows(devices, overrides, latestVer) + '</tbody>' +
+        '</table></div>';
     }).catch(function (err) {
       if (table) table.innerHTML = '<div class="r-alert-item err" style="font-size:12px">Failed to load fleet status: ' + esc(err.message) + '</div>';
     });
@@ -8822,7 +8973,7 @@
 
   window.rCancelDeviceOverride = function (hostname) {
     if (!_canWrite()) { rToast('Read-only', 'warn'); return; }
-    if (!RS.supa)     { rToast('Supabase not available', 'error'); return; }
+    if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
     if (!confirm('Cancel targeted release override for ' + hostname + '?\n\nDevice will revert to following the global release.')) return;
     RS.supa.from('device_releases')
       .update({ status: 'cancelled', updated_at: new Date().toISOString() })
