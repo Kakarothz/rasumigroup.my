@@ -1675,6 +1675,7 @@
   var _lastAlertKey = {};         // dedup: "machine|msg" → epoch ms of last push
   var _sysAlertInitMs = Date.now() + 3000; // suppress toasts during 3s init replay window
   var _sysAlertMap = {};   // dedup: "machine|TYPE" → {el, count} for live terminal entries
+  var _appLogMap = {};     // dedup: "machine|App" or "machine|App|File" → {el} for live terminal entries
 
   function _pushSystemAlert(e) {
     var lvl = (e.status || '').toUpperCase();   // 'CRITICAL' | 'WARNING'
@@ -1724,6 +1725,14 @@
         var entry = _sysAlertMap[key];
         if (entry && entry.el && term && term.contains(entry.el)) entry.el.remove();
         delete _sysAlertMap[key];
+      }
+    });
+    // Clear app log map for this host
+    Object.keys(_appLogMap).forEach(function (key) {
+      if (key.indexOf(hostname + '|') === 0) {
+        var entry = _appLogMap[key];
+        if (entry && entry.el && term && term.contains(entry.el)) entry.el.remove();
+        delete _appLogMap[key];
       }
     });
   }
@@ -2681,21 +2690,53 @@
     if (_streamApp === 'FV Branch') _streamApp = 'Renamer FV';
     var line = '[' + ts + '] [' + _streamApp + '] ' + stCode + (file ? ' · ' + file : '');
 
-    // ── SYSTEM_ALERT dedup — collapse repeated WARNING/CRITICAL from same device ──
-    if ((e.app_name || '').toUpperCase() === 'SYSTEM_ALERT' && (stCode === 'WARNING' || stCode === 'CRITICAL')) {
-      var _aMachine = e.machine || e.branch_id || '?';
-      var _aType = /cpu/i.test(file) ? 'CPU' : /ram/i.test(file) ? 'RAM' : 'SYS';
-      var _aKey = _aMachine + '|' + _aType;
-      var _aEntry = _sysAlertMap[_aKey];
+    var isSysAlert = (e.app_name || '').toUpperCase() === 'SYSTEM_ALERT';
+    if (!isSysAlert && stCode === 'COMPLETED') {
+      line = line.replace('COMPLETED', 'COMPLETED!');
+    }
+
+    // ── Generic app dedup — update in-place ──
+    var _aMachine = e.machine || e.branch_id || '?';
+    var _aKey = _aMachine + '|' + _streamApp + (file ? '|' + file : '');
+    if (!isSysAlert) {
+      var _aEntry = _appLogMap[_aKey];
       if (_aEntry && _aEntry.el && term.contains(_aEntry.el)) {
-        // Update existing entry in-place — bump counter + refresh timestamp
-        _aEntry.count++;
+        _aEntry.el.className = 'r-term-line ' + cls;
+        var lineHtml = esc(line);
+        if (stCode === 'PROCESSING') {
+          lineHtml += '<span class="r-dots"></span>';
+        }
         var _hadCursor = !!_aEntry.el.querySelector('.r-term-cursor');
-        _aEntry.el.textContent = line + ' (×' + _aEntry.count + ')';
+        _aEntry.el.innerHTML = lineHtml;
         if (_hadCursor) {
           var _rc = document.createElement('span');
           _rc.className = 'r-term-cursor';
           _aEntry.el.appendChild(_rc);
+        }
+        term.scrollTop = term.scrollHeight;
+
+        RS._recentLogs.unshift(e);
+        if (RS._recentLogs.length > 50) RS._recentLogs.pop();
+        var ra = $r('r-recent-act');
+        if (ra) ra.innerHTML = buildRecentActHTML();
+        return; // no new DOM element
+      }
+    }
+
+    // ── SYSTEM_ALERT dedup — collapse repeated WARNING/CRITICAL from same device ──
+    if (isSysAlert && (stCode === 'WARNING' || stCode === 'CRITICAL')) {
+      var _alertType = /cpu/i.test(file) ? 'CPU' : /ram/i.test(file) ? 'RAM' : 'SYS';
+      var _sysKey = _aMachine + '|' + _alertType;
+      var _sysEntry = _sysAlertMap[_sysKey];
+      if (_sysEntry && _sysEntry.el && term.contains(_sysEntry.el)) {
+        // Update existing entry in-place — bump counter + refresh timestamp
+        _sysEntry.count++;
+        var _hadCursor = !!_sysEntry.el.querySelector('.r-term-cursor');
+        _sysEntry.el.textContent = line + ' (×' + _sysEntry.count + ')';
+        if (_hadCursor) {
+          var _rc = document.createElement('span');
+          _rc.className = 'r-term-cursor';
+          _sysEntry.el.appendChild(_rc);
         }
         term.scrollTop = term.scrollHeight;
         RS._recentLogs.unshift(e);
@@ -2712,7 +2753,11 @@
 
     var p = document.createElement('p');
     p.className = 'r-term-line ' + cls;
-    p.textContent = line;
+    if (!isSysAlert && stCode === 'PROCESSING') {
+      p.innerHTML = esc(line) + '<span class="r-dots"></span>';
+    } else {
+      p.textContent = line;
+    }
     term.appendChild(p);
 
     // Add cursor to new last line
@@ -2721,10 +2766,14 @@
     p.appendChild(cursor);
 
     // Register new SYSTEM_ALERT WARNING/CRITICAL element in dedup map
-    if ((e.app_name || '').toUpperCase() === 'SYSTEM_ALERT' && (stCode === 'WARNING' || stCode === 'CRITICAL')) {
-      var _rMachine = e.machine || e.branch_id || '?';
-      var _rType = /cpu/i.test(file) ? 'CPU' : /ram/i.test(file) ? 'RAM' : 'SYS';
-      _sysAlertMap[_rMachine + '|' + _rType] = { el: p, count: 1 };
+    if (isSysAlert && (stCode === 'WARNING' || stCode === 'CRITICAL')) {
+      var _alertType = /cpu/i.test(file) ? 'CPU' : /ram/i.test(file) ? 'RAM' : 'SYS';
+      _sysAlertMap[_aMachine + '|' + _alertType] = { el: p, count: 1 };
+    }
+
+    // Register new app line in dedup map
+    if (!isSysAlert) {
+      _appLogMap[_aKey] = { el: p };
     }
 
     // Keep only last 80 lines
@@ -7760,7 +7809,12 @@
     RS.supa.from('vibes_errors')
       .update({ resolved: true, fix_status: 'fixed' })
       .in('id', ids.map(Number))
-      .then(function () {
+      .then(function (res) {
+        if (res && res.error) {
+          rToast('Error: ' + res.error.message, 'error');
+          if (btn) { btn.disabled = false; btn.textContent = '✓ Clear All'; }
+          return;
+        }
         rToast('Resolved ' + ids.length + ' item(s)', 'ok');
         if (chosen === 'all') {
           // Slide out entire device block then reload
@@ -7806,7 +7860,12 @@
     RS.supa.from('vibes_errors')
       .update({ resolved: true, fix_status: 'fixed' })
       .in('id', ids.map(Number))
-      .then(function () {
+      .then(function (res) {
+        if (res && res.error) {
+          rToast('Error: ' + res.error.message, 'error');
+          if (btn) { btn.disabled = false; btn.textContent = '✓ Clear All'; }
+          return;
+        }
         rToast('Resolved ' + ids.length + ' item(s)', 'ok');
         _loadVibesSkipped();
       }).catch(function (e) {
@@ -7821,7 +7880,12 @@
     RS.supa.from('vibes_errors')
       .update({ resolved: true, fix_status: 'fixed' })
       .eq('id', id)
-      .then(function () {
+      .then(function (res) {
+        if (res && res.error) {
+          rToast('Error: ' + res.error.message, 'error');
+          if (btn) { btn.disabled = false; btn.textContent = '✓'; }
+          return;
+        }
         rToast('Marked resolved', 'ok');
         // Hide the individual row without full reload
         if (rowId) {

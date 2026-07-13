@@ -32,8 +32,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 
   <script>
-    // Clean URL bar (remove index.html) on load
-    if (window.location.pathname.endsWith('/index.html')) {
+    // Clean URL bar (remove index.html) on load (skip on file:// to avoid SecurityError)
+    if (window.location.protocol.startsWith('http') && window.location.pathname.endsWith('/index.html')) {
       var cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname.replace(/\/index\.html$/, '/');
       window.history.replaceState({}, document.title, cleanUrl + window.location.search + window.location.hash);
     }
@@ -92,7 +92,7 @@
 <body style="background: #05080f; margin: 0; overflow: hidden;" class="r-body-root">
 
   <!-- Rasumi JS will dynamically inject #rasumi-container inside the body -->
-  <script src="app.js?v=1782774000033"></script>
+  <script src="app.js?v=1782774000034"></script>
 
   <!-- Mobile enhancements — desktop untouched (window.innerWidth guard) -->
   <script>

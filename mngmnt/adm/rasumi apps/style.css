@@ -863,6 +863,19 @@
 }
 @keyframes r-blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
+/* Animated ellipsis dots for processing status */
+@keyframes r-dots {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+  100% { content: ''; }
+}
+#rasumi-container .r-dots::after {
+  content: '';
+  animation: r-dots 1.5s steps(4, end) infinite;
+}
+
 /* ==========================================================
    SYSTEM TELEMETRY (bottom row panel)
    ========================================================== */
