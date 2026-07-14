@@ -417,9 +417,18 @@
     loadAppStats();
     RS._appStatsInterval = setInterval(loadAppStats, 60000);
 
-    // ── Seed recent logs for activity feed ──
-    RS.db.collection('logs').orderBy('timestamp', 'desc').limit(30).get().then(function (snap) {
-      RS._recentLogs = snap.docs.map(function (d) { return d.data(); });
+    RS.db.collection('logs').orderBy('timestamp', 'desc').limit(60).get().then(function (snap) {
+      var filtered = snap.docs.map(function (d) { return d.data(); }).filter(function (x) {
+        var st = (x.status || '').toUpperCase();
+        return st !== 'FINISH' && st !== 'FINISHED';
+      });
+      var seen = {};
+      RS._recentLogs = filtered.filter(function (x) {
+        var key = (x.machine || '') + '|' + (x.app_name || '?') + '|' + (x.file_name || x.activity_name || '');
+        if (seen[key]) return false;
+        seen[key] = true;
+        return true;
+      });
     }).catch(function () { });
   }
 
@@ -758,6 +767,27 @@
       '<div class="r-tele-row"><span class="r-tele-key">OS</span><span class="r-tele-val">' + esc(d.os_name || d.sys_info || '—') + '</span></div>';
   }
 
+  function _pushRecentLog(e) {
+    var rawSt = e.status || '';
+    var isMsg = rawSt.length > 30;
+    var stCode = isMsg ? 'DEBUG' : (rawSt.toUpperCase() || 'INFO');
+    var isF = stCode === 'FINISH' || stCode === 'FINISHED';
+    if (isF) return;
+
+    var matchIdx = RS._recentLogs.findIndex(function (x) {
+      return (x.machine || '') === (e.machine || '') &&
+             (x.app_name || '?') === (e.app_name || '?') &&
+             (x.file_name || x.activity_name || '') === (e.file_name || e.activity_name || '');
+    });
+    if (matchIdx !== -1) {
+      RS._recentLogs.splice(matchIdx, 1);
+    }
+    RS._recentLogs.unshift(e);
+    if (RS._recentLogs.length > 50) RS._recentLogs.pop();
+    var ra = $r('r-recent-act');
+    if (ra) ra.innerHTML = buildRecentActHTML();
+  }
+
   // ── Build Recent Activity HTML ────────────────────────────
   function buildRecentActHTML() {
     if (!RS._recentLogs.length) {
@@ -882,10 +912,7 @@
     term.scrollTop = term.scrollHeight;
 
     // Also update recent activity
-    RS._recentLogs.unshift(e);
-    if (RS._recentLogs.length > 50) RS._recentLogs.pop();
-    var ra = $r('r-recent-act');
-    if (ra) ra.innerHTML = buildRecentActHTML();
+    _pushRecentLog(e);
   }
 
   // ── Dashboard Charts ──────────────────────────────────────

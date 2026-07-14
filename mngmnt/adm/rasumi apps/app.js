@@ -451,11 +451,11 @@
   // ── Display Preferences (theme + background) ─────────────────
   var _BG_MAP = {
     'photo': null,   // special — image file
-    'dark': '#080c13',
-    'navy': 'linear-gradient(135deg,#060d1a,#0d1f35)',
-    'purple': 'linear-gradient(135deg,#0b0614,#17082e)',
-    'forest': 'linear-gradient(135deg,#040f0a,#0a2016)',
-    'ember': 'linear-gradient(135deg,#110608,#200d0a)'
+    'dark': "url('../assets/background_2.jpg') center/cover no-repeat",
+    'navy': "url('../assets/background_3.jpg') center/cover no-repeat",
+    'purple': "url('../assets/background_4.jpg') center/cover no-repeat",
+    'forest': "url('../assets/background_5.jpeg') center/cover no-repeat",
+    'ember': "url('../assets/background_6.jpg') center/cover no-repeat"
   };
 
   window.rSetTheme = function (theme) {
@@ -898,11 +898,11 @@
       '      <div style="font-size:11px;color:#9ca3af;margin-bottom:8px">Background</div>',
       '      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">',
       '        <div class="r-bg-opt" data-bg="photo" onclick="window.rSetBackground(\'photo\')" title="Default Photo" style="height:40px;border-radius:6px;border:2px solid rgba(56,189,248,0.5);background:url(\'../assets/background.jpg\') center/cover;cursor:pointer"></div>',
-      '        <div class="r-bg-opt" data-bg="dark" onclick="window.rSetBackground(\'dark\')" title="Pure Dark" style="height:40px;border-radius:6px;border:2px solid transparent;background:#080c13;cursor:pointer"></div>',
-      '        <div class="r-bg-opt" data-bg="navy" onclick="window.rSetBackground(\'navy\')" title="Navy" style="height:40px;border-radius:6px;border:2px solid transparent;background:linear-gradient(135deg,#060d1a,#0d1f35);cursor:pointer"></div>',
-      '        <div class="r-bg-opt" data-bg="purple" onclick="window.rSetBackground(\'purple\')" title="Purple" style="height:40px;border-radius:6px;border:2px solid transparent;background:linear-gradient(135deg,#0b0614,#17082e);cursor:pointer"></div>',
-      '        <div class="r-bg-opt" data-bg="forest" onclick="window.rSetBackground(\'forest\')" title="Forest" style="height:40px;border-radius:6px;border:2px solid transparent;background:linear-gradient(135deg,#040f0a,#0a2016);cursor:pointer"></div>',
-      '        <div class="r-bg-opt" data-bg="ember" onclick="window.rSetBackground(\'ember\')" title="Ember" style="height:40px;border-radius:6px;border:2px solid transparent;background:linear-gradient(135deg,#110608,#200d0a);cursor:pointer"></div>',
+      '        <div class="r-bg-opt" data-bg="dark" onclick="window.rSetBackground(\'dark\')" title="Background 2" style="height:40px;border-radius:6px;border:2px solid transparent;background:url(\'../assets/background_2.jpg\') center/cover;cursor:pointer"></div>',
+      '        <div class="r-bg-opt" data-bg="navy" onclick="window.rSetBackground(\'navy\')" title="Background 3" style="height:40px;border-radius:6px;border:2px solid transparent;background:url(\'../assets/background_3.jpg\') center/cover;cursor:pointer"></div>',
+      '        <div class="r-bg-opt" data-bg="purple" onclick="window.rSetBackground(\'purple\')" title="Background 4" style="height:40px;border-radius:6px;border:2px solid transparent;background:url(\'../assets/background_4.jpg\') center/cover;cursor:pointer"></div>',
+      '        <div class="r-bg-opt" data-bg="forest" onclick="window.rSetBackground(\'forest\')" title="Background 5" style="height:40px;border-radius:6px;border:2px solid transparent;background:url(\'../assets/background_5.jpeg\') center/cover;cursor:pointer"></div>',
+      '        <div class="r-bg-opt" data-bg="ember" onclick="window.rSetBackground(\'ember\')" title="Background 6" style="height:40px;border-radius:6px;border:2px solid transparent;background:url(\'../assets/background_6.jpg\') center/cover;cursor:pointer"></div>',
       '        <div class="r-bg-opt" data-bg="custom" onclick="window.rPickCustomBg()" title="Custom Photo" style="height:40px;border-radius:6px;border:2px dashed rgba(255,255,255,0.2);background:rgba(255,255,255,0.04) center/cover no-repeat;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6b7a8f;font-size:13px;gap:4px"><i class="fa-solid fa-folder-open"></i></div>',
       '      </div>',
       '    </div>',
@@ -1664,8 +1664,20 @@
 
     // ── Seed recent logs for activity feed (Supabase, Fasa 6) ──
     if (RS.supa) {
-      RS.supa.from('logs').select('*').order('timestamp', { ascending: false }).limit(30)
-        .then(function (res) { RS._recentLogs = res.data || []; }).catch(function () { });
+      RS.supa.from('logs').select('*').order('timestamp', { ascending: false }).limit(60)
+        .then(function (res) {
+          var filtered = (res.data || []).filter(function (x) {
+            var st = (x.status || '').toUpperCase();
+            return st !== 'FINISH' && st !== 'FINISHED';
+          });
+          var seen = {};
+          RS._recentLogs = filtered.filter(function (x) {
+            var key = (x.machine || '') + '|' + (x.app_name || '?') + '|' + (x.file_name || x.activity_name || '');
+            if (seen[key]) return false;
+            seen[key] = true;
+            return true;
+          });
+        }).catch(function () { });
     }
   }
 
@@ -2442,6 +2454,60 @@
       .catch(function (e) { rToast('Error: ' + e.message, 'error'); });
   };
 
+  function formatHealthCheckResult(rawResult) {
+    try {
+      var data = JSON.parse(rawResult);
+      var diskLines = [];
+      if (data.disks && data.disks.length) {
+        data.disks.forEach(function (d) {
+          var usedGB = (d.used / (1024 * 1024 * 1024)).toFixed(1);
+          var totalGB = (d.total / (1024 * 1024 * 1024)).toFixed(1);
+          diskLines.push('Drive ' + d.device + ' (' + d.percent + '% used, ' + usedGB + '/' + totalGB + ' GB)');
+        });
+      }
+      var sizes = [];
+      if (data.temp_size !== undefined) sizes.push('Temp: ' + (data.temp_size / (1024 * 1024)).toFixed(1) + ' MB');
+      if (data.win_temp_size !== undefined) sizes.push('Win Temp: ' + (data.win_temp_size / (1024 * 1024)).toFixed(1) + ' MB');
+      if (data.cache_size !== undefined) sizes.push('Cache: ' + (data.cache_size / (1024 * 1024)).toFixed(1) + ' MB');
+      var healthLines = [];
+      if (data.disk_health && data.disk_health.length) {
+        data.disk_health.forEach(function (h) {
+          healthLines.push(h.name + ': ' + h.health + '% (' + h.status + ')');
+        });
+      }
+      var bat = (data.battery !== null && data.battery !== undefined) ? 'Battery: ' + data.battery + '%' : 'Battery: N/A (Desktop)';
+
+      var html = '<div class="r-health-expandable" onclick="this.classList.toggle(\'expanded\')" style="cursor:pointer;">' +
+        '  <div class="r-health-collapsed-view" style="color:var(--rc-cyan,#38bdf8);font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;">' +
+        '    <i class="fa-solid fa-chevron-right" style="margin-right:6px;"></i>Health Summary' +
+        '  </div>' +
+        '  <div class="r-health-expanded-view">' +
+        '    <div style="color:var(--rc-muted,#9ca3af);font-size:11px;font-weight:600;margin-bottom:6px;border-bottom:1px dashed rgba(255,255,255,0.1);padding-bottom:4px;">' +
+        '      <i class="fa-solid fa-chevron-down" style="margin-right:6px;"></i>Health Summary' +
+        '    </div>' +
+        '    <div style="font-size:11px;line-height:1.6;color:var(--rc-text-dim,#9ca3af)">' +
+        '      <div style="font-weight:bold;color:var(--rc-cyan,#38bdf8);margin-bottom:3px;"><i class="fa-solid fa-hard-drive"></i> Disks:</div>' +
+        '      <div style="margin-left:8px;margin-bottom:6px;">' + diskLines.map(function (l) { return '• ' + esc(l); }).join('<br>') + '</div>' +
+        '      <div style="font-weight:bold;color:var(--rc-cyan,#38bdf8);margin-bottom:3px;"><i class="fa-solid fa-server"></i> System Cache & Temps:</div>' +
+        '      <div style="margin-left:8px;margin-bottom:6px;">' + esc(sizes.join(' | ')) + '</div>' +
+        '      <div style="font-weight:bold;color:var(--rc-cyan,#38bdf8);margin-bottom:3px;"><i class="fa-solid fa-heartpulse"></i> Disk Health & Battery:</div>' +
+        '      <div style="margin-left:8px;">' + healthLines.map(function (l) { return '• ' + esc(l); }).join('<br>') + '<br>• ' + esc(bat) + '</div>';
+
+      if (data.junk_processes && data.junk_processes.length) {
+        html += '      <div style="font-weight:bold;color:#ef4444;margin-top:6px;"><i class="fa-solid fa-bug"></i> Junk Processes:</div>' +
+          '      <div style="margin-left:8px;">' + esc(data.junk_processes.join(', ')) + '</div>';
+      }
+
+      html += '    </div>' +
+        '  </div>' +
+        '</div>';
+
+      return html;
+    } catch (err) {
+      return '<pre style="margin:0;font-size:10px;font-family:monospace;white-space:pre-wrap;max-height:120px;overflow:auto;background:rgba(0,0,0,0.25);padding:6px;border-radius:4px;">' + esc(rawResult) + '</pre>';
+    }
+  }
+
   // ── View Full Log (GET_LOGS command output) ───────────────────────────────
   window.rViewFullLog = function (cmdId) {
     if (!RS.supa) { rToast('Supabase not ready', 'error'); return; }
@@ -2538,6 +2604,27 @@
       '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">IP Address</span><span class="r-tele-val">' + esc(d.ip_address || '—') + '</span></div>' +
       '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">Public IP</span><span class="r-tele-val">' + esc(d.public_ip || '—') + '</span></div>' +
       '<div class="r-tele-row r-tele-row-sm"><span class="r-tele-key">Branch</span><span class="r-tele-val">' + esc(_branchName(d.branch_id || (RS._devBranchMap && RS._devBranchMap[(d.hostname || '').toLowerCase()]) || null)) + '</span></div>';
+  }
+
+  function _pushRecentLog(e) {
+    var rawSt = e.status || '';
+    var isMsg = rawSt.length > 30;
+    var stCode = isMsg ? 'DEBUG' : (rawSt.toUpperCase() || 'INFO');
+    var isF = stCode === 'FINISH' || stCode === 'FINISHED';
+    if (isF) return;
+
+    var matchIdx = RS._recentLogs.findIndex(function (x) {
+      return (x.machine || '') === (e.machine || '') &&
+        (x.app_name || '?') === (e.app_name || '?') &&
+        (x.file_name || x.activity_name || '') === (e.file_name || e.activity_name || '');
+    });
+    if (matchIdx !== -1) {
+      RS._recentLogs.splice(matchIdx, 1);
+    }
+    RS._recentLogs.unshift(e);
+    if (RS._recentLogs.length > 50) RS._recentLogs.pop();
+    var ra = $r('r-recent-act');
+    if (ra) ra.innerHTML = buildRecentActHTML();
   }
 
   // ── Build Recent Activity HTML ────────────────────────────
@@ -2695,6 +2782,8 @@
       line = line.replace('COMPLETED', 'COMPLETED!');
     }
 
+    var _isF = stCode === 'FINISH' || stCode === 'FINISHED';
+
     // ── Generic app dedup — update in-place ──
     var _aMachine = e.machine || e.branch_id || '?';
     var _aKey = _aMachine + '|' + _streamApp + (file ? '|' + file : '');
@@ -2715,10 +2804,7 @@
         }
         term.scrollTop = term.scrollHeight;
 
-        RS._recentLogs.unshift(e);
-        if (RS._recentLogs.length > 50) RS._recentLogs.pop();
-        var ra = $r('r-recent-act');
-        if (ra) ra.innerHTML = buildRecentActHTML();
+        _pushRecentLog(e);
         return; // no new DOM element
       }
     }
@@ -2739,10 +2825,7 @@
           _sysEntry.el.appendChild(_rc);
         }
         term.scrollTop = term.scrollHeight;
-        RS._recentLogs.unshift(e);
-        if (RS._recentLogs.length > 50) RS._recentLogs.pop();
-        var ra = $r('r-recent-act');
-        if (ra) ra.innerHTML = buildRecentActHTML();
+        _pushRecentLog(e);
         return; // no new DOM element
       }
     }
@@ -2783,10 +2866,7 @@
     term.scrollTop = term.scrollHeight;
 
     // Also update recent activity
-    RS._recentLogs.unshift(e);
-    if (RS._recentLogs.length > 50) RS._recentLogs.pop();
-    var ra = $r('r-recent-act');
-    if (ra) ra.innerHTML = buildRecentActHTML();
+    _pushRecentLog(e);
   }
 
   // ── Dashboard Usage Analytics Chart ──
@@ -7122,7 +7202,9 @@
           var rawResult = c.result || c.result_msg || '';
           var resultHtml;
           var fullLogMatch = rawResult.match(/\[\[FULL_LOG:([^\]]+)\]\]/);
-          if (fullLogMatch) {
+          if (cmdTxt === 'HEALTH_CHECK' && rawResult.trim().startsWith('{')) {
+            resultHtml = formatHealthCheckResult(rawResult);
+          } else if (fullLogMatch) {
             var fullCmdId = fullLogMatch[1];
             var preview = rawResult.replace(/\s*\[\[FULL_LOG:[^\]]+\]\]/, '').trim();
             resultHtml = '<span style="color:var(--rc-muted);font-size:11px">' + esc(preview || '—') + '</span>' +
