@@ -1180,7 +1180,34 @@
 #rasumi-container .r-badge-warn  { background: rgba(245,158,11,0.12); color: var(--rc-orange); border: 1px solid rgba(245,158,11,0.25); }
 #rasumi-container .r-badge-info  { background: rgba(56,189,248,0.1);   color: var(--rc-cyan);   border: 1px solid rgba(56,189,248,0.25); }
 #rasumi-container .r-badge-muted { background: rgba(107,114,128,0.15);color: var(--rc-text-dim);border: 1px solid rgba(107,114,128,0.25); }
-#rasumi-container .r-badge-purple{ background: rgba(178,0,255,0.12);  color: #c084fc;          border: 1px solid rgba(178,0,255,0.25); }
+#rasumi-container .r-badge-purple { background: rgba(178,0,255,0.12);  color: #c084fc; border: 1px solid rgba(178,0,255,0.25); }
+#rasumi-container .r-badge-blue   { background: rgba(59,130,246,0.12);  color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
+#rasumi-container .r-badge-magenta{ background: rgba(236,72,153,0.12);  color: #f472b6; border: 1px solid rgba(236,72,153,0.25); }
+#rasumi-container .r-badge-orange { background: rgba(249,115,22,0.12);  color: #fb923c; border: 1px solid rgba(249,115,22,0.25); }
+#rasumi-container .r-badge-rose    { background: rgba(244,63,94,0.12);   color: #fb7185; border: 1px solid rgba(244,63,94,0.25); }
+#rasumi-container .r-badge-app     { min-width: 85px; text-align: center; }
+
+/* ── Disk Cleanup Modal ── */
+.r-dc-item { display:flex; align-items:center; gap:10px; padding:8px 4px; border-radius:6px; cursor:pointer; font-size:12px; color:#f9fafb; }
+.r-dc-item:hover { background: rgba(255,255,255,0.04); }
+.r-dc-item input[type=checkbox] { accent-color:#38bdf8; width:14px; height:14px; cursor:pointer; flex-shrink:0; }
+#r-dc-all { accent-color:#38bdf8; width:14px; height:14px; cursor:pointer; }
+#rasumi-container .r-badge-rainbow {
+  background: linear-gradient(90deg,
+    rgba(248,113,113,0.22) 0%,
+    rgba(251,146,60,0.22)  17%,
+    rgba(250,204,21,0.22)  33%,
+    rgba(74,222,128,0.22)  50%,
+    rgba(96,165,250,0.22)  67%,
+    rgba(167,139,250,0.22) 83%,
+    rgba(244,114,182,0.22) 100%
+  );
+  color: #f9fafb;
+  border: 1px solid rgba(255,255,255,0.13);
+}
+#rasumi-container .r-badge-indigo { background: rgba(99,102,241,0.12);  color: #818cf8; border: 1px solid rgba(99,102,241,0.25); }
+#rasumi-container .r-badge-sky    { background: rgba(14,165,233,0.12);  color: #38bdf8; border: 1px solid rgba(14,165,233,0.25); }
+#rasumi-container .r-badge-teal   { background: rgba(20,184,166,0.12);  color: #2dd4bf; border: 1px solid rgba(20,184,166,0.25); }
 
 /* Activity feed badges — text only, no border, no background (desktop + mobile) */
 #rasumi-container .r-act-feed .r-act-item .r-badge {

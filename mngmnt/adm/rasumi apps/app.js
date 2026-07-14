@@ -222,15 +222,18 @@
     if (btn) btn.textContent = opts.confirmText || 'Confirm';
     inp.placeholder = opts.placeholder || '';
     inp.value = '';
+    inp.style.display = opts.hideInput ? 'none' : '';
     ov.style.display = 'flex';
-    setTimeout(function () { inp.focus(); }, 80);
+    if (!opts.hideInput) setTimeout(function () { inp.focus(); }, 80);
 
     window._rPromptConfirm = function () {
       ov.style.display = 'none';
+      inp.style.display = '';
       if (opts.onConfirm) opts.onConfirm(inp.value.trim());
     };
     window._rPromptCancel = function () {
       ov.style.display = 'none';
+      inp.style.display = '';
       if (opts.onCancel) opts.onCancel();
     };
   };
@@ -370,6 +373,27 @@
   function logBadge(l) {
     var m = { error: 'r-badge-err', FAILED: 'r-badge-err', warn: 'r-badge-warn', warning: 'r-badge-warn', info: 'r-badge-info', COMPLETED: 'r-badge-ok', debug: 'r-badge-muted' };
     return m[(l || '').toUpperCase()] || m[l] || 'r-badge-muted';
+  }
+
+  function _appLabel(name) {
+    var n = (name || '').trim();
+    if (/^vibes$/i.test(n) || /^vibes\s+agent$/i.test(n)) return 'VIBES AGENT';
+    if (/^fv[\s._-]branch$/i.test(n))                      return 'Renamer FV';
+    if (/^vims$/i.test(n) || /^vims\s+scraper$/i.test(n))  return 'VIMS AGENT';
+    return n;
+  }
+
+  function _appBadge(name) {
+    var n = (name || '').toLowerCase();
+    if (/vibes/i.test(n))                              return 'r-badge-blue';
+    if (/renamer[\s_-]?hq/i.test(n))                  return 'r-badge-magenta';
+    if (/fv[\s._-]branch|renamer[\s_-]?fv/i.test(n))  return 'r-badge-purple';
+    if (/pdf[\s._-]?split/i.test(n))                              return 'r-badge-rainbow';
+    if (/pdf[\s._-]?studio|pdf_studio/i.test(n))                  return 'r-badge-rose';
+    if (/quick[\s._-]?rename/i.test(n))               return 'r-badge-indigo';
+    if (/scanify/i.test(n))                            return 'r-badge-sky';
+    if (/vims/i.test(n))                               return 'r-badge-teal';
+    return 'r-badge-purple';
   }
 
   function esc(str) {
@@ -4610,26 +4634,104 @@
     }
   };
 
+  // ── Disk Cleanup checklist modal ───────────────────────────────────────────
+  window.rDiskCleanModal = function (hostname, disks) {
+    var _TARGETS = [
+      { key: 'temp_user',    label: 'User Temp (%TEMP%)',        icon: 'fa-folder-open' },
+      { key: 'temp_win',     label: 'Windows Temp',              icon: 'fa-folder' },
+      { key: 'prefetch',     label: 'Windows Prefetch',          icon: 'fa-bolt' },
+      { key: 'chrome_cache', label: 'Chrome Cache',              icon: 'fa-database' },
+      { key: 'chrome_code',  label: 'Chrome Code Cache',         icon: 'fa-code' },
+      { key: 'edge_cache',   label: 'Edge Cache',                icon: 'fa-database' },
+      { key: 'edge_code',    label: 'Edge Code Cache',           icon: 'fa-code' },
+      { key: 'firefox',      label: 'Firefox Cache',             icon: 'fa-database' },
+      { key: 'recycle',      label: 'Recycle Bin (All Drives)',  icon: 'fa-trash' },
+      { key: 'junk_procs',   label: 'Kill Junk Processes',       icon: 'fa-ban' },
+    ];
+    var ex = document.getElementById('r-diskclean-ov');
+    if (ex) ex.remove();
+    var items = _TARGETS.map(function (t) {
+      return '<label class="r-dc-item">' +
+        '<input type="checkbox" class="r-dc-chk" value="' + t.key + '" checked>' +
+        '<i class="fa-solid ' + t.icon + '" style="width:14px;text-align:center;color:#6b7280;font-size:11px"></i>' +
+        '<span>' + t.label + '</span>' +
+        '</label>';
+    }).join('');
+    var ov = document.createElement('div');
+    ov.id = 'r-diskclean-ov';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;';
+    ov.innerHTML =
+      '<div style="background:rgba(8,12,19,0.98);border:1px solid rgba(56,189,248,0.2);border-radius:12px;width:400px;max-width:94vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.7);font-family:inherit;">' +
+        '<div style="padding:14px 18px 12px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:10px;">' +
+          '<i class="fa-solid fa-trash-can" style="color:#38bdf8;font-size:14px"></i>' +
+          '<span style="font-size:13px;font-weight:600;color:#f9fafb">DISK CLEAN UP — ' + esc(hostname) + '</span>' +
+          '<button onclick="window._rDcClose()" style="margin-left:auto;background:none;border:none;color:#6b7280;cursor:pointer;font-size:22px;line-height:1;padding:0 2px">×</button>' +
+        '</div>' +
+        '<div style="padding:8px 18px;font-size:11px;color:#6b7280;border-bottom:1px solid rgba(255,255,255,0.04)">Disks: ' + esc(disks.join(', ')) + ' · Untick item untuk skip. Cannot be undone.</div>' +
+        '<div style="overflow-y:auto;padding:10px 18px;flex:1;">' +
+          '<label style="display:flex;align-items:center;gap:8px;padding:5px 4px;cursor:pointer;">' +
+            '<input type="checkbox" id="r-dc-all" checked onchange="window._rDcToggleAll(this.checked)">' +
+            '<span style="font-size:11px;color:#6b7280">Pilih / Nyahpilih Semua</span>' +
+          '</label>' +
+          '<div style="height:1px;background:rgba(255,255,255,0.06);margin:4px 0 6px"></div>' +
+          items +
+        '</div>' +
+        '<div style="padding:12px 18px;border-top:1px solid rgba(255,255,255,0.06);display:flex;justify-content:flex-end;gap:8px;">' +
+          '<button onclick="window._rDcClose()" class="r-btn">Cancel</button>' +
+          '<button onclick="window._rDcConfirm()" class="r-btn r-btn-primary"><i class="fa-solid fa-broom" style="margin-right:6px"></i>Clean Up</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    window._rDcClose = function () {
+      var o = document.getElementById('r-diskclean-ov'); if (o) o.remove();
+    };
+    window._rDcToggleAll = function (v) {
+      document.querySelectorAll('#r-diskclean-ov .r-dc-chk').forEach(function (c) { c.checked = v; });
+    };
+    window._rDcConfirm = function () {
+      if (!RS.supa) { rToast('Supabase not ready', 'error'); return; }
+      var targets = Array.from(document.querySelectorAll('#r-diskclean-ov .r-dc-chk:checked')).map(function (c) { return c.value; });
+      if (!targets.length) { rToast('Pilih sekurang-kurangnya satu target', 'warn'); return; }
+      window._rDcClose();
+      var user = RS.currentUser;
+      RS.supa.from('commands').insert({
+        target_machine: hostname,
+        type: 'DISK_CLEANUP',
+        status: 'PENDING',
+        payload: { disks: disks, targets: targets },
+        created_at: new Date().toISOString(),
+        created_by: user ? user.email : 'admin'
+      }).select('id').then(function (res) {
+        rCmdFeedback('Disk Clean Up sent to ' + hostname + ' — ' + disks.join(', '));
+        var menu = $r('dd-disk-menu'); if (menu) menu.style.display = 'none';
+        // Auto-refresh Device Health when cleanup completes
+        var cmdId = res.data && res.data[0] && res.data[0].id;
+        if (cmdId && window.rDdHealthRefresh) {
+          var _polls = 0, _maxPolls = 40; // poll every 3s, max 2 min
+          var _iv = setInterval(function () {
+            _polls++;
+            if (_polls > _maxPolls) { clearInterval(_iv); return; }
+            RS.supa.from('commands').select('status').eq('id', cmdId).single()
+              .then(function (r) {
+                var st = r.data && r.data.status;
+                if (st === 'COMPLETED' || st === 'FAILED') {
+                  clearInterval(_iv);
+                  rDdHealthRefresh(hostname);
+                  if (st === 'COMPLETED') rToast('Device Health refreshed selepas cleanup', 'info');
+                }
+              }).catch(function () { clearInterval(_iv); });
+          }, 3000);
+        }
+      }).catch(function (e) { rToast('Error: ' + (e.message || e), 'error'); });
+    };
+  };
+
   window.rDdDiskCleanup = function (hostname) {
     if (!_canWrite()) { rToast('Read-only — request write access from Super Admin', 'warn'); return; }
     var checks = document.querySelectorAll('.dd-disk-check:checked');
     if (!checks.length) { rToast('Select at least one disk from ⚙ settings', 'warn'); return; }
     var disks = Array.from(checks).map(function (c) { return c.value; });
-    if (!confirm('Remote Disk Clean Up on ' + hostname + '?\n\nDisks: ' + disks.join(', ') + '\n\nWill clear temp, cache and kill junk background processes. Cannot be undone.')) return;
-    if (!RS.supa) { rToast('Supabase not ready', 'error'); return; }
-    var user = RS.currentUser;
-    RS.supa.from('commands').insert({
-      target_machine: hostname,
-      type: 'DISK_CLEANUP',
-      status: 'PENDING',
-      payload: { disks: disks },
-      created_at: new Date().toISOString(),
-      created_by: user ? user.email : 'admin'
-    }).then(function () {
-      rCmdFeedback('Disk Clean Up sent to ' + hostname + ' — ' + disks.join(', '));
-      var menu = $r('dd-disk-menu');
-      if (menu) menu.style.display = 'none';
-    }).catch(function (e) { rToast('Error: ' + (e.message || e), 'error'); });
+    rDiskCleanModal(hostname, disks);
   };
 
   // ── End Device Health ──────────────────────────────────────────────────
@@ -4883,7 +4985,7 @@
           var isFixed = e.fix_status === 'fixed';
           return '<tr>' +
             '<td>' + fmtTs(e.created_at || e.first_seen) + '</td>' +
-            '<td><span class="r-badge r-badge-purple">' + esc(e.app_name || '—') + '</span></td>' +
+            '<td><span class="r-badge r-badge-app ' + _appBadge(e.app_name) + '">' + esc(_appLabel(e.app_name) || '—') + '</span></td>' +
             '<td><span class="r-badge ' + errBadge(e.error_type) + '">' + esc(e.error_type || 'error') + '</span></td>' +
             '<td class="r-cell-trunc">' + esc(e.message || e.error_msg || '—') + '</td>' +
             '<td>' + fmtTs(e.last_seen) + '</td>' +
@@ -6826,7 +6928,7 @@
         '<td>' + _fmtDate(g.end) + '</td>' +
         (showMachine ? '<td class="r-font-mono" style="font-size:11px">' + esc(g.machine || '—') + '</td>' : '') +
         (showBranch ? '<td class="r-font-mono" style="font-size:11px">' + esc(_branchName(g.branch)) + '</td>' : '') +
-        '<td><span class="r-badge r-badge-purple">' + esc((/^fv.branch$/i.test(g.app || '') ? 'Renamer FV' : g.app) || '—') + '</span></td>' +
+        '<td><span class="r-badge r-badge-app ' + _appBadge(g.app) + '">' + esc(_appLabel(g.app) || '—') + '</span></td>' +
         '<td class="r-font-mono">' + _fmtTime(g.start) + '</td>' +
         '<td class="r-font-mono">' + _fmtTime(g.end) + '</td>' +
         '<td>' + (totalDocs > 0 ? totalDocs : g.allProcessing ? 'running…' : '—') + '</td>' +
@@ -6889,7 +6991,7 @@
       }
       var oldBtn = box.querySelector('.r-log-loadmore');
       if (oldBtn) oldBtn.remove();
-      if (data.length >= 500) {
+      if (data.length >= 10000) {
         var oldest = null;
         data.forEach(function (d) { if (d.timestamp && (!oldest || d.timestamp < oldest)) oldest = d.timestamp; });
         if (oldest) {
@@ -6909,7 +7011,7 @@
       var q = RS.supa.from('logs').select('*')
         .order('timestamp', { ascending: false })
         .lt('timestamp', _loadMoreCursor)
-        .limit(500);
+        .limit(2000);
       if (hostname) q = q.eq('machine', hostname);
       if (appName) q = q.eq('app_name', appName);
       q.then(function (res) {
@@ -6926,7 +7028,7 @@
     // Full 3-pass Supabase fetch; calls onDone(mergedArray) or onError(err)
     function _fetchFull(onDone, onError) {
       var q = RS.supa.from('logs').select('*')
-        .order('timestamp', { ascending: false }).limit(500);
+        .order('timestamp', { ascending: false }).limit(10000);
       if (dateVal) {
         q = q.gte('timestamp', dateVal + 'T00:00:00').lte('timestamp', dateVal + 'T23:59:59');
       }
@@ -9120,16 +9222,24 @@
   window.rCancelDeviceOverride = function (hostname) {
     if (!_canWrite()) { rToast('Read-only', 'warn'); return; }
     if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
-    if (!confirm('Cancel targeted release override for ' + hostname + '?\n\nDevice will revert to following the global release.')) return;
-    RS.supa.from('device_releases')
-      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-      .eq('hostname', hostname)
-      .eq('status', 'pending')
-      .then(function (res) {
-        if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
-        rToast('Override cancelled for ' + hostname, 'success');
-        rRefreshFleetStatus();
-      }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
+    rPrompt({
+      title: 'CANCEL OVERRIDE — ' + hostname,
+      label: 'Device will revert to following the global release.',
+      icon: 'fa-circle-xmark',
+      confirmText: 'Cancel Override',
+      hideInput: true,
+      onConfirm: function () {
+        RS.supa.from('device_releases')
+          .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+          .eq('hostname', hostname)
+          .eq('status', 'pending')
+          .then(function (res) {
+            if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
+            rToast('Override cancelled for ' + hostname, 'success');
+            rRefreshFleetStatus();
+          }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
+      }
+    });
   };
 
   // ── Compress image to 150x150 JPEG base64 ─────────────────────
@@ -9270,14 +9380,22 @@
 
   window.rRemove2FA = function () {
     if (!window._r2faFactorId || !RS.supa) { rToast('No 2FA factor found', 'warn'); return; }
-    if (!confirm('Disable 2FA? You will only need your password to log in.')) return;
-    RS.supa.auth.mfa.unenroll({ factorId: window._r2faFactorId })
-      .then(function (res) {
-        if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
-        rToast('2FA disabled.', 'success');
-        window._r2faFactorId = null;
-        window.rLoad2FAStatus();
-      }).catch(function (e) { rToast('Error: ' + e.message, 'error'); });
+    rPrompt({
+      title: 'DISABLE 2FA',
+      label: 'You will only need your password to log in.',
+      icon: 'fa-lock-open',
+      confirmText: 'Disable 2FA',
+      hideInput: true,
+      onConfirm: function () {
+        RS.supa.auth.mfa.unenroll({ factorId: window._r2faFactorId })
+          .then(function (res) {
+            if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
+            rToast('2FA disabled.', 'success');
+            window._r2faFactorId = null;
+            window.rLoad2FAStatus();
+          }).catch(function (e) { rToast('Error: ' + e.message, 'error'); });
+      }
+    });
   };
 
   // ── Open profile modal (called from inline onclick) ────────────
