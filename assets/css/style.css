@@ -1,4 +1,4 @@
-﻿/* ============================================
+/* ============================================
    RASUMI GROUP â€” BASE COMPONENT STYLES
    No :root variables (see themes.css)
    No @media queries (see responsive.css)
@@ -580,7 +580,7 @@ footer {
 .footer-bottom-content {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     flex-wrap: wrap;
     gap: 1.5rem;
 }
@@ -598,6 +598,63 @@ footer {
 
 .footer-legal-links a:hover {
     color: var(--secondary);
+}
+
+.visitor-counter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    width: fit-content;
+    margin: 0 0 0.75rem auto;
+    padding: 0.1rem 1rem;
+    border-radius: 999px;
+    background: rgba(240, 98, 146, 0.08);
+    border: 1px solid rgba(240, 98, 146, 0.25);
+    color: #cbd5e1;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+}
+
+.visitor-counter-dot {
+    position: relative;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+}
+
+.visitor-counter-dot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: visitorPulse 2.2s ease-out infinite;
+}
+
+@keyframes visitorPulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.6;
+    }
+
+    100% {
+        transform: scale(2.8);
+        opacity: 0;
+    }
+}
+
+.visitor-counter i {
+    color: var(--accent);
+    font-size: 0.8rem;
+}
+
+.visitor-counter strong {
+    color: var(--white);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
 }
 
 /* Team Section */
@@ -1419,6 +1476,7 @@ input:checked+.slider .moon-icon {
 
 .input-wrapper textarea {
     resize: none;
+    height: 150px;
 }
 
 [data-theme="dark"] .input-wrapper input,
@@ -1524,6 +1582,7 @@ input:checked+.slider .moon-icon {
     background: rgba(248, 113, 113, 0.08);
     border-color: rgba(248, 113, 113, 0.2);
 }
+
 /* === IMAGE PROTECTION === */
 img {
     -webkit-user-select: none;
@@ -1537,6 +1596,9 @@ img {
 }
 
 /* Re-enable pointer events for clickable images */
-a img, .logo img, .nav-cta img, label img {
+a img,
+.logo img,
+.nav-cta img,
+label img {
     pointer-events: auto;
 }

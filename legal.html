@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="assets/css/themes.css">
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/responsive.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800;900&display=swap" rel="stylesheet">
@@ -133,7 +133,7 @@
         }
     </style>
     <!-- SECURITY HEADERS (Meta Tag Equivalents) -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: https://*; frame-src https://www.google.com https://maps.google.com; connect-src 'self' https://api.web3forms.com; base-uri 'self'; form-action 'self' https://api.web3forms.com;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; img-src 'self' data: https://*; frame-src https://www.google.com https://maps.google.com; connect-src 'self' https://api.web3forms.com https://firestore.googleapis.com; base-uri 'self'; form-action 'self' https://api.web3forms.com;">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-Frame-Options" content="DENY">
@@ -405,6 +405,12 @@
                     </div>
                 </div>
             </div>
+            <div class="visitor-counter" id="visitorCounter" aria-live="polite">
+                <span class="visitor-counter-dot" aria-hidden="true"></span>
+                <i class="fas fa-users" aria-hidden="true"></i>
+                <span class="visitor-counter-label">Total Visitors:</span>
+                <strong id="visitorCounterValue">—</strong>
+            </div>
             <div class="footer-bottom">
                 <div class="footer-bottom-content">
                     <span>&copy; 2026 Rasumi Group | Rasumi Medipharma Sdn Bhd (200601008209 / 727958-A)<br>All Rights Reserved.</span>
@@ -420,6 +426,12 @@
     </div>
 
     <script src="assets/js/main.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="config/firebase-visitor-config.js"></script>
+    <script src="assets/js/visitor-counter.js"></script>
+
     <script>
         function filterLegalSections() {
             const hash = window.location.hash;

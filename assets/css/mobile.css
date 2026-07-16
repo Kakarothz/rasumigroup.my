@@ -1282,6 +1282,62 @@ footer.m-section {
     text-decoration: underline;
 }
 
+.visitor-counter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: fit-content;
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(240, 98, 146, 0.08);
+    border: 1px solid rgba(240, 98, 146, 0.25);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+}
+
+.visitor-counter-dot {
+    position: relative;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+}
+
+.visitor-counter-dot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: visitorPulse 2.2s ease-out infinite;
+}
+
+@keyframes visitorPulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.6;
+    }
+
+    100% {
+        transform: scale(2.8);
+        opacity: 0;
+    }
+}
+
+.visitor-counter i {
+    color: var(--accent);
+    font-size: 0.72rem;
+}
+
+.visitor-counter strong {
+    color: var(--white);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
 /* === DARK MODE OVERRIDES === */
 [data-theme="dark"] .management,
 [data-theme="dark"] .about {
