@@ -8816,8 +8816,13 @@
       var branchBadge = branch.id
         ? '<span style="font-size:9px;font-weight:600;color:var(--cyan);background:rgba(0,224,255,0.08);border:1px solid rgba(0,224,255,0.2);border-radius:4px;padding:1px 5px;flex-shrink:0">' + esc(branch.label) + '</span>'
         : '';
-      return '<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--rc-border)">' +
-        '<input type="checkbox" class="tr-dev-check" value="' + esc(hostname) + '" onchange="rUpdateTargetCount()">' +
+      var sel = (window._trSelected || {})[hostname];
+      var rowStyle = 'display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--rc-border);cursor:pointer;user-select:none' + (sel ? ';background:rgba(124,58,237,0.13);border-left:3px solid var(--r-accent,#7c3aed)' : ';padding-left:14px');
+      var icon = sel
+        ? '<i class="fa-solid fa-circle-check" style="color:var(--r-accent,#7c3aed);font-size:13px;flex-shrink:0"></i>'
+        : '<i class="fa-regular fa-circle" style="color:rgba(255,255,255,0.2);font-size:13px;flex-shrink:0"></i>';
+      return '<div data-hostname="' + esc(hostname) + '" style="' + rowStyle + '" onclick="rToggleTargetDevice(event,\'' + esc(hostname) + '\')">' +
+        icon +
         '<span style="flex:1;font-family:monospace;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(hostname) + '</span>' +
         branchBadge +
         '<span class="r-badge ' + (online ? 'r-badge-ok' : 'r-badge-err') + '" style="font-size:9px;padding:1px 6px;flex-shrink:0">' + (online ? 'online' : 'offline') + '</span>' +
@@ -8831,12 +8836,26 @@
   window.rFilterTargetDevices = function () { rRenderTargetDeviceTable(); };
 
   window.rSelectAllTargetDevices = function (select) {
-    document.querySelectorAll('.tr-dev-check').forEach(function (el) { el.checked = select; });
-    rUpdateTargetCount();
+    if (!window._trSelected) window._trSelected = {};
+    document.querySelectorAll('#tr-device-table [data-hostname]').forEach(function (row) {
+      var h = row.getAttribute('data-hostname');
+      if (!h) return;
+      if (select) window._trSelected[h] = true;
+      else delete window._trSelected[h];
+    });
+    rRenderTargetDeviceTable();
   };
 
   window.rUpdateTargetCount = function () {
-    var count = document.querySelectorAll('.tr-dev-check:checked').length;
+    var count = Object.keys(window._trSelected || {}).length;
+
+  window.rToggleTargetDevice = function (e, hostname) {
+    if (e) e.stopPropagation();
+    if (!window._trSelected) window._trSelected = {};
+    if (window._trSelected[hostname]) delete window._trSelected[hostname];
+    else window._trSelected[hostname] = true;
+    rRenderTargetDeviceTable();
+  };
     var el = document.getElementById('tr-selected-count');
     if (el) el.textContent = count > 0 ? count + ' device' + (count === 1 ? '' : 's') + ' selected' : 'Select devices…';
   };
@@ -9008,7 +9027,7 @@
     if (!version) { rToast('Enter target version (e.g. 10.5)', 'warn'); return; }
     if (!/^\d+\.\d+$/.test(version)) { rToast('Version format must be numeric: 10.5, 9.8 …', 'warn'); return; }
 
-    var checked = Array.from(document.querySelectorAll('.tr-dev-check:checked')).map(function (el) { return el.value; });
+    var checked = Object.keys(window._trSelected || {});
     if (!checked.length) { rToast('Select at least one device', 'warn'); return; }
 
     var user = RS.currentUser;
@@ -9120,10 +9139,10 @@
         : '<span class="r-muted-sm" style="opacity:0.4">global</span>';
 
       var statusCell;
-      if (!ov) {
-        statusCell = isLatest
-          ? '<span class="r-badge r-badge-ok">Up to date</span>'
-          : '<span class="r-badge r-badge-muted">Global</span>';
+      if (isLatest && (!ov || ov.status === 'installed' || ov.status === 'cancelled')) {
+        statusCell = '<span class="r-badge r-badge-ok">Up to date</span>';
+      } else if (!ov) {
+        statusCell = '<span class="r-badge r-badge-muted">Global</span>';
       } else if (ov.status === 'installed' && curVer === ov.target_version) {
         statusCell = '<span class="r-badge r-badge-ok"><i class="fa-solid fa-check"></i> Installed</span>';
       } else if (ov.status === 'installed') {
@@ -9141,8 +9160,11 @@
       }
 
       var canCancel = ov && ov.status === 'pending' && _canWrite();
+      var canClear  = ov && ov.status === 'installed' && !isLatest && _canWrite();
       var actionCell = canCancel
         ? '<button class="r-btn-sm" style="padding:2px 8px;font-size:10px" onclick="rCancelDeviceOverride(\'' + esc(hostname) + '\')">Cancel</button>'
+        : canClear
+        ? '<button class="r-btn-sm" style="padding:2px 8px;font-size:10px" onclick="rClearDeviceOverride(\'' + esc(hostname) + '\')">Clear Override</button>'
         : '<span style="opacity:0.3;font-size:10px">—</span>';
 
       return '<tr>' +
@@ -9240,6 +9262,20 @@
           }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
       }
     });
+  };
+
+  window.rClearDeviceOverride = function (hostname) {
+    if (!_canWrite()) { rToast('Read-only', 'warn'); return; }
+    if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
+    RS.supa.from('device_releases')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('hostname', hostname)
+      .eq('status', 'installed')
+      .then(function (res) {
+        if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
+        rToast('Override cleared for ' + hostname, 'success');
+        rRefreshFleetStatus();
+      }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
   };
 
   // ── Compress image to 150x150 JPEG base64 ─────────────────────
