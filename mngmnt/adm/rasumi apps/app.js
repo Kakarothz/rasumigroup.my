@@ -5112,6 +5112,67 @@
       .catch(function () { if (onDone) onDone([]); });
   }
 
+  // ── VIBES: true claim-row totals (persisted) ─────────────────────
+  // The `logs` table only records COMPLETED/FAILED per invoice the bot
+  // actually attempted to push — it never stores "N rows found matching
+  // local folder" (the real portal-scan total). That number IS captured
+  // once, though: when a claim finishes with unfinished rows, the Rust
+  // agent emits a batch_incomplete / batch_incomplete_no_file row to
+  // vibes_errors with detail.total_rows + detail.uploaded.
+  //
+  // vibes_errors is subject to a server-side pg_cron TTL cleanup, so it
+  // isn't a safe long-term source — once purged, the total is lost.
+  // `vibes_claim_totals` is a small dedicated table with no TTL: the
+  // first time a claim's total is seen in vibes_errors, we write it here
+  // permanently, then always prefer reading from here afterward. Clear/
+  // Fix-ing the Error Monitor entry never affects this (soft-update only,
+  // doesn't touch vibes_claim_totals).
+  function _fetchVibesClaimTotalsMap(onDone) {
+    if (!RS.supa) { if (onDone) onDone({}); return; }
+    Promise.all([
+      RS.supa.from('vibes_claim_totals').select('*'),
+      RS.supa.from('vibes_errors').select('*')
+        .in('error_type', ['batch_incomplete', 'batch_incomplete_no_file'])
+        .order('timestamp', { ascending: false })
+        .limit(2000)
+    ]).then(function (results) {
+      var persistedRes = results[0], errRes = results[1];
+      var map = {};
+      (persistedRes.data || []).forEach(function (row) {
+        var key = row.tuntutan_no + '|' + row.claim_date;
+        map[key] = { total: row.total_rows, uploaded: row.uploaded };
+      });
+
+      // Anything found in vibes_errors that isn't persisted yet → cache it
+      // for this render AND queue a write so it survives future TTL purges.
+      var toUpsert = [];
+      (errRes.data || []).forEach(function (e) {
+        var tNo = e.patient_ic || e.tuntutan_no;
+        if (!tNo) return;
+        var det = e.detail || {};
+        if (typeof det === 'string') { try { det = JSON.parse(det); } catch (x) { det = {}; } }
+        if (det.total_rows == null) return;
+        var dateKey = (e.timestamp || '').substring(0, 10);
+        var key = tNo + '|' + dateKey;
+        if (map[key]) return; // already persisted — nothing to do
+        map[key] = { total: det.total_rows, uploaded: det.uploaded };
+        toUpsert.push({
+          tuntutan_no: tNo, claim_date: dateKey,
+          total_rows: det.total_rows, uploaded: det.uploaded
+        });
+      });
+
+      if (toUpsert.length) {
+        RS.supa.from('vibes_claim_totals')
+          .upsert(toUpsert, { onConflict: 'tuntutan_no,claim_date' })
+          .then(function () { })
+          .catch(function () { }); // best-effort — next load will retry
+      }
+
+      if (onDone) onDone(map);
+    }).catch(function () { if (onDone) onDone({}); });
+  }
+
   // ── RENAMER TRACE ──────────────────────────────────────────
   function renderRenamer() {
     var devOpts = Object.keys(RS.devices).map(function (h) { return '<option value="' + esc(h) + '">' + esc(h) + '</option>'; }).join('');
@@ -5291,9 +5352,9 @@
     if (!box) return;
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
 
-    function _render(data) {
+    function _render(data, incompleteMap) {
       var d = machine ? data.filter(function (l) { return l.machine === machine; }) : data;
-      _processAndRenderLogs(d, box, statusFilter, 'global');
+      _processAndRenderLogs(d, box, statusFilter, 'global', incompleteMap);
       // Constrain to ~10 rows with sticky header + scroll
       var tw = box.querySelector('.r-table-wrap');
       if (tw) {
@@ -5309,14 +5370,23 @@
     }
 
     var cached = (window._rsLogCache || {})['VIBES'];
-    if (cached) {
-      _render(cached.data);
+    var cachedMap = window._rsVibesClaimTotalsMap;
+    if (cached && cachedMap) {
+      _render(cached.data, cachedMap);
       _fetchAndCacheAppLogs('VIBES', function (fresh) {
-        if ($r('r-vact-results') === box) _render(fresh);
+        _fetchVibesClaimTotalsMap(function (freshMap) {
+          window._rsVibesClaimTotalsMap = freshMap;
+          if ($r('r-vact-results') === box) _render(fresh, freshMap);
+        });
       });
     } else {
       box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
-      _fetchAndCacheAppLogs('VIBES', _render);
+      _fetchAndCacheAppLogs('VIBES', function (fresh) {
+        _fetchVibesClaimTotalsMap(function (freshMap) {
+          window._rsVibesClaimTotalsMap = freshMap;
+          _render(fresh, freshMap);
+        });
+      });
     }
   };
 
@@ -6476,9 +6546,13 @@
   };
 
   // ── Shared session renderer — used by Log Explorer + per-app log tabs ──
-  function _processAndRenderLogs(data, box, statusFilter, context) {
+  function _processAndRenderLogs(data, box, statusFilter, context, incompleteMap) {
     // context: 'global' (Log Explorer) → show Machine + Branch
     //          'device' or undefined   → hide Machine (already known), hide Branch
+    // incompleteMap: optional, VIBES only — tuntutan_no+date -> {total, uploaded},
+    // persisted in vibes_claim_totals (see _fetchVibesClaimTotalsMap for why
+    // this can't come from `logs` alone, or safely from vibes_errors long-term).
+    incompleteMap = incompleteMap || {};
     var showMachine = context === 'global';
     var showBranch = context === 'global';
     if (!data.length) { box.innerHTML = '<div class="r-empty">No logs match</div>'; return; }
@@ -6488,11 +6562,18 @@
     var gOrder = [];
     data.forEach(function (log) {
       // Use job_group_id if present; fallback: machine+app+branch+hour bucket
-      var gid = log.job_group_id ||
+      var baseGid = log.job_group_id ||
         ((log.machine || '') + '|' + (log.app_name || '') + '|' + (log.branch_id || '') + '|' + (log.timestamp || '').substring(0, 13));
+      // Never merge activity from different calendar dates into one session,
+      // even when job_group_id is identical (e.g. a claim retried days apart
+      // keeps the same job_group_id). Date is appended only to the grouping
+      // KEY, not to g.gid itself, so Job ID display / vibesRunId lookups
+      // (which key off g.gid) are unaffected.
+      var logDate = (log.timestamp || '').substring(0, 10);
+      var gid = baseGid + '|' + logDate;
       if (!groups[gid]) {
         groups[gid] = {
-          gid: gid, logs: [], start: null, end: null,
+          gid: baseGid, logs: [], start: null, end: null,
           machine: log.machine, app: log.app_name,
           branch: log.branch_id || (RS._devBranchMap && RS._devBranchMap[(log.machine || '').toLowerCase()]) || null,
           hasFail: false, hasCancelled: false, allProcessing: true
@@ -6605,13 +6686,51 @@
       var sessionSt = g._st || 'COMPLETED'; // pre-computed above
       var gKey = 'g' + idx;
 
+      var isVibes = (g.app || '').toUpperCase() === 'VIBES';
+
+      // For VIBES, group logs by tuntutan_no once — reused both for the FILES
+      // total below and for the per-claim detail tables further down.
+      var _vibesByTno = {}, _vibesTnoOrder = [];
+      if (isVibes) {
+        g.logs.forEach(function (l) {
+          var tNo = (l.job_info && l.job_info.tuntutan_no) || '—';
+          if (!_vibesByTno[tNo]) { _vibesByTno[tNo] = []; _vibesTnoOrder.push(tNo); }
+          _vibesByTno[tNo].push(l);
+        });
+      }
+
       // For VIBES sessions, doc count comes from job_info.doc_count (1 log = 1 batch summary).
       // For FV Branch / renamer: prefer total_files from FINISH log (accurate even when
       // FAILED log entries are absent from Supabase), then fall back to counting log rows.
-      var isVibes = (g.app || '').toUpperCase() === 'VIBES';
-      var totalDocs = isVibes && g.logs.length === 1 && g.logs[0].job_info && g.logs[0].job_info.doc_count
-        ? g.logs[0].job_info.doc_count
-        : (g._totalFiles != null ? g._totalFiles : completedLogs.length + failedLogs.length);
+      var totalDocs, totalUploaded;
+      if (isVibes && g.logs.length === 1 && g.logs[0].job_info && g.logs[0].job_info.doc_count) {
+        totalDocs = g.logs[0].job_info.doc_count;
+        totalUploaded = totalDocs;
+      } else if (isVibes && _vibesTnoOrder.length) {
+        // Sum accurate per-claim totals. `logs` only has rows the bot actually
+        // attempted (COMPLETED/FAILED) — it never records "N rows found
+        // matching local folder", the real portal-scan count. That number
+        // IS captured though, in vibes_errors.detail.total_rows whenever a
+        // claim finishes with unfinished rows (batch_incomplete report).
+        // Use it when available; otherwise every logged row for the claim
+        // is accounted for (nothing left unfinished), so logged count IS
+        // the true total.
+        totalDocs = 0; totalUploaded = 0;
+        _vibesTnoOrder.forEach(function (tNo) {
+          var invLogs = _vibesByTno[tNo];
+          var loggedUploaded = invLogs.filter(function (l) {
+            var st = (l.status || '').toUpperCase();
+            return st !== 'FAILED' && st !== 'ERROR';
+          }).length;
+          var dateKey = invLogs.reduce(function (m, l) { return (l.timestamp || '') > m ? (l.timestamp || '') : m; }, '').substring(0, 10);
+          var rep = incompleteMap[tNo + '|' + dateKey];
+          totalDocs += rep ? rep.total : invLogs.length;
+          totalUploaded += (rep && rep.uploaded != null) ? rep.uploaded : loggedUploaded;
+        });
+      } else {
+        totalDocs = g._totalFiles != null ? g._totalFiles : completedLogs.length + failedLogs.length;
+        totalUploaded = totalDocs;
+      }
 
       // Initialise global stores for this render
       if (!window._rErrStore) window._rErrStore = {};
@@ -6623,13 +6742,7 @@
       var detailHtml;
       if (isVibes) {
         // ── VIBES: one log row per invoice, grouped by job_info.tuntutan_no ──
-        var _vibesByTno = {};
-        var _vibesTnoOrder = [];
-        g.logs.forEach(function (l) {
-          var tNo = (l.job_info && l.job_info.tuntutan_no) || '—';
-          if (!_vibesByTno[tNo]) { _vibesByTno[tNo] = []; _vibesTnoOrder.push(tNo); }
-          _vibesByTno[tNo].push(l);
-        });
+        // (_vibesByTno / _vibesTnoOrder already built above for the FILES total)
         if (!_vibesTnoOrder.length) {
           detailHtml = '<div class="r-empty" style="padding:8px">No invoice data in this batch</div>';
         } else {
@@ -6931,7 +7044,12 @@
         '<td><span class="r-badge r-badge-app ' + _appBadge(g.app) + '">' + esc(_appLabel(g.app) || '—') + '</span></td>' +
         '<td class="r-font-mono">' + _fmtTime(g.start) + '</td>' +
         '<td class="r-font-mono">' + _fmtTime(g.end) + '</td>' +
-        '<td>' + (totalDocs > 0 ? totalDocs : g.allProcessing ? 'running…' : '—') + '</td>' +
+        '<td>' + (totalDocs > 0
+          ? (isVibes ? totalUploaded + '/' + totalDocs : totalDocs) +
+            (isVibes && _vibesTnoOrder.length > 1
+              ? ' <span class="r-muted-sm">(' + _vibesTnoOrder.length + ' tuntutan)</span>'
+              : '')
+          : g.allProcessing ? 'running…' : '—') + '</td>' +
         '<td>' + (isVibes
           ? _fmtSecDur(g.logs.reduce(function (s, l) { return s + (l.duration != null ? parseFloat(l.duration) : 0); }, 0))
           : _fmtDur(g.start, g.end)) + '</td>' +
@@ -8344,10 +8462,12 @@
 
         // LEFT column — current version + smtp
         '<div style="background:var(--rc-bg2);border-radius:8px;padding:16px">' +
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">' +
         '<span style="font-size:9px;font-weight:600;color:var(--rc-text-dim);text-transform:uppercase;letter-spacing:0.08em">version</span>' +
-        '<div style="display:flex;align-items:center;gap:10px;margin:4px 0 6px">' +
-        '<span style="font-size:60px;font-weight:700;color:var(--cyan);line-height:1">' + esc(curVer) + '</span>' +
         statusBadge +
+        '</div>' +
+        '<div style="margin:2px 0 6px">' +
+        '<span style="font-size:60px;font-weight:700;color:var(--cyan);line-height:1">' + esc(curVer) + '</span>' +
         '</div>' +
         '<div class="r-muted-sm">Released by: <b id="r-released-by-txt">' + esc(curBy) + '</b></div>' +
         '<div class="r-muted-sm">' + esc(curTime) + '</div>' +
