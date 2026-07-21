@@ -5553,55 +5553,189 @@
           var devOpen = _isNoFile ? 0 : devRows.filter(function (e) { return !e.resolved; }).length;
           var devKey2 = (etKey + '_' + host).replace(/[^a-z0-9]/gi, '_');
 
-          // Detail table rows
-          var detailRows = devRows.map(function (e) {
-            var batch = e.run_id || '—';
-            var batchShort = batch.length > 24 ? batch.substring(0, 24) + '…' : batch;
+          // ── Level 3: group this device's rows by claim (No. Tuntutan) ──
+          // Repeated same-claim/same-message rows (e.g. 28 consecutive
+          // portal-timeout hits on one claim) are almost always ONE
+          // underlying incident, not 28 independent failures. Collapse
+          // them under one claim header with a scoped "Fix All" instead
+          // of a flat wall of near-identical rows.
+          var claimMap = {}, claimOrder = [];
+          devRows.forEach(function (e) {
+            var cNo = e.patient_ic || e.tuntutan_no || '—';
+            if (!claimMap[cNo]) { claimMap[cNo] = []; claimOrder.push(cNo); }
+            claimMap[cNo].push(e);
+          });
+
+          // Best-effort invoice number for one row — column first, then detail
+          // JSON, then parsed off the "Row {invoice} — ..." message prefix
+          // (save_timeout_portal_lag messages are formatted that way).
+          function _rowInvoice(e) {
+            if (e.invoice_no) return e.invoice_no;
             var det = {};
             try { det = typeof e.detail === 'string' ? JSON.parse(e.detail) : (e.detail || {}); } catch (x) { }
-            var _errTno = e.patient_ic || e.tuntutan_no;
-            var batchDisplay = (_errTno && _tnoJobMap[_errTno]) || det.batch_no || batchShort;
-            var _rowExpected = _isNoFile && !e.resolved;
-            return '<tr style="border-top:1px solid rgba(255,255,255,0.03)' + (_rowExpected ? ';opacity:0.55' : '') + '">' +
-              '<td style="padding:3px 8px;color:var(--text-muted);font-size:10px;white-space:nowrap;width:108px">' + fmtTs(e.timestamp) + '</td>' +
-              '<td style="padding:3px 8px;font-size:11px;font-family:monospace;color:var(--neon-cyan,#22d3ee);width:130px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(e.patient_ic || e.tuntutan_no || '—') + '</td>' +
-              '<td style="padding:3px 8px;font-size:10px;color:var(--text-muted);font-family:monospace;width:140px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(batchDisplay) + '</td>' +
-              '<td style="padding:3px 8px;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(e.message || '') + '">' + esc(e.message || '—') + '</td>' +
-              '<td style="padding:3px 8px"><span class="r-badge ' + (_rowExpected ? 'r-badge-muted' : e.resolved ? 'r-badge-ok' : 'r-badge-err') + '" style="font-size:9px">' + (_rowExpected ? 'EXPECTED' : e.resolved ? 'FIXED' : 'OPEN') + '</span></td>' +
-              '<td style="padding:3px 8px;text-align:right">' + (_rowExpected
+            if (det.invoice_no) return det.invoice_no;
+            var m = (e.message || '').match(/^Row\s+(\S+)/i);
+            return m ? m[1] : null;
+          }
+
+          var claimBlocks = claimOrder.map(function (cNo) {
+            var cRows = claimMap[cNo];
+            var cOpenIds = cRows.filter(function (e) { return !e.resolved; }).map(function (e) { return String(e.id); });
+            var cKey = (devKey2 + '_' + cNo).replace(/[^a-z0-9]/gi, '_');
+            var det0 = {};
+            try { det0 = typeof cRows[0].detail === 'string' ? JSON.parse(cRows[0].detail) : (cRows[0].detail || {}); } catch (x) { }
+            var batch0 = _tnoJobMap[cNo] || det0.batch_no || cRows[0].run_id || '—';
+            var batch0Short = String(batch0).length > 24 ? String(batch0).substring(0, 24) + '…' : batch0;
+
+            // All rows in a claim group share the same message TEMPLATE — only
+            // the invoice number differs ("Row {invoice} — Kemaskini Invois
+            // save timed out..."). Strip that per-row prefix once and show the
+            // shared text a single time in the group header instead of
+            // repeating it identically on every row in the expanded table.
+            var latestTs = cRows.reduce(function (m, e) { return (e.timestamp || '') > m ? e.timestamp : m; }, '');
+            var groupDate = '—';
+            if (latestTs) {
+              var _gd = new Date(latestTs);
+              if (!isNaN(_gd)) groupDate = String(_gd.getDate()).padStart(2, '0') + '/' + String(_gd.getMonth() + 1).padStart(2, '0') + '/' + _gd.getFullYear();
+            }
+            var sharedDetails = (cRows[0].message || '').replace(/^Row\s+\S+\s*—\s*/i, '');
+
+            // batch_incomplete / batch_incomplete_no_file are claim-level
+            // aggregate events (one row = one whole batch run), not per-invoice
+            // events like save_timeout_portal_lag. They never carry
+            // bil/invoice_no/military_info/patient_name — that data simply
+            // doesn't exist at this granularity. Rather than show those columns
+            // full of '—', swap in the aggregate fields the detail JSON DOES
+            // carry (uploaded/still_unfinished/total_rows/skipped_no_folder),
+            // keeping the exact same table chrome/styling so it still reads as
+            // "the same kind of table" across error types.
+            var _isBatchAgg = (etype === 'batch_incomplete' || etype === 'batch_incomplete_no_file');
+
+            var rowsHtml = cRows.map(function (e) {
+              var _rowExpected = _isNoFile && !e.resolved;
+              var det = {};
+              try { det = typeof e.detail === 'string' ? JSON.parse(e.detail) : (e.detail || {}); } catch (x) { }
+              var statusCell = '<td style="padding:3px 8px"><span class="r-badge ' + (_rowExpected ? 'r-badge-muted' : e.resolved ? 'r-badge-ok' : 'r-badge-err') + '" style="font-size:9px">' + (_rowExpected ? 'EXPECTED' : e.resolved ? 'FIXED' : 'OPEN') + '</span></td>';
+              var actionCell = '<td style="padding:3px 8px;text-align:right;width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (_rowExpected
                 ? '<span style="opacity:0.3;font-size:10px">—</span>'
                 : !e.resolved
                   ? '<button class="r-btn-sm" style="font-size:10px" onclick="rOpenFix(\'' + esc(String(e.id)) + '\',\'' + esc(e._host) + '\',\'vibes_errors\')">Fix</button>'
-                  : '<span class="r-muted-sm" style="font-size:10px" title="' + esc(e.fix_note || '') + '">' + esc((e.fix_note || '✓').substring(0, 20)) + '</span>') +
-              '</td></tr>';
+                  : '<span class="r-muted-sm" style="font-size:10px" title="' + esc(e.fix_note || '') + '">' + esc((e.fix_note || '✓').substring(0, 60)) + '</span>') +
+                '</td>';
+
+              if (_isBatchAgg) {
+                var upVal = det.uploaded != null ? det.uploaded : '—';
+                var unfinVal = det.still_unfinished != null ? det.still_unfinished : '—';
+                var totalVal = det.total_rows != null ? det.total_rows : '—';
+                var skipVal = det.skipped_no_folder != null ? det.skipped_no_folder : '—';
+                return '<tr style="border-top:1px solid rgba(255,255,255,0.03)' + (_rowExpected ? ';opacity:0.55' : '') + '">' +
+                  '<td style="padding:3px 8px;color:var(--text-muted);font-size:10px;white-space:nowrap;width:70px">' + _fmtTime(e.timestamp) + '</td>' +
+                  '<td style="padding:3px 8px;font-size:11px;font-family:monospace">' + esc(String(upVal)) + '</td>' +
+                  '<td style="padding:3px 8px;font-size:11px;font-family:monospace">' + esc(String(unfinVal)) + '</td>' +
+                  '<td style="padding:3px 8px;font-size:11px;font-family:monospace">' + esc(String(totalVal)) + '</td>' +
+                  '<td style="padding:3px 8px;font-size:11px;font-family:monospace">' + esc(String(skipVal)) + '</td>' +
+                  statusCell + actionCell + '</tr>';
+              }
+
+              // bil / military_info / patient_name only exist on rows logged by
+              // an agent build that captures them (see vibes_agent.rs). Older
+              // rows simply show '—' for these — no backfill possible.
+              var inv = _rowInvoice(e) || '—';
+              var bilVal = det.bil != null ? det.bil : '—';
+              var armyId = det.military_info || '—';
+              var patientNm = det.patient_name || '—';
+              return '<tr style="border-top:1px solid rgba(255,255,255,0.03)' + (_rowExpected ? ';opacity:0.55' : '') + '">' +
+                '<td style="padding:3px 8px;color:var(--text-muted);font-size:10px;white-space:nowrap;width:70px">' + _fmtTime(e.timestamp) + '</td>' +
+                '<td style="padding:3px 8px;font-size:11px;font-family:monospace;width:40px">' + esc(String(bilVal)) + '</td>' +
+                '<td style="padding:3px 8px;font-size:11px;font-family:monospace;width:80px">' + esc(inv) + '</td>' +
+                '<td style="padding:3px 8px;font-size:11px;font-family:monospace;white-space:nowrap">' + esc(armyId) + '</td>' +
+                '<td style="padding:3px 8px;font-size:11px">' + esc(patientNm) + '</td>' +
+                statusCell + actionCell + '</tr>';
+            }).join('');
+
+            return '<div style="padding:5px 8px;background:rgba(255,255,255,0.02);border-radius:4px;margin-bottom:3px;cursor:pointer" ' +
+              'onclick="(function(el){var d=document.getElementById(\'vcgd-' + cKey + '\');var o=d.style.display!==\'none\';d.style.display=o?\'none\':\'\';var a=el.querySelector(\'.vcg-arr\');if(a)a.textContent=o?\'▼\':\'▲\';})(this)">' +
+              '<div style="display:flex;align-items:center;gap:10px;font-size:11px">' +
+              // Left group — claim identity + shared details, free to wrap/grow.
+              '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1;min-width:0">' +
+              '<span style="color:var(--text-muted)">No. Tuntutan:</span>' +
+              '<span style="font-family:monospace;color:var(--neon-cyan,#22d3ee)">' + esc(cNo) + '</span>' +
+              '<span style="color:rgba(255,255,255,0.2)">|</span>' +
+              '<span style="color:var(--text-muted)">Batch:</span>' +
+              '<span style="font-family:monospace;color:var(--rc-text,#f9fafb)">' + esc(batch0Short) + '</span>' +
+              '<span style="color:rgba(255,255,255,0.2)">|</span>' +
+              '<span style="color:var(--text-muted)">Date:</span>' +
+              '<span style="color:var(--rc-text,#f9fafb)">' + esc(groupDate) + '</span>' +
+              '<span style="color:rgba(255,255,255,0.2)">|</span>' +
+              '<span style="color:var(--text-muted)">Details:</span>' +
+              '<span style="color:var(--rc-text,#f9fafb)" title="' + esc(sharedDetails) + '">' + esc(sharedDetails) + '</span>' +
+              '</div>' +
+              // Right group — status + action, always in the same spot
+              // regardless of how long the left group's text is.
+              '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">' +
+              '<span class="r-badge ' + (cOpenIds.length ? 'r-badge-err' : 'r-badge-ok') + '" style="font-size:9px">' + (cOpenIds.length ? cOpenIds.length + ' OPEN' : 'FIXED') + '</span>' +
+              (cOpenIds.length > 1
+                ? '<button class="r-btn-sm" style="font-size:10px" onclick="event.stopPropagation();rOpenFixGroup(' + JSON.stringify(cOpenIds) + ',\'' + esc(host) + '\',\'' + esc(cNo) + '\')">Fix All ' + cOpenIds.length + '</button>'
+                : '') +
+              '<span class="vcg-arr" style="color:var(--text-muted);font-size:10px">▼</span>' +
+              '</div>' +
+              '</div>' +
+              '</div>' +
+              // NOTE: the claim-header div (clickable, toggles vcgd-<cKey>) is
+              // closed above, BEFORE this detail div opens — they are siblings,
+              // not parent/child. If the detail div were nested inside the
+              // header div, any click landing inside the (now-open) detail
+              // table would bubble up and re-fire the header's own toggle,
+              // instantly collapsing it again (needed 2 clicks to "stick").
+              '<div id="vcgd-' + cKey + '" style="display:none;margin-top:5px">' +
+              '<table style="width:100%;font-size:11px;border-collapse:collapse">' +
+              '<thead><tr style="color:var(--text-muted);font-size:10px;border-bottom:1px solid rgba(255,255,255,0.07)">' +
+              '<th style="text-align:left;padding:2px 8px;font-weight:500;white-space:nowrap;width:70px">Time</th>' +
+              (_isBatchAgg
+                ? '<th style="text-align:left;padding:2px 8px;font-weight:500">Uploaded</th>' +
+                  '<th style="text-align:left;padding:2px 8px;font-weight:500">Unfinished</th>' +
+                  '<th style="text-align:left;padding:2px 8px;font-weight:500">Total Rows</th>' +
+                  '<th style="text-align:left;padding:2px 8px;font-weight:500">Skipped (No Folder)</th>'
+                : '<th style="text-align:left;padding:2px 8px;font-weight:500;width:40px">Row</th>' +
+                  '<th style="text-align:left;padding:2px 8px;font-weight:500;width:80px">Invoice</th>' +
+                  '<th style="text-align:left;padding:2px 8px;font-weight:500">Army ID / MyKad</th>' +
+                  '<th style="text-align:left;padding:2px 8px;font-weight:500">Patients</th>') +
+              '<th style="text-align:left;padding:2px 8px;font-weight:500;width:62px">Status</th>' +
+              '<th style="text-align:left;padding:2px 8px;font-weight:500;width:220px">Action</th>' +
+              '</tr></thead><tbody>' +
+              rowsHtml +
+              '</tbody></table></div>';
           }).join('');
 
           // Device sub-header — clickable (Level 2)
           html +=
             '<div style="padding:5px 8px;background:rgba(255,255,255,0.025);border-radius:4px;margin-bottom:4px;cursor:pointer" ' +
             'onclick="(function(el){var d=document.getElementById(\'vmdd-' + devKey2 + '\');var o=d.style.display!==\'none\';d.style.display=o?\'none\':\'\';var a=el.querySelector(\'.vmd-arr\');if(a)a.textContent=o?\'▼\':\'▲\';})(this)">' +
-            '<div style="display:flex;align-items:center;gap:6px;font-size:11px">' +
+            '<div style="display:flex;align-items:center;gap:10px;font-size:11px">' +
+            '<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">' +
             '<i class="fa-solid fa-server" style="font-size:9px;color:var(--neon-cyan,#22d3ee)"></i>' +
             '<span style="font-family:monospace;color:var(--neon-cyan,#22d3ee);font-weight:600">' + esc(host) + '</span>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">' +
             '<span class="r-badge ' + (devOpen ? 'r-badge-err' : _isNoFile ? 'r-badge-muted' : 'r-badge-ok') + '" style="font-size:9px">' + (devOpen ? devOpen + ' OPEN' : _isNoFile ? 'EXPECTED' : 'ALL FIXED') + '</span>' +
-            '<span class="vmd-arr" style="margin-left:auto;color:var(--text-muted);font-size:10px">▼</span>' +
+            '<span style="font-size:10px;color:rgba(255,255,255,0.3);white-space:nowrap">' + claimOrder.length + ' claim(s)</span>' +
             (devOpen > 0
               ? '<button class="r-btn-sm" style="font-size:10px" onclick="event.stopPropagation();rClearVibesEtype(\'' + esc(host) + '\',\'' + esc(etype) + '\',\'' + devKey2 + '\',this)">✓ Clear</button>'
               : '') +
+            '<span class="vmd-arr" style="color:var(--text-muted);font-size:10px">▼</span>' +
             '</div>' +
-            // Detail table (Level 3)
+            '</div>' +
+            '</div>' +
+            // NOTE: same sibling-not-child fix as the claim-level block below —
+            // the device header (clickable, toggles vmdd-<devKey2>) is closed
+            // above BEFORE this detail div opens. Otherwise a click on any
+            // claim row inside here bubbles up and re-fires the device
+            // header's own toggle, collapsing the whole claim list it just
+            // opened.
+            // Detail (Level 3: per-claim groups)
             '<div id="vmdd-' + devKey2 + '" style="display:none;margin-top:5px">' +
-            '<table style="width:100%;font-size:11px;border-collapse:collapse">' +
-            '<thead><tr style="color:var(--text-muted);font-size:10px;border-bottom:1px solid rgba(255,255,255,0.07)">' +
-            '<th style="text-align:left;padding:2px 8px;font-weight:500;white-space:nowrap;width:108px">Time</th>' +
-            '<th style="text-align:left;padding:2px 8px;font-weight:500;width:130px">Claim No</th>' +
-            '<th style="text-align:left;padding:2px 8px;font-weight:500;width:140px">Batch</th>' +
-            '<th style="text-align:left;padding:2px 8px;font-weight:500">Message</th>' +
-            '<th style="text-align:left;padding:2px 8px;font-weight:500;width:62px">Status</th>' +
-            '<th style="text-align:left;padding:2px 8px;font-weight:500;width:52px">Action</th>' +
-            '</tr></thead><tbody>' +
-            detailRows +
-            '</tbody></table></div></div>';
+            claimBlocks +
+            '</div>';
         });
 
         html += '</div></div>'; // close vetg + error-type card
@@ -5648,6 +5782,55 @@
     }).eq('id', docId).then(function (res) {
       if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
       rToast('Error marked as fixed', 'success');
+      rModalClose();
+      rLoadVibes();
+    }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
+  };
+
+  // ── VIBES: bulk-fix all OPEN rows for one claim (No. Tuntutan) ──
+  // Same fix-note requirement as the single-row rOpenFix, applied once to
+  // every id in the group — for claims with many repeated same-message
+  // errors (e.g. 28 consecutive portal timeouts) that are really ONE
+  // incident, not 28 separate ones needing 28 separate notes.
+  window.rOpenFixGroup = function (ids, hostname, tuntutan) {
+    if (!_canWrite()) { rToast('Read-only — request write access from Super Admin', 'warn'); return; }
+    if (!ids || !ids.length) return;
+    var title = $r('r-modal-title');
+    var body = $r('r-modal-body');
+    var footer = $r('r-modal-footer');
+    if (!body) return;
+    if (title) title.innerHTML = '<i class="fa-solid fa-circle-check" style="color:var(--rc-green,#10b981)"></i> Mark ' + ids.length + ' Error(s) as Fixed';
+    body.innerHTML =
+      '<div class="r-fix-form">' +
+      '<div class="r-fix-field">' +
+      '<label style="font-size:11px;color:var(--rc-text-dim,#9ca3af);letter-spacing:0.5px">FIX NOTE <span style="color:#ef4444">*</span> <span style="opacity:0.6">(min 5 chars — applied to all ' + ids.length + ')</span></label>' +
+      '<textarea id="r-vibes-fix-note" rows="4" class="r-textarea" placeholder="Describe the resolution…" style="width:100%;box-sizing:border-box;margin-top:6px"></textarea>' +
+      '</div>' +
+      '<div style="margin-top:10px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:4px;font-size:11px;color:var(--rc-text-dim,#9ca3af)">' +
+      '<div><i class="fa-solid fa-server"></i> Device: <code>' + esc(hostname) + '</code></div>' +
+      '<div style="margin-top:4px"><i class="fa-solid fa-id-card"></i> No. Tuntutan: <code>' + esc(tuntutan) + '</code></div>' +
+      '<div style="margin-top:4px"><i class="fa-solid fa-list-check"></i> ' + ids.length + ' row(s) selected</div>' +
+      '</div>' +
+      '</div>';
+    if (footer) footer.innerHTML =
+      '<button class="r-btn-primary" onclick="rSubmitVibesFixGroup(' + JSON.stringify(ids) + ')"><i class="fa-solid fa-circle-check"></i> Confirm Fixed (' + ids.length + ')</button>' +
+      '<button class="r-btn-sm" onclick="rModalClose()">Cancel</button>';
+    rModalOpen();
+  };
+
+  window.rSubmitVibesFixGroup = function (ids) {
+    var note = ($r('r-vibes-fix-note') || {}).value || '';
+    if (note.trim().length < 5) { rToast('Fix note must be at least 5 characters', 'warn'); return; }
+    if (!RS.supa || !ids || !ids.length) { rToast('Supabase not ready', 'error'); return; }
+    var user = RS.currentUser;
+    RS.supa.from('vibes_errors').update({
+      resolved: true,
+      fix_note: note.trim(),
+      fix_by: user ? user.email : 'admin',
+      fixed_at: new Date().toISOString()
+    }).in('id', ids.map(Number)).then(function (res) {
+      if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
+      rToast(ids.length + ' error(s) marked as fixed', 'success');
       rModalClose();
       rLoadVibes();
     }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
