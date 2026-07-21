@@ -2938,9 +2938,12 @@
       var dStart = new Date(now); dStart.setHours(0, 0, 0, 0);
       for (var i = 0; i < 24; i++) {
         var dh = new Date(dStart); dh.setHours(i);
-        var labelTime = i === 0 ? '12 AM' : i < 12 ? i + ' AM' : i === 12 ? '12 PM' : (i - 12) + ' PM';
-        labels.push(labelTime); starts.push(_ddIsoHour(dh));
-        var dhe = new Date(dh); dhe.setHours(i, 59, 59); ends.push(_ddIsoDate(dhe) + 'T' + (dhe.getHours() < 10 ? '0' : '') + dhe.getHours() + ':59:59');
+        var localHour = (i + 8) % 24;
+        var labelTime = localHour === 0 ? '12 AM' : localHour < 12 ? localHour + ' AM' : localHour === 12 ? '12 PM' : (localHour - 12) + ' PM';
+        labels.push(labelTime);
+        starts.push(_ddIsoHour(dh));
+        var dhe = new Date(dh); dhe.setHours(i, 59, 59);
+        ends.push(_ddIsoDate(dhe) + 'T' + (dhe.getHours() < 10 ? '0' : '') + dhe.getHours() + ':59:59');
       }
     } else if (view === 'week') {
       var dow = now.getDay();
@@ -2966,19 +2969,6 @@
       .then(function (res) {
         canvas.style.opacity = '1';
         var data = res.data || [];
-
-        if (view === 'day') {
-          var hasOutside = data.some(function (e) {
-            var hrIdx = starts.findIndex(function (s, idx) { return (e.timestamp || '') >= s && (e.timestamp || '') <= ends[idx]; });
-            return hrIdx !== -1 && (hrIdx < 8 || hrIdx > 17);
-          });
-          if (!hasOutside) {
-            starts = starts.slice(8, 18);
-            ends = ends.slice(8, 18);
-            labels = labels.slice(8, 18);
-          }
-        }
-
         var datasets = [];
 
         if (type === 'app') {
