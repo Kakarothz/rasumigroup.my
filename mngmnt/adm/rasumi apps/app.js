@@ -1627,7 +1627,7 @@
 
       RS.supa.from('vibes_errors').select('id', { count: 'exact', head: true })
         .eq('resolved', false)
-        .not('error_type', 'in', '("batch_skip","amount_unresolved","folder_not_found","row_skip_portal_lag")')
+        .not('error_type', 'in', '("batch_skip","amount_unresolved","folder_not_found","row_skip_portal_lag","batch_incomplete_no_file")')
         .or('error_type.neq.batch_incomplete,detail->>still_unfinished.gt.0')
         .limit(51)
         .then(function (res) {
@@ -5390,7 +5390,7 @@
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
 
     // Exclude skipped-doc error types at DB level (not client-side) so limit is not polluted
-    var _skipTypeFilter = '(batch_skip,amount_unresolved,folder_not_found,row_skip_portal_lag)';
+    var _skipTypeFilter = '(batch_skip,amount_unresolved,folder_not_found,row_skip_portal_lag,batch_incomplete_no_file)';
     var supaQ = RS.supa.from('vibes_errors').select('*')
       .not('error_type', 'in', _skipTypeFilter)
       .order('timestamp', { ascending: false })
