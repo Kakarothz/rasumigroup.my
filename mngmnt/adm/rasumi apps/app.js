@@ -1375,6 +1375,75 @@
     updateDashTelemetry();
   }
 
+  // Shared helper: pull js_diag.multi_doc out of a vibes_errors row's
+  // detail JSON. detail.js_diag is itself a JSON-encoded STRING (as written
+  // by the Rust bot), not nested jsonb, so it needs its own parse pass after
+  // parsing detail. Returns 0 on any missing/malformed data — callers treat
+  // "0" as "no confirmed progress on this claim yet", the conservative/safe
+  // default (stays hidden) if parsing fails. Used by both _pollBadgeCounts()
+  // (badge count) and rLoadVibes() (Error Monitor list) so a claim's
+  // batch_incomplete_no_file record is only treated as truly no-action when
+  // NOTHING in that claim has uploaded yet — if some rows already succeeded
+  // (multi_doc > 0) but 1+ are stuck, that's a real partial failure.
+  function _vibesMultiDoc(e) {
+    var det = e && e.detail;
+    try { det = typeof det === 'string' ? JSON.parse(det) : (det || {}); } catch (x) { det = {}; }
+    var jd = det.js_diag;
+    try {
+      var jdObj = typeof jd === 'string' ? JSON.parse(jd) : jd;
+      return (jdObj && typeof jdObj.multi_doc === 'number') ? jdObj.multi_doc : 0;
+    } catch (x) { return 0; }
+  }
+
+  // detail.total_rows for a vibes_errors row — the claim's true portal total
+  // at the time this alert fired. Used together with _vibesTnoUploadedMap()
+  // below to detect claims finished off by a later run the same day.
+  function _vibesDetailTotal(e) {
+    var det = e && e.detail;
+    try { det = typeof det === 'string' ? JSON.parse(det) : (det || {}); } catch (x) { det = {}; }
+    return (typeof det.total_rows === 'number') ? det.total_rows : null;
+  }
+
+  // Cumulative COMPLETED-upload count per "tuntutan_no|date" across ALL runs
+  // that day, built from a `logs` fetch (job_info, status, timestamp
+  // selected). Shared by _pollBadgeCounts() and rLoadVibes() so both agree
+  // on whether a claim has since been finished off.
+  function _vibesTnoUploadedMap(logsData) {
+    var map = {};
+    (logsData || []).forEach(function (l) {
+      var ji = l.job_info;
+      if (typeof ji === 'string') { try { ji = JSON.parse(ji); } catch (x) { ji = null; } }
+      var tNo = ji && ji.tuntutan_no;
+      if (!tNo) return;
+      var st = (l.status || '').toUpperCase();
+      if (st === 'FAILED' || st === 'ERROR') return; // only count real uploads
+      var dateKey = (l.timestamp || '').substring(0, 10);
+      if (!dateKey) return;
+      var key = tNo + '|' + dateKey;
+      map[key] = (map[key] || 0) + 1;
+    });
+    return map;
+  }
+
+  // Is this batch_incomplete_no_file row "expected, no action"? True when
+  // the claim never made any progress (multi_doc === 0), OR when a later
+  // run that same day has since pushed cumulative uploads to the claim's
+  // full total (tnoUploadedMap, from _vibesTnoUploadedMap). Only applies to
+  // batch_incomplete_no_file — real batch_incomplete (bot_error) always
+  // needs manual resolution and never auto-clears this way.
+  function _isVibesNoFileExpected(e, tnoUploadedMap) {
+    if ((e.error_type || e.category) !== 'batch_incomplete_no_file') return false;
+    if (_vibesMultiDoc(e) === 0) return true;
+    var tNo = e.patient_ic || e.tuntutan_no;
+    var dateKey = (e.timestamp || '').substring(0, 10);
+    var totalRows = _vibesDetailTotal(e);
+    if (tNo && dateKey && totalRows && tnoUploadedMap) {
+      var cum = tnoUploadedMap[tNo + '|' + dateKey] || 0;
+      if (cum >= totalRows) return true;
+    }
+    return false;
+  }
+
   function startGlobalListeners() {
     clearRListeners();
 
@@ -1625,13 +1694,32 @@
       if (document.visibilityState !== 'visible') return;
       if (!RS.supa) return; // no Supabase yet
 
-      RS.supa.from('vibes_errors').select('id', { count: 'exact', head: true })
+      // batch_incomplete_no_file is only genuinely "no action needed" when the
+      // claim never made any progress, OR a later run that same day has
+      // since finished it off entirely — see _isVibesNoFileExpected() /
+      // _vibesTnoUploadedMap() (shared with rLoadVibes's Error Monitor
+      // list, so both agree). Needs a parallel `logs` fetch for the
+      // cumulative uploaded count.
+      var _errQ = RS.supa.from('vibes_errors').select('id, error_type, detail, patient_ic, tuntutan_no, timestamp')
         .eq('resolved', false)
-        .not('error_type', 'in', '("batch_skip","amount_unresolved","folder_not_found","row_skip_portal_lag","batch_incomplete_no_file")')
+        .not('error_type', 'in', '("batch_skip","amount_unresolved","folder_not_found","row_skip_portal_lag")')
         .or('error_type.neq.batch_incomplete,detail->>still_unfinished.gt.0')
-        .limit(51)
-        .then(function (res) {
-          var cnt = Math.min(res.count || 0, 51);
+        .limit(500);
+      var _logsQ = RS.supa.from('logs').select('job_info,status,timestamp')
+        .eq('app_name', 'VIBES').not('job_group_id', 'is', null)
+        .order('timestamp', { ascending: false }).limit(2000);
+
+      Promise.all([_errQ, _logsQ]).then(function (results) {
+          var res = results[0], logRes = results[1];
+          var rows = (res && res.data) || [];
+          var tnoUploadedMap = _vibesTnoUploadedMap((logRes && logRes.data) || []);
+          var cnt = 0;
+          for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            if (_isVibesNoFileExpected(r, tnoUploadedMap)) continue;
+            cnt++;
+          }
+          cnt = Math.min(cnt, 51);
           RS.unresolvedVibes = cnt;
           var nb = $r('r-nb-vibes');
           var display = cnt > 50 ? '50+' : (cnt || '');
@@ -1979,8 +2067,28 @@
     'r-release': 'Release Management'
   };
 
+  // Data-table tabs that should auto-refresh (same 60s cadence as
+  // Dashboard) so RUNNING sessions visibly progress — FILES climbing,
+  // END/DURATION filling in, STATUS flipping RUNNING → COMPLETED — without
+  // a manual page refresh. Dashboard has its own dedicated interval
+  // already (RS._appStatsInterval) and isn't included here.
+  function _appSafeId(name) { return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''); }
+  var _R_TAB_REFRESH = {
+    'r-renamer': function () { window.rLoadRenamer(); },
+    'r-renamer-fv': function () { window.rLoadAppLogs(_appSafeId('FV Branch')); },
+    'r-splitter': function () { window.rLoadAppLogs(_appSafeId('PDF Splitter')); },
+    'r-studio': function () { window.rLoadAppLogs(_appSafeId('PDF Studio')); },
+    'r-quick': function () { window.rLoadAppLogs(_appSafeId('Quick Rename')); },
+    'r-scanify': function () { window.rLoadAppLogs(_appSafeId('Scanify')); },
+    'r-vibes': function () { window.rLoadVibesActivity(); window.rLoadVibes(); },
+    'r-logs': function () { window.rLoadLogs(); }
+  };
+
   window.rNav = function (route) {
     _stopECG();
+    // Only one tab-refresh timer is ever active — clear the previous tab's
+    // before setting up (or skipping) one for the newly-navigated route.
+    if (RS._tabRefreshTimer) { clearInterval(RS._tabRefreshTimer); RS._tabRefreshTimer = null; }
     RS.route = route;
     // Update horizontal nav active state
     qra('.r-hn-item').forEach(function (el) { el.classList.remove('active'); });
@@ -2014,6 +2122,9 @@
       case 'r-commands': renderCommands(); break;
       case 'r-alerts': renderAlerts(); break;
       case 'r-release': renderReleaseMgmt(); break;
+    }
+    if (_R_TAB_REFRESH[route]) {
+      RS._tabRefreshTimer = setInterval(_R_TAB_REFRESH[route], 60000);
     }
   };
 
@@ -5389,8 +5500,15 @@
 
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
 
-    // Exclude skipped-doc error types at DB level (not client-side) so limit is not polluted
-    var _skipTypeFilter = '(batch_skip,amount_unresolved,folder_not_found,row_skip_portal_lag,batch_incomplete_no_file)';
+    // Exclude skipped-doc error types at DB level (not client-side) so limit is not polluted.
+    // batch_incomplete_no_file is deliberately NOT excluded here — some of those records
+    // represent a real partial failure (js_diag.multi_doc > 0, i.e. at least 1 row in the
+    // claim already uploaded but the rest are stuck) and must stay visible. The per-row
+    // "genuinely no action needed" (multi_doc === 0) rows are suppressed further down via
+    // _isVibesRowExpected() / _vibesMultiDoc(), after fetch — that decision needs
+    // detail.js_diag, which PostgREST can't filter on server-side since it's a
+    // JSON-encoded string, not jsonb.
+    var _skipTypeFilter = '(batch_skip,amount_unresolved,folder_not_found,row_skip_portal_lag)';
     var supaQ = RS.supa.from('vibes_errors').select('*')
       .not('error_type', 'in', _skipTypeFilter)
       .order('timestamp', { ascending: false })
@@ -5399,8 +5517,10 @@
     else if (resolved === 'resolved') supaQ = supaQ.eq('resolved', true);
     if (hostname) supaQ = supaQ.eq('hostname', hostname);
 
-    // Parallel fetch: VIBES logs for batch cross-reference
-    var logsQ = RS.supa.from('logs').select('job_group_id,job_info')
+    // Parallel fetch: VIBES logs for batch cross-reference — also used to
+    // detect claims that were incomplete when an alert fired but have since
+    // been finished off by a LATER run (status + timestamp needed for that).
+    var logsQ = RS.supa.from('logs').select('job_group_id,job_info,status,timestamp')
       .eq('app_name', 'VIBES').not('job_group_id', 'is', null)
       .order('timestamp', { ascending: false }).limit(2000);
 
@@ -5463,7 +5583,7 @@
         return d;
       });
 
-      // ── Build tuntutan_no → job_group_id map from parallel logs fetch ──
+      // ── Build tuntutan_no → job_group_id map from the parallel logs fetch.
       var _tnoJobMap = {};
       (logRes.data || []).forEach(function (l) {
         var ji = l.job_info;
@@ -5471,6 +5591,11 @@
         var tNo = ji && ji.tuntutan_no;
         if (tNo && l.job_group_id && !_tnoJobMap[tNo]) _tnoJobMap[tNo] = l.job_group_id;
       });
+      // Cumulative COMPLETED-upload count per tuntutan+date (across ALL
+      // runs/job_group_ids that day) — shared with _pollBadgeCounts() via
+      // _vibesTnoUploadedMap(), so both agree on when a stale "partial"
+      // alert has since been finished off by a later run.
+      var _tnoUploadedMap = _vibesTnoUploadedMap(logRes.data || []);
 
       // ── Admin action guidance per error type ────────────────────
       var _VIBES_META = {
@@ -5492,7 +5617,13 @@
         etypeMap2[etype][host].push(e);
       });
 
-      var totalOpen = docs.filter(function (e) { return !e.resolved; }).length;
+      // Shared with _pollBadgeCounts() via _isVibesNoFileExpected() /
+      // _vibesTnoUploadedMap() (outer scope) — see comments there. Keeps
+      // this list and the top-nav badge count in agreement.
+      function _isVibesRowExpected(e) {
+        return _isVibesNoFileExpected(e, _tnoUploadedMap);
+      }
+      var totalOpen = docs.filter(function (e) { return !_isVibesRowExpected(e) && !e.resolved; }).length;
       var allDevices = {};
       docs.forEach(function (e) { allDevices[e._host || '—'] = 1; });
       var html = '<div class="r-results-count">' + docs.length + ' error(s) — ' + totalOpen + ' open | ' +
@@ -5502,8 +5633,12 @@
         var hostMap = etypeMap2[etype];
         var etAllRows = [];
         Object.values(hostMap).forEach(function (arr) { etAllRows = etAllRows.concat(arr); });
-        var _isNoFile = etype === 'batch_incomplete_no_file';
-        var etTotalOpen = _isNoFile ? 0 : etAllRows.filter(function (e) { return !e.resolved; }).length;
+        // Whole group still purely "expected/no action" only if EVERY row in
+        // it is (i.e. every batch_incomplete_no_file claim here has zero
+        // progress). A single row with multi_doc > 0 flips this group to
+        // behave like a normal error type — real OPEN count, Fix buttons, etc.
+        var _isNoFile = etype === 'batch_incomplete_no_file' && etAllRows.every(_isVibesRowExpected);
+        var etTotalOpen = etAllRows.filter(function (e) { return !_isVibesRowExpected(e) && !e.resolved; }).length;
         var etLastTs = etAllRows.reduce(function (mx, e) { return (!mx || e.timestamp > mx) ? e.timestamp : mx; }, null);
         var etDevCount = Object.keys(hostMap).length;
         var etKey = etype.replace(/[^a-z0-9]/gi, '_');
@@ -5540,7 +5675,7 @@
         // ── Level 2: Device sub-headers ──────────────────────────
         Object.keys(hostMap).forEach(function (host) {
           var devRows = hostMap[host];
-          var devOpen = _isNoFile ? 0 : devRows.filter(function (e) { return !e.resolved; }).length;
+          var devOpen = devRows.filter(function (e) { return !_isVibesRowExpected(e) && !e.resolved; }).length;
           var devKey2 = (etKey + '_' + host).replace(/[^a-z0-9]/gi, '_');
 
           // ── Level 3: group this device's rows by claim (No. Tuntutan) ──
@@ -5570,7 +5705,7 @@
 
           var claimBlocks = claimOrder.map(function (cNo) {
             var cRows = claimMap[cNo];
-            var cOpenIds = cRows.filter(function (e) { return !e.resolved; }).map(function (e) { return String(e.id); });
+            var cOpenIds = cRows.filter(function (e) { return !_isVibesRowExpected(e) && !e.resolved; }).map(function (e) { return String(e.id); });
             var cKey = (devKey2 + '_' + cNo).replace(/[^a-z0-9]/gi, '_');
             var det0 = {};
             try { det0 = typeof cRows[0].detail === 'string' ? JSON.parse(cRows[0].detail) : (cRows[0].detail || {}); } catch (x) { }
@@ -5602,7 +5737,7 @@
             var _isBatchAgg = (etype === 'batch_incomplete' || etype === 'batch_incomplete_no_file');
 
             var rowsHtml = cRows.map(function (e) {
-              var _rowExpected = _isNoFile && !e.resolved;
+              var _rowExpected = _isVibesRowExpected(e) && !e.resolved;
               var det = {};
               try { det = typeof e.detail === 'string' ? JSON.parse(e.detail) : (e.detail || {}); } catch (x) { }
               var statusCell = '<td style="padding:3px 8px"><span class="r-badge ' + (_rowExpected ? 'r-badge-muted' : e.resolved ? 'r-badge-ok' : 'r-badge-err') + '" style="font-size:9px">' + (_rowExpected ? 'EXPECTED' : e.resolved ? 'FIXED' : 'OPEN') + '</span></td>';
@@ -6806,6 +6941,56 @@
       RS.supa.from('logs').delete().in('id', phantomIds).then(function () { });
     }
 
+    // Shared VIBES claim totals for a session — computed once, cached on the
+    // session object (g._vTotals), reused by the phantom-drop filter below,
+    // the STATUS pre-compute, and the FILES column render so all three agree.
+    function _vibesSessionTotals(g) {
+      if (g._vTotals) return g._vTotals;
+      var vTno = {}, vOrder = [];
+      g.logs.forEach(function (l) {
+        var tNo = (l.job_info && l.job_info.tuntutan_no) || '—';
+        if (!vTno[tNo]) { vTno[tNo] = []; vOrder.push(tNo); }
+        vTno[tNo].push(l);
+      });
+      var tDocs = 0, tUploaded = 0;
+      if (g.logs.length === 1 && g.logs[0].job_info && g.logs[0].job_info.doc_count) {
+        tDocs = g.logs[0].job_info.doc_count; tUploaded = tDocs;
+      } else if (vOrder.length) {
+        vOrder.forEach(function (tNo) {
+          var invLogs = vTno[tNo];
+          var loggedUploaded = invLogs.filter(function (l) {
+            var st = (l.status || '').toUpperCase();
+            return st !== 'FAILED' && st !== 'ERROR';
+          }).length;
+          var dateKey = invLogs.reduce(function (m, l) { return (l.timestamp || '') > m ? (l.timestamp || '') : m; }, '').substring(0, 10);
+          var rep = incompleteMap[tNo + '|' + dateKey];
+          tDocs += rep ? rep.total : invLogs.length;
+          // vibes_claim_totals/vibes_errors "uploaded" can be a stale snapshot
+          // frozen mid-run (write-once cache) — the bot may have kept
+          // uploading after that snapshot was taken. loggedUploaded (this
+          // session's own COMPLETED logs) is ground truth for "at least this
+          // many succeeded," so trust whichever source reports more.
+          tUploaded += (rep && rep.uploaded != null) ? Math.max(rep.uploaded, loggedUploaded) : loggedUploaded;
+        });
+      }
+      g._vTotals = { docs: tDocs, uploaded: tUploaded };
+      return g._vTotals;
+    }
+
+    // Silently drop VIBES sessions where the bot made zero upload attempts
+    // (every row skipped — no matching local folder for any of them). These
+    // survive the phantom-session filter above because a FINISH log with
+    // total_files > 0 still gets written, but FILES honestly reports 0/N —
+    // showing that as any STATUS badge is misleading. Same "expected, no
+    // admin action needed" rule already applied in Error Monitor for
+    // batch_incomplete_no_file: no new label, just don't show the row.
+    sessions = sessions.filter(function (g) {
+      if (g.hasFail || g.hasCancelled || g.allProcessing) return true;
+      if ((g.app || '').toUpperCase() !== 'VIBES') return true;
+      var t = _vibesSessionTotals(g);
+      return !(t.docs > 0 && t.uploaded === 0);
+    });
+
     // Pre-compute session status for filtering + rendering.
     // Also extract FINISH log metadata (total_files, has_errors, failed_count)
     // as a reliable fallback when FAILED log entries are missing from Supabase
@@ -6825,10 +7010,17 @@
         if (fi.has_errors && !g.hasFail) g.hasFail = true;
       }
 
+      var isVibesG = (g.app || '').toUpperCase() === 'VIBES';
+      var vt = isVibesG ? _vibesSessionTotals(g) : null;
+
       if (g.allProcessing) g._st = 'RUNNING';
       else if (g.hasFail && cLen === 0) g._st = 'FAILED';    // all files failed
       else if (g.hasFail) g._st = 'PARTIAL';   // mix success + failure
       else if (g.hasCancelled) g._st = 'CANCELLED'; // job cancelled (no failures)
+      // FILES not fully complete (uploaded < total) — PARTIAL even though
+      // every upload actually attempted succeeded (no FAILED log rows),
+      // since part of the claim was never attempted at all.
+      else if (isVibesG && vt && vt.docs > 0 && vt.uploaded < vt.docs) g._st = 'PARTIAL';
       else g._st = 'COMPLETED';
     });
 
@@ -6872,34 +7064,17 @@
         });
       }
 
-      // For VIBES sessions, doc count comes from job_info.doc_count (1 log = 1 batch summary).
-      // For FV Branch / renamer: prefer total_files from FINISH log (accurate even when
-      // FAILED log entries are absent from Supabase), then fall back to counting log rows.
+      // For VIBES sessions, reuse the totals already computed (and cached on
+      // g) by the phantom-drop filter / STATUS pre-compute above, so FILES
+      // and STATUS can never disagree with each other.
+      // For FV Branch / renamer: prefer total_files from FINISH log (accurate
+      // even when FAILED log entries are absent from Supabase), then fall
+      // back to counting log rows.
       var totalDocs, totalUploaded;
-      if (isVibes && g.logs.length === 1 && g.logs[0].job_info && g.logs[0].job_info.doc_count) {
-        totalDocs = g.logs[0].job_info.doc_count;
-        totalUploaded = totalDocs;
-      } else if (isVibes && _vibesTnoOrder.length) {
-        // Sum accurate per-claim totals. `logs` only has rows the bot actually
-        // attempted (COMPLETED/FAILED) — it never records "N rows found
-        // matching local folder", the real portal-scan count. That number
-        // IS captured though, in vibes_errors.detail.total_rows whenever a
-        // claim finishes with unfinished rows (batch_incomplete report).
-        // Use it when available; otherwise every logged row for the claim
-        // is accounted for (nothing left unfinished), so logged count IS
-        // the true total.
-        totalDocs = 0; totalUploaded = 0;
-        _vibesTnoOrder.forEach(function (tNo) {
-          var invLogs = _vibesByTno[tNo];
-          var loggedUploaded = invLogs.filter(function (l) {
-            var st = (l.status || '').toUpperCase();
-            return st !== 'FAILED' && st !== 'ERROR';
-          }).length;
-          var dateKey = invLogs.reduce(function (m, l) { return (l.timestamp || '') > m ? (l.timestamp || '') : m; }, '').substring(0, 10);
-          var rep = incompleteMap[tNo + '|' + dateKey];
-          totalDocs += rep ? rep.total : invLogs.length;
-          totalUploaded += (rep && rep.uploaded != null) ? rep.uploaded : loggedUploaded;
-        });
+      if (isVibes) {
+        var _vt = _vibesSessionTotals(g);
+        totalDocs = _vt.docs;
+        totalUploaded = _vt.uploaded;
       } else {
         totalDocs = g._totalFiles != null ? g._totalFiles : completedLogs.length + failedLogs.length;
         totalUploaded = totalDocs;
