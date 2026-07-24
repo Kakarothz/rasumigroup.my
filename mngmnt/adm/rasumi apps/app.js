@@ -1425,23 +1425,91 @@
     return map;
   }
 
-  // Is this batch_incomplete_no_file row "expected, no action"? True when
-  // the claim never made any progress (multi_doc === 0), OR when a later
-  // run that same day has since pushed cumulative uploads to the claim's
-  // full total (tnoUploadedMap, from _vibesTnoUploadedMap). Only applies to
-  // batch_incomplete_no_file — real batch_incomplete (bot_error) always
-  // needs manual resolution and never auto-clears this way.
+  // Is this batch_incomplete_no_file row "expected, no action"? The
+  // portal's own "already completed" figure (js_diag.multi_doc) is NOT
+  // trustworthy for this decision — it can reflect progress from sources
+  // other than the bot (or a stale DOM scan), so a claim can show e.g.
+  // "64 already completed" while the bot ITSELF has never successfully
+  // uploaded a single row of it. The real signal is the bot's own upload
+  // log: cumulative COMPLETED rows for this tuntutan+date, across every
+  // run that day (tnoUploadedMap, from _vibesTnoUploadedMap).
+  //   - Bot's own contribution is 0 → nothing the bot did wrong → expected.
+  //   - Bot genuinely uploaded 1+ rows but claim still isn't fully done →
+  //     real anomaly, stays open.
+  //   - Bot's cumulative uploads have since reached the claim's total → a
+  //     later run finished it off → expected.
+  // Only applies to batch_incomplete_no_file — real batch_incomplete
+  // (bot_error) always needs manual resolution and never auto-clears.
   function _isVibesNoFileExpected(e, tnoUploadedMap) {
     if ((e.error_type || e.category) !== 'batch_incomplete_no_file') return false;
-    if (_vibesMultiDoc(e) === 0) return true;
     var tNo = e.patient_ic || e.tuntutan_no;
     var dateKey = (e.timestamp || '').substring(0, 10);
+    var cum = (tNo && dateKey && tnoUploadedMap) ? (tnoUploadedMap[tNo + '|' + dateKey] || 0) : 0;
+    if (cum === 0) return true;
     var totalRows = _vibesDetailTotal(e);
-    if (tNo && dateKey && totalRows && tnoUploadedMap) {
-      var cum = tnoUploadedMap[tNo + '|' + dateKey] || 0;
-      if (cum >= totalRows) return true;
-    }
+    if (totalRows && cum >= totalRows) return true;
     return false;
+  }
+
+  // Error Monitor's 3-level accordion (error-type → device → claim) uses
+  // stable ids (vetg-<etKey>, vmdd-<devKey2>, vcgd-<cKey>, all derived from
+  // error type / hostname / tuntutan_no — not array index), so an
+  // expanded panel's id means the same thing before and after a refresh.
+  // Used to keep whatever the admin has open, open, across auto-refresh
+  // instead of collapsing everything back to default on every re-render.
+  function _snapshotOpenPanels(container) {
+    if (!container) return [];
+    var ids = [];
+    container.querySelectorAll('[id^="vetg-"], [id^="vmdd-"], [id^="vcgd-"]').forEach(function (el) {
+      if (el.style.display !== 'none') ids.push(el.id);
+    });
+    return ids;
+  }
+  function _restoreOpenPanels(container, ids) {
+    if (!container || !ids || !ids.length) return;
+    ids.forEach(function (id) {
+      var el = container.querySelector('#' + (window.CSS && CSS.escape ? CSS.escape(id) : id));
+      if (!el) return;
+      el.style.display = '';
+      var arrCls = id.indexOf('vetg-') === 0 ? 'vet-arr' : id.indexOf('vmdd-') === 0 ? 'vmd-arr' : id.indexOf('vcgd-') === 0 ? 'vcg-arr' : null;
+      if (arrCls && el.parentElement) {
+        var arr = el.parentElement.querySelector('.' + arrCls);
+        if (arr) arr.textContent = '▲';
+      }
+    });
+  }
+
+  // Same idea as _snapshotOpenPanels/_restoreOpenPanels above, but for
+  // _processAndRenderLogs's per-session "View" detail rows (rld-<gKey>,
+  // used by Upload Activity / Log Explorer / Renamer / per-app log tabs /
+  // Device Detail Activity). Relies on gKey now being a stable
+  // job_group_id+date key (see _processAndRenderLogs), not an array index,
+  // so the same id keeps meaning the same session across a refresh.
+  function _snapshotOpenRows(container) {
+    if (!container) return [];
+    var ids = [];
+    container.querySelectorAll('[id^="rld-"]').forEach(function (el) {
+      if (el.style.display !== 'none') ids.push(el.id);
+    });
+    return ids;
+  }
+  function _restoreOpenRows(container, ids) {
+    if (!container || !ids || !ids.length) return;
+    ids.forEach(function (id) {
+      var el = container.querySelector('#' + (window.CSS && CSS.escape ? CSS.escape(id) : id));
+      if (!el) return;
+      el.style.display = '';
+      var gidKey = id.replace(/^rld-/, '');
+      var arr = container.querySelector('#' + (window.CSS && CSS.escape ? CSS.escape('rla-' + gidKey) : 'rla-' + gidKey));
+      if (arr) arr.textContent = '▲';
+      // Mirror rToggleLogDetail's lazy-load: the pending-section div inside
+      // is a fresh element after the innerHTML rebuild, so its "already
+      // loaded" flag reset — reload it so the reopened row isn't stuck on
+      // "Memuat data pending…".
+      if (el.dataset && el.dataset.vibesGid && window.rLoadVibesPending) {
+        window.rLoadVibesPending(gidKey, el.dataset.vibesGid);
+      }
+    });
   }
 
   function startGlobalListeners() {
@@ -5496,18 +5564,24 @@
     var resolved = ($r('r-vib-res') || {}).value || '';
     var box = $r('r-vib-results');
     if (!box) return;
-    box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
+    // Preserve whatever accordion panels are currently expanded (and scroll
+    // position) across this load — matters most for the 60s auto-refresh,
+    // so watching an expanded group doesn't get yanked back to collapsed.
+    var _openIds = _snapshotOpenPanels(box);
+    var _scrollTop = box.scrollTop;
+    var _hadContent = !!box.querySelector('.r-results-count');
+    if (!_hadContent) box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
 
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
 
     // Exclude skipped-doc error types at DB level (not client-side) so limit is not polluted.
     // batch_incomplete_no_file is deliberately NOT excluded here — some of those records
-    // represent a real partial failure (js_diag.multi_doc > 0, i.e. at least 1 row in the
-    // claim already uploaded but the rest are stuck) and must stay visible. The per-row
-    // "genuinely no action needed" (multi_doc === 0) rows are suppressed further down via
-    // _isVibesRowExpected() / _vibesMultiDoc(), after fetch — that decision needs
-    // detail.js_diag, which PostgREST can't filter on server-side since it's a
-    // JSON-encoded string, not jsonb.
+    // represent a real partial failure (the bot's OWN logged uploads for this claim are > 0
+    // but the rest are stuck) and must stay visible. The per-row "genuinely no action
+    // needed" rows (bot never uploaded anything for this claim) are suppressed further
+    // down via _isVibesRowExpected() / _isVibesNoFileExpected(), which needs the parallel
+    // logs fetch below — portal-reported progress (js_diag.multi_doc) isn't used for this
+    // decision since it can reflect non-bot progress or a stale scan.
     var _skipTypeFilter = '(batch_skip,amount_unresolved,folder_not_found,row_skip_portal_lag)';
     var supaQ = RS.supa.from('vibes_errors').select('*')
       .not('error_type', 'in', _skipTypeFilter)
@@ -5634,9 +5708,10 @@
         var etAllRows = [];
         Object.values(hostMap).forEach(function (arr) { etAllRows = etAllRows.concat(arr); });
         // Whole group still purely "expected/no action" only if EVERY row in
-        // it is (i.e. every batch_incomplete_no_file claim here has zero
-        // progress). A single row with multi_doc > 0 flips this group to
-        // behave like a normal error type — real OPEN count, Fix buttons, etc.
+        // it is (i.e. the bot's own logged uploads are 0 for every
+        // batch_incomplete_no_file claim here). A single row where the bot
+        // genuinely uploaded something flips this group to behave like a
+        // normal error type — real OPEN count, Fix buttons, etc.
         var _isNoFile = etype === 'batch_incomplete_no_file' && etAllRows.every(_isVibesRowExpected);
         var etTotalOpen = etAllRows.filter(function (e) { return !_isVibesRowExpected(e) && !e.resolved; }).length;
         var etLastTs = etAllRows.reduce(function (mx, e) { return (!mx || e.timestamp > mx) ? e.timestamp : mx; }, null);
@@ -5726,14 +5801,15 @@
             var sharedDetails = (cRows[0].message || '').replace(/^Row\s+\S+\s*—\s*/i, '');
 
             // batch_incomplete / batch_incomplete_no_file are claim-level
-            // aggregate events (one row = one whole batch run), not per-invoice
-            // events like save_timeout_portal_lag. They never carry
-            // bil/invoice_no/military_info/patient_name — that data simply
-            // doesn't exist at this granularity. Rather than show those columns
-            // full of '—', swap in the aggregate fields the detail JSON DOES
-            // carry (uploaded/still_unfinished/total_rows/skipped_no_folder),
-            // keeping the exact same table chrome/styling so it still reads as
-            // "the same kind of table" across error types.
+            // batch-exit events (one DB row = one whole batch run), but the
+            // agent build that captures single_doc_details snapshots the JS
+            // `invoices` context at exit time, so detail.single_doc_details
+            // carries one entry per still-unfinished invoice
+            // (bil/inv/militaryInfo/name) — same shape as save_timeout_portal_lag's
+            // per-row fields, so both render through the SAME Row/Invoice/Army
+            // ID/Patients table below. Events logged by an agent build older
+            // than that capture (pre-upgrade) fall back to one summary row
+            // with '—' placeholders in those columns.
             var _isBatchAgg = (etype === 'batch_incomplete' || etype === 'batch_incomplete_no_file');
 
             var rowsHtml = cRows.map(function (e) {
@@ -5747,18 +5823,31 @@
                   ? '<button class="r-btn-sm" style="font-size:10px" onclick="rOpenFix(\'' + esc(String(e.id)) + '\',\'' + esc(e._host) + '\',\'vibes_errors\')">Fix</button>'
                   : '<span class="r-muted-sm" style="font-size:10px" title="' + esc(e.fix_note || '') + '">' + esc((e.fix_note || '✓').substring(0, 60)) + '</span>') +
                 '</td>';
+              var trOpen = '<tr style="border-top:1px solid rgba(255,255,255,0.03)' + (_rowExpected ? ';opacity:0.55' : '') + '">';
 
               if (_isBatchAgg) {
-                var upVal = det.uploaded != null ? det.uploaded : '—';
+                var rowDetails = Array.isArray(det.single_doc_details) ? det.single_doc_details.filter(function (d) { return d && d.inv; }) : [];
+                if (rowDetails.length) {
+                  return rowDetails.map(function (d) {
+                    return trOpen +
+                      '<td style="padding:3px 8px;color:var(--text-muted);font-size:10px;white-space:nowrap;width:70px">' + _fmtTime(e.timestamp) + '</td>' +
+                      '<td style="padding:3px 8px;font-size:11px;font-family:monospace;width:40px">' + esc(d.bil != null ? String(d.bil) : '—') + '</td>' +
+                      '<td style="padding:3px 8px;font-size:11px;font-family:monospace;width:80px">' + esc(d.inv || '—') + '</td>' +
+                      '<td style="padding:3px 8px;font-size:11px;font-family:monospace;white-space:nowrap">' + esc(d.militaryInfo || '—') + '</td>' +
+                      '<td style="padding:3px 8px;font-size:11px">' + esc(d.name || '—') + '</td>' +
+                      statusCell + actionCell + '</tr>';
+                  }).join('');
+                }
+                // Pre-upgrade agent build — no per-row detail captured for this
+                // event, only the aggregate counts. One summary row, same
+                // column layout as the rich case so the table never jumps shape.
                 var unfinVal = det.still_unfinished != null ? det.still_unfinished : '—';
-                var totalVal = det.total_rows != null ? det.total_rows : '—';
-                var skipVal = det.skipped_no_folder != null ? det.skipped_no_folder : '—';
-                return '<tr style="border-top:1px solid rgba(255,255,255,0.03)' + (_rowExpected ? ';opacity:0.55' : '') + '">' +
+                return trOpen +
                   '<td style="padding:3px 8px;color:var(--text-muted);font-size:10px;white-space:nowrap;width:70px">' + _fmtTime(e.timestamp) + '</td>' +
-                  '<td style="padding:3px 8px;font-size:11px;font-family:monospace">' + esc(String(upVal)) + '</td>' +
-                  '<td style="padding:3px 8px;font-size:11px;font-family:monospace">' + esc(String(unfinVal)) + '</td>' +
-                  '<td style="padding:3px 8px;font-size:11px;font-family:monospace">' + esc(String(totalVal)) + '</td>' +
-                  '<td style="padding:3px 8px;font-size:11px;font-family:monospace">' + esc(String(skipVal)) + '</td>' +
+                  '<td style="padding:3px 8px;font-size:11px;font-family:monospace;width:40px">—</td>' +
+                  '<td style="padding:3px 8px;font-size:11px;font-family:monospace;width:80px">—</td>' +
+                  '<td style="padding:3px 8px;font-size:11px;font-family:monospace;white-space:nowrap">—</td>' +
+                  '<td style="padding:3px 8px;font-size:11px;opacity:0.6">' + esc(String(unfinVal)) + ' row(s) unfinished — upgrade agent for detail</td>' +
                   statusCell + actionCell + '</tr>';
               }
 
@@ -5769,7 +5858,7 @@
               var bilVal = det.bil != null ? det.bil : '—';
               var armyId = det.military_info || '—';
               var patientNm = det.patient_name || '—';
-              return '<tr style="border-top:1px solid rgba(255,255,255,0.03)' + (_rowExpected ? ';opacity:0.55' : '') + '">' +
+              return trOpen +
                 '<td style="padding:3px 8px;color:var(--text-muted);font-size:10px;white-space:nowrap;width:70px">' + _fmtTime(e.timestamp) + '</td>' +
                 '<td style="padding:3px 8px;font-size:11px;font-family:monospace;width:40px">' + esc(String(bilVal)) + '</td>' +
                 '<td style="padding:3px 8px;font-size:11px;font-family:monospace;width:80px">' + esc(inv) + '</td>' +
@@ -5816,15 +5905,10 @@
               '<table style="width:100%;font-size:11px;border-collapse:collapse">' +
               '<thead><tr style="color:var(--text-muted);font-size:10px;border-bottom:1px solid rgba(255,255,255,0.07)">' +
               '<th style="text-align:left;padding:2px 8px;font-weight:500;white-space:nowrap;width:70px">Time</th>' +
-              (_isBatchAgg
-                ? '<th style="text-align:left;padding:2px 8px;font-weight:500">Uploaded</th>' +
-                  '<th style="text-align:left;padding:2px 8px;font-weight:500">Unfinished</th>' +
-                  '<th style="text-align:left;padding:2px 8px;font-weight:500">Total Rows</th>' +
-                  '<th style="text-align:left;padding:2px 8px;font-weight:500">Skipped (No Folder)</th>'
-                : '<th style="text-align:left;padding:2px 8px;font-weight:500;width:40px">Row</th>' +
-                  '<th style="text-align:left;padding:2px 8px;font-weight:500;width:80px">Invoice</th>' +
-                  '<th style="text-align:left;padding:2px 8px;font-weight:500">Army ID / MyKad</th>' +
-                  '<th style="text-align:left;padding:2px 8px;font-weight:500">Patients</th>') +
+              '<th style="text-align:left;padding:2px 8px;font-weight:500;width:40px">Row</th>' +
+              '<th style="text-align:left;padding:2px 8px;font-weight:500;width:80px">Invoice</th>' +
+              '<th style="text-align:left;padding:2px 8px;font-weight:500">Army ID / MyKad</th>' +
+              '<th style="text-align:left;padding:2px 8px;font-weight:500">Patients</th>' +
               '<th style="text-align:left;padding:2px 8px;font-weight:500;width:62px">Status</th>' +
               '<th style="text-align:left;padding:2px 8px;font-weight:500;width:220px">Action</th>' +
               '</tr></thead><tbody>' +
@@ -5866,6 +5950,8 @@
         html += '</div></div>'; // close vetg + error-type card
       });
       box.innerHTML = html;
+      _restoreOpenPanels(box, _openIds);
+      box.scrollTop = _scrollTop;
     }).catch(function (err) { box.innerHTML = errBox(err.message); });
   };
 
@@ -6346,6 +6432,8 @@
     if (!el) return;
     var wasHidden = el.style.display === 'none';
     el.style.display = wasHidden ? '' : 'none';
+    var arr = document.getElementById('rla-' + gidKey);
+    if (arr) arr.textContent = wasHidden ? '▲' : '▼';
     // Lazy-load VIBES pending section on first expand
     if (wasHidden && el.dataset && el.dataset.vibesGid && !el.dataset.vibesPendLoaded) {
       el.dataset.vibesPendLoaded = '1';
@@ -6865,6 +6953,12 @@
     var showBranch = context === 'global';
     if (!data.length) { box.innerHTML = '<div class="r-empty">No logs match</div>'; return; }
 
+    // Preserve which "View" detail rows are currently expanded (and scroll
+    // position) across this render — matters most for the 60s auto-refresh,
+    // so a row you're watching doesn't snap shut every minute.
+    var _openRowIds = _snapshotOpenRows(box);
+    var _scrollTop = box.scrollTop;
+
     // ── Group logs into sessions ──
     var groups = {};
     var gOrder = [];
@@ -7013,15 +7107,56 @@
       var isVibesG = (g.app || '').toUpperCase() === 'VIBES';
       var vt = isVibesG ? _vibesSessionTotals(g) : null;
 
-      if (g.allProcessing) g._st = 'RUNNING';
+      // VIBES never writes PROCESSING or FINISH status rows to `logs` —
+      // confirmed via direct query, every VIBES log row is COMPLETED (one
+      // per successfully-uploaded invoice), skipped rows never get a log
+      // row at all. So allProcessing/finishLog (which drive RUNNING/PARTIAL
+      // for every other app) can't tell VIBES apart from "still actively
+      // uploading" vs "truly finished but incomplete" — allProcessing flips
+      // false the instant the FIRST invoice succeeds, way before the batch
+      // is actually done. Use recency instead: if this session's most
+      // recent log landed within the last few minutes, the bot is still
+      // working through it — show RUNNING even though FILES is partial.
+      // Only once activity has genuinely stopped does it settle into
+      // PARTIAL (incomplete) or COMPLETED.
+      var isVibesStillActive = false;
+      if (isVibesG && !g.allProcessing) {
+        var _lastTs = g.end ? new Date(g.end).getTime() : 0;
+        if (_lastTs && (Date.now() - _lastTs) < 5 * 60 * 1000) isVibesStillActive = true;
+      }
+
+      if (g.allProcessing || isVibesStillActive) g._st = 'RUNNING';
       else if (g.hasFail && cLen === 0) g._st = 'FAILED';    // all files failed
       else if (g.hasFail) g._st = 'PARTIAL';   // mix success + failure
       else if (g.hasCancelled) g._st = 'CANCELLED'; // job cancelled (no failures)
       // FILES not fully complete (uploaded < total) — PARTIAL even though
       // every upload actually attempted succeeded (no FAILED log rows),
-      // since part of the claim was never attempted at all.
+      // since part of the claim was never attempted at all, AND activity
+      // has genuinely stopped (not just between rows).
       else if (isVibesG && vt && vt.docs > 0 && vt.uploaded < vt.docs) g._st = 'PARTIAL';
       else g._st = 'COMPLETED';
+    });
+
+    // How many separate sessions (runs) touched each VIBES claim+date —
+    // built from the full session list BEFORE the status filter narrows it,
+    // so the count stays accurate no matter which status filter is active.
+    // Used to label a claim header "(Processed Nx)" when a claim needed
+    // more than one run to finish (e.g. a folder was missing, added later,
+    // bot re-ran) — most claims are 1 run and get no label at all.
+    var _vibesRunCountMap = {};
+    sessions.forEach(function (s) {
+      if ((s.app || '').toUpperCase() !== 'VIBES') return;
+      var seenKeys = {};
+      s.logs.forEach(function (l) {
+        var tNo = (l.job_info && l.job_info.tuntutan_no) || null;
+        if (!tNo) return;
+        var dateKey = (l.timestamp || '').substring(0, 10);
+        if (!dateKey) return;
+        var key = tNo + '|' + dateKey;
+        if (seenKeys[key]) return; // count this session once per claim+date
+        seenKeys[key] = true;
+        _vibesRunCountMap[key] = (_vibesRunCountMap[key] || 0) + 1;
+      });
     });
 
     // Apply session-level status filter
@@ -7049,7 +7184,12 @@
         return t === 'validation' || t === 'file_missing';
       });
       var sessionSt = g._st || 'COMPLETED'; // pre-computed above
-      var gKey = 'g' + idx;
+      // Stable per-session key (job_group_id + date), NOT the array index —
+      // index would drift whenever the list re-sorts (e.g. a new session
+      // appears at the top on refresh), silently pointing "row was open"
+      // state at the wrong row. This stays the same across refreshes for
+      // the same underlying session.
+      var gKey = 'g_' + ((g.gid || g.machine || 'x') + '_' + (g.start || '').substring(0, 10)).replace(/[^a-z0-9]/gi, '_');
 
       var isVibes = (g.app || '').toUpperCase() === 'VIBES';
 
@@ -7121,10 +7261,13 @@
                 '</tr>';
             }).join('');
             var _tnoMaxTs = invLogs.reduce(function (m, l) { return (l.timestamp || '') > m ? (l.timestamp || '') : m; }, '');
+            var _tnoDateKey = _tnoMaxTs.substring(0, 10);
+            var _tnoRunCount = _tnoDateKey ? (_vibesRunCountMap[tNo + '|' + _tnoDateKey] || 1) : 1;
             return '<div style="margin-bottom:14px">' +
               '<div style="font-size:11px;font-weight:600;color:var(--rc-cyan,#38bdf8);padding:6px 0 4px;letter-spacing:0.04em">' +
               '<i class="fa-solid fa-id-card" style="margin-right:5px;opacity:0.7"></i>No. Tuntutan: ' + esc(tNo) +
-              (_tnoMaxTs ? '<span style="font-size:10px;font-weight:400;color:#64748b;margin-left:10px;letter-spacing:0.02em">' + _fmtDate(_tnoMaxTs) + '</span>' : '') + '</div>' +
+              (_tnoMaxTs ? '<span style="font-size:10px;font-weight:400;color:#64748b;margin-left:10px;letter-spacing:0.02em">' + _fmtDate(_tnoMaxTs) + '</span>' : '') +
+              (_tnoRunCount > 1 ? '<span style="font-size:10px;font-weight:400;color:#f59e0b;margin-left:8px;letter-spacing:0.02em">(Processed ' + _tnoRunCount + 'x)</span>' : '') + '</div>' +
               tableWrap(['Time', 'File', 'DO', 'Amount', 'Status', 'Error / Detail', 'Duration', 'Pages', 'Action'], invRows) +
               '</div>';
           }).join('');
@@ -7385,7 +7528,7 @@
           '<div style="color:#64748b;font-size:11px;padding:4px 0">' +
           '<i class="fa-solid fa-spinner fa-spin" style="margin-right:5px"></i>Memuat data pending…</div></div>';
       }
-      return '<tr>' +
+      return '<tr style="cursor:pointer" onclick="rToggleLogDetail(\'' + gKey + '\')">' +
         '<td>' + _fmtDate(g.end) + '</td>' +
         (showMachine ? '<td class="r-font-mono" style="font-size:11px">' + esc(g.machine || '—') + '</td>' : '') +
         (showBranch ? '<td class="r-font-mono" style="font-size:11px">' + esc(_branchName(g.branch)) + '</td>' : '') +
@@ -7402,8 +7545,8 @@
           ? _fmtSecDur(g.logs.reduce(function (s, l) { return s + (l.duration != null ? parseFloat(l.duration) : 0); }, 0))
           : _fmtDur(g.start, g.end)) + '</td>' +
         '<td><span class="r-badge ' + ({ COMPLETED: 'r-badge-ok', PARTIAL: 'r-badge-warn', FAILED: 'r-badge-err', RUNNING: 'r-badge-info', CANCELLED: 'r-badge-muted' }[sessionSt] || 'r-badge-muted') + '">' + sessionSt + '</span></td>' +
-        '<td class="r-font-mono r-muted-sm" style="font-size:11px">' + esc((g.gid && !g.gid.includes('|') ? g.gid.substring(0, 8) + '…' : '—')) + '</td>' +
-        '<td><button class="r-btn-sm" onclick="rToggleLogDetail(\'' + gKey + '\')"><i class="fa-solid fa-list"></i> View</button></td>' +
+        '<td class="r-font-mono r-muted-sm" style="font-size:11px" title="' + esc((g.gid && !g.gid.includes('|') ? g.gid : '')) + '">' + esc((g.gid && !g.gid.includes('|') ? (g.gid.length > 28 ? g.gid.substring(0, 28) + '…' : g.gid) : '—')) + '</td>' +
+        '<td style="text-align:right;width:20px;padding-right:14px"><span id="rla-' + gKey + '" style="color:var(--text-muted);font-size:10px">▼</span></td>' +
         '</tr>' +
         '<tr id="rld-' + gKey + '"' + (vibesRunId ? ' data-vibes-gid="' + esc(vibesRunId) + '"' : '') + ' style="display:none">' +
         '<td colspan="' + colSpan + '" style="padding:0 8px 12px 36px;background:rgba(0,0,0,0.25)">' + detailHtml + '</td>' +
@@ -7414,13 +7557,15 @@
       ['Date']
         .concat(showMachine ? ['Machine'] : [])
         .concat(showBranch ? ['Branch'] : [])
-        .concat(['Application', 'Start', 'End', 'Files', 'Duration', 'Status', 'Job ID', 'Details']),
+        .concat(['Application', 'Start', 'End', 'Files', 'Duration', 'Status', 'Job ID', '']),
       rows);
 
     box.innerHTML =
       '<div class="r-results-count">' + sessions.length + ' session(s) — ' + data.length + ' log entries</div>' +
       (context !== 'global' ? '<div class="r-cmd-hist-scroll">' + tbl + '</div>' : tbl);
 
+    _restoreOpenRows(box, _openRowIds);
+    box.scrollTop = _scrollTop;
   }
 
   // ── Log Explorer in-memory cache ─────────────────────────────
