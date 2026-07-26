@@ -7,6 +7,7 @@ APP.startDeviceListener = function () {
     if (APP.state.unsubDevices) APP.state.unsubDevices();
 
     APP.state.unsubDevices = APP.db.collection('devices').onSnapshot(snapshot => {
+        APP.state.lastSyncTime = Date.now();
         APP.state.currentDevices = [];
         // Cap seenLogs to prevent unbounded memory growth over long sessions
         if (APP.state.seenLogs.size > 2000) APP.state.seenLogs.clear();
@@ -51,6 +52,33 @@ APP.startDeviceListener = function () {
     }, err => {
         logToTerminal(`[FATAL] Firestore Uplink Failed: ${err.message}`, 'error');
     });
+};
+
+// Formats "time since last real Firestore push" for the LAST SYNC TIME card.
+// This reflects the actual listener heartbeat (set in startDeviceListener's
+// onSnapshot callback above) — not a decorative clock. If the listener stalls
+// (backgrounded tab, dropped connection, silent Firestore error) the admin
+// sees this value grow stale instead of a clock that always looks live.
+APP.updateSyncDisplay = function () {
+    const D = APP.DOM;
+    if (!D || !D.metricSync) return;
+
+    if (!APP.state.lastSyncTime) {
+        D.metricSync.innerText = '--:--:--';
+        return;
+    }
+
+    const elapsedMs = Date.now() - APP.state.lastSyncTime;
+    let text;
+    if (elapsedMs < 5000)          text = 'Live';
+    else if (elapsedMs < 60000)    text = Math.floor(elapsedMs / 1000) + 's ago';
+    else if (elapsedMs < 3600000)  text = Math.floor(elapsedMs / 60000) + 'm ago';
+    else                           text = new Date(APP.state.lastSyncTime).toLocaleTimeString();
+
+    D.metricSync.innerText = text;
+    // Same 90s threshold used elsewhere for device staleness — here it flags
+    // that the DASHBOARD's own connection to Firestore has gone quiet.
+    D.metricSync.classList.toggle('text-error', elapsedMs > 90000);
 };
 
 APP.renderDevices = function () {
@@ -142,7 +170,7 @@ APP.renderDevices = function () {
     if (D.metricOffline)   D.metricOffline.innerText   = offlineCount;
     if (D.metricGenerated) D.metricGenerated.innerText = generatedToday;
     if (D.metricFailed)    D.metricFailed.innerText    = failedToday;
-    if (D.metricSync)      D.metricSync.innerText      = new Date().toLocaleTimeString();
+    APP.updateSyncDisplay();
 
     const elOnline  = document.getElementById('stat-online');
     const elOffline = document.getElementById('stat-offline');

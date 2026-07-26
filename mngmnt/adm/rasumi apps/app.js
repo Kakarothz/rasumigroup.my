@@ -718,7 +718,7 @@
       '  </div>',
       '  <div class="nav-search">',
       '    <i class="fa-solid fa-magnifying-glass"></i>',
-      '    <input type="text" id="r-tb-search-inp" placeholder="Search devices, logs, commands…" oninput="rGlobalSearch(this.value)">',
+      '    <input type="text" id="r-tb-search-inp" placeholder="Search devices…" oninput="rGlobalSearch(this.value)">',
       '    <span class="hotkey">Ctrl + K</span>',
       '  </div>',
       '  <div class="nav-actions">',
@@ -752,7 +752,7 @@
       '            <button onclick="window._rClearSysAlerts()" style="background:none;border:1px solid var(--glass-border);border-radius:4px;padding:2px 8px;font-size:9px;color:var(--rc-red,#ef4444);cursor:pointer"><i class="fa-solid fa-trash"></i> Clear All</button>',
       '          </div>',
       '        </div>',
-      '        <div id="notif-dropdown-list" style="min-height:155px;max-height:155px;overflow:hidden;font-size:11px;">No new alerts</div>',
+      '        <div id="notif-dropdown-list" style="min-height:155px;max-height:155px;overflow-y:auto;font-size:11px;">No new alerts</div>',
       '        <div class="dropdown-sep"></div>',
       '        <div class="dropdown-item" onclick="rNav(\'r-alerts\')" style="justify-content:center;color:var(--cyan);font-size:10px;padding:5px 15px"><i class="fa-solid fa-arrow-right"></i> View All Alerts</div>',
       '    </div>',
@@ -955,6 +955,10 @@
       '          </div>',
       '        </div>',
       '        <div id="r-admins-list" style="overflow-y:auto;padding:0 20px;flex:1;"></div>',
+      '        <div style="border-top:1px solid var(--rc-border,#374151);padding:10px 20px;flex-shrink:0;max-height:150px;overflow-y:auto;">',
+      '          <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:6px;"><i class="fa-solid fa-clock-rotate-left" style="margin-right:4px"></i>RECENT ADMIN ACTIONS</div>',
+      '          <div id="r-admin-audit-list" style="font-size:11px;color:var(--rc-text-dim,#9ca3af);">Loading…</div>',
+      '        </div>',
       '      </div>',
       '    </div>',
 
@@ -988,6 +992,29 @@
     _restoreDisplayPrefs();
     // Fetch global display prefs from Supabase early (app_settings is public)
     setTimeout(function () { _loadDisplayPrefsFromSupabase(); }, 0);
+
+    // Ctrl+K / Cmd+K — focus the top search box from anywhere in the console
+    // (the "Ctrl + K" hint next to the search box was previously decorative
+    // only — no listener was ever wired to it).
+    document.addEventListener('keydown', function (ev) {
+      if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'k' || ev.key === 'K')) {
+        var inp = $r('r-tb-search-inp');
+        if (inp) { ev.preventDefault(); inp.focus(); inp.select(); }
+      }
+    });
+
+    // Horizontal nav (13 tabs) hides its scrollbar via CSS so it can overflow
+    // silently on narrower windows with zero indication more tabs exist
+    // off-screen. Fade both edges (via a CSS mask) only when the tab strip
+    // actually overflows its container — purely visual, doesn't touch the
+    // existing click/active-state logic on .r-hn-item at all.
+    function _rUpdateNavOverflow() {
+      var nav = document.querySelector('#rasumi-container .r-h-nav');
+      if (!nav) return;
+      nav.classList.toggle('r-hn-scrollable', nav.scrollWidth > nav.clientWidth + 2);
+    }
+    _rUpdateNavOverflow();
+    window.addEventListener('resize', _rUpdateNavOverflow);
 
     // Close all nav dropdowns when clicking anywhere outside
     document.addEventListener('click', function (ev) {
@@ -1182,6 +1209,51 @@
     }).catch(function () { });
   }
 
+  // ── Admin action audit trail ──────────────────────────────────
+  // admin_users only ever stores CURRENT state (upsert/update/delete) — a
+  // removed admin or a write-access toggle left zero trace of who did it or
+  // when. Best-effort insert into admin_audit_log; never blocks or surfaces
+  // an error for the primary action if this fails (secondary concern only).
+  function _logAdminAction(action, targetEmail, detail) {
+    if (!RS.supa) return;
+    var performedBy = RS.currentUser ? RS.currentUser.email : 'admin';
+    RS.supa.from('admin_audit_log').insert({
+      action: action,
+      target_email: targetEmail || null,
+      performed_by: performedBy,
+      detail: detail || null
+    }).catch(function () { });
+  }
+
+  function _fmtAuditAction(a) {
+    var map = { admin_added: 'Added', admin_removed: 'Removed', write_access_changed: 'Write access changed' };
+    return map[a] || a;
+  }
+
+  function _loadAdminAuditLog() {
+    var list = document.getElementById('r-admin-audit-list');
+    if (!list || !RS.supa) return;
+    list.innerHTML = '<span class="r-spin" style="display:inline-block"></span> Loading…';
+    RS.supa.from('admin_audit_log').select('action,target_email,performed_by,detail,created_at')
+      .order('created_at', { ascending: false }).limit(20)
+      .then(function (res) {
+        if (res.error) throw new Error(res.error.message);
+        var rows = res.data || [];
+        if (!rows.length) { list.innerHTML = 'No admin actions recorded yet.'; return; }
+        list.innerHTML = rows.map(function (r) {
+          var extra = '';
+          if (r.action === 'write_access_changed' && r.detail) {
+            extra = ' → ' + (r.detail.can_write ? 'Read & Write' : 'Read');
+          }
+          return '<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;justify-content:space-between;gap:8px;">' +
+            '<span>' + esc(_fmtAuditAction(r.action)) + ' <strong style="color:var(--rc-text,#e2e8f0)">' + esc(r.target_email || '—') + '</strong>' + esc(extra) +
+            ' <span style="opacity:0.6">by ' + esc(r.performed_by || '?') + '</span></span>' +
+            '<span style="white-space:nowrap;opacity:0.55">' + _fmtTime(r.created_at) + '</span>' +
+            '</div>';
+        }).join('');
+      }).catch(function (e) { list.innerHTML = '<span style="color:#ef4444">Error: ' + esc(e.message) + '</span>'; });
+  }
+
   // ── Admin Management (Super Admin only) ──────────────────────
   window.rAddAdmin = function () {
     var emailInp = document.getElementById('r-admin-new-email');
@@ -1238,21 +1310,29 @@
       .then(function (res) {
         if (res.error) throw new Error(res.error.message);
         rToast('Admin added: ' + email, 'success');
+        _logAdminAction('admin_added', email, { can_write: canWrite, nickname: nickname || null });
         if (emailInp) emailInp.value = '';
         if (nickInp) nickInp.value = '';
         if (passInp) passInp.value = '';
         if (permSel) { permSel.value = 'read'; rUpdatePermIndicator(permSel); }
         _loadAdminUsers();
+        _loadAdminAuditLog();
       })
       .catch(function (e) { rToast('Error: ' + e.message, 'error'); });
   };
 
   window.rRemoveAdmin = function (email) {
     if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
+    // Hard delete — admin_users only stores current state, so once removed
+    // there's no undo. Confirm first; this was previously a single click
+    // with zero confirmation for an unrecoverable action.
+    if (!window.confirm('Remove admin access for ' + email + '? This cannot be undone.')) return;
     RS.supa.from('admin_users').delete().eq('email', email).then(function (res) {
       if (res.error) throw new Error(res.error.message);
       rToast('Removed: ' + email, 'success');
+      _logAdminAction('admin_removed', email, null);
       _loadAdminUsers();
+      _loadAdminAuditLog();
     }).catch(function (e) { rToast('Error: ' + e.message, 'error'); });
   };
 
@@ -1302,6 +1382,8 @@
     RS.supa.from('admin_users').update({ can_write: val }).eq('email', email).then(function (res) {
       if (res.error) throw new Error(res.error.message);
       rToast((val ? 'Write enabled' : 'Write disabled') + ': ' + email, 'success');
+      _logAdminAction('write_access_changed', email, { can_write: val });
+      _loadAdminAuditLog();
     }).catch(function (e) { rToast('Error: ' + e.message, 'error'); });
   };
 
@@ -1932,11 +2014,32 @@
   function _updateNotifDropdown() {
     var list = document.getElementById('notif-dropdown-list');
     if (!list) return;
-    if (!_sysAlerts.length) {
+    // Per-category unresolved counts — the SAME numbers updateAlertBadge()
+    // sums into the bell's total badge. Previously this dropdown only ever
+    // rendered _sysAlerts, so the badge could show a nonzero total (e.g. 12
+    // open VIBES errors) while the dropdown said "No new alerts". Surfacing
+    // them here reuses the counts _pollBadgeCounts() already fetched — no
+    // extra query needed.
+    var cats = [
+      { n: RS.unresolvedVibes, label: 'VIBES Agent', route: 'r-vibes', icon: 'fa-file-arrow-up' },
+      { n: RS.unresolvedRenamer, label: 'Renamer', route: 'r-renamer', icon: 'fa-file-signature' },
+      { n: RS.unresolvedVims, label: 'VIMS Agent', route: 'r-vims', icon: 'fa-magnifying-glass-chart' },
+      { n: RS.unresolvedAppErrors, label: 'App Errors', route: 'r-alerts', icon: 'fa-triangle-exclamation' }
+    ].filter(function (c) { return c.n > 0; });
+    var summaryHtml = cats.map(function (c) {
+      return '<div class="dropdown-item" onclick="rNav(\'' + c.route + '\');document.getElementById(\'notif-dropdown\').classList.add(\'hidden\')" ' +
+        'style="display:flex;align-items:center;gap:7px;padding:5px 12px;cursor:pointer">' +
+        '<i class="fa-solid ' + c.icon + '" style="color:var(--rc-warn,#f59e0b);flex-shrink:0;font-size:11px"></i>' +
+        '<span style="flex:1;font-size:10px;color:var(--rc-text,#e2e8f0)">' + esc(c.label) + '</span>' +
+        '<span style="font-size:10px;font-weight:700;color:var(--rc-warn,#f59e0b)">' + (c.n > 50 ? '50+' : c.n) + '</span>' +
+        '</div>';
+    }).join('');
+
+    if (!cats.length && !_sysAlerts.length) {
       list.innerHTML = '<div style="padding:10px;text-align:center;font-size:11px;color:var(--text-muted)">No new alerts</div>';
       return;
     }
-    var html = '';
+    var html = summaryHtml + (summaryHtml && _sysAlerts.length ? '<div class="dropdown-sep"></div>' : '');
     var recent = _sysAlerts.slice(0, 5);
     for (var i = 0; i < recent.length; i++) {
       var a = recent[i];
@@ -1964,6 +2067,12 @@
     var tot = RS.unresolvedVibes + RS.unresolvedRenamer + RS.unresolvedVims + RS.unresolvedAppErrors + _sysAlertUnread;
     var na = $r('r-nb-alerts');
     if (na) { na.textContent = tot || ''; na.style.display = tot ? '' : 'none'; }
+    // Keep the dropdown's per-category summary in sync with the badge total
+    // it's built from — every caller of updateAlertBadge() (the 4 badge-count
+    // callbacks in _pollBadgeCounts, plus system alert pushes) now also
+    // refreshes what the dropdown shows, reusing the same RS.unresolved*
+    // numbers rather than issuing any new query.
+    _updateNotifDropdown();
   }
 
   // Expose alert helpers to global scope (needed by inline onclick attributes)
@@ -2197,12 +2306,23 @@
   };
 
   // ── Global Search ──────────────────────────────────────────
+  // Debounced so a zero-match "no results" hint doesn't fire on every single
+  // keystroke while the user is still mid-typing — only after a short pause.
+  var _rSearchNoMatchTimer = null;
   window.rGlobalSearch = function (q) {
+    clearTimeout(_rSearchNoMatchTimer);
     if (!q || q.length < 2) return;
     var lq = q.toLowerCase();
     var matches = Object.keys(RS.devices).filter(function (h) { return h.toLowerCase().indexOf(lq) !== -1; });
-    if (matches.length === 1) { rNav('r-device:' + matches[0]); }
-    else if (matches.length > 1) { rNav('r-devices'); }
+    if (matches.length === 1) { rNav('r-device:' + matches[0]); return; }
+    if (matches.length > 1) { rNav('r-devices'); return; }
+    // Zero matches — previously silent (no feedback at all). Search is
+    // scoped to device hostnames only (Log Explorer / Commands already have
+    // their own dedicated filter UIs for logs/commands), so give an honest
+    // "no device found" hint instead of doing nothing.
+    _rSearchNoMatchTimer = setTimeout(function () {
+      rToast('No device matches "' + q + '"', 'warn', 2500);
+    }, 500);
   };
 
   // ── ECG Heartbeat Animation ──────────────────────────────
@@ -4398,7 +4518,9 @@
     RS.supa.from('logs').select('*').eq('machine', hostname)
       .order('timestamp', { ascending: false }).limit(5000)
       .then(function (res) {
-        _processAndRenderLogs(res.data || [], box, '');
+        var data = res.data || [];
+        _processAndRenderLogs(data, box, '');
+        if (data.length >= 5000) _showTruncNotice(box);
       }).catch(function (err) { box.innerHTML = errBox(err.message); });
   }
 
@@ -5274,11 +5396,30 @@
       .order('timestamp', { ascending: false }).limit(5000)
       .then(function (res) {
         var data = res.data || [];
+        // Hard-capped at 5000 with no pagination for these per-app tabs —
+        // hitting the cap exactly is the strong signal that older rows exist
+        // but were left out silently. Log Explorer already has its own real
+        // "Load More" pagination (see rLoadLogs/_rLogLoadMore); these per-app
+        // tabs don't, so a visible notice is the safe, low-risk fix here
+        // rather than building 3x duplicate cursor-pagination UI.
+        var truncated = data.length >= 5000;
         if (!window._rsLogCache) window._rsLogCache = {};
-        window._rsLogCache[appName] = { data: data, ts: Date.now() };
-        if (onDone) onDone(data);
+        window._rsLogCache[appName] = { data: data, ts: Date.now(), truncated: truncated };
+        if (onDone) onDone(data, truncated);
       })
       .catch(function () { if (onDone) onDone([]); });
+  }
+
+  // Shared truncation notice for _fetchAndCacheAppLogs consumers (Renamer HQ,
+  // FV Branch/Splitter/Studio/Quick/Scanify, VIBES Upload Activity).
+  function _showTruncNotice(box) {
+    if (!box || box.querySelector('.r-trunc-notice')) return;
+    var b = document.createElement('div');
+    b.className = 'r-trunc-notice';
+    b.style.cssText = 'padding:6px 14px;background:rgba(245,158,11,0.07);border-bottom:1px solid rgba(245,158,11,0.18);font-size:11px;color:#f59e0b;display:flex;align-items:center;gap:8px;';
+    b.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="font-size:10px"></i>' +
+      '<span>Showing the most recent 5000 log entries — older entries exist but aren\'t loaded. Narrow the Machine/Status filter to see more.</span>';
+    box.insertBefore(b, box.firstChild);
   }
 
   // ── VIBES: true claim-row totals (persisted) ─────────────────────
@@ -5380,16 +5521,17 @@
     if (!box) return;
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
 
-    function _render(data) {
+    function _render(data, truncated) {
       var d = machine ? data.filter(function (l) { return l.machine === machine; }) : data;
       _processAndRenderLogs(d, box, statusFilter, 'global');
+      if (truncated) _showTruncNotice(box);
     }
 
     var cached = (window._rsLogCache || {})['Renamer HQ'];
     if (cached) {
-      _render(cached.data);
-      _fetchAndCacheAppLogs('Renamer HQ', function (fresh) {
-        if ($r('r-ren-results') === box) _render(fresh);
+      _render(cached.data, cached.truncated);
+      _fetchAndCacheAppLogs('Renamer HQ', function (fresh, truncated) {
+        if ($r('r-ren-results') === box) _render(fresh, truncated);
       });
     } else {
       box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
@@ -5442,16 +5584,17 @@
     if (!box) return;
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
 
-    function _render(data) {
+    function _render(data, truncated) {
       var d = machine ? data.filter(function (l) { return l.machine === machine; }) : data;
       _processAndRenderLogs(d, box, statusFilter, 'global');
+      if (truncated) _showTruncNotice(box);
     }
 
     var cached = (window._rsLogCache || {})[appName];
     if (cached) {
-      _render(cached.data);
-      _fetchAndCacheAppLogs(appName, function (fresh) {
-        if ($r('al-results-' + safeId) === box) _render(fresh);
+      _render(cached.data, cached.truncated);
+      _fetchAndCacheAppLogs(appName, function (fresh, truncated) {
+        if ($r('al-results-' + safeId) === box) _render(fresh, truncated);
       });
     } else {
       box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
@@ -5521,9 +5664,10 @@
     if (!box) return;
     if (!RS.supa) { box.innerHTML = '<div class="r-empty">Supabase not ready</div>'; return; }
 
-    function _render(data, incompleteMap) {
+    function _render(data, incompleteMap, truncated) {
       var d = machine ? data.filter(function (l) { return l.machine === machine; }) : data;
       _processAndRenderLogs(d, box, statusFilter, 'global', incompleteMap);
+      if (truncated) _showTruncNotice(box);
       // Constrain to ~10 rows with sticky header + scroll
       var tw = box.querySelector('.r-table-wrap');
       if (tw) {
@@ -5541,19 +5685,19 @@
     var cached = (window._rsLogCache || {})['VIBES'];
     var cachedMap = window._rsVibesClaimTotalsMap;
     if (cached && cachedMap) {
-      _render(cached.data, cachedMap);
-      _fetchAndCacheAppLogs('VIBES', function (fresh) {
+      _render(cached.data, cachedMap, cached.truncated);
+      _fetchAndCacheAppLogs('VIBES', function (fresh, truncated) {
         _fetchVibesClaimTotalsMap(function (freshMap) {
           window._rsVibesClaimTotalsMap = freshMap;
-          if ($r('r-vact-results') === box) _render(fresh, freshMap);
+          if ($r('r-vact-results') === box) _render(fresh, freshMap, truncated);
         });
       });
     } else {
       box.innerHTML = '<div class="r-loading"><span class="r-spin"></span> Querying…</div>';
-      _fetchAndCacheAppLogs('VIBES', function (fresh) {
+      _fetchAndCacheAppLogs('VIBES', function (fresh, truncated) {
         _fetchVibesClaimTotalsMap(function (freshMap) {
           window._rsVibesClaimTotalsMap = freshMap;
-          _render(fresh, freshMap);
+          _render(fresh, freshMap, truncated);
         });
       });
     }
@@ -6102,6 +6246,7 @@
       if (res.error) { rToast('Query error: ' + res.error.message, 'error'); return; }
       var rows = (res.data || []);
       if (!rows.length) { rToast('No records found', 'warn'); return; }
+      if (rows.length >= 5000) rToast('Capped at 5000 records (oldest first) — the most recent entries may be missing from this export', 'warn', 6000);
       var jsonl = rows.map(function (r) { return JSON.stringify(r); }).join('\n');
       var blob = new Blob([jsonl], { type: 'application/jsonl' });
       var url = URL.createObjectURL(blob);
@@ -10147,7 +10292,7 @@
     var sm = document.getElementById('r-settings-modal');
     if (sm) sm.classList.add('hidden');
     var modal = document.getElementById('r-admins-modal');
-    if (modal) { modal.classList.remove('hidden'); _loadAdminUsers(); }
+    if (modal) { modal.classList.remove('hidden'); _loadAdminUsers(); _loadAdminAuditLog(); }
   };
 
   window.rOpenAppUsersFromSettings = function () {
@@ -10162,7 +10307,7 @@
     var nav = document.getElementById('r-nav-dropdown');
     if (nav) nav.classList.add('hidden');
     var modal = document.getElementById('r-admins-modal');
-    if (modal) { modal.classList.remove('hidden'); _loadAdminUsers(); }
+    if (modal) { modal.classList.remove('hidden'); _loadAdminUsers(); _loadAdminAuditLog(); }
   };
 
   // ── Hospital Users Management ──────────────────────────────────

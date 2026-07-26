@@ -33,9 +33,11 @@ setInterval(() => {
     if (anyStale) APP.renderDevices();
 }, 10000);
 
-// Clock tick — keeps metric sync timestamp current
+// Sync-age ticker — counts up the LAST SYNC TIME card from the actual last
+// Firestore push (APP.state.lastSyncTime, set in devices.js). This used to be
+// a plain clock that printed the current time every second regardless of
+// whether any data had actually arrived, so it always looked "live" even when
+// the listener had gone silent for days.
 setInterval(() => {
-    if (APP.DOM && APP.DOM.metricSync) {
-        APP.DOM.metricSync.innerText = new Date().toLocaleTimeString();
-    }
+    if (typeof APP.updateSyncDisplay === 'function') APP.updateSyncDisplay();
 }, 1000);

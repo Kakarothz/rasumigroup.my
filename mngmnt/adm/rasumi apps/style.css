@@ -282,6 +282,13 @@
   gap: 0;
 }
 #rasumi-container .r-h-nav::-webkit-scrollbar { display: none; }
+/* Only applied when JS detects the tab strip actually overflows (scrollWidth
+   > clientWidth) — fades both edges so admin knows more tabs are scrollable,
+   since the scrollbar itself stays hidden. */
+#rasumi-container .r-h-nav.r-hn-scrollable {
+  mask-image: linear-gradient(to right, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
+}
 
 #rasumi-container .r-hn-item {
   display: flex;
