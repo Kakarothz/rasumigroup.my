@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIMS Smart Printing Label — Chrome Extension Report</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Three.js 3D WebGL Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        :root {
+            --bg-base: #0B1017; --bg-panel: #131C28; --bg-card: #172231; --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #F4F7FB; --text-secondary: #9DB2C8;
+            --accent-blue: #38BDF8; --accent-green: #22C55E; --accent-purple: #8B5CF6; --accent-orange: #F59E0B; --accent-danger: #EF4444;
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --font-mono: 'JetBrains Mono', monospace;
+            --radius-large: 16px; --radius-medium: 8px; --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: var(--bg-base); color: var(--text-primary); font-family: var(--font-main); line-height: 1.6; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+        h1, h2, h3, h4, h5, h6 { font-weight: 700; letter-spacing: -0.02em; }
+        html { scroll-behavior: smooth; scroll-snap-type: y proximity; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-base); }
+        ::-webkit-scrollbar-thumb { background: var(--bg-card); border-radius: 4px; border: 2px solid var(--bg-base); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-blue); }
+        .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; border: 1px solid currentColor; }
+        .badge.blue { color: var(--accent-blue); background: rgba(56, 189, 248, 0.1); }
+        .badge.green { color: var(--accent-green); background: rgba(34, 197, 94, 0.1); }
+        .badge.purple { color: var(--accent-purple); background: rgba(139, 92, 246, 0.1); }
+        .badge.orange { color: var(--accent-orange); background: rgba(245, 158, 11, 0.1); }
+        .badge.danger { color: var(--accent-danger); background: rgba(239, 68, 68, 0.1); }
+
+        .report-switcher { position: absolute; top: 0; left: 0; right: 0; width: 100%; z-index: 100; background: rgba(11, 16, 23, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-color); }
+        .report-switcher-inner { max-width: 1400px; margin: 0 auto; padding: 0.1rem 0.1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .rs-logo-img { height: 45px; width: auto; object-fit: contain; display: block; }
+        .rs-dropdown { position: relative; }
+        .rs-dropdown-btn { display: flex; align-items: center; gap: 8px; background: var(--bg-panel); border: 1px solid var(--border-color); color: var(--text-primary); font-family: var(--font-main); font-size: 0.85rem; font-weight: 600; padding: 8px 14px; border-radius: var(--radius-medium); cursor: pointer; transition: var(--transition-smooth); }
+        .rs-dropdown-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+        .rs-caret { font-size: 0.7rem; transition: transform 0.2s ease; }
+        .rs-dropdown.open .rs-caret { transform: rotate(180deg); }
+        .rs-dropdown-menu { position: absolute; top: calc(100% + 8px); right: 0; width: 300px; background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: var(--radius-medium); box-shadow: 0 12px 30px rgba(0,0,0,0.5); padding: 6px; display: none; flex-direction: column; gap: 2px; }
+        .rs-dropdown.open .rs-dropdown-menu { display: flex; }
+        .rs-item { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--radius-medium); text-decoration: none; color: var(--text-primary); font-size: 0.88rem; font-weight: 600; transition: var(--transition-smooth); }
+        .rs-item:hover { background: rgba(56, 189, 248, 0.08); }
+        .rs-item.active { background: rgba(56, 189, 248, 0.12); color: var(--accent-blue); }
+        .rs-tag { font-size: 0.72rem; font-weight: 500; color: var(--text-secondary); font-family: var(--font-mono); }
+
+        .cover-section { position: relative; min-height: 100vh; width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 4.5rem 2rem 2rem 2rem; box-sizing: border-box; overflow: hidden; background: linear-gradient(135deg, #090D13 0%, #0D1622 100%); border-bottom: 1px solid var(--border-color); scroll-snap-align: start; }
+        .cover-bg-particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; opacity: 0.35; }
+        .cover-content { position: relative; z-index: 2; text-align: center; max-width: 900px; width: 100%; margin: auto; }
+        .cover-app-title { font-size: 1.1rem; font-weight: 800; color: var(--accent-blue); letter-spacing: 0.3em; text-transform: uppercase; margin-bottom: 1rem; text-shadow: 0 0 15px rgba(56, 189, 248, 0.4); animation: fadeInDown 0.8s ease; }
+        .cover-main-title { font-size: clamp(2.5rem, 6vw, 4.5rem); line-height: 1.15; font-weight: 800; color: var(--text-primary); margin-bottom: 1.5rem; min-height: 2.3em; }
+        .cover-title-gradient { background: linear-gradient(to right, #38BDF8, #8B5CF6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .typing-cursor { display: inline-block; width: 4px; height: 0.85em; background-color: var(--accent-blue); margin-left: 6px; vertical-align: middle; border-radius: 2px; animation: blinkCursor 0.75s infinite; box-shadow: 0 0 10px rgba(56, 189, 248, 0.8); }
+        @keyframes blinkCursor { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        .cover-version-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); padding: 6px 18px; border-radius: 30px; font-family: var(--font-mono); font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 3.5rem; animation: fadeInUp 0.8s ease; }
+        .cover-version-badge strong { color: var(--accent-orange); font-weight: 700; }
+        .cover-metadata-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; max-width: 640px; width: 100%; margin: 0 auto; animation: fadeInUp 1s ease; }
+        @media (max-width: 680px) { .cover-metadata-grid { grid-template-columns: 1fr; gap: 1rem; } }
+        .meta-card { background: rgba(19, 28, 40, 0.65); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: var(--radius-large); text-align: left; backdrop-filter: blur(10px); transition: var(--transition-smooth); }
+        .meta-card:hover { border-color: rgba(56, 189, 248, 0.3); transform: translateY(-2px); }
+        .meta-label { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        .meta-value { font-size: 1rem; font-weight: 600; color: var(--text-primary); }
+        .scroll-indicator { position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%); z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; text-decoration: none; opacity: 0.7; transition: var(--transition-smooth); }
+        .scroll-indicator:hover { opacity: 1; color: var(--accent-blue); }
+        .scroll-mouse { width: 22px; height: 36px; border: 2px solid currentColor; border-radius: 12px; position: relative; }
+        .scroll-wheel { width: 4px; height: 8px; background-color: currentColor; border-radius: 2px; position: absolute; top: 6px; left: 50%; transform: translateX(-50%); animation: scrollWheelAnim 1.6s infinite; }
+
+        .container-section { padding: 6rem 2rem; max-width: 1400px; margin: 0 auto; border-bottom: 1px solid var(--border-color); box-sizing: border-box; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; scroll-snap-align: start; }
+        .container-section#timeline { scroll-snap-align: none; min-height: auto; display: block; }
+        .footer-section.inline-footer { min-height: auto; scroll-snap-align: none; margin-top: auto; margin-bottom: -2rem; padding: 1.5rem 2rem; width: 100vw; position: relative; left: 50%; right: 50%; margin-left: -50vw; margin-right: -50vw; }
+        .container-section#impact { padding-top: 5rem; padding-bottom: 2rem; justify-content: flex-start; }
+        #improvements { padding: 3rem 2rem; justify-content: center; }
+        #improvements .section-header { margin-bottom: 1.5rem; }
+        #improvements .section-title { font-size: 1.6rem; }
+        .container-section#impact .section-header { margin-bottom: 2rem; }
+        .container-section#impact .impact-card { padding: 1.5rem; }
+        .container-section#impact .impact-icon { font-size: 1.4rem; margin-bottom: 0.6rem; }
+        .container-section#impact .impact-title { font-size: 1rem; margin-bottom: 0.5rem; }
+        .container-section#impact .impact-desc { font-size: 0.82rem; }
+        .section-header { margin-bottom: 3.5rem; }
+        .section-tag { color: var(--accent-blue); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 0.5rem; }
+        .section-title { font-size: 2.2rem; color: var(--text-primary); }
+        .grid-summary-layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 4rem; align-items: center; }
+        @media (max-width: 1024px) { .grid-summary-layout { grid-template-columns: 1fr; gap: 3rem; } }
+        .summary-text-block { font-size: 1.1rem; color: var(--text-secondary); }
+        .summary-text-block p { margin-bottom: 1.5rem; }
+        .summary-text-block strong { color: var(--text-primary); }
+        .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
+        .kpi-card { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: var(--radius-large); padding: 1.75rem; display: flex; flex-direction: column; min-height: 190px; transition: var(--transition-smooth); }
+        .kpi-card:hover { transform: translateY(-4px); border-color: rgba(56, 189, 248, 0.25); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
+        .kpi-value-row { display: flex; align-items: baseline; gap: 8px; margin-top: auto; }
+        .kpi-old-val { font-size: 1rem; color: var(--text-secondary); text-decoration: line-through; font-family: var(--font-mono); }
+        .kpi-new-val { font-size: 1.45rem; line-height: 1.25; font-weight: 800; color: var(--accent-green); font-family: var(--font-mono); }
+        .kpi-new-val.active { color: var(--accent-blue); }
+        .kpi-title { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem; }
+        .kpi-desc { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.25rem; }
+
+        .architecture-section { padding: 6rem 2rem; max-width: 1400px; margin: 0 auto; background: linear-gradient(to bottom, #0B1017, #080C11); border-bottom: 1px solid var(--border-color); position: relative; box-sizing: border-box; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; scroll-snap-align: start; }
+        .map-wrapper { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: var(--radius-large); height: 750px; width: 100%; overflow: hidden; position: relative; box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8); }
+        #archMap { width: 100%; height: 100%; display: block; cursor: grab; background-color: #0b1017; background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1.2px, transparent 1.2px); background-size: 24px 24px; user-select: none; }
+        #archMap:active { cursor: grabbing; }
+        .map-controls-panel { position: absolute; bottom: 20px; left: 20px; display: flex; gap: 8px; z-index: 10; }
+        .map-btn { background: rgba(23, 34, 49, 0.9); border: 1px solid var(--border-color); color: var(--text-primary); padding: 1px 5px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; cursor: pointer; backdrop-filter: blur(10px); display: flex; align-items: center; gap: 5px; transition: var(--transition-smooth); }
+        .map-btn:hover { background: var(--accent-blue); color: #000; border-color: var(--accent-blue); box-shadow: 0 0 15px rgba(56, 189, 248, 0.4); }
+        .map-legend-trigger { position: absolute; top: 14px; right: 14px; z-index: 15; display: flex; align-items: center; gap: 6px; cursor: default; }
+        .map-legend-btn { width: 30px; height: 30px; border-radius: 50%; background: rgba(23, 34, 49, 0.5); border: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.4); font-size: 0.85rem; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.25s ease; backdrop-filter: blur(6px); user-select: none; }
+        .map-legend-trigger:hover .map-legend-btn { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.4); color: var(--accent-blue); }
+        .map-legend-panel { position: absolute; top: 50px; right: 14px; background: rgba(13, 22, 34, 0.92); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: var(--radius-large); padding: 1rem; backdrop-filter: blur(14px); z-index: 14; width: 220px; pointer-events: none; opacity: 0; transform: translateY(-6px) scale(0.97); transition: opacity 0.22s ease, transform 0.22s ease; }
+        .map-legend-trigger:hover .map-legend-panel { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+        .legend-title { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; color: var(--text-primary); border-bottom: 1px solid var(--border-color); padding-bottom: 4px; }
+        .legend-item { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
+        .legend-item:last-child { margin-bottom: 0; }
+        .legend-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .node-group { cursor: pointer; }
+        .node-bg { fill: #172231; stroke: rgba(255, 255, 255, 0.12); stroke-width: 1.5; rx: 6px; ry: 6px; transition: var(--transition-smooth); }
+        .node-group:hover .node-bg { fill: #1b293d; stroke: rgba(255, 255, 255, 0.3); }
+        .node-text { font-family: var(--font-main); font-weight: 600; font-size: 11px; fill: #F4F7FB; pointer-events: none; }
+        .node-layer-label { font-family: var(--font-main); font-weight: 700; font-size: 12px; fill: var(--text-secondary); text-anchor: middle; letter-spacing: 0.1em; text-transform: uppercase; }
+        .link-path { fill: none; stroke-width: 1.5; opacity: 0.25; transition: var(--transition-smooth); }
+        .link-path.calls { stroke: var(--accent-green); }
+        .link-path.depends { stroke: var(--accent-blue); }
+        .link-path.cross { stroke: var(--accent-orange); }
+        .node-group.dimmed, .link-path.dimmed, .flow-particle.dimmed { opacity: 0.05 !important; }
+        .node-group.highlighted .node-bg { stroke: var(--accent-blue) !important; stroke-width: 2.5 !important; fill: #1f3149 !important; filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.3)); }
+        .link-path.highlighted { opacity: 1 !important; stroke-width: 3.5 !important; }
+        .node-icon-circle { fill: rgba(255, 255, 255, 0.04); stroke: rgba(255, 255, 255, 0.08); stroke-width: 1; }
+        .node-icon-text { font-family: var(--font-mono); font-weight: 700; font-size: 11px; fill: var(--text-secondary); text-anchor: middle; dominant-baseline: middle; }
+        .node-group.highlighted .node-icon-text { fill: var(--accent-blue); }
+
+        .pipeline-card { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: var(--radius-large); padding: 3rem 2rem; position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
+        .pipeline-flow-wrapper { width: 100%; max-width: 1200px; height: 300px; position: relative; }
+        #pipelineSvg { width: 100%; height: 100%; display: block; }
+        .pipe-node-rect { fill: var(--bg-card); stroke: rgba(255,255,255,0.08); stroke-width: 1.5; rx: 10px; ry: 10px; }
+        .pipe-node-title { font-family: var(--font-main); font-size: 11px; font-weight: 700; fill: var(--text-primary); text-anchor: middle; text-transform: uppercase; letter-spacing: 0.05em; }
+        .pipe-node-subtitle { font-family: var(--font-mono); font-size: 10px; fill: var(--text-secondary); text-anchor: middle; }
+        .pipe-link { fill: none; stroke-width: 2.5; stroke-dasharray: 6 6; animation: dashFlow 15s linear infinite; }
+        .pipe-link.success-path { stroke: var(--accent-green); }
+        .pipe-link.rollback-path { stroke: var(--accent-danger); }
+        .pipe-link.normal-path { stroke: var(--accent-blue); }
+        .pipe-particle { fill: #fff; filter: drop-shadow(0 0 4px #fff); }
+
+        .timeline-wrapper { position: relative; padding: 1.5rem 0; max-width: 960px; margin: 0 auto; }
+        .timeline-line { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: linear-gradient(to bottom, var(--accent-blue), var(--accent-purple), var(--accent-orange), var(--accent-green)); transform: translateX(-50%); opacity: 0.3; }
+        .timeline-item { position: relative; width: 100%; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; }
+        .timeline-item:last-child { margin-bottom: 0; }
+        .timeline-content-panel { position: relative; width: 44%; background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: var(--radius-medium); padding: 1rem 1.25rem; transition: var(--transition-smooth); }
+        .timeline-content-panel:hover { transform: translateY(-2px); border-color: rgba(56, 189, 248, 0.3); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35); }
+        .timeline-item:nth-child(even) { flex-direction: row-reverse; }
+        .timeline-dot { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 14px; border-radius: 50%; background-color: var(--bg-base); border: 3px solid var(--accent-blue); z-index: 5; box-shadow: 0 0 8px rgba(56, 189, 248, 0.5); transition: var(--transition-smooth); }
+        .timeline-item:nth-child(5n+1) .timeline-dot { border-color: var(--accent-blue); box-shadow: 0 0 8px rgba(56, 189, 248, 0.4); }
+        .timeline-item:nth-child(5n+2) .timeline-dot { border-color: var(--accent-purple); box-shadow: 0 0 8px rgba(139, 92, 246, 0.4); }
+        .timeline-item:nth-child(5n+3) .timeline-dot { border-color: var(--accent-orange); box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+        .timeline-item:nth-child(5n+4) .timeline-dot { border-color: var(--accent-danger); box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
+        .timeline-item:nth-child(5n+5) .timeline-dot { border-color: var(--accent-green); box-shadow: 0 0 8px rgba(34, 197, 94, 0.4); }
+        .timeline-item:hover .timeline-dot { transform: translate(-50%, -50%) scale(1.3); }
+        .timeline-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem; }
+        .timeline-version { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; }
+        .timeline-item:nth-child(5n+1) .timeline-version { color: var(--accent-blue); }
+        .timeline-item:nth-child(5n+2) .timeline-version { color: var(--accent-purple); }
+        .timeline-item:nth-child(5n+3) .timeline-version { color: var(--accent-orange); }
+        .timeline-item:nth-child(5n+4) .timeline-version { color: var(--accent-danger); }
+        .timeline-item:nth-child(5n+5) .timeline-version { color: var(--accent-green); }
+        .timeline-date { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; }
+        .timeline-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.35rem; line-height: 1.3; }
+        .timeline-desc { font-size: 0.83rem; color: var(--text-secondary); line-height: 1.45; margin: 0; }
+        @media (max-width: 768px) {
+            .timeline-line { left: 20px; } .timeline-item { flex-direction: row !important; justify-content: flex-start; } .timeline-dot { left: 20px; } .timeline-content-panel { width: calc(100% - 50px); margin-left: 40px; }
+        }
+
+        .improvements-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+        @media (max-width: 1024px) { .improvements-grid { grid-template-columns: 1fr; } }
+        .imp-column { display: flex; flex-direction: column; gap: 1.5rem; }
+        .imp-col-header { display: flex; align-items: center; gap: 10px; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; }
+        .imp-col-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .imp-col-title { font-size: 1.1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-primary); }
+        .imp-card { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: var(--radius-large); padding: 1.75rem; transition: var(--transition-smooth); }
+        .imp-card:hover { transform: translateY(-4px); border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
+        .imp-card-title { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px; }
+        .imp-card-desc { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem; }
+        .imp-card-code-header { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.02em; }
+        .imp-card-code { font-family: var(--font-mono); font-size: 0.75rem; background-color: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.03); color: var(--accent-blue); padding: 8px 12px; border-radius: var(--radius-medium); overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+
+        .impact-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+        @media (max-width: 1024px) { .impact-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 680px) { .impact-grid { grid-template-columns: 1fr; } }
+        .impact-card { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: var(--radius-large); padding: 2.25rem; display: flex; flex-direction: column; position: relative; overflow: hidden; transition: var(--transition-smooth); }
+        .impact-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background-color: var(--accent-blue); }
+        .impact-card:nth-child(2)::before { background-color: var(--accent-green); }
+        .impact-card:nth-child(3)::before { background-color: var(--accent-purple); }
+        .impact-card:hover { transform: translateY(-4px); border-color: rgba(255, 255, 255, 0.15); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
+        .impact-icon { font-size: 1.75rem; margin-bottom: 1rem; color: var(--accent-blue); }
+        .impact-card:nth-child(2) .impact-icon { color: var(--accent-green); }
+        .impact-card:nth-child(3) .impact-icon { color: var(--accent-purple); }
+        .impact-title { font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.75rem; }
+        .impact-desc { font-size: 0.9rem; color: var(--text-secondary); }
+
+        .footer-section { background-color: #080C11; border-top: 1px solid var(--border-color); padding: 4rem 2rem; text-align: center; box-sizing: border-box; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; scroll-snap-align: start; }
+        .footer-logo { font-size: 0.95rem; font-weight: 700; letter-spacing: 0.25em; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.5rem; }
+        .footer-sub { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.5rem; }
+        .footer-badges { display: flex; justify-content: center; gap: 10px; }
+
+        .note-box { background: rgba(245, 158, 11, 0.06); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: var(--radius-medium); padding: 1rem 1.25rem; font-size: 0.85rem; color: var(--text-secondary); margin-top: 1.5rem; }
+        .note-box strong { color: var(--accent-orange); }
+
+        @keyframes scrollWheelAnim { 0% { top: 6px; opacity: 1; } 50% { top: 16px; opacity: 0; } 100% { top: 6px; opacity: 1; } }
+        @keyframes dashFlow { to { stroke-dashoffset: -120; } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <nav class="report-switcher">
+        <div class="report-switcher-inner">
+            <img src="../assets/icon.png" alt="Rasumi Logo" class="rs-logo-img">
+            <div class="rs-dropdown" id="rsDropdown">
+                <button class="rs-dropdown-btn" id="rsDropdownBtn" type="button">Switch Report <span class="rs-caret">▾</span></button>
+                <div class="rs-dropdown-menu">
+                    <a href="../index.html" class="rs-item">Rasumi Apps <span class="rs-tag">Admin Console + Field Agents</span></a>
+                    <a href="../sales_report/index.html" class="rs-item">Apps Sales Report <span class="rs-tag">VIMS Reporting Center</span></a>
+                    <a href="index.html" class="rs-item active">Smart Printer Label <span class="rs-tag">Chrome Extension</span></a>
+                    <a href="../vims_auto/index.html" class="rs-item">VIMS Auto Selesai <span class="rs-tag">Chrome Extension</span></a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <header class="cover-section" id="cover">
+        <canvas class="cover-bg-particles" id="coverCanvas"></canvas>
+        <div class="cover-content">
+            <p class="cover-app-title">VIMS Smart Printing Label</p>
+            <h1 class="cover-main-title"><span id="typedLine1"></span><br><span id="typedLine2" class="cover-title-gradient"></span><span class="typing-cursor" id="typingCursor"></span></h1>
+            <div class="cover-version-badge">Version 3.0 ──<strong>&gt;</strong> 4.3</div>
+            <div class="cover-metadata-grid">
+                <div class="meta-card"><p class="meta-label">Prepared By</p><p class="meta-value">Mohammad Mustaqim Ghazali</p><p class="meta-sub" style="font-size: 0.75rem; color: var(--accent-blue); margin-top: 2px; font-weight: 600;">IT &amp; AI Executive</p></div>
+                <div class="meta-card"><p class="meta-label">Date of Report</p><p class="meta-value">27 July 2026</p></div>
+            </div>
+        </div>
+        <a href="#summary" class="scroll-indicator"><span>Scroll Report</span><div class="scroll-mouse"><div class="scroll-wheel"></div></div></a>
+    </header>
+
+    <section class="container-section" id="summary">
+        <div class="section-header">
+            <p class="section-tag">Executive Summary</p>
+            <h2 class="section-title">Print Automation & Reliability</h2>
+        </div>
+        <div class="grid-summary-layout">
+            <div class="summary-text-block">
+                <p><strong>VIMS Smart Printing Label</strong> is a Google Chrome extension that automates drug label printing directly from the VIMS pharmacy portal, running independently at each branch workstation.</p>
+                <p>Version 4 introduced <strong>600 DPI Ultra HD printing</strong>, an <strong>auto size-lock</strong> that prevents accidental A4/Letter misprints, and <strong>Anti-Jamming server recovery</strong> that automatically refreshes the page when the VIMS portal throws its known `Persits.PdfManager` / `800a002e` error — previously a manual-intervention failure.</p>
+                <p>A Firebase-backed <strong>multi-branch SOC dashboard</strong> gives HQ live visibility into every branch's print activity, idle time, and error rate from one screen, with remote restart capability.</p>
+            </div>
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <p class="kpi-title">Print Resolution</p>
+                    <p class="kpi-desc">Label clarity / barcode scan reliability</p>
+                    <div class="kpi-value-row"><span class="kpi-old-val">Standard</span><span class="kpi-new-val" id="kpiCounterTarget">0 DPI</span></div>
+                </div>
+                <div class="kpi-card">
+                    <p class="kpi-title">Paper Size Lock</p>
+                    <p class="kpi-desc">Prevents A4/Letter misprint waste</p>
+                    <div class="kpi-value-row"><span class="kpi-new-val active">96mm × 44mm Auto</span></div>
+                </div>
+                <div class="kpi-card">
+                    <p class="kpi-title">Server Error Recovery</p>
+                    <p class="kpi-desc">VIMS portal "Persits.PdfManager" jam</p>
+                    <div class="kpi-value-row"><span class="kpi-new-val active">Auto (3s Refresh)</span></div>
+                </div>
+                <div class="kpi-card">
+                    <p class="kpi-title">Multi-Branch Visibility</p>
+                    <p class="kpi-desc">HQ operational oversight</p>
+                    <div class="kpi-value-row"><span class="kpi-new-val active">Live SOC Dashboard</span></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="architecture-section" id="architecture">
+        <div class="section-header" style="margin: 0 0 3.5rem 0;">
+            <p class="section-tag">GraphSpec</p>
+            <h2 class="section-title">System Architecture & Dependencies</h2>
+        </div>
+        <div class="map-wrapper">
+            <svg id="archMap" viewBox="0 0 1300 750">
+                <defs>
+                    <marker id="arrow-calls" viewBox="0 0 10 10" refX="22" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#22C55E"/></marker>
+                    <marker id="arrow-depends" viewBox="0 0 10 10" refX="22" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#38BDF8"/></marker>
+                    <marker id="arrow-cross" viewBox="0 0 10 10" refX="22" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#F59E0B"/></marker>
+                </defs>
+                <g id="mapContainer">
+                    <g id="layerLabelsGroup"></g>
+                    <g id="linksGroup"></g>
+                    <g id="particlesGroup"></g>
+                    <g id="nodesGroup"></g>
+                </g>
+            </svg>
+            <div class="map-legend-trigger">
+                <div class="map-legend-btn" title="Relation Legend">ⓘ</div>
+                <div class="map-legend-panel">
+                    <p class="legend-title">Relation Legend</p>
+                    <div class="legend-item"><div class="legend-color-dot" style="background-color: var(--accent-green);"></div><span>Calls / Trigger Action</span></div>
+                    <div class="legend-item"><div class="legend-color-dot" style="background-color: var(--accent-blue);"></div><span>Depends on (System/Library)</span></div>
+                    <div class="legend-item"><div class="legend-color-dot" style="background-color: var(--accent-orange);"></div><span>Cross-System Communications</span></div>
+                </div>
+            </div>
+            <div class="map-controls-panel">
+                <button class="map-btn" id="btnZoomIn">➕ Zoom In</button>
+                <button class="map-btn" id="btnZoomOut">➖ Zoom Out</button>
+                <button class="map-btn" id="btnReset">🔄 Reset View</button>
+                <button class="map-btn" id="btnFit">👁️ Fit Screen</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="container-section" id="pipeline">
+        <div class="section-header">
+            <p class="section-tag">Bot Loop</p>
+            <h2 class="section-title">Print Automation & Anti-Jam Pipeline</h2>
+        </div>
+        <div class="pipeline-card">
+            <div class="pipeline-flow-wrapper">
+                <svg id="pipelineSvg" viewBox="0 0 1200 300">
+                    <defs>
+                        <marker id="pipe-arrow-blue" viewBox="0 0 10 10" refX="28" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#38BDF8"/></marker>
+                        <marker id="pipe-arrow-green" viewBox="0 0 10 10" refX="28" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#22C55E"/></marker>
+                        <marker id="pipe-arrow-danger" viewBox="0 0 10 10" refX="28" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#EF4444"/></marker>
+                    </defs>
+                    <g id="pipelineContent">
+                        <path d="M 170 150 L 310 150" class="pipe-link normal-path" style="marker-end: url(#pipe-arrow-blue);"/>
+                        <path d="M 430 150 L 570 150" class="pipe-link normal-path" style="marker-end: url(#pipe-arrow-blue);"/>
+                        <path d="M 690 150 L 830 150" class="pipe-link normal-path" style="marker-end: url(#pipe-arrow-blue);"/>
+                        <path d="M 950 150 C 1000 150, 1000 70, 1070 70" class="pipe-link success-path" style="marker-end: url(#pipe-arrow-green);"/>
+                        <path d="M 950 150 C 1000 150, 1000 230, 1070 230" class="pipe-link rollback-path" style="marker-end: url(#pipe-arrow-danger);"/>
+                        <circle r="4" class="pipe-particle" style="fill: var(--accent-blue);"><animateMotion path="M 170 150 L 310 150" dur="4s" repeatCount="indefinite" /></circle>
+                        <circle r="4" class="pipe-particle" style="fill: var(--accent-blue);"><animateMotion path="M 430 150 L 570 150" dur="4s" repeatCount="indefinite" /></circle>
+                        <circle r="4" class="pipe-particle" style="fill: var(--accent-blue);"><animateMotion path="M 690 150 L 830 150" dur="4s" repeatCount="indefinite" /></circle>
+                        <circle r="4" class="pipe-particle" style="fill: var(--accent-green);"><animateMotion path="M 950 150 C 1000 150, 1000 70, 1070 70" dur="5s" repeatCount="indefinite" /></circle>
+                        <circle r="4" class="pipe-particle" style="fill: var(--accent-danger);"><animateMotion path="M 950 150 C 1000 150, 1000 230, 1070 230" dur="5s" repeatCount="indefinite" /></circle>
+                        <g><rect x="50" y="115" width="120" height="70" class="pipe-node-rect" /><text x="110" y="148" class="pipe-node-title">Scan Row</text><text x="110" y="165" class="pipe-node-subtitle">Delivery Order</text></g>
+                        <g><rect x="310" y="115" width="120" height="70" class="pipe-node-rect" /><text x="370" y="148" class="pipe-node-title">Blacklist</text><text x="370" y="165" class="pipe-node-subtitle">Skip Filter</text></g>
+                        <g><rect x="570" y="115" width="120" height="70" class="pipe-node-rect" /><text x="630" y="148" class="pipe-node-title">PDF Render</text><text x="630" y="165" class="pipe-node-subtitle">600 DPI Scale 6.0</text></g>
+                        <g><rect x="830" y="115" width="120" height="70" class="pipe-node-rect" /><text x="890" y="148" class="pipe-node-title">Print</text><text x="890" y="165" class="pipe-node-subtitle">Size-Locked Popup</text></g>
+                        <g><rect x="1070" y="35" width="100" height="70" class="pipe-node-rect" style="stroke: var(--accent-green); fill: rgba(34, 197, 94, 0.03);"/><text x="1120" y="68" class="pipe-node-title" style="fill: var(--accent-green);">Logged</text><text x="1120" y="85" class="pipe-node-subtitle" style="fill: var(--accent-green);">Firebase Sync</text></g>
+                        <g><rect x="1070" y="195" width="100" height="70" class="pipe-node-rect" style="stroke: var(--accent-danger); fill: rgba(239, 68, 68, 0.03);"/><text x="1120" y="228" class="pipe-node-title" style="fill: var(--accent-danger);">Server Jam</text><text x="1120" y="245" class="pipe-node-subtitle" style="fill: var(--accent-danger);">Auto-Refresh 3s</text></g>
+                    </g>
+                </svg>
+            </div>
+        </div>
+    </section>
+
+    <section class="container-section" id="timeline">
+        <div class="section-header">
+            <p class="section-tag">Release History</p>
+            <h2 class="section-title">Version Release Timeline</h2>
+        </div>
+        <div class="timeline-wrapper">
+            <div class="timeline-line"></div>
+            <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content-panel">
+                <div class="timeline-card-header"><span class="timeline-version">v4.3</span><span class="timeline-date">09 April 2026</span></div>
+                <h3 class="timeline-title">Pin-to-Top & Auto Firebase Cleanup</h3>
+                <p class="timeline-desc">Added branch pinning on the Admin Dashboard, automated weekly Firebase log cleanup (Sundays 00:00), and fixed session header reliability with a queue-based storage system.</p>
+            </div></div>
+            <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content-panel">
+                <div class="timeline-card-header"><span class="timeline-version">v4.2</span><span class="timeline-date">26 March 2026</span></div>
+                <h3 class="timeline-title">Hybrid SOC Dashboard</h3>
+                <p class="timeline-desc">New 2-column layout with centralized live feed, smart auto-scroll terminal, system idle alerts (10 min), and per-branch activity rate monitor (jobs/min).</p>
+            </div></div>
+            <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content-panel">
+                <div class="timeline-card-header"><span class="timeline-version">v4.1</span><span class="timeline-date">2026</span></div>
+                <h3 class="timeline-title">Secured Live Mode</h3>
+                <p class="timeline-desc">Migrated to secured Firebase connectivity via Database Secrets. Added session-grouped log headers and URL-encoded branch names for reliable remote RESTART commands.</p>
+            </div></div>
+            <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content-panel">
+                <div class="timeline-card-header"><span class="timeline-version">v3.2</span><span class="timeline-date">2026</span></div>
+                <h3 class="timeline-title">Concurrent Hold Handling</h3>
+                <p class="timeline-desc">Redesigned maintenance scanner to support concurrent monitoring of multiple "ON HOLD" items, plus a full codebase audit removing dead logic.</p>
+            </div></div>
+            <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content-panel">
+                <div class="timeline-card-header"><span class="timeline-version">v3.1</span><span class="timeline-date">2026</span></div>
+                <h3 class="timeline-title">Log Pruning & High Water Mark</h3>
+                <p class="timeline-desc">FIFO 30-item rolling log window to prevent memory leaks, plus a safeguard against re-printing pruned old DO numbers.</p>
+            </div></div>
+            <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content-panel">
+                <div class="timeline-card-header"><span class="timeline-version">v3.0</span><span class="timeline-date">2025</span></div>
+                <h3 class="timeline-title">Firebase Integration & Multi-Branch Monitor</h3>
+                <p class="timeline-desc">Real-time print log sync to Firebase, first multi-branch admin monitor, auto branch detection, and randomized anti-lag refresh timers.</p>
+            </div></div>
+            <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content-panel">
+                <div class="timeline-card-header"><span class="timeline-version">v2.0</span><span class="timeline-date">2025</span></div>
+                <h3 class="timeline-title">Content Engine Architecture</h3>
+                <p class="timeline-desc">Transitioned to the row-by-row "Content Engine" scanning model for reliable page interaction, replacing the original one-shot script.</p>
+            </div></div>
+            <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content-panel">
+                <div class="timeline-card-header"><span class="timeline-version">v1.0</span><span class="timeline-date">2025</span></div>
+                <h3 class="timeline-title">Initial Release</h3>
+                <p class="timeline-desc">Proof-of-concept automating "Open DO" and "Generate Sticker" buttons on the VIMS delivery order page, manually triggered per print.</p>
+            </div></div>
+        </div>
+    </section>
+
+    <section class="container-section" id="improvements">
+        <div class="section-header">
+            <p class="section-tag">Backend Logic</p>
+            <h2 class="section-title">Technical Improvement Logs</h2>
+        </div>
+        <div class="improvements-grid">
+            <div class="imp-column">
+                <div class="imp-col-header"><div class="imp-col-dot" style="background-color: var(--accent-blue);"></div><h3 class="imp-col-title">Print Quality</h3></div>
+                <div class="imp-card">
+                    <h4 class="imp-card-title">600 DPI Ultra HD Rendering</h4>
+                    <p class="imp-card-desc">Scale 6.0 rendering engine with image smoothing for laser-equivalent output quality on thermal/label printers.</p>
+                    <p class="imp-card-code-header">Implementation</p>
+                    <div class="imp-card-code">canvas.getContext('2d').imageSmoothingEnabled = true; viewport = page.getViewport({ scale: 6.0 });</div>
+                </div>
+                <div class="imp-card">
+                    <h4 class="imp-card-title">Auto Size Lock</h4>
+                    <p class="imp-card-desc">Forces 96mm × 44mm output via an isolated popup window, bypassing browser header/footer and A4 fallback.</p>
+                    <p class="imp-card-code-header">Implementation</p>
+                    <div class="imp-card-code">window.open('', '_blank', 'width=400,height=200');</div>
+                </div>
+            </div>
+            <div class="imp-column">
+                <div class="imp-col-header"><div class="imp-col-dot" style="background-color: var(--accent-orange);"></div><h3 class="imp-col-title">Resilience</h3></div>
+                <div class="imp-card">
+                    <h4 class="imp-card-title">Anti-Jamming Server Recovery</h4>
+                    <p class="imp-card-desc">Detects known VIMS server errors and self-recovers without human intervention.</p>
+                    <p class="imp-card-code-header">Implementation</p>
+                    <div class="imp-card-code">if (body.innerText.includes("Persits.PdfManager") || body.innerText.includes("800a002e")) setTimeout(() => location.reload(), 3000);</div>
+                </div>
+                <div class="imp-card">
+                    <h4 class="imp-card-title">Print Lock Deadlock Guard</h4>
+                    <p class="imp-card-desc">A stale lock older than 30s automatically enables the manual reset button in the popup UI.</p>
+                    <p class="imp-card-code-header">Implementation</p>
+                    <div class="imp-card-code">if (Date.now() - lockTs > 30000) resetBtn.disabled = false;</div>
+                </div>
+            </div>
+            <div class="imp-column">
+                <div class="imp-col-header"><div class="imp-col-dot" style="background-color: var(--accent-green);"></div><h3 class="imp-col-title">Fleet Operations</h3></div>
+                <div class="imp-card">
+                    <h4 class="imp-card-title">Presence Heartbeat</h4>
+                    <p class="imp-card-desc">1-minute alarm pushes branch presence + ACTIVE/IDLE status to Firebase for the SOC dashboard.</p>
+                    <p class="imp-card-code-header">Implementation</p>
+                    <div class="imp-card-code">chrome.alarms.create('vims_heartbeat', { periodInMinutes: 1 });</div>
+                </div>
+                <div class="imp-card">
+                    <h4 class="imp-card-title">Remote Restart Command</h4>
+                    <p class="imp-card-desc">HQ can force a branch's VIMS tab to reload from the SOC dashboard; polled every 10 seconds.</p>
+                    <p class="imp-card-code-header">Implementation</p>
+                    <div class="imp-card-code">setInterval(checkRemoteCommands, 10000);</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="container-section" id="impact">
+        <div class="section-header">
+            <p class="section-tag">Value Proposition</p>
+            <h2 class="section-title">Operational Business Impact</h2>
+        </div>
+        <div class="impact-grid">
+            <div class="impact-card"><div class="impact-icon">🖨️</div><h3 class="impact-title">Reduced Print Waste</h3><p class="impact-desc">Auto size-lock eliminates accidental A4/Letter misprints, cutting wasted label stock across all branches.</p></div>
+            <div class="impact-card"><div class="impact-icon">⚡</div><h3 class="impact-title">Unattended Recovery</h3><p class="impact-desc">Anti-jamming logic keeps the bot running through known VIMS portal errors without staff intervention, reducing print queue backlog.</p></div>
+            <div class="impact-card"><div class="impact-icon">🖥️</div><h3 class="impact-title">Centralized HQ Oversight</h3><p class="impact-desc">The SOC dashboard gives management real-time cross-branch visibility into print throughput and idle branches from a single screen.</p></div>
+        </div>
+
+        <footer class="footer-section inline-footer">
+            <p class="footer-logo">VIMS Smart Printing Label</p>
+            <p class="footer-sub">Report compiled by virtual AI assistant MUS Labs Engineering.</p>
+            <div class="footer-badges"><span class="badge purple">Confidential</span><span class="badge danger">Internal Use Only</span></div>
+        </footer>
+    </section>
+
+    <script>
+        /* Three.js 3D WebGL cover background (squares & rectangles particle cloud, mouse-reactive) */
+        (function initThreeJS() {
+            const coverSec = document.getElementById('cover');
+            const canvas = document.getElementById('coverCanvas');
+            let width = window.innerWidth;
+            let height = window.innerHeight;
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(60, width / height, 1, 2000);
+            camera.position.z = 600;
+            const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            const colors = ['#38BDF8', '#FC413D', '#FBBC04', '#00B95C', '#8B5CF6', '#EC4899'];
+            function createShapeTexture(colorHex, isRectangle) {
+                const texCanvas = document.createElement('canvas');
+                texCanvas.width = 64; texCanvas.height = 64;
+                const ctx = texCanvas.getContext('2d');
+                ctx.fillStyle = colorHex; ctx.shadowColor = colorHex; ctx.shadowBlur = 4;
+                if (isRectangle) { ctx.fillRect(9, 21, 46, 22); } else { ctx.fillRect(15, 15, 34, 34); }
+                return new THREE.CanvasTexture(texCanvas);
+            }
+            const squareTexture = createShapeTexture('#ffffff', false);
+            const rectTexture = createShapeTexture('#ffffff', true);
+            function createShapeCloud(count, texMap, sizeVal) {
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(count * 3);
+                const homePositions = new Float32Array(count * 3);
+                const velocities = new Float32Array(count * 3);
+                const pColors = new Float32Array(count * 3);
+                const colorObj = new THREE.Color();
+                for (let i = 0; i < count; i++) {
+                    const idx = i * 3;
+                    const radius = 120 + Math.random() * 380;
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = (Math.random() - 0.5) * Math.PI * 0.5;
+                    const x = radius * Math.cos(theta) * Math.cos(phi);
+                    const y = radius * Math.sin(theta) * Math.cos(phi) * 0.55;
+                    const z = (Math.random() - 0.5) * 450;
+                    positions[idx] = x; positions[idx + 1] = y; positions[idx + 2] = z;
+                    homePositions[idx] = x; homePositions[idx + 1] = y; homePositions[idx + 2] = z;
+                    velocities[idx] = (Math.random() - 0.5) * 0.4;
+                    velocities[idx + 1] = (Math.random() - 0.5) * 0.4;
+                    velocities[idx + 2] = (Math.random() - 0.5) * 0.4;
+                    colorObj.set(colors[Math.floor(Math.random() * colors.length)]);
+                    pColors[idx] = colorObj.r; pColors[idx + 1] = colorObj.g; pColors[idx + 2] = colorObj.b;
+                }
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geometry.setAttribute('color', new THREE.BufferAttribute(pColors, 3));
+                const material = new THREE.PointsMaterial({ size: sizeVal, map: texMap, vertexColors: true, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+                return { points: new THREE.Points(geometry, material), geometry: geometry, count: count, homePositions: homePositions, velocities: velocities };
+            }
+            const squareCloud = createShapeCloud(420, squareTexture, 8.0);
+            const rectCloud = createShapeCloud(420, rectTexture, 9.0);
+            scene.add(squareCloud.points);
+            scene.add(rectCloud.points);
+            let mouse3D = new THREE.Vector3(-9999, -9999, 0);
+            let mouseTarget3D = new THREE.Vector3(-9999, -9999, 0);
+            const raycaster = new THREE.Raycaster();
+            const mouseNDC = new THREE.Vector2(-9999, -9999);
+            const interactionPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+            const rayIntersect = new THREE.Vector3();
+            coverSec.addEventListener('mousemove', (e) => {
+                const rect = coverSec.getBoundingClientRect();
+                mouseNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouseNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                raycaster.setFromCamera(mouseNDC, camera);
+                if (raycaster.ray.intersectPlane(interactionPlane, rayIntersect)) { mouseTarget3D.copy(rayIntersect); }
+            });
+            coverSec.addEventListener('mouseleave', () => { mouseTarget3D.set(-9999, -9999, 0); });
+            window.addEventListener('resize', () => {
+                width = window.innerWidth; height = window.innerHeight;
+                camera.aspect = width / height; camera.updateProjectionMatrix();
+                renderer.setSize(width, height);
+            });
+            function updateCloudPhysics(cloud) {
+                const posAttr = cloud.geometry.attributes.position;
+                const pArray = posAttr.array;
+                for (let i = 0; i < cloud.count; i++) {
+                    const idx = i * 3;
+                    let px = pArray[idx], py = pArray[idx + 1], pz = pArray[idx + 2];
+                    let vx = cloud.velocities[idx], vy = cloud.velocities[idx + 1], vz = cloud.velocities[idx + 2];
+                    const hx = cloud.homePositions[idx], hy = cloud.homePositions[idx + 1], hz = cloud.homePositions[idx + 2];
+                    const dx = px - mouse3D.x, dy = py - mouse3D.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const maxDist = 240;
+                    if (dist < maxDist && dist > 0) {
+                        const force = (1 - dist / maxDist) * 7.5;
+                        vx += (dx / dist) * force; vy += (dy / dist) * force;
+                        vz += (Math.random() - 0.5) * force * 1.8;
+                    }
+                    vx += (hx - px) * 0.004; vy += (hy - py) * 0.004; vz += (hz - pz) * 0.004;
+                    vx *= 0.93; vy *= 0.93; vz *= 0.93;
+                    cloud.velocities[idx] = vx; cloud.velocities[idx + 1] = vy; cloud.velocities[idx + 2] = vz;
+                    pArray[idx] += vx; pArray[idx + 1] += vy; pArray[idx + 2] += vz;
+                }
+                posAttr.needsUpdate = true;
+            }
+            function animateThreeJS() {
+                requestAnimationFrame(animateThreeJS);
+                mouse3D.x += (mouseTarget3D.x - mouse3D.x) * 0.12;
+                mouse3D.y += (mouseTarget3D.y - mouse3D.y) * 0.12;
+                updateCloudPhysics(squareCloud);
+                updateCloudPhysics(rectCloud);
+                squareCloud.points.rotation.y += 0.0006;
+                rectCloud.points.rotation.y -= 0.0006;
+                renderer.render(scene, camera);
+            }
+            animateThreeJS();
+        })();
+
+        /* Typewriter typing effect for cover title */
+        (function initTypewriterTitle() {
+            const line1El = document.getElementById('typedLine1');
+            const line2El = document.getElementById('typedLine2');
+            const text1 = "Drug Label Print";
+            const text2 = "Automation Extension";
+            let idx1 = 0, idx2 = 0;
+            function typeLine1() {
+                if (idx1 < text1.length) { line1El.textContent += text1.charAt(idx1); idx1++; setTimeout(typeLine1, 40); }
+                else { setTimeout(typeLine2, 120); }
+            }
+            function typeLine2() {
+                if (idx2 < text2.length) { line2El.textContent += text2.charAt(idx2); idx2++; setTimeout(typeLine2, 40); }
+            }
+            setTimeout(typeLine1, 200);
+        })();
+
+        /* Animated count-up for Print Resolution KPI on scroll into Executive Summary */
+        (function initKpiCounterAnimation() {
+            const counterEl = document.getElementById('kpiCounterTarget');
+            const targetSection = document.getElementById('summary');
+            if (!counterEl || !targetSection) return;
+            const endVal = 600;
+            const suffix = ' DPI';
+            let wasIntersecting = false;
+            function animateCounter() {
+                const duration = 1400;
+                const startTime = performance.now();
+                counterEl.textContent = '0' + suffix;
+                function update(currentTime) {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const easeProgress = 1 - Math.pow(1 - progress, 3);
+                    const currentVal = Math.round(endVal * easeProgress);
+                    counterEl.textContent = currentVal + suffix;
+                    if (progress < 1) requestAnimationFrame(update);
+                    else counterEl.textContent = endVal + suffix;
+                }
+                requestAnimationFrame(update);
+            }
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) { if (!wasIntersecting) { wasIntersecting = true; animateCounter(); } }
+                    else { wasIntersecting = false; }
+                });
+            }, { threshold: 0.25 });
+            observer.observe(targetSection);
+        })();
+
+        const layers = [
+            { id: "actors", name: "Actors", nodes: [
+                { id: "operator", name: "Pharmacy Operator", icon: "OP" },
+                { id: "hq_admin", name: "HQ Admin", icon: "A" }
+            ]},
+            { id: "extension", name: "Extension Components", nodes: [
+                { id: "popup_ui", name: "Popup Control UI", icon: "UI" },
+                { id: "content_script", name: "Content Script", icon: "CS" },
+                { id: "background_worker", name: "Background Worker", icon: "BG" },
+                { id: "pdf_engine", name: "PDF Render Engine", icon: "PDF" },
+                { id: "admin_monitor", name: "Admin SOC Dashboard", icon: "SOC" }
+            ]},
+            { id: "external", name: "External Services", nodes: [
+                { id: "vims_portal", name: "VIMS Portal", icon: "WEB" },
+                { id: "firebase_rtdb", name: "Firebase RTDB", icon: "DB" },
+                { id: "printer", name: "Label Printer", icon: "PRN" }
+            ]}
+        ];
+
+        const connections = [
+            { from: "operator", to: "popup_ui", type: "calls" },
+            { from: "popup_ui", to: "content_script", type: "depends" },
+            { from: "content_script", to: "vims_portal", type: "cross" },
+            { from: "content_script", to: "pdf_engine", type: "depends" },
+            { from: "pdf_engine", to: "printer", type: "cross" },
+            { from: "content_script", to: "background_worker", type: "calls" },
+            { from: "background_worker", to: "firebase_rtdb", type: "cross" },
+            { from: "hq_admin", to: "admin_monitor", type: "calls" },
+            { from: "admin_monitor", to: "firebase_rtdb", type: "cross" },
+            { from: "background_worker", to: "vims_portal", type: "cross" }
+        ];
+
+        const NODE_WIDTH = 180, NODE_HEIGHT = 38, LAYER_GAP = 340, START_X = 120, MAP_HEIGHT = 750;
+        const nodeCoordinates = {};
+        layers.forEach((layer, layerIdx) => {
+            const x = START_X + layerIdx * LAYER_GAP;
+            const nodesCount = layer.nodes.length;
+            layer.nodes.forEach((node, nodeIdx) => {
+                const totalHeightUsed = (nodesCount - 1) * 60;
+                const startY = (MAP_HEIGHT - totalHeightUsed) / 2;
+                nodeCoordinates[node.id] = { x, y: startY + nodeIdx * 60 };
+            });
+        });
+
+        const layerLabelsGroup = document.getElementById('layerLabelsGroup');
+        const linksGroup = document.getElementById('linksGroup');
+        const particlesGroup = document.getElementById('particlesGroup');
+        const nodesGroup = document.getElementById('nodesGroup');
+
+        layers.forEach((layer, layerIdx) => {
+            const x = START_X + layerIdx * LAYER_GAP + NODE_WIDTH / 2;
+            const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textEl.setAttribute('x', x); textEl.setAttribute('y', 35); textEl.setAttribute('class', 'node-layer-label'); textEl.textContent = layer.name;
+            layerLabelsGroup.appendChild(textEl);
+        });
+
+        layers.forEach(layer => {
+            layer.nodes.forEach(node => {
+                const coords = nodeCoordinates[node.id];
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('class', 'node-group'); g.setAttribute('id', `node-${node.id}`); g.setAttribute('data-id', node.id);
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', coords.x); rect.setAttribute('y', coords.y - NODE_HEIGHT/2); rect.setAttribute('width', NODE_WIDTH); rect.setAttribute('height', NODE_HEIGHT); rect.setAttribute('class', 'node-bg');
+                const iconCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                iconCircle.setAttribute('cx', coords.x + 22); iconCircle.setAttribute('cy', coords.y); iconCircle.setAttribute('r', 12); iconCircle.setAttribute('class', 'node-icon-circle');
+                const iconText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                iconText.setAttribute('x', coords.x + 22); iconText.setAttribute('y', coords.y + 0.5); iconText.setAttribute('class', 'node-icon-text'); iconText.textContent = node.icon;
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', coords.x + 44); text.setAttribute('y', coords.y + 4); text.setAttribute('class', 'node-text'); text.textContent = node.name;
+                g.appendChild(rect); g.appendChild(iconCircle); g.appendChild(iconText); g.appendChild(text);
+                nodesGroup.appendChild(g);
+                g.addEventListener('pointerenter', () => highlightDependencies(node.id, false));
+                g.addEventListener('pointerleave', () => resetHighlights());
+                g.addEventListener('click', (e) => { e.stopPropagation(); highlightDependencies(node.id, true); });
+            });
+        });
+
+        connections.forEach((conn) => {
+            const start = nodeCoordinates[conn.from]; const end = nodeCoordinates[conn.to];
+            if (!start || !end) return;
+            const x1 = start.x + NODE_WIDTH, y1 = start.y, x2 = end.x, y2 = end.y;
+            const controlOffset = Math.min(Math.abs(x2 - x1) * 0.45, 120);
+            const pathData = `M ${x1} ${y1} C ${x1 + controlOffset} ${y1}, ${x2 - controlOffset} ${y2}, ${x2} ${y2}`;
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', pathData); path.setAttribute('class', `link-path ${conn.type}`); path.setAttribute('id', `link-${conn.from}-${conn.to}`); path.setAttribute('marker-end', `url(#arrow-${conn.type})`);
+            linksGroup.appendChild(path);
+            const particle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            particle.setAttribute('r', 2.5); particle.setAttribute('class', `flow-particle ${conn.type}`); particle.setAttribute('id', `particle-${conn.from}-${conn.to}`);
+            let color = 'var(--accent-green)'; if (conn.type === 'depends') color = 'var(--accent-blue)'; if (conn.type === 'cross') color = 'var(--accent-orange)';
+            particle.setAttribute('fill', color); particle.style.filter = `drop-shadow(0 0 3px ${color})`;
+            const animMotion = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
+            animMotion.setAttribute('path', pathData); const dur = (2.2 + Math.random() * 1.8).toFixed(1); animMotion.setAttribute('dur', `${dur}s`); animMotion.setAttribute('repeatCount', 'indefinite');
+            particle.appendChild(animMotion); particlesGroup.appendChild(particle);
+        });
+
+        let activeStickyNode = null;
+        function highlightDependencies(nodeId, sticky = false) {
+            if (sticky) { if (activeStickyNode === nodeId) { activeStickyNode = null; resetHighlights(); return; } activeStickyNode = nodeId; }
+            else if (activeStickyNode) return;
+            const incomingLinks = new Set(), outgoingLinks = new Set(), connectedNodes = new Set([nodeId]);
+            function findOutgoing(currId) { connections.forEach(c => { if (c.from === currId && !outgoingLinks.has(`${c.from}-${c.to}`)) { outgoingLinks.add(`${c.from}-${c.to}`); connectedNodes.add(c.to); findOutgoing(c.to); } }); }
+            function findIncoming(currId) { connections.forEach(c => { if (c.to === currId && !incomingLinks.has(`${c.from}-${c.to}`)) { incomingLinks.add(`${c.from}-${c.to}`); connectedNodes.add(c.from); findIncoming(c.from); } }); }
+            findOutgoing(nodeId); findIncoming(nodeId);
+            document.querySelectorAll('.node-group').forEach(el => {
+                const id = el.getAttribute('data-id');
+                if (connectedNodes.has(id)) { el.classList.remove('dimmed'); if (id === nodeId) el.classList.add('highlighted'); }
+                else { el.classList.add('dimmed'); el.classList.remove('highlighted'); }
+            });
+            document.querySelectorAll('.link-path').forEach(el => {
+                const idAttr = el.getAttribute('id').replace('link-', '');
+                if (incomingLinks.has(idAttr) || outgoingLinks.has(idAttr)) { el.classList.remove('dimmed'); el.classList.add('highlighted'); }
+                else { el.classList.add('dimmed'); el.classList.remove('highlighted'); }
+            });
+            document.querySelectorAll('.flow-particle').forEach(el => {
+                const idAttr = el.getAttribute('id').replace('particle-', '');
+                if (incomingLinks.has(idAttr) || outgoingLinks.has(idAttr)) el.classList.remove('dimmed'); else el.classList.add('dimmed');
+            });
+        }
+        function resetHighlights() {
+            if (activeStickyNode) return;
+            document.querySelectorAll('.node-group, .link-path, .flow-particle').forEach(el => { el.classList.remove('dimmed'); el.classList.remove('highlighted'); });
+        }
+        document.getElementById('archMap').addEventListener('click', () => { activeStickyNode = null; resetHighlights(); });
+
+        const map = document.getElementById('archMap');
+        const container = document.getElementById('mapContainer');
+        let transformState = { x: 40, y: 40, scale: 0.85 };
+        let isPanning = false, startPoint = { x: 0, y: 0 };
+        function updateTransform() { container.setAttribute('transform', `translate(${transformState.x}, ${transformState.y}) scale(${transformState.scale})`); }
+        updateTransform();
+        map.addEventListener('pointerdown', (e) => { isPanning = true; startPoint = { x: e.clientX - transformState.x, y: e.clientY - transformState.y }; map.style.cursor = 'grabbing'; });
+        window.addEventListener('pointermove', (e) => { if (!isPanning) return; transformState.x = e.clientX - startPoint.x; transformState.y = e.clientY - startPoint.y; updateTransform(); });
+        window.addEventListener('pointerup', () => { isPanning = false; map.style.cursor = 'grab'; });
+        map.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomIntensity = 0.08;
+            const mouseX = e.clientX - map.getBoundingClientRect().left, mouseY = e.clientY - map.getBoundingClientRect().top;
+            const targetScale = e.deltaY < 0 ? transformState.scale * (1 + zoomIntensity) : transformState.scale / (1 + zoomIntensity);
+            const clampedScale = Math.max(0.3, Math.min(2.5, targetScale));
+            const scaleFactor = clampedScale / transformState.scale;
+            transformState.x = mouseX - (mouseX - transformState.x) * scaleFactor;
+            transformState.y = mouseY - (mouseY - transformState.y) * scaleFactor;
+            transformState.scale = clampedScale;
+            updateTransform();
+        }, { passive: false });
+        document.getElementById('btnZoomIn').addEventListener('click', (e) => { e.stopPropagation(); transformState.scale = Math.min(2.5, transformState.scale * 1.15); updateTransform(); });
+        document.getElementById('btnZoomOut').addEventListener('click', (e) => { e.stopPropagation(); transformState.scale = Math.max(0.3, transformState.scale / 1.15); updateTransform(); });
+        document.getElementById('btnReset').addEventListener('click', (e) => { e.stopPropagation(); transformState = { x: 40, y: 40, scale: 0.85 }; updateTransform(); activeStickyNode = null; resetHighlights(); });
+        document.getElementById('btnFit').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const box = container.getBBox(); const mapRect = map.getBoundingClientRect(); const padding = 40;
+            const scaleX = (mapRect.width - padding*2) / box.width, scaleY = (mapRect.height - padding*2) / box.height;
+            const nextScale = Math.min(scaleX, scaleY, 1.2);
+            transformState.scale = nextScale;
+            transformState.x = (mapRect.width - box.width*nextScale)/2 - box.x*nextScale;
+            transformState.y = (mapRect.height - box.height*nextScale)/2 - box.y*nextScale;
+            updateTransform();
+        });
+
+        (function () {
+            const dd = document.getElementById('rsDropdown'); const btn = document.getElementById('rsDropdownBtn');
+            if (!dd || !btn) return;
+            btn.addEventListener('click', (e) => { e.stopPropagation(); dd.classList.toggle('open'); });
+            document.addEventListener('click', (e) => { if (!dd.contains(e.target)) dd.classList.remove('open'); });
+        })();
+    </script>
+</body>
+</html>
