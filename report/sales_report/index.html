@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:,">
     <title>Apps Sales Report — VIMS Field Monitoring Dashboard</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -277,9 +278,9 @@
         </div>
         <div class="grid-summary-layout">
             <div class="summary-text-block">
-                <p>The <strong>Apps Sales Report</strong> dashboard is a standalone Firebase-backed console used by branch admins to monitor whether VIMS field agents (running on pharmacy branch workstations) are actively generating and submitting daily sales reports.</p>
-                <p>This system is architecturally separate from the main <strong>Rasumi Apps</strong> admin console — it runs on <strong>Google Firestore</strong>, not Supabase, and has no data crossover between the two.</p>
-                <p>An audit on 27 July 2026 found the dashboard's own "Last Sync Time" indicator was cosmetic — a plain clock that updated every second regardless of whether real device data had arrived, masking genuine staleness. This has been corrected today to reflect the true last-received Firestore push.</p>
+                <p>The <strong>Apps Sales Report Dashboard</strong> is a standalone Firebase-backed console used by branch administrators to monitor the operational status of VIMS Auto field agents responsible for generating and submitting daily sales reports from pharmacy branch workstations.</p>
+                <p>This platform is architecturally independent from the main <strong>Rasumi Apps Admin Console</strong>, operating on <strong>Google Firestore</strong> rather than Supabase, with no shared data or cross-system dependencies.</p>
+                <p>The dashboard's <strong>Last Sync Time</strong> indicator has been enhanced to display the actual timestamp of the most recent Firestore synchronization, providing administrators with an accurate view of device connectivity and reporting status.</p>
             </div>
             <div class="kpi-grid">
                 <div class="kpi-card">

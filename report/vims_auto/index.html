@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:,">
     <title>VIMS Auto Selesai — Chrome Extension Automation Suite</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -258,9 +259,9 @@
         </div>
         <div class="grid-summary-layout">
             <div class="summary-text-block">
-                <p><strong>VIMS Auto Selesai</strong> is a Chrome extension (v5.4) that automates the two most repetitive counter tasks on the VIMS portal: <strong>Auto Selesai</strong>, which scans and completes hundreds of Delivery Orders across every page in minutes instead of one by one, and the <strong>Listname Extractor</strong>, which silently captures full patient details (name, IC, army number, pension status, dispensing method, date) every time a barcode is scanned and exports the day's list straight to Excel.</p>
-                <p>A third capability bridges VIMS directly to the <strong>VIBES/JHEV</strong> claims portal — staff get an instant "WUJUD/BERPENCEN" veteran pension-status verification inline in the VIMS datatable and searchbar, without ever opening a second tab. This runs through a dedicated background bot tab so it never interferes with a staff member's own active work.</p>
-                <p>A built-in <strong>Admin Monitor</strong> reports live per-device, per-branch presence to a dedicated Firebase Realtime Database, so HQ can see which counters are active without visiting in person.</p>
+                <p><strong>VIMS Auto Selesai (v5.4)</strong> is a Chrome extension that automates key workflows within the VIMS portal. It automatically completes Delivery Orders in bulk, significantly reducing manual processing time, while the <strong>Listname Extractor</strong> captures patient information during barcode scanning and exports daily records directly to Excel.</p>
+                <p>The extension also integrates VIMS with the <strong>VIBES/JHEV Claims Portal</strong>, providing real-time veteran pension status verification (WUJUD/BERPENCEN) directly within the VIMS interface. Verification is handled through a dedicated background automation process, allowing staff to continue their work without interruption.</p>
+                <p>A built-in <strong>Admin Monitor</strong> reports real-time device and branch activity to a dedicated Firebase Realtime Database, enabling <strong>ADMIN</strong> to monitor operational status across all branches from a centralized dashboard.</p>
             </div>
             <div class="kpi-grid">
                 <div class="kpi-card">
@@ -384,7 +385,7 @@
             </div></div>
             <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content-panel">
                 <div class="timeline-card-header"><span class="timeline-version">v5.1.0</span><span class="timeline-date">15 May 2026</span></div>
-                <h3 class="timeline-title">Real-Time VIBES Verification</h3>
+                <h3 class="timeline-title">LIVE VIBES Verification</h3>
                 <p class="timeline-desc">Added instant VIBES database lookup for IC/military numbers from the search bar, with session protection and an automated login helper for uninterrupted background verification.</p>
             </div></div>
             <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content-panel">
@@ -603,8 +604,8 @@
         (function initTypewriterTitle() {
             const line1El = document.getElementById('typedLine1');
             const line2El = document.getElementById('typedLine2');
-            const text1 = "Pharmacy Order Automation";
-            const text2 = "& Real-Time VIBES Verification";
+            const text1 = "VIMS Automation";
+            const text2 = "& LIVE VIBES Verification";
             let idx1 = 0, idx2 = 0;
             function typeLine1() {
                 if (idx1 < text1.length) { line1El.textContent += text1.charAt(idx1); idx1++; setTimeout(typeLine1, 40); }
