@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>VIMS Smart Printing Label - Admin Monitor v4.3
+        V4.3 Hybrid SOC</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-dark: #050208;
+            --card-bg: #0f0818;
+            --neon-green: #39ff14;
+            --white-text: #f1f3f8;
+            --font-head: 'Orbitron', sans-serif;
+            --neon-red: #ff2d55;
+            --neon-yellow: #ffaa00;
+            --neon-blue: #00f3ff;
+            --neon-purple: #c084fc;
+            --grey: #8b91a2;
+            --border: rgba(192, 132, 252, 0.18);
+        }
+
+        @keyframes pulse-red {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 45, 85, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 6px rgba(255, 45, 85, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 45, 85, 0);
+            }
+        }
+
+        @keyframes blink-slow {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.2;
+            }
+        }
+
+        .pulse-error {
+            animation: pulse-red 1.5s infinite;
+            background: rgba(255, 45, 85, 0.2) !important;
+            color: #ff2d55 !important;
+            border: 1px solid var(--neon-red) !important;
+        }
+
+        .blinking {
+            animation: blink-slow 2s infinite;
+        }
+
+        .blink-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--neon-green);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+            animation: blink-slow 1s infinite;
+        }
+
+        * {
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+        }
+
+        ::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--white-text);
+            font-family: 'Rajdhani', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-size: 12px;
+        }
+
+        /* --- TOP BAR --- */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 15px;
+            background: #050208;
+            border-bottom: 1px solid var(--border);
+            height: 40px;
+            z-index: 100;
+        }
+
+        .logo {
+            font-family: var(--font-head);
+            font-weight: 700;
+            letter-spacing: 3px;
+            font-size: 14px;
+            color: var(--neon-purple);
+            text-shadow: 0 0 10px rgba(192, 132, 252, 0.4);
+        }
+        .hub-back { position: fixed; bottom: 14px; left: 14px; z-index: 150; font-family: var(--font-mono, 'JetBrains Mono', monospace); font-size: 10px; color: var(--grey); text-decoration: none; letter-spacing: 1px; padding: 6px 12px; border: 1px solid var(--border); background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); transition: 0.2s; }
+        .hub-back:hover { color: var(--neon-blue); border-color: var(--neon-blue); }
+
+        .stats-group {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .stat-item {
+            color: var(--grey);
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            color: #fff;
+            font-weight: bold;
+            margin-left: 4px;
+        }
+
+        .stat-value.active {
+            color: var(--neon-green);
+        }
+
+        .stat-value.error {
+            color: var(--neon-red);
+        }
+
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .badge {
+            padding: 3px 8px;
+            border-radius: 2px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .badge-live {
+            border: 1px solid var(--grey);
+            color: var(--grey);
+            opacity: 0.6;
+        }
+
+        .badge-live.active {
+            border: 1px solid var(--neon-green);
+            color: var(--neon-green);
+            opacity: 1;
+        }
+
+        .badge-live.offline {
+            border: 1px solid var(--neon-red);
+            color: var(--neon-red);
+            opacity: 1;
+        }
+
+        .badge-error {
+            border: 1px solid var(--neon-red);
+            color: var(--neon-red);
+        }
+
+        /* --- MAIN LAYOUT --- */
+        .main-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Dash Grid (75%) */
+        .dashboard-grid {
+            flex: 75;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            padding: 15px;
+            overflow-y: auto;
+            background: var(--bg-dark);
+            scrollbar-width: thin;
+        }
+
+        /* Terminal Sidebar (25% approx) */
+        .terminal-sidebar {
+            flex: 25;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid var(--border);
+            min-width: 300px;
+        }
+
+        .terminal-header {
+            background: #111;
+            color: var(--grey);
+            font-size: 10px;
+            padding: 6px 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .terminal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            font-size: 10px;
+            line-height: 1.3;
+            scrollbar-width: thin;
+        }
+
+        .t-line {
+            margin-bottom: 1px;
+            border-bottom: 1px solid transparent;
+            display: flex;
+            gap: 8px;
+        }
+
+        .t-time {
+            color: var(--neon-green);
+            min-width: 50px;
+        }
+
+        .t-branch {
+            color: var(--neon-green);
+            min-width: 45px;
+        }
+
+        .t-msg {
+            color: var(--neon-green);
+            flex: 1;
+        }
+
+        .t-line.sys .t-msg {
+            font-style: italic;
+            opacity: 0.8;
+        }
+
+        /* --- BRANCH CARD --- */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            height: 420px;
+            transition: 0.3s;
+        }
+
+        .card.active {
+            border-color: var(--neon-green);
+        }
+
+        .card.idle {
+            border-color: var(--neon-yellow);
+        }
+
+        .card.offline {
+            border-style: dashed;
+        }
+
+        .card-header {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .branch-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 2px;
+            align-items: center;
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--grey);
+        }
+
+        .status-dot.active {
+            background: var(--neon-green);
+            box-shadow: 0 0 5px var(--neon-green);
+        }
+
+        .status-dot.idle {
+            background: var(--neon-yellow);
+        }
+
+        .branch-name {
+            font-weight: bold;
+            font-size: 12px;
+            color: #fff;
+        }
+
+        .branch-meta {
+            font-size: 9px;
+            color: var(--grey);
+            gap: 10px;
+            display: flex;
+            margin-top: 2px;
+        }
+
+        .card-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            scrollbar-width: thin;
+        }
+
+        .log-filter-bar {
+            padding: 4px 12px;
+            font-size: 9px;
+            color: var(--grey);
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+        }
+
+        .filter-item {
+            cursor: pointer;
+        }
+
+        .filter-item.active {
+            color: var(--neon-green);
+            font-weight: bold;
+        }
+
+        .log-line {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 2px;
+            font-size: 10px;
+        }
+
+        .log-time {
+            color: #555;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            opacity: 0.4;
+            padding: 4px;
+            color: var(--grey);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+        }
+
+        .btn-icon svg {
+            stroke: var(--grey);
+            transition: 0.2s;
+        }
+
+        .btn-icon:hover {
+            opacity: 1;
+            color: #fff;
+        }
+
+        .btn-icon:hover svg {
+            stroke: #fff;
+        }
+
+        .btn-pin.active {
+            opacity: 1;
+        }
+
+        .btn-pin.active svg {
+            stroke: var(--neon-yellow);
+            fill: var(--neon-yellow);
+        }
+
+        .btn-danger {
+            background: #301;
+            color: var(--neon-red);
+            border: 1px solid #602;
+            padding: 4px 8px;
+            font-size: 10px;
+            cursor: pointer;
+            border-radius: 2px;
+            font-family: inherit;
+        }
+
+        .btn-danger:hover {
+            background: var(--neon-red);
+            color: #000;
+        }
+
+        /* --- SETTINGS MODAL --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            width: 500px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            letter-spacing: 2px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .modal-body {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .settings-section {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .section-title {
+            font-size: 10px;
+            color: var(--grey);
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .vims-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--neon-green);
+            padding: 10px 15px;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .blacklist-controls {
+            display: flex;
+            background: #000;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+            align-items: center;
+            transition: 0.3s;
+        }
+
+        #addDrugBtn {
+            background: transparent;
+            color: var(--neon-blue);
+            border: none;
+            cursor: pointer;
+            padding: 8px 15px;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #addDrugBtn:disabled {
+            opacity: 0.1;
+            cursor: not-allowed;
+            filter: grayscale(1);
+        }
+
+        #addDrugBtn:not(:disabled):hover {
+            color: #fff;
+            filter: drop-shadow(0 0 5px var(--neon-blue));
+            transform: scale(1.1);
+        }
+
+        /* --- HEADER ICON BUTTONS --- */
+        .btn-header-icon {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.3s;
+            outline: none;
+        }
+
+        .btn-header-icon svg {
+            transition: 0.3s;
+        }
+
+        .btn-header-save {
+            color: var(--neon-blue);
+            filter: drop-shadow(0 0 2px var(--neon-blue));
+        }
+
+        .btn-header-save:hover {
+            filter: drop-shadow(0 0 8px var(--neon-blue));
+            transform: scale(1.1);
+        }
+
+        .btn-header-sync {
+            color: var(--neon-green);
+            filter: drop-shadow(0 0 2px var(--neon-green));
+        }
+
+        .btn-header-sync:hover {
+            filter: drop-shadow(0 0 8px var(--neon-green));
+            transform: scale(1.1);
+        }
+
+        .btn-header-exit {
+            color: var(--neon-red);
+            opacity: 0.3;
+        }
+
+        .btn-header-exit:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        #blacklistError {
+            color: var(--neon-red);
+            font-size: 9px;
+            display: none;
+            margin-top: 2px;
+        }
+
+        .blacklist-list {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.2);
+            scrollbar-width: thin;
+        }
+
+        .blacklist-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .blacklist-item:last-child {
+            border-bottom: none;
+        }
+
+        .item-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .remark-tag {
+            font-size: 8px;
+            padding: 2px 4px;
+            border-radius: 2px;
+            letter-spacing: 1px;
+        }
+
+        .remark-synced {
+            background: rgba(57, 255, 20, 0.1);
+            color: var(--neon-green);
+            border: 1px solid rgba(57, 255, 20, 0.2);
+        }
+
+        .remark-pending {
+            background: rgba(255, 170, 0, 0.1);
+            color: #ffaa00;
+            border: 1px solid rgba(255, 170, 0, 0.2);
+        }
+
+        .btn-modal {
+            padding: 6px 12px;
+            font-size: 10px;
+            cursor: pointer;
+            font-family: inherit;
+            border-radius: 2px;
+            border: 1px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: var(--neon-blue);
+            color: #fff;
+        }
+
+        .btn-success {
+            background: var(--neon-green);
+            color: #000;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            border-color: var(--border);
+            color: var(--grey);
+        }
+
+        .btn-ghost:hover {
+            color: #fff;
+            border-color: #fff;
+        }
+
+        .btn-modal:hover {
+            opacity: 0.8;
+        }
+
+        /* --- DROPDOWN MENU --- */
+        .dropdown-menu {
+            position: absolute;
+            top: 45px;
+            right: 0px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            width: 200px;
+            display: none;
+            flex-direction: column;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .dropdown-item {
+            padding: 12px 15px;
+            color: #fff;
+            font-size: 11px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: 0.2s;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--neon-green);
+        }
+
+        .dropdown-item.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .empty-grid {
+            grid-column: 1/-1;
+            text-align: center;
+            padding-top: 100px;
+            color: var(--grey);
+            letter-spacing: 4px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #222;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #333;
+        }
+
+        /* --- TOAST NOTIFICATION --- */
+        .vims-toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--card-bg);
+            border: 1px solid var(--neon-green);
+            color: var(--neon-green);
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 11px;
+            letter-spacing: 2px;
+            z-index: 20000;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.8);
+            animation: toast-in 0.3s ease-out, toast-out 0.3s ease-in 2.5s forwards;
+            pointer-events: none;
+        }
+
+        @keyframes toast-in {
+            from {
+                bottom: 0;
+                opacity: 0;
+            }
+
+            to {
+                bottom: 30px;
+                opacity: 1;
+            }
+        }
+
+        @keyframes toast-out {
+            from {
+                bottom: 30px;
+                opacity: 1;
+            }
+
+            to {
+                bottom: 0;
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body class="hacker-theme">
+    <a href="../index.html" class="hub-back">&larr; EXTENSIONS</a>
+    <div class="top-bar">
+        <div class="logo">SMART PRINTING LABEL MONITOR</div>
+        <div class="stats-group">
+            <div class="stat-item">BRANCH: <span id="stat-branch" class="stat-value">0/0</span></div>
+            <div class="stat-item">DEVICES: <span id="stat-devices" class="stat-value">0</span></div>
+            <div class="stat-item">ERRORS: <span id="stat-errors" class="stat-value">0</span></div>
+            <div class="stat-item">LATENCY: <span id="stat-latency" class="stat-value">0ms</span></div>
+            <div id="last-event-timer" class="stat-item" style="margin-left:10px; opacity:0.7;">LAST EVENT: --</div>
+        </div>
+        <div class="top-actions" style="position: relative;">
+            <span id="global-alert" class="badge badge-error" style="display:none; cursor:help;">⚠ CRITICAL ERROR</span>
+            <span id="liveStatus" class="badge badge-live blinking">● LIVE</span>
+            <button id="clearAllLogsBtn" class="btn-danger">WIPE ALL LOGS</button>
+            <button id="openSettingsBtn" class="btn-icon" title="System Settings"
+                style="margin-left: 10px; padding: 4px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                    </path>
+                </svg>
+            </button>
+
+            <!-- SETTINGS DROPDOWN -->
+            <div id="settingsDropdown" class="dropdown-menu">
+                <div class="dropdown-item disabled">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="8.5" cy="7" r="4"></circle>
+                        <polyline points="17 11 19 13 23 9"></polyline>
+                    </svg>
+                    Administrator
+                </div>
+                <div id="openBlacklistBtn" class="dropdown-item">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                    </svg>
+                    Blacklist Management
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN LAYOUT -->
+    <div class="main-layout">
+
+        <!-- SETTINGS MODAL -->
+        <div id="settingsModal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title">SYSTEM SETTINGS</div>
+                    <div style="display: flex; gap: 5px;">
+                        <button id="saveBlacklistBtn" class="btn-header-icon btn-header-save" title="Save Draft">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                        </button>
+                        <button id="syncBlacklistBtn" class="btn-header-icon btn-header-sync" title="Sync to Firebase">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <polyline points="1 20 1 14 7 14"></polyline>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                            </svg>
+                        </button>
+                        <button id="closeSettingsBtn" class="btn-header-icon btn-header-exit" title="Exit">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div class="settings-section">
+                        <div class="section-title">
+                            Drug Blacklist Manager
+                            <span id="blacklistError"
+                                style="color:var(--neon-red); margin-left:10px; text-transform:none; font-weight:normal; display:none;"></span>
+                        </div>
+                        <div class="blacklist-controls">
+                            <input type="text" id="newDrugInput" class="vims-input"
+                                placeholder="Add Drugs Item w/o Dosage">
+                            <button id="addDrugBtn" class="btn-modal btn-primary" disabled title="Add to list">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="blacklistContainer" class="blacklist-list">
+                            <!-- Items injected here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="dashboard" class="dashboard-grid">
+            <div class="empty-grid">INITIALIZING SYSTEM...</div>
+        </div>
+        <div class="terminal-sidebar">
+            <div class="terminal-header">
+                <span>[ LIVE FEED ]</span>
+                <span id="feed-status" style="opacity:0.6;">SCROLLING</span>
+            </div>
+            <div id="global-feed" class="terminal-body">
+                <div class="t-line sys"><span class="t-msg">SYS> CONNECTING TO SOC...</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin_monitor.js"></script>
+</body>
+
+</html>

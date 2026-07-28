@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIMS AUTO SELESAI MONITOR | HYBRID SOC v5.4</title>
+    <!-- Fonts (matches Rasumi Apps admin console typography) -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Main Style -->
+    <link rel="stylesheet" href="admin_monitor.css">
+    <style>.hub-back{position:fixed;bottom:14px;left:14px;z-index:150;font-family:var(--font-mono);font-size:10px;color:var(--grey);text-decoration:none;letter-spacing:1px;padding:6px 12px;border:1px solid var(--border);background:rgba(0,0,0,0.4);backdrop-filter:blur(4px);transition:var(--transition);}.hub-back:hover{color:var(--neon-blue);border-color:var(--neon-blue);}</style>
+</head>
+<body>
+    <a href="../index.html" class="hub-back">&larr; EXTENSIONS</a>
+    <!-- Top Header Stats -->
+    <div class="top-bar">
+        <div class="logo">VIMS AUTO SELESAI MONITOR</div>
+        <div class="stats-group">
+            <div class="stat-item">BRANCH: <span id="stat-branch" class="stat-value">0/3</span></div>
+            <div class="stat-item" id="stat-devices-container" title="Click to see active devices">
+                DEVICES: <span id="stat-devices" class="stat-value">0</span>
+                <!-- Floating Device List Menu -->
+                <div id="device-menu" class="device-dropdown" style="display:none;"></div>
+            </div>
+            <div class="stat-item">ERRORS: <span id="stat-errors" class="stat-value" title="No critical errors detected.">0</span></div>
+            <div class="stat-item">LATENCY: <span id="stat-latency" class="stat-value">---</span></div>
+            <div id="last-event-timer" class="stat-item" style="margin-left:10px; opacity:0.7;">LAST EVENT: ---</div>
+        </div>
+        <div class="top-actions">
+            <span id="my-pc-id" class="badge badge-error" style="background:rgba(0,255,64,0.1); color:var(--neon-green); border:1px solid var(--neon-green); animation:none;">MY PC ID: ...</span>
+            <span id="global-alert" class="badge badge-error" style="display:none; cursor:help;" title="No critical errors detected.">⚠ CRITICAL ERROR</span>
+            <span id="liveStatus" class="badge badge-live offline">INITIALIZING...</span>
+            <button id="clearAllLogsBtn" class="btn-danger">WIPE ALL LOGS</button>
+        </div>
+    </div>
+
+    <main class="main-container">
+        <!-- 75% Dashboard Grid -->
+        <section class="dashboard-grid-area" id="branch-cards-container">
+            <!-- Cards will be injected here -->
+            <div class="empty-state">
+                <p>WAITING FOR BRANCH CONNECTION...</p>
+            </div>
+        </section>
+
+        <!-- 25% Live SOC Feed -->
+        <aside class="live-soc-feed">
+            <div class="terminal-header">
+                <span>[ LIVE FEED ]</span>
+                <span id="feed-status" style="opacity:0.6;"><span class="blink-dot"></span> idle... waiting events <span style="margin-left:10px; opacity:0.5;">last: 3m ago</span></span>
+            </div>
+            <div class="terminal-container" id="terminal-feed">
+                <!-- Live Logs Added Here via JS -->
+            </div>
+            <div class="feed-controls">
+                <span>PRESS 'E' TO FILTER ERRORS</span>
+                <span>PRESS 'R' TO REFRESH</span>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Hotkey Overlay (Pulse Error) -->
+    <div id="error-overlay" class="error-pulse-overlay"></div>
+
+    <!-- Scripts -->
+    <script type="module" src="admin_monitor.js"></script>
+</body>
+</html>

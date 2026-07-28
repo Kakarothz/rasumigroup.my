@@ -10,8 +10,10 @@
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet">
+
     <!-- Three.js 3D WebGL Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
@@ -50,7 +52,8 @@
             padding: 0;
         }
 
-        html, body {
+        html,
+        body {
             margin: 0;
             padding: 0;
         }
@@ -62,6 +65,9 @@
             line-height: 1.6;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
 
         h1,
@@ -218,8 +224,15 @@
         }
 
         @keyframes blinkCursor {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
         }
 
         .cover-version-badge {
@@ -821,7 +834,7 @@
         .timeline-wrapper {
             position: relative;
             padding: 1.5rem 0;
-            max-width: 960px;
+            max-width: 1100px;
             margin: 0 auto;
         }
 
@@ -853,7 +866,7 @@
         /* Compact half-width card panels */
         .timeline-content-panel {
             position: relative;
-            width: 44%;
+            width: 500px;
             background-color: var(--bg-panel);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-medium);
@@ -972,7 +985,7 @@
             margin: 0;
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 1120px) {
             .timeline-line {
                 left: 20px;
             }
@@ -1373,7 +1386,7 @@
            REPORT SWITCHER (shared across all Rasumi Group technical reports)
            ═══════════════════════════════════════════════════════════════════════════════ */
         .report-switcher {
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
             right: 0;
@@ -1504,7 +1517,8 @@
                             Reporting Center</span></a>
                     <a href="smart_printer_label/index.html" class="rs-item">Smart Printer Label <span
                             class="rs-tag">Chrome Extension</span></a>
-                    <a href="vims_auto/index.html" class="rs-item">VIMS Auto Selesai <span class="rs-tag">Chrome Extension</span></a>
+                    <a href="vims_auto/index.html" class="rs-item">VIMS Auto Selesai <span class="rs-tag">Chrome
+                            Extension</span></a>
                 </div>
             </div>
         </div>
@@ -1519,7 +1533,8 @@
             <p class="cover-app-title">Rasumi Apps</p>
             <h1 class="cover-main-title">
                 <span id="typedLine1"></span><br>
-                <span id="typedLine2" class="cover-title-gradient"></span><span class="typing-cursor" id="typingCursor"></span>
+                <span id="typedLine2" class="cover-title-gradient"></span><span class="typing-cursor"
+                    id="typingCursor"></span>
             </h1>
             <div class="cover-version-badge">
                 Version 9.0 ──<strong>&gt;</strong> 10.6
@@ -1529,7 +1544,9 @@
                 <div class="meta-card">
                     <p class="meta-label">Prepared By</p>
                     <p class="meta-value">Mohammad Mustaqim Ghazali</p>
-                    <p class="meta-sub" style="font-size: 0.75rem; color: var(--accent-blue); margin-top: 2px; font-weight: 600;">IT &amp; AI Executive</p>
+                    <p class="meta-sub"
+                        style="font-size: 0.75rem; color: var(--accent-blue); margin-top: 2px; font-weight: 600;">IT
+                        &amp; AI Executive</p>
                 </div>
                 <div class="meta-card">
                     <p class="meta-label">Date of Report</p>
@@ -1558,16 +1575,26 @@
         <div class="grid-summary-layout">
             <div class="summary-text-block">
                 <p>
-                    <strong>VIBES Agent</strong> is Rasumi Apps' core automation engine for JHEV/Claim document submission. It automatically uploads the required 6–7 supporting documents for each patient record, replacing a previously manual process across batches of up to 100 patient lists per run.
+                    <strong>VIBES Agent</strong> is Rasumi Apps' core automation engine for JHEV/Claim document
+                    submission. It automatically uploads the required 6–7 supporting documents for each patient record,
+                    replacing a previously manual process across batches of up to 100 patient lists per run.
                 </p>
                 <p>
-                    During the release cycle spanning Version 9.0 to Version 10.6, substantial architectural improvements were implemented across the <strong>Rasumi Apps</strong> backend to improve operational efficiency, reduce workstation resource consumption, and strengthen the reliability of automated update mechanisms.
+                    During the release cycle spanning Version 9.0 to Version 10.6, substantial architectural
+                    improvements were implemented across the <strong>Rasumi Apps</strong> backend to improve operational
+                    efficiency, reduce workstation resource consumption, and strengthen the reliability of automated
+                    update mechanisms.
                 </p>
                 <p>
-                    Key enhancements include optimized background processing within <strong>VIBES Agent</strong> to reduce CPU utilization, automated rollback and recovery for application updates, and improved <strong>Scanify</strong> image preprocessing through grayscale normalization for more consistent OCR performance.
+                    Key enhancements include optimized background processing within <strong>VIBES Agent</strong> to
+                    reduce CPU utilization, automated rollback and recovery for application updates, and improved
+                    <strong>Scanify</strong> image preprocessing through grayscale normalization for more consistent OCR
+                    performance.
                 </p>
                 <p>
-                    Collectively, these enhancements have reduced workstation resource usage during background automation while improving application stability and enabling uninterrupted JHEV document processing.
+                    Collectively, these enhancements have reduced workstation resource usage during background
+                    automation while improving application stability and enabling uninterrupted JHEV document
+                    processing.
                 </p>
             </div>
 
@@ -2122,7 +2149,8 @@
             <div class="impact-card">
                 <div class="impact-icon">📤</div>
                 <h3 class="impact-title">Eliminated Manual Document Upload</h3>
-                <p class="impact-desc">Each patient list requires 6–7 documents uploaded one by one, with up to 100 lists per batch. VIBES Agent automates the full upload workflow end-to-end with zero human touch.
+                <p class="impact-desc">Each patient list requires 6–7 documents uploaded one by one, with up to 100
+                    lists per batch. VIBES Agent automates the full upload workflow end-to-end with zero human touch.
                 </p>
             </div>
 
@@ -2442,7 +2470,7 @@
                 function update(currentTime) {
                     const elapsed = currentTime - startTime;
                     const progress = Math.min(elapsed / duration, 1);
-                    
+
                     // Ease out cubic formula for smooth slowing down at end
                     const easeProgress = 1 - Math.pow(1 - progress, 3);
                     const currentVal = startVal - (startVal - endVal) * easeProgress;
@@ -3039,6 +3067,117 @@
             document.addEventListener('click', (e) => {
                 if (!dd.contains(e.target)) dd.classList.remove('open');
             });
+        })();
+
+        /* Progressive HTML Typing Effect for Executive Summary on scroll */
+        (function initExecutiveSummaryTyping() {
+            const summaryBlock = document.querySelector('.summary-text-block');
+            if (!summaryBlock) return;
+
+            const originalHTML = summaryBlock.innerHTML;
+            const rect = summaryBlock.getBoundingClientRect();
+            summaryBlock.style.minHeight = rect.height + "px";
+            summaryBlock.innerHTML = "";
+            summaryBlock.style.opacity = "0";
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        observer.unobserve(entry.target);
+                        summaryBlock.style.opacity = "1";
+                        typeHtml(summaryBlock, originalHTML, 4);
+                    }
+                });
+            }, { threshold: 0.15 });
+
+            observer.observe(summaryBlock);
+
+            function typeHtml(container, rawHtml, speed) {
+                const temp = document.createElement("div");
+                temp.innerHTML = rawHtml;
+                const nodes = Array.from(temp.childNodes);
+                let nodeIndex = 0;
+
+                function typeNextNode() {
+                    if (nodeIndex >= nodes.length) {
+                        summaryBlock.style.minHeight = "";
+                        return;
+                    }
+                    const node = nodes[nodeIndex];
+
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        const text = node.nodeValue;
+                        let charIndex = 0;
+                        const textNode = document.createTextNode("");
+                        container.appendChild(textNode);
+
+                        function typeChar() {
+                            if (charIndex < text.length) {
+                                textNode.nodeValue += text[charIndex++];
+                                setTimeout(typeChar, speed);
+                            } else {
+                                nodeIndex++;
+                                typeNextNode();
+                            }
+                        }
+                        typeChar();
+                    } else if (node.nodeType === Node.ELEMENT_NODE) {
+                        const newEl = document.createElement(node.tagName);
+                        for (let attr of node.attributes) {
+                            newEl.setAttribute(attr.name, attr.value);
+                        }
+                        container.appendChild(newEl);
+
+                        typeHtmlNode(node, newEl, speed, () => {
+                            nodeIndex++;
+                            typeNextNode();
+                        });
+                    }
+                }
+                typeNextNode();
+            }
+
+            function typeHtmlNode(srcNode, destNode, speed, onComplete) {
+                const nodes = Array.from(srcNode.childNodes);
+                let nodeIndex = 0;
+
+                function typeNext() {
+                    if (nodeIndex >= nodes.length) {
+                        if (onComplete) onComplete();
+                        return;
+                    }
+                    const node = nodes[nodeIndex];
+
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        const text = node.nodeValue;
+                        let charIndex = 0;
+                        const textNode = document.createTextNode("");
+                        destNode.appendChild(textNode);
+
+                        function typeChar() {
+                            if (charIndex < text.length) {
+                                textNode.nodeValue += text[charIndex++];
+                                setTimeout(typeChar, speed);
+                            } else {
+                                nodeIndex++;
+                                typeNext();
+                            }
+                        }
+                        typeChar();
+                    } else if (node.nodeType === Node.ELEMENT_NODE) {
+                        const newEl = document.createElement(node.tagName);
+                        for (let attr of node.attributes) {
+                            newEl.setAttribute(attr.name, attr.value);
+                        }
+                        destNode.appendChild(newEl);
+                        typeHtmlNode(node, newEl, speed, () => {
+                            nodeIndex++;
+                            typeNext();
+                        });
+                    }
+                }
+                typeNext();
+            }
         })();
     </script>
 </body>
