@@ -1507,6 +1507,28 @@
     return map;
   }
 
+  // TRUE cross-day running total per tuntutan_no — unlike the map above
+  // (bucketed "tuntutan_no|date", reset every day), this sums every
+  // COMPLETED row across however many days `logsData` spans. Used by the
+  // Log Explorer (_vibesSessionTotals) so a claim finished across multiple
+  // separate day-sessions (e.g. 45 uploaded yesterday, 55 today, 100
+  // total) reads as fully COMPLETED once the last day's run finishes it
+  // off, instead of every day's row being scored independently against
+  // the same fixed lifetime total and staying PARTIAL forever.
+  function _vibesTnoCumulativeMap(logsData) {
+    var map = {};
+    (logsData || []).forEach(function (l) {
+      var ji = l.job_info;
+      if (typeof ji === 'string') { try { ji = JSON.parse(ji); } catch (x) { ji = null; } }
+      var tNo = ji && ji.tuntutan_no;
+      if (!tNo) return;
+      var st = (l.status || '').toUpperCase();
+      if (st === 'FAILED' || st === 'ERROR') return;
+      map[tNo] = (map[tNo] || 0) + 1;
+    });
+    return map;
+  }
+
   // Is this batch_incomplete_no_file row "expected, no action"? The
   // portal's own "already completed" figure (js_diag.multi_doc) is NOT
   // trustworthy for this decision — it can reflect progress from sources
@@ -7143,13 +7165,20 @@
   };
 
   // ── Shared session renderer — used by Log Explorer + per-app log tabs ──
-  function _processAndRenderLogs(data, box, statusFilter, context, incompleteMap) {
+  function _processAndRenderLogs(data, box, statusFilter, context, incompleteMap, cumulativeMap) {
     // context: 'global' (Log Explorer) → show Machine + Branch
     //          'device' or undefined   → hide Machine (already known), hide Branch
     // incompleteMap: optional, VIBES only — tuntutan_no+date -> {total, uploaded},
     // persisted in vibes_claim_totals (see _fetchVibesClaimTotalsMap for why
     // this can't come from `logs` alone, or safely from vibes_errors long-term).
+    // cumulativeMap: optional, VIBES only — tuntutan_no -> TRUE running total
+    // of COMPLETED uploads across every day seen so far (see
+    // _vibesTnoCumulativeMap), so a claim finished across multiple separate
+    // day-sessions reads as fully COMPLETED once the last day's run
+    // finishes it off, instead of each day's row scoring independently
+    // against the same fixed lifetime total forever.
     incompleteMap = incompleteMap || {};
+    cumulativeMap = cumulativeMap || {};
     var showMachine = context === 'global';
     var showBranch = context === 'global';
     if (!data.length) { box.innerHTML = '<div class="r-empty">No logs match</div>'; return; }
@@ -7259,13 +7288,24 @@
           }).length;
           var dateKey = invLogs.reduce(function (m, l) { return (l.timestamp || '') > m ? (l.timestamp || '') : m; }, '').substring(0, 10);
           var rep = incompleteMap[tNo + '|' + dateKey];
-          tDocs += rep ? rep.total : invLogs.length;
+          var claimTotal = rep ? rep.total : invLogs.length;
+          tDocs += claimTotal;
           // vibes_claim_totals/vibes_errors "uploaded" can be a stale snapshot
           // frozen mid-run (write-once cache) — the bot may have kept
           // uploading after that snapshot was taken. loggedUploaded (this
           // session's own COMPLETED logs) is ground truth for "at least this
-          // many succeeded," so trust whichever source reports more.
-          tUploaded += (rep && rep.uploaded != null) ? Math.max(rep.uploaded, loggedUploaded) : loggedUploaded;
+          // many succeeded THIS SESSION," so trust whichever source reports
+          // more. cumulativeMap[tNo], when available, is stronger still — the
+          // TRUE running total across every day seen so far (e.g. 45
+          // yesterday + this session's own count today), not just today's
+          // session in isolation. Without it, a claim finished across two
+          // separate day-sessions would score each day against the SAME
+          // fixed lifetime total and never reach COMPLETED. Clamp to
+          // claimTotal so a scan artifact can't push the ratio past 100%.
+          var sessionUploaded = (rep && rep.uploaded != null) ? Math.max(rep.uploaded, loggedUploaded) : loggedUploaded;
+          var trueUploaded = cumulativeMap[tNo] != null ? Math.max(cumulativeMap[tNo], sessionUploaded) : sessionUploaded;
+          if (claimTotal > 0) trueUploaded = Math.min(trueUploaded, claimTotal);
+          tUploaded += trueUploaded;
         });
       }
       g._vTotals = { docs: tDocs, uploaded: tUploaded };
@@ -7790,10 +7830,39 @@
     // Helper: render + optional Issues Today banner + Load More button
     var _loadMoreCursor = null;
     var _logAllData = [];
+    // VIBES-only enrichment maps — see _processAndRenderLogs's incompleteMap/
+    // cumulativeMap params. Empty on first paint (fast render), filled in by
+    // _enrichVibesAndRerender() below, which re-renders once they land so a
+    // claim finished across multiple day-sessions reads as COMPLETED instead
+    // of every day's row scoring against the same fixed lifetime total.
+    var _vibesIncompleteMap = {}, _vibesCumulativeMap = {}, _vibesEnrichedFor = '';
+    function _enrichVibesAndRerender() {
+      var tnoSet = {}, tnos = [];
+      _logAllData.forEach(function (l) {
+        if ((l.app_name || '').toUpperCase() !== 'VIBES') return;
+        var tNo = l.job_info && l.job_info.tuntutan_no;
+        if (tNo && !tnoSet[tNo]) { tnoSet[tNo] = true; tnos.push(tNo); }
+      });
+      if (!tnos.length) return;
+      var fingerprint = tnos.slice().sort().join(',');
+      if (fingerprint === _vibesEnrichedFor) return; // already enriched for this exact tno set
+      _vibesEnrichedFor = fingerprint;
+      Promise.all([
+        new Promise(function (resolve) { _fetchVibesClaimTotalsMap(resolve); }),
+        RS.supa.from('logs').select('job_info,status,timestamp')
+          .eq('app_name', 'VIBES').in('job_info->>tuntutan_no', tnos)
+      ]).then(function (results) {
+        _vibesIncompleteMap = results[0] || {};
+        _vibesCumulativeMap = _vibesTnoCumulativeMap((results[1] && results[1].data) || []);
+        if ($r('r-log-results') !== box) return; // navigated away while fetching
+        _processAndRenderLogs(_logAllData, box, statusFilter, 'global', _vibesIncompleteMap, _vibesCumulativeMap);
+      }).catch(function () { /* enrichment optional — base render already shown */ });
+    }
     function _render(data, isBatch) {
       if ($r('r-log-results') !== box) return; // navigated away while fetching
       if (isBatch) { _logAllData = _logAllData.concat(data); } else { _logAllData = data.slice(); }
-      _processAndRenderLogs(_logAllData, box, statusFilter, 'global');
+      _processAndRenderLogs(_logAllData, box, statusFilter, 'global', _vibesIncompleteMap, _vibesCumulativeMap);
+      _enrichVibesAndRerender();
       if (issueModeActive) {
         var banner = document.createElement('div');
         banner.style.cssText = 'padding:6px 14px;background:rgba(239,68,68,0.07);border-bottom:1px solid rgba(239,68,68,0.18);font-size:12px;color:#ef4444;display:flex;align-items:center;gap:8px;';
