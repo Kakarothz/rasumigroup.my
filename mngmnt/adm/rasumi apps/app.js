@@ -1507,16 +1507,20 @@
     return map;
   }
 
-  // TRUE cross-day running total per tuntutan_no — unlike the map above
-  // (bucketed "tuntutan_no|date", reset every day), this sums every
-  // COMPLETED row across however many days `logsData` spans. Used by the
-  // Log Explorer (_vibesSessionTotals) so a claim finished across multiple
-  // separate day-sessions (e.g. 45 uploaded yesterday, 55 today, 100
-  // total) reads as fully COMPLETED once the last day's run finishes it
-  // off, instead of every day's row being scored independently against
-  // the same fixed lifetime total and staying PARTIAL forever.
-  function _vibesTnoCumulativeMap(logsData) {
-    var map = {};
+  // Date-aware running total per tuntutan_no — unlike _vibesTnoUploadedMap
+  // above (bucketed "tuntutan_no|date", used in isolation, one day at a
+  // time), this keeps every day's own count SEPARATELY (sorted ascending)
+  // so a caller can ask "how many had this claim uploaded AS OF date X"
+  // via _vibesCumulativeAsOf() below. Used by the Log Explorer /
+  // Upload Activity / device drill-down (_vibesSessionTotals) so a claim
+  // finished across multiple separate day-sessions (e.g. 45 uploaded
+  // yesterday, 55 today, 100 total) reads as fully COMPLETED on TODAY's
+  // row once the last run finishes it off — while YESTERDAY's row keeps
+  // showing its own true point-in-time state (45/100, PARTIAL), since
+  // crediting a later day's work onto an earlier, already-final session
+  // would misrepresent what actually happened that day.
+  function _vibesTnoDailyBuckets(logsData) {
+    var byTno = {};
     (logsData || []).forEach(function (l) {
       var ji = l.job_info;
       if (typeof ji === 'string') { try { ji = JSON.parse(ji); } catch (x) { ji = null; } }
@@ -1524,9 +1528,30 @@
       if (!tNo) return;
       var st = (l.status || '').toUpperCase();
       if (st === 'FAILED' || st === 'ERROR') return;
-      map[tNo] = (map[tNo] || 0) + 1;
+      var dateKey = (l.timestamp || '').substring(0, 10);
+      if (!dateKey) return;
+      if (!byTno[tNo]) byTno[tNo] = {};
+      byTno[tNo][dateKey] = (byTno[tNo][dateKey] || 0) + 1;
     });
-    return map;
+    var out = {};
+    Object.keys(byTno).forEach(function (tNo) {
+      out[tNo] = Object.keys(byTno[tNo]).sort().map(function (d) { return { date: d, count: byTno[tNo][d] }; });
+    });
+    return out;
+  }
+
+  // Sum every daily bucket for `tNo` with date <= `asOfDate` — i.e. the
+  // claim's true cumulative upload count as of the end of that specific
+  // day, not including any LATER day's work. Returns null if this tNo has
+  // no buckets at all (caller should fall back to session-local counting).
+  function _vibesCumulativeAsOf(dailyBuckets, tNo, asOfDate) {
+    var buckets = dailyBuckets && dailyBuckets[tNo];
+    if (!buckets || !buckets.length) return null;
+    var sum = 0, found = false;
+    for (var i = 0; i < buckets.length; i++) {
+      if (buckets[i].date <= asOfDate) { sum += buckets[i].count; found = true; }
+    }
+    return found ? sum : null;
   }
 
   // Is this batch_incomplete_no_file row "expected, no action"? The
@@ -4627,7 +4652,12 @@
       .order('timestamp', { ascending: false }).limit(5000)
       .then(function (res) {
         var data = res.data || [];
-        _processAndRenderLogs(data, box, '');
+        // Single machine, no date filter (last 5000, newest-first) — already
+        // spans multiple calendar days, so build the same cross-day
+        // cumulative map used elsewhere (see rLoadVibesActivity/rLoadLogs)
+        // straight from it, no extra query needed.
+        var cumulativeMap = _vibesTnoDailyBuckets(data);
+        _processAndRenderLogs(data, box, '', undefined, undefined, cumulativeMap);
         if (data.length >= 5000) _showTruncNotice(box);
       }).catch(function (err) { box.innerHTML = errBox(err.message); });
   }
@@ -5774,7 +5804,14 @@
 
     function _render(data, incompleteMap, truncated) {
       var d = machine ? data.filter(function (l) { return l.machine === machine; }) : data;
-      _processAndRenderLogs(d, box, statusFilter, 'global', incompleteMap);
+      // `data` here is already the last 5000 VIBES logs across ALL dates
+      // (see _fetchAndCacheAppLogs) — no extra query needed to get a true
+      // cross-day cumulative count per tuntutan_no, unlike Log Explorer
+      // which fetches one calendar day at a time. Build it from the
+      // UNFILTERED `data` (not `d`) so a claim's total isn't undercounted
+      // when a machine filter is active.
+      var cumulativeMap = _vibesTnoDailyBuckets(data);
+      _processAndRenderLogs(d, box, statusFilter, 'global', incompleteMap, cumulativeMap);
       if (truncated) _showTruncNotice(box);
       // Constrain to ~10 rows with sticky header + scroll
       var tw = box.querySelector('.r-table-wrap');
@@ -7171,12 +7208,12 @@
     // incompleteMap: optional, VIBES only — tuntutan_no+date -> {total, uploaded},
     // persisted in vibes_claim_totals (see _fetchVibesClaimTotalsMap for why
     // this can't come from `logs` alone, or safely from vibes_errors long-term).
-    // cumulativeMap: optional, VIBES only — tuntutan_no -> TRUE running total
-    // of COMPLETED uploads across every day seen so far (see
-    // _vibesTnoCumulativeMap), so a claim finished across multiple separate
-    // day-sessions reads as fully COMPLETED once the last day's run
-    // finishes it off, instead of each day's row scoring independently
-    // against the same fixed lifetime total forever.
+    // cumulativeMap: optional, VIBES only — tuntutan_no -> [{date, count}, ...]
+    // per-day buckets (see _vibesTnoDailyBuckets / _vibesCumulativeAsOf), so
+    // a claim finished across multiple separate day-sessions reads as fully
+    // COMPLETED on the day it actually finished, while an earlier day's row
+    // keeps showing its own true point-in-time state instead of every day
+    // scoring independently against the same fixed lifetime total forever.
     incompleteMap = incompleteMap || {};
     cumulativeMap = cumulativeMap || {};
     var showMachine = context === 'global';
@@ -7295,15 +7332,18 @@
           // uploading after that snapshot was taken. loggedUploaded (this
           // session's own COMPLETED logs) is ground truth for "at least this
           // many succeeded THIS SESSION," so trust whichever source reports
-          // more. cumulativeMap[tNo], when available, is stronger still — the
-          // TRUE running total across every day seen so far (e.g. 45
-          // yesterday + this session's own count today), not just today's
-          // session in isolation. Without it, a claim finished across two
-          // separate day-sessions would score each day against the SAME
-          // fixed lifetime total and never reach COMPLETED. Clamp to
+          // more. _vibesCumulativeAsOf, when available, is stronger still —
+          // the TRUE running total as of THIS session's own date (e.g. 45
+          // yesterday + today's own count, on TODAY's row), not just this
+          // session in isolation. It deliberately does NOT look past this
+          // row's date — yesterday's row must keep showing 45/100 PARTIAL
+          // even after today's run finishes the claim off, since crediting
+          // a later day's work onto an earlier, already-final session would
+          // misrepresent what actually happened that day. Clamp to
           // claimTotal so a scan artifact can't push the ratio past 100%.
           var sessionUploaded = (rep && rep.uploaded != null) ? Math.max(rep.uploaded, loggedUploaded) : loggedUploaded;
-          var trueUploaded = cumulativeMap[tNo] != null ? Math.max(cumulativeMap[tNo], sessionUploaded) : sessionUploaded;
+          var cumAsOf = _vibesCumulativeAsOf(cumulativeMap, tNo, dateKey);
+          var trueUploaded = cumAsOf != null ? Math.max(cumAsOf, sessionUploaded) : sessionUploaded;
           if (claimTotal > 0) trueUploaded = Math.min(trueUploaded, claimTotal);
           tUploaded += trueUploaded;
         });
@@ -7853,7 +7893,7 @@
           .eq('app_name', 'VIBES').in('job_info->>tuntutan_no', tnos)
       ]).then(function (results) {
         _vibesIncompleteMap = results[0] || {};
-        _vibesCumulativeMap = _vibesTnoCumulativeMap((results[1] && results[1].data) || []);
+        _vibesCumulativeMap = _vibesTnoDailyBuckets((results[1] && results[1].data) || []);
         if ($r('r-log-results') !== box) return; // navigated away while fetching
         _processAndRenderLogs(_logAllData, box, statusFilter, 'global', _vibesIncompleteMap, _vibesCumulativeMap);
       }).catch(function () { /* enrichment optional — base render already shown */ });
