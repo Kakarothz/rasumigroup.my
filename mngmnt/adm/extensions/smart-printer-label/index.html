@@ -177,6 +177,74 @@
             color: var(--neon-red);
         }
 
+        /* --- KPI METRICS ROW --- */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr) 1.4fr;
+            gap: 10px;
+            padding: 10px 15px;
+            background: var(--bg-dark);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 8px 14px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .metric-card .m-label {
+            font-size: 9px;
+            letter-spacing: 1px;
+            color: var(--grey);
+            text-transform: uppercase;
+        }
+
+        .metric-card .stat-value {
+            font-family: var(--font-head);
+            font-size: 19px;
+            font-weight: 700;
+        }
+
+        .metric-card.time-card .stat-value {
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* --- PANEL HEADER (wraps existing grid/feed, no ID/class changes below it) --- */
+        .panel-header {
+            padding: 7px 14px;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid var(--border);
+            font-size: 10px;
+            letter-spacing: 1.5px;
+            color: var(--grey);
+            text-transform: uppercase;
+        }
+
+        .dashboard-panel-wrap {
+            flex: 75;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-right: 1px solid var(--border);
+        }
+
+        .diag-hint {
+            font-size: 9px;
+            opacity: 0.55;
+            margin-top: 10px;
+            letter-spacing: 0.5px;
+            line-height: 1.5;
+            max-width: 320px;
+        }
+
         /* --- MAIN LAYOUT --- */
         .main-layout {
             display: flex;
@@ -186,7 +254,7 @@
 
         /* Dash Grid (75%) */
         .dashboard-grid {
-            flex: 75;
+            flex: 1;
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 15px;
@@ -773,13 +841,6 @@
     <a href="../index.html" class="hub-back">&larr; EXTENSIONS</a>
     <div class="top-bar">
         <div class="logo">SMART PRINTING LABEL MONITOR</div>
-        <div class="stats-group">
-            <div class="stat-item">BRANCH: <span id="stat-branch" class="stat-value">0/0</span></div>
-            <div class="stat-item">DEVICES: <span id="stat-devices" class="stat-value">0</span></div>
-            <div class="stat-item">ERRORS: <span id="stat-errors" class="stat-value">0</span></div>
-            <div class="stat-item">LATENCY: <span id="stat-latency" class="stat-value">0ms</span></div>
-            <div id="last-event-timer" class="stat-item" style="margin-left:10px; opacity:0.7;">LAST EVENT: --</div>
-        </div>
         <div class="top-actions" style="position: relative;">
             <span id="global-alert" class="badge badge-error" style="display:none; cursor:help;">⚠ CRITICAL ERROR</span>
             <span id="liveStatus" class="badge badge-live blinking">● LIVE</span>
@@ -816,6 +877,30 @@
                     Blacklist Management
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- KPI METRICS ROW -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <span class="m-label">Branches Online</span>
+            <span id="stat-branch" class="stat-value">0/0</span>
+        </div>
+        <div class="metric-card">
+            <span class="m-label">Devices Connected</span>
+            <span id="stat-devices" class="stat-value">0</span>
+        </div>
+        <div class="metric-card">
+            <span class="m-label">Errors</span>
+            <span id="stat-errors" class="stat-value">0</span>
+        </div>
+        <div class="metric-card">
+            <span class="m-label">Latency</span>
+            <span id="stat-latency" class="stat-value">0ms</span>
+        </div>
+        <div class="metric-card time-card">
+            <span class="m-label">Last Event</span>
+            <div id="last-event-timer" class="stat-value">LAST EVENT: --</div>
         </div>
     </div>
 
@@ -878,8 +963,11 @@
                 </div>
             </div>
         </div>
-        <div id="dashboard" class="dashboard-grid">
-            <div class="empty-grid">INITIALIZING SYSTEM...</div>
+        <div class="dashboard-panel-wrap">
+            <div class="panel-header">[ ATTACHED BRANCHES ]</div>
+            <div id="dashboard" class="dashboard-grid">
+                <div class="empty-grid" id="dashboardEmptyState">INITIALIZING SYSTEM...</div>
+            </div>
         </div>
         <div class="terminal-sidebar">
             <div class="terminal-header">
@@ -893,6 +981,20 @@
     </div>
 
     <script src="admin_monitor.js"></script>
+    <script>
+        // Diagnostic-only helper (does not touch admin_monitor.js logic).
+        // If the branch grid is still showing the initial placeholder after 8s,
+        // append a hint so it's clear this is "zero devices reporting" and not a stuck fetch.
+        setTimeout(() => {
+            const el = document.getElementById('dashboardEmptyState');
+            if (el && document.getElementById('dashboard').contains(el)) {
+                el.innerHTML = 'INITIALIZING SYSTEM...' +
+                    '<div class="diag-hint">No branch has reported presence to this Firebase project yet.<br>' +
+                    'If this persists while a branch PC has the extension running, open DevTools → Network and check ' +
+                    'for failed/blocked requests to smart-label-87910-default-rtdb.firebasedatabase.app.</div>';
+            }
+        }, 8000);
+    </script>
 </body>
 
 </html>

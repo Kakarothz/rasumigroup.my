@@ -15,17 +15,6 @@
     <!-- Top Header Stats -->
     <div class="top-bar">
         <div class="logo">VIMS AUTO SELESAI MONITOR</div>
-        <div class="stats-group">
-            <div class="stat-item">BRANCH: <span id="stat-branch" class="stat-value">0/3</span></div>
-            <div class="stat-item" id="stat-devices-container" title="Click to see active devices">
-                DEVICES: <span id="stat-devices" class="stat-value">0</span>
-                <!-- Floating Device List Menu -->
-                <div id="device-menu" class="device-dropdown" style="display:none;"></div>
-            </div>
-            <div class="stat-item">ERRORS: <span id="stat-errors" class="stat-value" title="No critical errors detected.">0</span></div>
-            <div class="stat-item">LATENCY: <span id="stat-latency" class="stat-value">---</span></div>
-            <div id="last-event-timer" class="stat-item" style="margin-left:10px; opacity:0.7;">LAST EVENT: ---</div>
-        </div>
         <div class="top-actions">
             <span id="my-pc-id" class="badge badge-error" style="background:rgba(0,255,64,0.1); color:var(--neon-green); border:1px solid var(--neon-green); animation:none;">MY PC ID: ...</span>
             <span id="global-alert" class="badge badge-error" style="display:none; cursor:help;" title="No critical errors detected.">⚠ CRITICAL ERROR</span>
@@ -34,14 +23,45 @@
         </div>
     </div>
 
+    <!-- KPI METRICS ROW -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <span class="m-label">Branches Online</span>
+            <span id="stat-branch" class="stat-value">0/3</span>
+        </div>
+        <div class="metric-card">
+            <span class="m-label">Devices Connected</span>
+            <div class="stat-item" id="stat-devices-container" title="Click to see active devices">
+                <span id="stat-devices" class="stat-value">0</span>
+                <!-- Floating Device List Menu -->
+                <div id="device-menu" class="device-dropdown" style="display:none;"></div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <span class="m-label">Errors</span>
+            <span id="stat-errors" class="stat-value" title="No critical errors detected.">0</span>
+        </div>
+        <div class="metric-card">
+            <span class="m-label">Latency</span>
+            <span id="stat-latency" class="stat-value">---</span>
+        </div>
+        <div class="metric-card time-card">
+            <span class="m-label">Last Event</span>
+            <div id="last-event-timer" class="stat-value">LAST EVENT: ---</div>
+        </div>
+    </div>
+
     <main class="main-container">
         <!-- 75% Dashboard Grid -->
-        <section class="dashboard-grid-area" id="branch-cards-container">
-            <!-- Cards will be injected here -->
-            <div class="empty-state">
-                <p>WAITING FOR BRANCH CONNECTION...</p>
-            </div>
-        </section>
+        <div class="dashboard-panel-wrap">
+            <div class="panel-header">[ ATTACHED BRANCHES ]</div>
+            <section class="dashboard-grid-area" id="branch-cards-container">
+                <!-- Cards will be injected here -->
+                <div class="empty-state" id="branchEmptyState">
+                    <p>WAITING FOR BRANCH CONNECTION...</p>
+                </div>
+            </section>
+        </div>
 
         <!-- 25% Live SOC Feed -->
         <aside class="live-soc-feed">
@@ -58,6 +78,23 @@
             </div>
         </aside>
     </main>
+
+    <script>
+        // Diagnostic-only helper (does not touch admin_monitor.js logic).
+        // If the branch grid is still showing the initial placeholder after 8s,
+        // append a hint distinguishing "zero devices reporting" from a stuck fetch.
+        setTimeout(() => {
+            const el = document.getElementById('branchEmptyState');
+            const container = document.getElementById('branch-cards-container');
+            if (el && container && container.contains(el)) {
+                el.innerHTML = '<p>WAITING FOR BRANCH CONNECTION...</p>' +
+                    '<div class="diag-hint" style="text-align:center;">No branch has reported presence to this Firebase project yet.<br>' +
+                    'If this persists while a branch PC has the extension running, open DevTools → Network and check ' +
+                    'for failed/blocked requests to vims-auto-selesai-default-rtdb.firebasedatabase.app — a 401/403 there ' +
+                    'means the RTDB security rules are rejecting the API-key auth this console uses.</div>';
+            }
+        }, 8000);
+    </script>
 
     <!-- Hotkey Overlay (Pulse Error) -->
     <div id="error-overlay" class="error-pulse-overlay"></div>
