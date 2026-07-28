@@ -1522,8 +1522,83 @@
   //     later run finished it off → expected.
   // Only applies to batch_incomplete_no_file — real batch_incomplete
   // (bot_error) always needs manual resolution and never auto-clears.
+  //
+  // ADMIN-CONSOLE-ONLY WORKAROUND: some vibes_errors rows carry the wrong
+  // category — either legacy rows written before the agent's own
+  // verified_no_folder cross-check existed, or rows from an agent build
+  // old enough that it never attempted the distinction at all. Either way
+  // the row's own (already-normalized, see _normBatchMsg) message text is
+  // still honest about what actually happened: "{up}/{attempted} rows
+  // uploaded — {skip} skipped (no local folder)[, {n} unfinished — bot
+  // error]." If that text says every still-open row is a no-folder skip
+  // (no "bot error" remainder), there was genuinely nothing for the bot to
+  // do — same conclusion the category check is trying to reach, just
+  // re-derived here from the message instead of trusting a possibly-stale
+  // stored string. This never flips an EXPECTED row to OPEN, only the
+  // reverse, so it's safe regardless of which case caused the bad category.
+  // Parses this SPECIFIC event's own "{up}/{attempted} rows uploaded —
+  // {skip} skipped (no local folder)[, {n} unfinished — bot error]" text
+  // (see _normBatchMsg). up===0 here is a stronger, per-event signal than
+  // the day-level cumulative tnoUploadedMap check below — it's this exact
+  // run's own reported upload count, not an aggregate that can be muddied
+  // by a DIFFERENT earlier run of the same tuntutan having made real
+  // progress (e.g. "45 already completed" from a past run, while THIS
+  // run's remaining 55 rows are 100% no-folder skips with nothing left
+  // for the bot to do). When present and clean, trust it directly instead
+  // of falling through to the day-level cum/totalRows heuristic, which was
+  // designed for the case where no per-event upload count exists at all.
+  // Hoisted here (was previously a local function nested inside rLoadVibes's
+  // fetch callback, line ~5799) so it's shared scope — _pollBadgeCounts()
+  // needs it too, to normalize e.message BEFORE calling _msgNoFileEvent()
+  // below, exactly like rLoadVibes already does. Without this, the badge/
+  // KPI count's raw (un-normalized) message text never matches
+  // _msgNoFileEvent's pattern and rows fall through to the weaker
+  // day-level cumulative check, producing a different (higher) open count
+  // than the VIBES Agent tab shows for the same data.
+  function _normBatchMsg(msg, errorType) {
+    if (!msg) return msg;
+    var up, pend, total, skip;
+    // Malay format: 'Batch incomplete: dari {total} baris — {uploaded} berjaya diupload, {pending} masih belum selesai dalam portal ({skipped} tiada folder tempatan).'
+    var m = msg.match(/dari (\d+) baris.*?(\d+) berjaya diupload.*?(\d+) masih belum selesai.*?\((\d+) tiada/);
+    if (m) { total = +m[1]; up = +m[2]; pend = +m[3]; skip = +m[4]; }
+    // New English format: 'Batch incomplete: {uploaded} row(s) uploaded this run — {pending} still unfinished in portal | {total} total rows in claim ({skipped} skipped, no local folder).'
+    if (!m) {
+      var m2 = msg.match(/(\d+) row.*?uploaded this run.*?(\d+) still unfinished.*?(\d+) total rows.*?\((\d+) skipped/);
+      if (m2) { up = +m2[1]; pend = +m2[2]; total = +m2[3]; skip = +m2[4]; }
+    }
+    // Old English format: 'bot uploaded {uploaded} row(s) but {pending} row(s) still unfinished in portal.'
+    if (up !== undefined) {
+      var attempted = up + pend;
+      var alreadyDone = total !== undefined ? (total - attempted) : null;
+      var skipNote;
+      if (skip > 0) {
+        skipNote = skip + ' skipped (no local folder)';
+        if (pend > skip) skipNote += ', ' + (pend - skip) + ' unfinished — bot error';
+      } else {
+        var _et = (errorType || '').toLowerCase();
+        var _reason = _et === 'batch_incomplete_no_file' ? 'no local folder' : 'bot error (upload failed)';
+        skipNote = pend + ' row(s) still unfinished — ' + _reason;
+      }
+      var out = up + '/' + attempted + ' rows uploaded — ' + skipNote + '.';
+      if (total !== undefined) out += ' Claim: ' + total + ' rows' + (alreadyDone > 0 ? ' (' + alreadyDone + ' already completed)' : '') + '.';
+      return out;
+    }
+    var m3 = msg.match(/bot uploaded (\d+) row.*?but (\d+) row.*?still unfinished/);
+    if (m3) { return m3[1] + ' rows uploaded this run — unfinished count unreliable (legacy record, pre-scoped logging).'; }
+    return msg;
+  }
+  function _msgNoFileEvent(msg) {
+    if (!msg) return false;
+    var m = msg.match(/^(\d+)\/\d+ rows uploaded/i);
+    if (!m) return false;
+    if (+m[1] !== 0) return false;
+    if (/bot error/i.test(msg)) return false;
+    return /skipped \(no local folder\)/i.test(msg);
+  }
   function _isVibesNoFileExpected(e, tnoUploadedMap) {
-    if ((e.error_type || e.category) !== 'batch_incomplete_no_file') return false;
+    if (_msgNoFileEvent(e.message)) return true;
+    var _etype = e.error_type || e.category;
+    if (_etype !== 'batch_incomplete_no_file') return false;
     var tNo = e.patient_ic || e.tuntutan_no;
     var dateKey = (e.timestamp || '').substring(0, 10);
     var cum = (tNo && dateKey && tnoUploadedMap) ? (tnoUploadedMap[tNo + '|' + dateKey] || 0) : 0;
@@ -1850,7 +1925,12 @@
       // _vibesTnoUploadedMap() (shared with rLoadVibes's Error Monitor
       // list, so both agree). Needs a parallel `logs` fetch for the
       // cumulative uploaded count.
-      var _errQ = RS.supa.from('vibes_errors').select('id, error_type, detail, patient_ic, tuntutan_no, timestamp')
+      // `message` IS needed here, not just detail/timestamp — _isVibesNoFileExpected's
+      // primary check (_msgNoFileEvent) reads the normalized message text to catch
+      // per-event "0 uploaded, all skipped (no local folder)" rows. Without it this
+      // count silently falls back to the weaker day-level cumulative check only, and
+      // disagrees with the VIBES Agent tab (which fetches full rows via select('*')).
+      var _errQ = RS.supa.from('vibes_errors').select('id, error_type, detail, patient_ic, tuntutan_no, timestamp, message')
         .eq('resolved', false)
         .not('error_type', 'in', '("batch_skip","amount_unresolved","folder_not_found","row_skip_portal_lag")')
         .or('error_type.neq.batch_incomplete,detail->>still_unfinished.gt.0')
@@ -1866,6 +1946,12 @@
           var cnt = 0;
           for (var i = 0; i < rows.length; i++) {
             var r = rows[i];
+            // Same normalization rLoadVibes applies before classifying — raw
+            // (pre-normalization) message text won't match _msgNoFileEvent's pattern.
+            var _rt = (r.error_type || r.category || '').toLowerCase();
+            if (_rt === 'batch_incomplete' || _rt === 'batch_incomplete_no_file') {
+              r = Object.assign({}, r, { message: _normBatchMsg(r.message, _rt) });
+            }
             if (_isVibesNoFileExpected(r, tnoUploadedMap)) continue;
             cnt++;
           }
@@ -5760,39 +5846,9 @@
       });
       if (!docs.length) { box.innerHTML = '<div class="r-empty">No VIBES errors match</div>'; return; }
 
-      // ── Normalize legacy batch_incomplete messages ───────────────
-      function _normBatchMsg(msg, errorType) {
-        if (!msg) return msg;
-        var up, pend, total, skip;
-        // Malay format: 'Batch incomplete: dari {total} baris — {uploaded} berjaya diupload, {pending} masih belum selesai dalam portal ({skipped} tiada folder tempatan).'
-        var m = msg.match(/dari (\d+) baris.*?(\d+) berjaya diupload.*?(\d+) masih belum selesai.*?\((\d+) tiada/);
-        if (m) { total = +m[1]; up = +m[2]; pend = +m[3]; skip = +m[4]; }
-        // New English format: 'Batch incomplete: {uploaded} row(s) uploaded this run — {pending} still unfinished in portal | {total} total rows in claim ({skipped} skipped, no local folder).'
-        if (!m) {
-          var m2 = msg.match(/(\d+) row.*?uploaded this run.*?(\d+) still unfinished.*?(\d+) total rows.*?\((\d+) skipped/);
-          if (m2) { up = +m2[1]; pend = +m2[2]; total = +m2[3]; skip = +m2[4]; }
-        }
-        // Old English format: 'bot uploaded {uploaded} row(s) but {pending} row(s) still unfinished in portal.'
-        if (up !== undefined) {
-          var attempted = up + pend;
-          var alreadyDone = total !== undefined ? (total - attempted) : null;
-          var skipNote;
-          if (skip > 0) {
-            skipNote = skip + ' skipped (no local folder)';
-            if (pend > skip) skipNote += ', ' + (pend - skip) + ' unfinished — bot error';
-          } else {
-            var _et = (errorType || '').toLowerCase();
-            var _reason = _et === 'batch_incomplete_no_file' ? 'no local folder' : 'bot error (upload failed)';
-            skipNote = pend + ' row(s) still unfinished — ' + _reason;
-          }
-          var out = up + '/' + attempted + ' rows uploaded \u2014 ' + skipNote + '.';
-          if (total !== undefined) out += ' Claim: ' + total + ' rows' + (alreadyDone > 0 ? ' (' + alreadyDone + ' already completed)' : '') + '.';
-          return out;
-        }
-        var m3 = msg.match(/bot uploaded (\d+) row.*?but (\d+) row.*?still unfinished/);
-        if (m3) { return m3[1] + ' rows uploaded this run \u2014 unfinished count unreliable (legacy record, pre-scoped logging).'; }
-        return msg;
-      }
+      // ── Normalize legacy batch_incomplete messages ─────────────
+      // (_normBatchMsg itself now lives in shared scope near
+      // _isVibesNoFileExpected, ~line 1510 — _pollBadgeCounts() needs it too.)
       docs = docs.map(function (d) {
         var _det = (d.error_type || d.category || '').toLowerCase();
         if (_det === 'batch_incomplete' || _det === 'batch_incomplete_no_file') {
