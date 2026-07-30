@@ -1634,6 +1634,37 @@
     if (m3) { return m3[1] + ' rows uploaded this run — unfinished count unreliable (legacy record, pre-scoped logging).'; }
     return msg;
   }
+
+  // Vibes Agent (Rust) reads its own hostname via Windows' COMPUTERNAME env
+  // var, which is the legacy NetBIOS name — truncated to 15 characters. The
+  // Python side of the app uses socket.gethostname() (untruncated DNS name)
+  // for machine_status/logins. Result: any PC whose real name exceeds 15
+  // chars gets written into `logs`/`vibes_errors` under a SHORTER string
+  // than the one in RS.devices (machine_status), so it silently renders as
+  // a second, phantom device everywhere VIBES-sourced rows are grouped.
+  //
+  // Resolve by prefix match against known full hostnames — but ONLY when
+  // unambiguous. Vibes Agent can only ever be launched from an already-
+  // logged-in Rasumi Apps session on that same physical PC (see
+  // run_vibes_agent() gating in main.py), so in practice a short/truncated
+  // name maps to exactly one real device. If two known full hostnames
+  // happen to share the same 15-char prefix, don't guess — return the raw
+  // string unchanged rather than risk merging two different machines.
+  var _hostCanonCache = {};
+  function _canonHost(raw) {
+    if (!raw) return raw;
+    if (_hostCanonCache.hasOwnProperty(raw)) return _hostCanonCache[raw];
+    var out = raw;
+    if (RS.devices && !RS.devices[raw]) {
+      var rawUp = raw.toUpperCase();
+      var candidates = Object.keys(RS.devices).filter(function (full) {
+        return full.length > raw.length && full.toUpperCase().indexOf(rawUp) === 0;
+      });
+      if (candidates.length === 1) out = candidates[0];
+    }
+    _hostCanonCache[raw] = out;
+    return out;
+  }
   function _msgNoFileEvent(msg) {
     if (!msg) return false;
     var m = msg.match(/^(\d+)\/\d+ rows uploaded/i);
@@ -1808,6 +1839,7 @@
       RS.supa.from('machine_status').select('*').then(function (res) {
         if (res.error) { console.warn('[Supa] machine_status fetch:', res.error.message); }
         RS.devices = {};
+        _hostCanonCache = {}; // device list changed — stale prefix-match results invalid
         (res.data || []).forEach(function (d) {
           RS.devices[d.hostname] = _normSupa(d);
           _trackOnlineFrom(d.hostname, RS.devices[d.hostname]._status, d.last_heartbeat || d.last_seen);
@@ -2251,6 +2283,7 @@
     function _commit(logMap, machineSet) {
       var groups = {};
       Object.values(logMap).forEach(function (d) {
+        if (d.machine) d.machine = _canonHost(d.machine); // resolve NetBIOS-truncated Vibes hostname
         var gid = d.job_group_id ||
           ((d.machine || '') + '|' + (d.app_name || '') + '|' + (d.branch_id || '') + '|' + (d.timestamp || '').substring(0, 13));
         if (!groups[gid]) groups[gid] = { hasFail: false, hasCancelled: false, hasNonProc: false, hasCompFail: false, _start: null, _machine: d.machine || '' };
@@ -2340,6 +2373,7 @@
         // Count sessions (by job_group_id or fallback key) — not individual log entries
         var sessionMap = {};
         todayData.forEach(function (d) {
+          if (d.machine) d.machine = _canonHost(d.machine); // resolve NetBIOS-truncated Vibes hostname
           var gid = d.job_group_id ||
             ((d.machine || '') + '|' + (d.app_name || '') + '|' + (d.branch_id || '') + '|' + (d.timestamp || '').substring(0, 13));
           if (!sessionMap[gid]) sessionMap[gid] = { hasFail: false, hasNonProc: false, hasCompFail: false };
@@ -5891,7 +5925,10 @@
       var res = results[0]; var logRes = results[1];
       if (res.error) { box.innerHTML = errBox(res.error.message); return; }
       var docs = (res.data || []).map(function (d) {
-        return Object.assign({ id: d.id, _host: d.hostname }, d);
+        // Vibes Agent reports a NetBIOS-truncated hostname (see _canonHost) —
+        // resolve to the real device so it doesn't render as a phantom
+        // second machine in the device grouping below.
+        return Object.assign({ id: d.id, _host: _canonHost(d.hostname) }, d);
       }).filter(function (d) {
         // Suppress false-positive batch_incomplete from old builds where still_unfinished=0
         var etype = (d.error_type || d.category || '').toLowerCase();
@@ -6010,6 +6047,13 @@
         Object.keys(hostMap).forEach(function (host) {
           var devRows = hostMap[host];
           var devOpen = devRows.filter(function (e) { return !_isVibesRowExpected(e) && !e.resolved; }).length;
+          // Declutter: a device with zero genuinely-open rows is pure noise for
+          // the admin (auto-EXPECTED false-positives + already-FIXED rows only)
+          // — drop it from the rendered list entirely. Header counts above
+          // ("N error(s) — M open | ... device(s)") are computed from the
+          // unfiltered docs/allDevices arrays, so they stay historically
+          // accurate even as fully-resolved devices disappear from view.
+          if (devOpen === 0) return;
           var devKey2 = (etKey + '_' + host).replace(/[^a-z0-9]/gi, '_');
 
           // ── Level 3: group this device's rows by claim (No. Tuntutan) ──
@@ -6040,6 +6084,11 @@
           var claimBlocks = claimOrder.map(function (cNo) {
             var cRows = claimMap[cNo];
             var cOpenIds = cRows.filter(function (e) { return !_isVibesRowExpected(e) && !e.resolved; }).map(function (e) { return String(e.id); });
+            // Same declutter as the device level, one level down — a claim
+            // group with zero open rows (all EXPECTED/FIXED) doesn't need to
+            // occupy a row in the list; the device-level "N OPEN"/"ALL FIXED"
+            // badge above already reflects the true remaining count.
+            if (cOpenIds.length === 0) return null;
             var cKey = (devKey2 + '_' + cNo).replace(/[^a-z0-9]/gi, '_');
             var det0 = {};
             try { det0 = typeof cRows[0].detail === 'string' ? JSON.parse(cRows[0].detail) : (cRows[0].detail || {}); } catch (x) { }
@@ -6173,7 +6222,7 @@
               '</tr></thead><tbody>' +
               rowsHtml +
               '</tbody></table></div>';
-          }).join('');
+          }).filter(Boolean).join('');
 
           // Device sub-header — clickable (Level 2)
           html +=
@@ -7219,6 +7268,12 @@
     var showMachine = context === 'global';
     var showBranch = context === 'global';
     if (!data.length) { box.innerHTML = '<div class="r-empty">No logs match</div>'; return; }
+
+    // Resolve NetBIOS-truncated Vibes Agent hostnames to the real device
+    // (see _canonHost) BEFORE grouping — covers Log Explorer, Upload
+    // Activity, and the per-device drill-down, since they all share this
+    // one render function.
+    data.forEach(function (log) { if (log && log.machine) log.machine = _canonHost(log.machine); });
 
     // Preserve which "View" detail rows are currently expanded (and scroll
     // position) across this render — matters most for the 60s auto-refresh,
@@ -8612,7 +8667,7 @@
         var deviceMap = {};
         var deviceOrder = [];
         rows.forEach(function (e) {
-          var host = e.hostname || '—';
+          var host = _canonHost(e.hostname) || '—';
           var etype = e.error_type || 'batch_skip';
           if (!deviceMap[host]) { deviceMap[host] = {}; deviceOrder.push(host); }
           if (!deviceMap[host][etype]) deviceMap[host][etype] = [];
