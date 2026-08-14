@@ -57,6 +57,8 @@
     listeners: [],
     devices: {},
     unresolvedVibes: 0,
+    vibesRealErrCount: 0,     // unresolved vibes_errors excluding batch_incomplete_no_file (genuine app/bot errors)
+    vibesNoFileActionCount: 0,  // unresolved batch_incomplete_no_file only (missing local folder — pending admin action, not an app bug)
     unresolvedRenamer: 0,
     unresolvedVims: 0,
     unresolvedAppErrors: 0,
@@ -1686,6 +1688,23 @@
     return false;
   }
 
+  // Dashboard KPI card: prioritize genuine app/bot errors when any exist —
+  // no-local-folder items are dropped from the number entirely in that case
+  // (they're still visible/actionable inside the Error Monitor list, just
+  // not competing with real errors for attention on the dashboard). Only
+  // when there are ZERO real errors does the card relabel itself to
+  // "VIBES ACTION" and surface the no-local-folder count instead, so admins
+  // don't mistake a pending-folder item for an app bug.
+  function _vibesCardDisplay() {
+    if (RS.vibesRealErrCount > 0) {
+      return { label: 'VIBES ERRORS', val: RS.vibesRealErrCount };
+    }
+    if (RS.vibesNoFileActionCount > 0) {
+      return { label: 'VIBES ACTION', val: RS.vibesNoFileActionCount };
+    }
+    return { label: 'VIBES ERRORS', val: 0 };
+  }
+
   // Error Monitor's 3-level accordion (error-type → device → claim) uses
   // stable ids (vetg-<etKey>, vmdd-<devKey2>, vcgd-<cKey>, all derived from
   // error type / hostname / tuntutan_no — not array index), so an
@@ -2022,7 +2041,7 @@
           var res = results[0], logRes = results[1];
           var rows = (res && res.data) || [];
           var tnoUploadedMap = _vibesTnoUploadedMap((logRes && logRes.data) || []);
-          var cnt = 0;
+          var cnt = 0, realCnt = 0, noFileCnt = 0;
           for (var i = 0; i < rows.length; i++) {
             var r = rows[i];
             // Same normalization rLoadVibes applies before classifying — raw
@@ -2033,9 +2052,17 @@
             }
             if (_isVibesNoFileExpected(r, tnoUploadedMap)) continue;
             cnt++;
+            // Split for the dashboard KPI card: batch_incomplete_no_file rows
+            // that reach here are genuinely stuck (partial upload, missing
+            // local folder, no later run finished them off) — that's a
+            // pending admin ACTION, not an app/bot bug. Everything else is a
+            // real error. See _vibesCardDisplay() for how the split is used.
+            if (_rt === 'batch_incomplete_no_file') { noFileCnt++; } else { realCnt++; }
           }
           cnt = Math.min(cnt, 51);
           RS.unresolvedVibes = cnt;
+          RS.vibesRealErrCount = Math.min(realCnt, 51);
+          RS.vibesNoFileActionCount = Math.min(noFileCnt, 51);
           var nb = $r('r-nb-vibes');
           var display = cnt > 50 ? '50+' : (cnt || '');
           if (nb) { nb.textContent = display; nb.style.display = cnt ? '' : 'none'; }
@@ -2638,7 +2665,8 @@
       _patchMetric('mc-off', off, off > 0 ? off + ' need attention' : 'All clear');
       _patchMetric('mc-runs', runsToday, 'Across all apps');
       _patchMetric('mc-err', errToday, 'Check log explorer');
-      _patchMetric('mc-vibes', RS.unresolvedVibes, 'Unresolved');
+      var _vd = _vibesCardDisplay();
+      _patchMetric('mc-vibes', _vd.val, 'Unresolved', _vd.label);
       _patchMetric('mc-total', devs.length, 'Last sync: ' + lastSync);
       // Telemetry title
       var tt = $r('r-tele-title');
@@ -2665,13 +2693,14 @@
     }
 
     // ── Row 1: Metric cards (first full render only) ──
+    var _vd0 = _vibesCardDisplay();
     var metricRow =
       '<div class="r-metric-row" id="r-dash-metrics">' +
       metricCard('green', on, 'TOTAL ACTIVE NODES', 'fa-circle-check', 'Online now', null, 'rCardClick(\'mc-on\')', 'mc-on') +
       metricCard('danger', off, 'OFFLINE NODES', 'fa-circle-xmark', off > 0 ? off + ' need attention' : 'All clear', null, 'rCardClick(\'mc-off\')', 'mc-off') +
       metricCard('info', runsToday, 'RUNS TODAY', 'fa-play-circle', 'Across all apps', null, 'rCardClick(\'mc-runs\')', 'mc-runs') +
       metricCard('warn', errToday, 'ISSUES TODAY', 'fa-bug', 'Failed, partial & skipped', null, 'rCardClick(\'mc-err\')', 'mc-err') +
-      metricCard('purple', RS.unresolvedVibes, 'VIBES ERRORS', 'fa-triangle-exclamation', 'Unresolved', null, 'rCardClick(\'mc-vibes\')', 'mc-vibes') +
+      metricCard('purple', _vd0.val, _vd0.label, 'fa-triangle-exclamation', 'Unresolved', null, 'rCardClick(\'mc-vibes\')', 'mc-vibes') +
       metricCard('blue', devs.length, 'MACHINES TOTAL', 'fa-server', 'Last sync: ' + lastSync, null, 'rCardClick(\'mc-total\')', 'mc-total') +
       '</div>';
 
@@ -2823,13 +2852,17 @@
   }
 
   // Patch a single metric card value/sub in-place without rebuilding the DOM
-  function _patchMetric(mid, val, sub) {
+  function _patchMetric(mid, val, sub, lbl) {
     var card = document.querySelector('[data-mid="' + mid + '"]');
     if (!card) return;
     var v = card.querySelector('.r-metric-val');
     var s = card.querySelector('.r-metric-sub');
     if (v) v.textContent = String(val);
     if (s && sub !== undefined) s.textContent = sub;
+    if (lbl !== undefined) {
+      var l = card.querySelector('.r-metric-label');
+      if (l) l.textContent = lbl;
+    }
     // Sync disabled state for actionable cards
     if (card.classList.contains('r-metric-card-link')) {
       var disabled = (parseInt(val, 10) || 0) === 0;
@@ -3496,26 +3529,385 @@
     }).join('');
   }
 
+  // ── Corporate Excel report builder (shared by Dashboard + Device Usage exports) ──
+  // Produces a branded, print-ready .xlsx: letterhead banner, KPI summary cards,
+  // an embedded chart image (rendered fresh on white bg — the on-screen canvas is
+  // dark-themed and would look wrong printed), and a fully-bordered data table
+  // with per-row + grand totals. Replaces the old bare aoa_to_sheet dump.
+  var _exceljsLoading = null;
+  function _loadExcelJS(cb) {
+    if (window.ExcelJS) { cb(window.ExcelJS); return; }
+    if (_exceljsLoading) { _exceljsLoading.push(cb); return; }
+    _exceljsLoading = [cb];
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+    s.onload = function () {
+      var cbs = _exceljsLoading; _exceljsLoading = null;
+      cbs.forEach(function (fn) { fn(window.ExcelJS); });
+    };
+    s.onerror = function () {
+      _exceljsLoading = null;
+      rToast('Export library failed to load — check your connection', 'err');
+    };
+    document.head.appendChild(s);
+  }
+
+  function _fmtNum(n) { return (n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function _tsCompact() {
+    var d = new Date();
+    function p(n) { return n < 10 ? '0' + n : String(n); }
+    return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
+  }
+  function _hexToRgba(hex, a) {
+    var h = (hex || '#64748B').replace('#', '');
+    if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+    var r = parseInt(h.substring(0, 2), 16) || 0, g = parseInt(h.substring(2, 4), 16) || 0, b = parseInt(h.substring(4, 6), 16) || 0;
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  }
+
+  // Renders a clean, white-background version of the usage chart purely for
+  // embedding in the report (same bezier-area style as the live dashboard
+  // canvas, but with print-friendly colors/contrast instead of the dark UI theme).
+  function _renderCorpChartPNG(datasets, labels) {
+    var scale = 2, W = 900, H = 380;
+    var canvas = document.createElement('canvas');
+    canvas.width = W * scale; canvas.height = H * scale;
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H);
+
+    var pL = 50, pR = 20, pT = 20, pB = 70;
+    var chartB = H - pB;
+    var cW = W - pL - pR, cH = chartB - pT, n = labels.length || 1;
+
+    var maxVal = 0;
+    datasets.forEach(function (ds) { ds.data.forEach(function (v) { if (v > maxVal) maxVal = v; }); });
+    if (!maxVal) maxVal = 10;
+    var nice = Math.pow(10, Math.floor(Math.log10(maxVal)));
+    maxVal = Math.ceil(maxVal / nice) * nice;
+
+    function xP(i) { return pL + (n > 1 ? i / (n - 1) : 0.5) * cW; }
+    function yP(v) { return pT + cH - (v / maxVal) * cH; }
+
+    for (var g = 0; g <= 4; g++) {
+      var gy = pT + g / 4 * cH;
+      ctx.strokeStyle = '#E2E8F0'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pL, gy); ctx.lineTo(W - pR, gy); ctx.stroke();
+      ctx.fillStyle = '#64748B'; ctx.font = '11px Arial'; ctx.textAlign = 'right';
+      ctx.fillText(_fmtNum(Math.round(maxVal * (1 - g / 4))), pL - 8, gy + 4);
+    }
+    ctx.strokeStyle = '#CBD5E1'; ctx.beginPath(); ctx.moveTo(pL, chartB); ctx.lineTo(W - pR, chartB); ctx.stroke();
+
+    ctx.fillStyle = '#334155'; ctx.textAlign = 'center'; ctx.font = '11px Arial';
+    var skip = n > 20 ? 3 : n > 10 ? 2 : 1;
+    labels.forEach(function (l, i) { if (i % skip === 0) ctx.fillText(String(l), xP(i), chartB + 18); });
+
+    datasets.forEach(function (ds) {
+      var mainC = Array.isArray(ds.color) ? ds.color[0] : ds.color;
+      var pts = ds.data.map(function (v, i) { return { x: xP(i), y: yP(v) }; });
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (var i = 1; i < pts.length; i++) {
+        var cx = (pts[i - 1].x + pts[i].x) / 2;
+        ctx.bezierCurveTo(cx, pts[i - 1].y, cx, pts[i].y, pts[i].x, pts[i].y);
+      }
+      ctx.lineTo(pts[pts.length - 1].x, chartB); ctx.lineTo(pts[0].x, chartB); ctx.closePath();
+      ctx.fillStyle = _hexToRgba(mainC, 0.10); ctx.fill();
+
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+      for (var i = 1; i < pts.length; i++) {
+        var cx = (pts[i - 1].x + pts[i].x) / 2;
+        ctx.bezierCurveTo(cx, pts[i - 1].y, cx, pts[i].y, pts[i].x, pts[i].y);
+      }
+      ctx.strokeStyle = mainC; ctx.lineWidth = 2.25; ctx.stroke();
+
+      pts.forEach(function (p, i) {
+        if (!ds.data[i]) return;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFFFF'; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = mainC; ctx.stroke();
+      });
+    });
+
+    var legY = H - 20;
+    ctx.font = '600 11px Arial';
+    var itemWidths = datasets.map(function (ds) { return 18 + ctx.measureText(ds.label).width + 22; });
+    var totalW = itemWidths.reduce(function (a, b) { return a + b; }, 0);
+    var lx = Math.max(pL, (W - totalW) / 2);
+    datasets.forEach(function (ds, i) {
+      var mainC = Array.isArray(ds.color) ? ds.color[0] : ds.color;
+      ctx.beginPath(); ctx.arc(lx + 5, legY, 5, 0, Math.PI * 2); ctx.fillStyle = mainC; ctx.fill();
+      ctx.fillStyle = '#334155'; ctx.textAlign = 'left'; ctx.font = '11px Arial';
+      ctx.fillText(ds.label, lx + 16, legY + 4);
+      lx += itemWidths[i];
+    });
+
+    return { dataUrl: canvas.toDataURL('image/png'), width: W, height: H };
+  }
+
+  // Perimeter (box) border across a merged/rectangular cell range — ExcelJS
+  // requires setting borders per individual cell, there's no single "box" API.
+  function _excelBoxBorder(ws, r1, c1, r2, c2, argb, weight) {
+    var style = { style: weight || 'thin', color: { argb: argb } };
+    for (var r = r1; r <= r2; r++) {
+      for (var c = c1; c <= c2; c++) {
+        var cell = ws.getCell(r, c);
+        var b = cell.border ? Object.assign({}, cell.border) : {};
+        if (r === r1) b.top = style;
+        if (r === r2) b.bottom = style;
+        if (c === c1) b.left = style;
+        if (c === c2) b.right = style;
+        cell.border = b;
+      }
+    }
+  }
+
+  var _CORP = {
+    navy: 'FF0B1220', navy2: 'FF111827', cyan: 'FF0EA5E9', purple: 'FF7C3AED',
+    green: 'FF10B981', orange: 'FFF59E0B', textDark: 'FF0F172A', textMute: 'FF64748B',
+    cardBg: 'FFF8FAFC', border: 'FFE2E8F0', white: 'FFFFFFFF', pink: 'FFEC4899'
+  };
+
+  // Writes the full bordered/banded usage data table (header → per-category rows
+  // → grand total, with real SUM formulas) starting at startRow. Shared by the
+  // Summary sheet (sits under the chart, columns already fixed at 9.2 to match
+  // the letterhead's 12-col grid — wrapText instead of resizing so nothing drifts
+  // out of alignment with the banner above it) and the standalone Data sheet
+  // (gets its own wider, purpose-sized columns since it's not constrained by
+  // anything else on that sheet). Returns { lastCol, totalRow } so the caller
+  // knows where the table ended (for placing a footer, etc).
+  function _writeUsageTable(ws, startRow, datasets, labels, opts) {
+    opts = opts || {};
+    var lastCol = 1 + labels.length + 1; // Category + labels + Total
+
+    if (opts.setColumnWidths) {
+      ws.getColumn(1).width = 24;
+      for (var c = 2; c <= lastCol - 1; c++) ws.getColumn(c).width = 11;
+      ws.getColumn(lastCol).width = 13;
+    } else {
+      // Sheet already has a fixed grid (Summary's 12-col letterhead) — only size
+      // columns past what's already defined, and keep them consistent with it.
+      for (var c = 1; c <= lastCol; c++) { if (!ws.getColumn(c).width) ws.getColumn(c).width = 9.2; }
+    }
+
+    var hRow = startRow;
+    ws.getCell(hRow, 1).value = 'Category';
+    labels.forEach(function (l, i) { ws.getCell(hRow, 2 + i).value = l; });
+    ws.getCell(hRow, lastCol).value = 'Total';
+    for (var c = 1; c <= lastCol; c++) {
+      var cell = ws.getCell(hRow, c);
+      cell.font = { bold: true, size: 10, color: { argb: _CORP.white }, name: 'Calibri' };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: _CORP.navy2 } };
+      cell.alignment = { vertical: 'middle', horizontal: c === 1 ? 'left' : 'center', indent: c === 1 ? 1 : 0 };
+    }
+    ws.getRow(hRow).height = 20;
+
+    datasets.forEach(function (ds, ri) {
+      var r = hRow + 1 + ri;
+      var mainC = Array.isArray(ds.color) ? ds.color[0] : ds.color;
+      ws.getCell(r, 1).value = ds.label;
+      ws.getCell(r, 1).font = { bold: true, size: 9.5, color: { argb: _CORP.textDark }, name: 'Calibri' };
+      ws.getCell(r, 1).alignment = opts.wrapCategory
+        ? { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: true }
+        : { vertical: 'middle', horizontal: 'left', indent: 1 };
+      var swatch = mainC.replace('#', 'FF');
+      ws.getCell(r, 1).border = { left: { style: 'medium', color: { argb: swatch.length === 8 ? swatch : 'FF64748B' } } };
+      ds.data.forEach(function (v, i) {
+        var cell = ws.getCell(r, 2 + i);
+        cell.value = v || 0;
+        cell.numFmt = '#,##0';
+        cell.alignment = { horizontal: 'center' };
+        cell.font = { size: 9.5, color: { argb: _CORP.textDark }, name: 'Calibri' };
+      });
+      var totalCell = ws.getCell(r, lastCol);
+      totalCell.value = { formula: 'SUM(' + ws.getCell(r, 2).address + ':' + ws.getCell(r, lastCol - 1).address + ')' };
+      totalCell.numFmt = '#,##0';
+      totalCell.font = { bold: true, size: 9.5, color: { argb: _CORP.textDark }, name: 'Calibri' };
+      totalCell.alignment = { horizontal: 'center' };
+      var rowFill = ri % 2 === 1 ? _CORP.cardBg : _CORP.white;
+      for (var c = 2; c <= lastCol; c++) ws.getCell(r, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowFill } };
+      if (opts.wrapCategory) ws.getRow(r).height = 18;
+      _excelBoxBorder(ws, r, 1, r, lastCol, _CORP.border, 'thin');
+    });
+
+    var totalRow = hRow + 1 + datasets.length;
+    ws.getCell(totalRow, 1).value = 'GRAND TOTAL';
+    ws.getCell(totalRow, 1).font = { bold: true, size: 10, color: { argb: _CORP.textDark }, name: 'Calibri' };
+    ws.getCell(totalRow, 1).alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    for (var i = 0; i < labels.length; i++) {
+      var c = 2 + i;
+      var cell = ws.getCell(totalRow, c);
+      cell.value = { formula: 'SUM(' + ws.getCell(hRow + 1, c).address + ':' + ws.getCell(totalRow - 1, c).address + ')' };
+      cell.numFmt = '#,##0'; cell.font = { bold: true, size: 9.5, color: { argb: _CORP.textDark }, name: 'Calibri' };
+      cell.alignment = { horizontal: 'center' };
+    }
+    var grandCell = ws.getCell(totalRow, lastCol);
+    grandCell.value = { formula: 'SUM(' + ws.getCell(totalRow, 2).address + ':' + ws.getCell(totalRow, lastCol - 1).address + ')' };
+    grandCell.numFmt = '#,##0'; grandCell.font = { bold: true, size: 10, color: { argb: _CORP.cyan }, name: 'Calibri' };
+    grandCell.alignment = { horizontal: 'center' };
+    for (var c = 1; c <= lastCol; c++) {
+      ws.getCell(totalRow, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: _CORP.border } };
+      ws.getCell(totalRow, c).border = Object.assign({}, ws.getCell(totalRow, c).border, { top: { style: 'medium', color: { argb: _CORP.textDark } } });
+    }
+
+    return { lastCol: lastCol, totalRow: totalRow };
+  }
+
+  // exportData: { datasets:[{label,color,data:[]}], labels:[] }
+  // opts: { context: string subtitle, fileBase: string, generatedFor: string (optional extra line) }
+  function _buildUsageExcelReport(exportData, opts) {
+    var datasets = exportData.datasets || [], labels = exportData.labels || [];
+    if (!datasets.length) { rToast('No data to export', 'warn'); return; }
+    opts = opts || {};
+
+    _loadExcelJS(function (ExcelJS) {
+      var totalEvents = 0;
+      datasets.forEach(function (ds) { totalEvents += ds.data.reduce(function (a, b) { return a + b; }, 0); });
+      var topCat = datasets[0], topCatSum = -1;
+      datasets.forEach(function (ds) {
+        var s = ds.data.reduce(function (a, b) { return a + b; }, 0);
+        if (s > topCatSum) { topCatSum = s; topCat = ds; }
+      });
+      var peakIdx = 0, peakVal = -1;
+      labels.forEach(function (l, i) {
+        var s = 0; datasets.forEach(function (ds) { s += ds.data[i] || 0; });
+        if (s > peakVal) { peakVal = s; peakIdx = i; }
+      });
+      var chart = _renderCorpChartPNG(datasets, labels);
+      var now = new Date();
+      var genStamp = now.toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }) +
+        ' ' + now.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
+      var genBy = (RS.currentUser && RS.currentUser.email) || 'admin';
+
+      var wb = new ExcelJS.Workbook();
+      wb.creator = 'Rasumi Apps Admin Console';
+      wb.created = now;
+      wb.title = 'Usage Analytics Report';
+
+      // ═══ Sheet 1: Summary ═══
+      var s1 = wb.addWorksheet('Summary', { views: [{ showGridLines: false }] });
+      for (var c = 1; c <= 12; c++) s1.getColumn(c).width = 9.2;
+
+      // Letterhead banner
+      s1.mergeCells(1, 1, 1, 7);
+      s1.getCell(1, 1).value = { richText: [
+        { font: { bold: true, size: 20, color: { argb: _CORP.pink }, name: 'Calibri' }, text: 'R' },
+        { font: { bold: true, size: 20, color: { argb: _CORP.white }, name: 'Calibri' }, text: 'asumi Apps' }
+      ] };
+      s1.getCell(1, 1).alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      s1.mergeCells(1, 8, 1, 12);
+      s1.getCell(1, 8).value = 'USAGE ANALYTICS REPORT';
+      s1.getCell(1, 8).font = { bold: true, size: 11, color: { argb: _CORP.white }, name: 'Calibri' };
+      s1.getCell(1, 8).alignment = { vertical: 'middle', horizontal: 'right', indent: 1 };
+      s1.getRow(1).height = 32;
+      for (var c = 1; c <= 12; c++) s1.getCell(1, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: _CORP.navy } };
+
+      s1.mergeCells(2, 1, 2, 12);
+      var metaLine = 'Generated ' + genStamp + '   ·   Period: ' + (opts.context || 'Usage Summary') + '   ·   By: ' + genBy;
+      s1.getCell(2, 1).value = metaLine;
+      s1.getCell(2, 1).font = { size: 9.5, italic: true, color: { argb: 'FFCBD5E1' }, name: 'Calibri' };
+      s1.getCell(2, 1).alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      s1.getRow(2).height = 18;
+      for (var c = 1; c <= 12; c++) s1.getCell(2, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: _CORP.navy2 } };
+
+      s1.getRow(3).height = 10;
+
+      s1.getCell(4, 1).value = 'KEY METRICS';
+      s1.getCell(4, 1).font = { bold: true, size: 9, color: { argb: _CORP.textMute }, name: 'Calibri' };
+      s1.getRow(4).height = 16;
+
+      var kpis = [
+        { c1: 1, c2: 3, label: 'TOTAL EVENTS', value: _fmtNum(totalEvents), color: _CORP.cyan, size: 18 },
+        { c1: 4, c2: 6, label: 'TOP CATEGORY', value: topCat.label + '  (' + _fmtNum(topCatSum) + ')', color: _CORP.purple, size: 12 },
+        { c1: 7, c2: 9, label: 'PEAK PERIOD', value: (labels[peakIdx] || '—') + '  (' + _fmtNum(peakVal < 0 ? 0 : peakVal) + ')', color: _CORP.green, size: 12 },
+        { c1: 10, c2: 12, label: 'ACTIVE CATEGORIES', value: String(datasets.length), color: _CORP.orange, size: 18 }
+      ];
+      s1.getRow(5).height = 15;
+      s1.getRow(6).height = 30;
+      kpis.forEach(function (k) {
+        s1.mergeCells(5, k.c1, 5, k.c2);
+        s1.getCell(5, k.c1).value = k.label;
+        s1.getCell(5, k.c1).font = { bold: true, size: 8, color: { argb: _CORP.textMute }, name: 'Calibri' };
+        s1.getCell(5, k.c1).alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+
+        s1.mergeCells(6, k.c1, 6, k.c2);
+        s1.getCell(6, k.c1).value = k.value;
+        s1.getCell(6, k.c1).font = { bold: true, size: k.size, color: { argb: k.color }, name: 'Calibri' };
+        s1.getCell(6, k.c1).alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+
+        for (var r = 5; r <= 6; r++) for (var cc = k.c1; cc <= k.c2; cc++) {
+          s1.getCell(r, cc).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: _CORP.cardBg } };
+        }
+        _excelBoxBorder(s1, 5, k.c1, 6, k.c2, _CORP.border, 'thin');
+        var bStyle = { style: 'medium', color: { argb: k.color } };
+        for (var cc = k.c1; cc <= k.c2; cc++) s1.getCell(6, cc).border = Object.assign({}, s1.getCell(6, cc).border, { bottom: bStyle });
+      });
+
+      s1.getRow(7).height = 12;
+      s1.getCell(8, 1).value = 'USAGE TREND';
+      s1.getCell(8, 1).font = { bold: true, size: 10, color: { argb: _CORP.textDark }, name: 'Calibri' };
+      s1.getRow(8).height = 16;
+
+      // Chart is displayed narrower than it's rendered (900px) so its right
+      // edge lands inside column L — 12 columns × 9.2 width ≈ 768px at Calibri
+      // 11's ~7px/unit, so 756px display + a small left inset stays clear of
+      // that boundary and keeps the chart visually aligned under the banner.
+      var chartDispW = 756;
+      var chartDispH = Math.round(chartDispW * chart.height / chart.width);
+      var imgId = wb.addImage({ base64: chart.dataUrl, extension: 'png' });
+      s1.addImage(imgId, { tl: { col: 0.1, row: 8.25 }, ext: { width: chartDispW, height: chartDispH } });
+      var chartRows = Math.ceil(chartDispH / 20) + 1; // ~20px per default row
+      var chartEndRow = 9 + chartRows;
+      for (var r = 9; r < chartEndRow; r++) s1.getRow(r).height = 15;
+
+      // ── Usage data table, right under the chart — same sheet, so the
+      // report is a single self-contained page (chart + full figures together).
+      var dataTitleRow = chartEndRow + 1;
+      s1.getCell(dataTitleRow, 1).value = 'USAGE DATA';
+      s1.getCell(dataTitleRow, 1).font = { bold: true, size: 10, color: { argb: _CORP.textDark }, name: 'Calibri' };
+      s1.getRow(dataTitleRow).height = 16;
+
+      var tbl1 = _writeUsageTable(s1, dataTitleRow + 1, datasets, labels, { setColumnWidths: false, wrapCategory: true });
+
+      var footerRow1 = tbl1.totalRow + 2;
+      s1.mergeCells(footerRow1, 1, footerRow1, Math.max(12, tbl1.lastCol));
+      s1.getCell(footerRow1, 1).value = 'Rasumi Apps Admin Console   ·   Confidential — Internal Use Only   ·   Generated ' + genStamp;
+      s1.getCell(footerRow1, 1).font = { italic: true, size: 8, color: { argb: _CORP.textMute }, name: 'Calibri' };
+      s1.getCell(footerRow1, 1).alignment = { horizontal: 'center' };
+      s1.getCell(footerRow1, 1).border = { top: { style: 'thin', color: { argb: _CORP.border } } };
+
+      // ═══ Sheet 2: Data (same table, standalone — frozen header + autofilter
+      // for admins who want to pivot/filter without scrolling past the chart) ═══
+      var s2 = wb.addWorksheet('Data');
+      var tbl2 = _writeUsageTable(s2, 1, datasets, labels, { setColumnWidths: true, wrapCategory: false });
+      s2.views = [{ state: 'frozen', ySplit: 1 }];
+      s2.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: tbl2.lastCol } };
+
+      s2.mergeCells(tbl2.totalRow + 2, 1, tbl2.totalRow + 2, tbl2.lastCol);
+      s2.getCell(tbl2.totalRow + 2, 1).value = 'Rasumi Apps Admin Console   ·   Confidential — Internal Use Only   ·   Generated ' + genStamp;
+      s2.getCell(tbl2.totalRow + 2, 1).font = { italic: true, size: 8, color: { argb: _CORP.textMute }, name: 'Calibri' };
+
+      wb.xlsx.writeBuffer().then(function (buffer) {
+        var blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = (opts.fileBase || 'Rasumi_Usage_Report') + '_' + _tsCompact() + '.xlsx';
+        document.body.appendChild(a); a.click();
+        setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 150);
+        rToast('Exported', 'ok');
+      }).catch(function (err) { rToast('Export failed: ' + err.message, 'err'); });
+    });
+  }
+
   window.rExportDashChart = function () {
     var canvas = $r('d-usage-canvas');
     if (!canvas || !canvas._exportData) { rToast('No data to export', 'warn'); return; }
     var data = canvas._exportData;
-    var rows = [['Category'].concat(data.labels)];
-    data.datasets.forEach(function (ds) { rows.push([ds.label].concat(ds.data)); });
-
-    var doExport = function (XLSX) {
-      var ws = XLSX.utils.aoa_to_sheet(rows);
-      var wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Usage Data");
-      XLSX.writeFile(wb, (data.title || 'usage') + '_' + new Date().getTime() + '.xlsx');
-    };
-
-    if (window.XLSX) { doExport(window.XLSX); return; }
-    var s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    s.onload = function () { doExport(window.XLSX); };
-    s.onerror = function () { rToast('XLSX library unavailable', 'err'); };
-    document.head.appendChild(s);
+    var viewLabel = { day: 'Daily', week: 'Weekly', month: 'Monthly' }[window.dashChartState.view] || 'Weekly';
+    var typeLabel = window.dashChartState.type === 'dev' ? 'By Device' : 'By App';
+    _buildUsageExcelReport(data, {
+      context: viewLabel + ' Breakdown · ' + typeLabel,
+      fileBase: 'Rasumi_Usage_' + typeLabel.replace(/\s+/g, '') + '_' + viewLabel
+    });
   };
 
   window.dashDrawUsageChart = function (canvas, datasets, labels) {
@@ -4892,25 +5284,12 @@
     var canvas = $r('dd-usage-canvas');
     var ed = canvas && canvas._exportData;
     if (!ed || !ed.datasets.length) { rToast('No data to export', 'warn'); return; }
-    function doExport(XLSX) {
-      var rows = [[''].concat(ed.datasets.map(function (d) { return d.label; }))];
-      ed.labels.forEach(function (l, i) {
-        rows.push([l].concat(ed.datasets.map(function (d) { return d.data[i] || 0; })));
-      });
-      rows.push(['TOTAL'].concat(ed.datasets.map(function (d) { return d.data.reduce(function (a, b) { return a + b; }, 0); })));
-      var ws = XLSX.utils.aoa_to_sheet(rows);
-      // Bold header row
-      var wb2 = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb2, ws, 'Usage — ' + hostname);
-      XLSX.writeFile(wb2, 'usage_' + hostname + '_' + new Date().toISOString().substring(0, 10) + '.xlsx');
-      rToast('Exported', 'ok');
-    }
-    if (window.XLSX) { doExport(window.XLSX); return; }
-    var s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    s.onload = function () { doExport(window.XLSX); };
-    s.onerror = function () { rToast('XLSX library unavailable', 'err'); };
-    document.head.appendChild(s);
+    var viewBtn = $r('dd-chart-month');
+    var isMonth = viewBtn && viewBtn.style.opacity === '1';
+    _buildUsageExcelReport(ed, {
+      context: (isMonth ? 'Monthly' : 'Weekly') + ' Breakdown · ' + hostname,
+      fileBase: 'Rasumi_Usage_' + hostname.replace(/[^a-z0-9]+/ig, '') + '_' + (isMonth ? 'Monthly' : 'Weekly')
+    });
   };
   // ── End App Usage Chart ────────────────────────────────────────────────
 
