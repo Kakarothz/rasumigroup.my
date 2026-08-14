@@ -268,7 +268,18 @@
   var CV = { navy:'#12294F', blue:'#3B82F6', green:'#10B981', purple:'#8B5CF6', orange:'#F59E0B', cyan:'#0EA5E9', mute:'#64748B', red:'#DC2626' };
   var lineChartInst = null, donutChartInst = null;
 
-  function branchName(id){ if(!id) return '—'; return BRANCH_MAP[(id||'').toLowerCase()] || id; }
+  // Escapes any value before it's concatenated into an innerHTML string. Needed
+  // because branchName() below can fall through to returning a raw, attacker-
+  // controllable DB value (logs.branch_id) — confirmed insertable by an
+  // unauthenticated client while RLS is unlocked. Escaping here means that even
+  // if RLS is misconfigured again in the future, this specific field can't be
+  // used to inject markup into the report page.
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+  function branchName(id){ if(!id) return '—'; return BRANCH_MAP[(id||'').toLowerCase()] || escapeHtml(id); }
   function fmtNum(n){ return (n||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function p2(n){ return n<10 ? '0'+n : String(n); }
   function isoLocal(d){ return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T'+p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds()); }
