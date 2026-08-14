@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Software Utilization Report — Rasumi Medipharma</title>
+<link rel="icon" type="image/png" href="../../assets/admin.png">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+
+<style>
+  :root{
+    --navy:#12294F; --navy2:#1B3A6B; --ink:#0F172A; --mute:#64748B;
+    --card:#F0F4FA; --border:#DCE4F0; --line:#E2E8F0;
+    --blue:#3B82F6; --green:#10B981; --purple:#8B5CF6; --orange:#F59E0B; --cyan:#0EA5E9; --red:#DC2626;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#7c8aa0;font-family:'Inter',sans-serif;color:var(--ink)}
+  #rr-loading{position:fixed;inset:0;background:#0d1117;color:#9fb3d1;display:flex;align-items:center;justify-content:center;font-size:13px;z-index:99999;letter-spacing:.5px}
+  #rr-loading i{margin-right:8px}
+
+  .rr-toolbar{position:sticky;top:0;z-index:1000;background:var(--navy);padding:10px 18px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 10px rgba(0,0,0,.25);flex-wrap:wrap;gap:8px}
+  .rr-toolbar .rr-title{color:#fff;font-size:13px;font-weight:600;letter-spacing:.3px}
+  .rr-toolbar .rr-title i{color:var(--cyan);margin-right:8px}
+  .rr-tabs{display:flex;gap:2px;background:rgba(255,255,255,.08);border-radius:6px;padding:2px}
+  .rr-tab{background:transparent;border:none;color:#cfe0f5;font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:5px;cursor:pointer;opacity:.65}
+  .rr-tab.active{background:var(--cyan);color:#08202f;opacity:1}
+  .rr-btn{background:var(--cyan);color:#08202f;border:none;border-radius:6px;padding:8px 16px;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;letter-spacing:.2px}
+  .rr-btn:hover{filter:brightness(1.08)}
+  .rr-btn.rr-ghost{background:transparent;color:#cfe0f5;border:1px solid rgba(255,255,255,.25)}
+
+  .rr-page-outer{display:flex;justify-content:center;padding:22px 12px 60px}
+  .rr-page{width:210mm;min-height:296mm;background:#fff;box-shadow:0 6px 30px rgba(0,0,0,.35);padding:9mm 10mm;font-size:10.6px;color:var(--ink);display:flex;flex-direction:column}
+
+  /* ── Header ── */
+  .rr-head{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:2.5px solid var(--navy);padding-bottom:9px;margin-bottom:11px}
+  .rr-head-l{display:flex;align-items:center}
+  .rr-logo{height:42px;width:auto;object-fit:contain}
+  .rr-head-c{text-align:center;flex:1;padding:0 10px}
+  .rr-head-c h1{margin:0;color:var(--navy);font-size:18.5px;font-weight:800;letter-spacing:.3px}
+  .rr-head-c .rr-sub{margin-top:3px;font-size:12px;color:var(--navy2);font-weight:600}
+  .rr-head-c .rr-range{margin-top:3px;font-size:10.4px;color:var(--mute);font-weight:500}
+  .rr-head-r{text-align:right;font-size:9.6px;line-height:1.55;min-width:130px}
+  .rr-head-r .rr-meta-row{display:flex;align-items:center;justify-content:flex-end;gap:5px;margin-bottom:4px}
+  .rr-head-r .rr-meta-row i{color:var(--cyan);width:12px;text-align:center}
+  .rr-head-r .rr-meta-lbl{color:var(--mute);text-transform:uppercase;letter-spacing:.3px;font-size:8.4px}
+  .rr-head-r .rr-meta-val{font-weight:700;color:var(--ink);font-size:10.6px}
+
+  /* ── Section bar ── */
+  .rr-sec{margin-bottom:9px;display:flex;flex-direction:column}
+  .rr-sec-bar{background:var(--navy);color:#fff;font-weight:700;font-size:10.6px;text-align:center;padding:5px 6px;border-radius:3px 3px 0 0;letter-spacing:.4px}
+  .rr-sec-body{border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;padding:10px;flex:1;display:flex;flex-direction:column}
+
+  /* ── KPI cards (fixed equal height, no wrap-based drift) ── */
+  .rr-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;align-items:stretch;flex:1}
+  .rr-kpi{background:var(--card);border:1px solid var(--border);border-radius:5px;padding:7px 6px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;height:72px;overflow:hidden}
+  .rr-kpi i{font-size:15px;margin-bottom:3px;flex-shrink:0}
+  .rr-kpi .rr-kpi-lbl{font-size:7.4px;font-weight:700;color:var(--mute);letter-spacing:.3px;text-transform:uppercase;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .rr-kpi .rr-kpi-val{font-size:13px;font-weight:800;color:var(--navy);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .rr-kpi .rr-kpi-sub{font-size:8.2px;color:var(--mute);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+
+  /* ── Table ── */
+  table.rr-tbl{width:100%;border-collapse:collapse;font-size:9.6px}
+  table.rr-tbl th{background:var(--navy);color:#fff;padding:5px 3px;font-weight:700;text-align:center;font-size:8.8px}
+  table.rr-tbl th:first-child,table.rr-tbl td:first-child{text-align:left;padding-left:7px}
+  table.rr-tbl td{padding:5px 3px;text-align:center;border-bottom:1px solid var(--line)}
+  table.rr-tbl tr:nth-child(even) td{background:#F8FAFC}
+  table.rr-tbl td.rr-cat{font-weight:700;color:var(--ink)}
+  table.rr-tbl td.rr-peak,table.rr-tbl th.rr-peak{color:var(--blue);font-weight:800;background:#EAF2FF!important}
+  table.rr-tbl tr.rr-total td{background:#E4EBF6!important;font-weight:800;color:var(--navy);border-top:1.5px solid var(--navy)}
+  table.rr-tbl td.rr-sw{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:4px}
+  table.rr-tbl td.rr-trend{white-space:nowrap;font-weight:700}
+
+  /* ── Row 3+4 (chart / donut) — stretched to equal height ── */
+  .rr-row2{display:grid;grid-template-columns:1.35fr 1fr;gap:9px;align-items:stretch}
+  .rr-chart-wrap{flex:1;min-height:170px;position:relative}
+  .rr-donut-wrap{display:flex;align-items:center;gap:10px;flex:1}
+  .rr-donut-canvas-wrap{position:relative;width:130px;height:130px;flex-shrink:0}
+  .rr-donut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+  .rr-donut-center .n{font-size:15px;font-weight:800;color:var(--navy)}
+  .rr-donut-center .l{font-size:7.2px;color:var(--mute);text-transform:uppercase;letter-spacing:.3px}
+  .rr-legend{flex:1;display:flex;flex-direction:column;gap:5px}
+  .rr-legend-row{display:flex;align-items:center;gap:6px;font-size:9.2px}
+  .rr-legend-sw{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+  .rr-legend-name{flex:1;font-weight:600}
+  .rr-legend-pct{font-weight:800;color:var(--navy)}
+
+  /* ── Row 5-7 (insights/impact/reco) — stretched to tallest card ── */
+  .rr-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;align-items:stretch}
+  .rr-bullet{display:flex;align-items:flex-start;gap:6px;margin-bottom:7px;font-size:9.4px;line-height:1.4}
+  .rr-bullet:last-child{margin-bottom:0}
+  .rr-bullet i{margin-top:1.5px;font-size:10.2px;width:13px;text-align:center;flex-shrink:0}
+  .rr-metric-row{display:flex;align-items:flex-start;gap:7px;margin-bottom:8px}
+  .rr-metric-row:last-child{margin-bottom:0}
+  .rr-metric-row i{font-size:12.5px;margin-top:1px;width:15px;text-align:center;flex-shrink:0}
+  .rr-metric-lbl{font-weight:700;font-size:9.4px;color:var(--ink)}
+  .rr-metric-val{font-weight:800;color:var(--navy);font-size:9.8px}
+  .rr-metric-desc{font-size:8.4px;color:var(--mute);margin-top:2px;line-height:1.35}
+  .rr-foot-note{font-size:7.6px;color:var(--mute);font-style:italic;margin-top:6px}
+
+  /* ── Row 8-10 ── */
+  .rr-dep-text{font-size:9.4px;color:var(--ink);margin-bottom:7px;line-height:1.4}
+  .rr-dep-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .rr-chip{display:flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:4px 9px;font-size:8.6px;font-weight:700}
+  .rr-chip i{font-size:9.6px}
+  .rr-detail-row{display:flex;align-items:flex-start;gap:7px;margin-bottom:6px;font-size:9.2px}
+  .rr-detail-row:last-child{margin-bottom:0}
+  .rr-detail-row i{width:14px;text-align:center;color:var(--cyan);margin-top:1px;flex-shrink:0}
+  .rr-detail-lbl{color:var(--mute);font-weight:600}
+  .rr-detail-val{color:var(--ink);font-weight:700}
+  .rr-issue-box{display:flex;align-items:flex-start;gap:8px}
+  .rr-issue-box i{font-size:20px;margin-top:1px;flex-shrink:0}
+  .rr-issue-box .t{font-weight:700;font-size:9.8px;margin-bottom:3px}
+  .rr-issue-box .d{font-size:8.6px;color:var(--mute);line-height:1.4}
+
+  /* ── Footer ── */
+  .rr-footer{background:var(--navy);color:#fff;text-align:center;font-style:italic;font-size:9.8px;padding:8px;border-radius:4px;margin-top:auto;letter-spacing:.3px}
+
+  @media print{
+    html,body{background:#fff}
+    .no-print{display:none!important}
+    .rr-page-outer{padding:0}
+    .rr-page{width:auto;min-height:297mm;height:297mm;box-shadow:none;padding:6mm 8mm;margin:0}
+    @page{size:A4 portrait;margin:0}
+  }
+</style>
+</head>
+
+<body>
+<div id="rr-loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading report data…</div>
+
+<div class="rr-toolbar no-print">
+  <div class="rr-title"><i class="fa-solid fa-file-lines"></i> Software Utilization Report</div>
+  <div class="rr-tabs" id="rr-tabs">
+    <button class="rr-tab" data-v="day" onclick="rrSwitchView('day')">Day</button>
+    <button class="rr-tab" data-v="week" onclick="rrSwitchView('week')">Week</button>
+    <button class="rr-tab" data-v="month" onclick="rrSwitchView('month')">Month</button>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="rr-btn rr-ghost" onclick="window.close()"><i class="fa-solid fa-xmark"></i> Close</button>
+    <button class="rr-btn" onclick="window.print()"><i class="fa-solid fa-print"></i> Print</button>
+  </div>
+</div>
+
+<div class="rr-page-outer">
+<div class="rr-page" id="rr-page" style="visibility:hidden">
+
+  <!-- Header -->
+  <div class="rr-head">
+    <div class="rr-head-l">
+      <img class="rr-logo" src="../../assets/LogoRasumi.png" alt="Rasumi Medipharma">
+    </div>
+    <div class="rr-head-c">
+      <h1>SOFTWARE UTILIZATION REPORT</h1>
+      <div class="rr-sub" id="rr-summary-label">Weekly Usage Summary</div>
+      <div class="rr-range" id="rr-range">—</div>
+    </div>
+    <div class="rr-head-r">
+      <div class="rr-meta-row"><i class="fa-solid fa-calendar-days"></i><div><div class="rr-meta-lbl">Report Date</div><div class="rr-meta-val" id="rr-report-date">—</div></div></div>
+      <div class="rr-meta-row"><i class="fa-solid fa-user-tie"></i><div><div class="rr-meta-lbl">Prepared by</div><div class="rr-meta-val">IT &amp; AI Executive</div></div></div>
+    </div>
+  </div>
+
+  <!-- 1. Executive Summary -->
+  <div class="rr-sec">
+    <div class="rr-sec-bar">1. EXECUTIVE SUMMARY</div>
+    <div class="rr-sec-body">
+      <div class="rr-kpis" id="rr-kpis"></div>
+    </div>
+  </div>
+
+  <!-- 2. Table -->
+  <div class="rr-sec">
+    <div class="rr-sec-bar" id="rr-table-title">2. USAGE SUMMARY BY APPLICATION &amp; DAY (TIMES)</div>
+    <div class="rr-sec-body"><table class="rr-tbl" id="rr-table"></table></div>
+  </div>
+
+  <!-- 3 & 4 -->
+  <div class="rr-row2">
+    <div class="rr-sec">
+      <div class="rr-sec-bar" id="rr-trend-title">3. USAGE TREND BY DAY (ALL APPLICATIONS)</div>
+      <div class="rr-sec-body"><div class="rr-chart-wrap"><canvas id="rr-line"></canvas></div></div>
+    </div>
+    <div class="rr-sec">
+      <div class="rr-sec-bar">4. USAGE SHARE BY APPLICATION</div>
+      <div class="rr-sec-body">
+        <div class="rr-donut-wrap">
+          <div class="rr-donut-canvas-wrap">
+            <canvas id="rr-donut"></canvas>
+            <div class="rr-donut-center"><div class="n" id="rr-donut-total">0</div><div class="l">times</div></div>
+          </div>
+          <div class="rr-legend" id="rr-donut-legend"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5,6,7 -->
+  <div class="rr-row3">
+    <div class="rr-sec">
+      <div class="rr-sec-bar">5. KEY INSIGHTS</div>
+      <div class="rr-sec-body" id="rr-insights"></div>
+    </div>
+    <div class="rr-sec">
+      <div class="rr-sec-bar">6. PRODUCTIVITY &amp; BUSINESS IMPACT</div>
+      <div class="rr-sec-body">
+        <div id="rr-impact"></div>
+        <div class="rr-foot-note">*Note: Time saved is an estimate based on internal assessment.</div>
+      </div>
+    </div>
+    <div class="rr-sec">
+      <div class="rr-sec-bar">7. RECOMMENDATIONS</div>
+      <div class="rr-sec-body" id="rr-reco"></div>
+    </div>
+  </div>
+
+  <!-- 8,9,10 -->
+  <div class="rr-row3">
+    <div class="rr-sec">
+      <div class="rr-sec-bar">8. OPERATIONAL DEPENDENCY</div>
+      <div class="rr-sec-body">
+        <div class="rr-dep-text">These applications are critical to daily operations and document processing workflows.</div>
+        <div class="rr-dep-chips" id="rr-dep-chips"></div>
+      </div>
+    </div>
+    <div class="rr-sec">
+      <div class="rr-sec-bar">9. DATA &amp; REPORTING DETAILS</div>
+      <div class="rr-sec-body" id="rr-details"></div>
+    </div>
+    <div class="rr-sec">
+      <div class="rr-sec-bar">10. ISSUES &amp; RISKS</div>
+      <div class="rr-sec-body" id="rr-issues"></div>
+    </div>
+  </div>
+
+  <div class="rr-footer">Data-driven insights for operational excellence</div>
+
+</div>
+</div>
+
+<script>
+(function(){
+  var _supa = supabase.createClient(
+    'https://seqlkwdghibmsfkbuwqq.supabase.co',
+    'sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp'
+  );
+
+  // ── App category config (mirrors DASH_APPS in app.js) ──
+  var APPS = [
+    { label: 'Renamer HQ',   color: '#a855f7', icon: 'fa-folder-open',   re: /renamer\s*hq/i },
+    { label: 'Renamer FV',   color: '#8b5cf6', icon: 'fa-code-branch',   re: /fv[\s._-]branch|renamer\s*fv/i },
+    { label: 'PDF Splitter', color: '#22c55e', icon: 'fa-file-pdf',      re: /pdf[\s._-]?split/i },
+    { label: 'Scanify',      color: '#38bdf8', icon: 'fa-print',         re: /scanify/i },
+    { label: 'PDF Studio',   color: '#eab308', icon: 'fa-file-invoice',  re: /pdf[\s._-]?studio/i },
+    { label: 'Quick Rename', color: '#f97316', icon: 'fa-bolt',          re: /quick[\s._-]?rename/i },
+    { label: 'Vibes Agent',  color: '#ef4444', icon: 'fa-robot',         re: /vibes|vims/i },
+  ];
+  var BRANCH_MAP = {
+    'rasumihq':'HQ','rasumifvkl':'FVKL','rasumifvt':'FVT','rasumifvl':'FVL','rasumifvg':'FVG',
+    'admin':'ADMIN','mustaqim':'SUPER ADMIN','super admin':'SUPER ADMIN'
+  };
+  var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var CV = { navy:'#12294F', blue:'#3B82F6', green:'#10B981', purple:'#8B5CF6', orange:'#F59E0B', cyan:'#0EA5E9', mute:'#64748B', red:'#DC2626' };
+  var lineChartInst = null, donutChartInst = null;
+
+  function branchName(id){ if(!id) return '—'; return BRANCH_MAP[(id||'').toLowerCase()] || id; }
+  function fmtNum(n){ return (n||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function p2(n){ return n<10 ? '0'+n : String(n); }
+  function isoLocal(d){ return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T'+p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds()); }
+
+  // `logs.timestamp` is written in UTC, but the admin console (and this report)
+  // always reasons in true Malaysia local time (UTC+8) — see app.js's dashboard
+  // day-view, which queries using raw local-looking hour digits 0-23 and then
+  // relabels them "+8" for display (bucket digit 0 = stored value for true local
+  // 8am). Full-calendar-day boundaries (week/month views) happen to line up
+  // correctly as-is because all real activity falls within business hours
+  // (8am-5pm local = raw digits 00-09, comfortably inside the same calendar
+  // date either way). Sub-day buckets do NOT get that same free pass — a
+  // literal 0-6/6-12/12-18/18-24 split compared directly against raw UTC-ish
+  // digits mislabels true 8am-2pm activity as "Night". rawIso() converts a
+  // Date built from true-local wall-clock fields into the matching raw string.
+  var TZ_OFFSET_HOURS = 8;
+  function rawIso(trueLocalDate){ return isoLocal(new Date(trueLocalDate.getTime() - TZ_OFFSET_HOURS * 3600000)); }
+  function isoWeekNum(d){
+    var dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    var dayNum = dt.getUTCDay() || 7;
+    dt.setUTCDate(dt.getUTCDate() + 4 - dayNum);
+    var yearStart = new Date(Date.UTC(dt.getUTCFullYear(),0,1));
+    return Math.ceil((((dt - yearStart) / 86400000) + 1) / 7);
+  }
+  function fmtLongDate(d){ return d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
+
+  // Up/down comparison badge vs a previous-period value.
+  function trendBadge(curr, prev, compact){
+    var arrowUp = '<i class="fa-solid fa-arrow-up"></i>', arrowDown = '<i class="fa-solid fa-arrow-down"></i>', dash = '<i class="fa-solid fa-minus"></i>';
+    if (!prev && !curr) return '<span style="color:'+CV.mute+'">'+dash+' 0.0%</span>';
+    if (!prev) return '<span style="color:'+CV.green+'">'+arrowUp+' New</span>';
+    var pct = ((curr - prev) / prev * 100);
+    if (Math.abs(pct) < 0.05) return '<span style="color:'+CV.mute+'">'+dash+' 0.0%</span>';
+    var up = pct > 0;
+    return '<span style="color:'+(up?CV.green:CV.red)+'">'+(up?arrowUp:arrowDown)+' '+Math.abs(pct).toFixed(1)+'%</span>';
+  }
+
+  // ── Builds the bucket/period configuration for a given granularity ──
+  function buildPeriodConfig(view, now){
+    if (view === 'day'){
+      var d0 = new Date(now); d0.setHours(0,0,0,0); // true-local midnight, today
+      var d1 = new Date(d0); d1.setDate(d0.getDate()-1); // true-local midnight, yesterday
+      var parts = [
+        {label:'Night', startH:0, endH:6},
+        {label:'Morning', startH:6, endH:12},
+        {label:'Afternoon', startH:12, endH:18},
+        {label:'Evening', startH:18, endH:24}
+      ];
+      var bStarts=[], bEnds=[], bLabels=[];
+      parts.forEach(function(pt){
+        var s = new Date(d0); s.setHours(pt.startH,0,0,0);       // true-local boundary
+        var e = new Date(d0); e.setHours(pt.endH-1,59,59,0);     // true-local boundary
+        bStarts.push(rawIso(s)); bEnds.push(rawIso(e));          // → raw (as stored)
+        bLabels.push(pt.label);
+      });
+      var todayEnd = new Date(d0); todayEnd.setHours(23,59,59,0);
+      var yestEnd = new Date(d1); yestEnd.setHours(23,59,59,0);
+      return {
+        view:'day', summaryLabel:'Daily Usage Summary', rangeText: fmtLongDate(d0),
+        periodStart: rawIso(d0), periodEnd: rawIso(todayEnd),
+        prevStart: rawIso(d1), prevEnd: rawIso(yestEnd),
+        prevRangeText: fmtLongDate(d1) + ' (previous day)',
+        bucketLabels: bLabels, bucketStarts: bStarts, bucketEnds: bEnds,
+        peakLabel:'Peak Time Block', granularity:'TIME OF DAY', hideWeekend:false
+      };
+    }
+    if (view === 'month'){
+      var y=now.getFullYear(), mo=now.getMonth();
+      var dim = new Date(y,mo+1,0).getDate();
+      var pmo = mo-1, py=y; if (pmo<0){ pmo=11; py=y-1; }
+      var pdim = new Date(py,pmo+1,0).getDate();
+      var bStarts=[], bEnds=[], bLabels=[], wk=1;
+      for (var day=1; day<=dim; day+=7){
+        var endDay = Math.min(day+6, dim);
+        bStarts.push(isoLocal(new Date(y,mo,day,0,0,0)));
+        bEnds.push(isoLocal(new Date(y,mo,endDay,23,59,59)));
+        bLabels.push('Week '+wk); wk++;
+      }
+      return {
+        view:'month', summaryLabel:'Monthly Usage Summary', rangeText: MONTHS[mo]+' '+y,
+        periodStart: isoLocal(new Date(y,mo,1,0,0,0)), periodEnd: isoLocal(new Date(y,mo,dim,23,59,59)),
+        prevStart: isoLocal(new Date(py,pmo,1,0,0,0)), prevEnd: isoLocal(new Date(py,pmo,pdim,23,59,59)),
+        prevRangeText: MONTHS[pmo]+' '+py,
+        bucketLabels: bLabels, bucketStarts: bStarts, bucketEnds: bEnds,
+        peakLabel:'Peak Week', granularity:'WEEK', hideWeekend:false
+      };
+    }
+    // week (default)
+    var dow = now.getDay();
+    var mon = new Date(now); mon.setDate(now.getDate() - (dow===0?6:dow-1)); mon.setHours(0,0,0,0);
+    var pmon = new Date(mon); pmon.setDate(mon.getDate()-7);
+    var DAY_NAMES=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    var bStarts=[], bEnds=[], bLabels=[], dayDates=[];
+    for (var i=0;i<7;i++){
+      var d = new Date(mon); d.setDate(mon.getDate()+i);
+      dayDates.push(d);
+      bStarts.push(isoLocal(d));
+      bEnds.push(isoLocal(new Date(d.getFullYear(),d.getMonth(),d.getDate(),23,59,59)));
+      bLabels.push(DAY_NAMES[i]);
+    }
+    var sun = dayDates[6];
+    return {
+      view:'week', summaryLabel:'Weekly Usage Summary',
+      rangeText: dayDates[0].getDate()+' – '+sun.getDate()+' '+MONTHS[sun.getMonth()]+' '+sun.getFullYear()+' (Week '+isoWeekNum(dayDates[3])+')',
+      periodStart: isoLocal(mon), periodEnd: isoLocal(new Date(sun.getFullYear(),sun.getMonth(),sun.getDate(),23,59,59)),
+      prevStart: isoLocal(pmon), prevEnd: isoLocal(new Date(pmon.getFullYear(),pmon.getMonth(),pmon.getDate()+6,23,59,59)),
+      prevRangeText: 'the previous week',
+      bucketLabels: bLabels, bucketStarts: bStarts, bucketEnds: bEnds,
+      peakLabel:'Peak Usage Day', granularity:'DAY', hideWeekend:true
+    };
+  }
+
+  // Fetches ALL matching rows for a date range via .range() pagination — a flat
+  // .limit(N) silently truncates once a period (e.g. a full month) has more rows
+  // than N, which made Week and Month totals collide at the same cap. Requires
+  // .order() so paging is deterministic across requests.
+  async function fetchAllLogs(select, startIso, endIso){
+    var pageSize = 1000, offset = 0, all = [], maxPages = 100;
+    for (var page = 0; page < maxPages; page++){
+      var res = await _supa.from('logs').select(select)
+        .gte('timestamp', startIso).lte('timestamp', endIso)
+        .eq('status', 'COMPLETED')
+        .order('timestamp', { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      var batch = res.data || [];
+      all = all.concat(batch);
+      if (batch.length < pageSize) break;
+      offset += pageSize;
+    }
+    return all;
+  }
+
+  // Fetches raw per-app totals (no bucket breakdown) for a date range — used for the previous-period comparison.
+  async function fetchPeriodTotals(startIso, endIso){
+    var rows = await fetchAllLogs('app_name,timestamp', startIso, endIso);
+    var totals = {}; APPS.forEach(function(a){ totals[a.label] = 0; });
+    var grand = 0;
+    rows.forEach(function(r){
+      var an = r.app_name || '';
+      for (var j=0;j<APPS.length;j++){ if (APPS[j].re.test(an)) { totals[APPS[j].label]++; grand++; break; } }
+    });
+    return { totals: totals, grand: grand };
+  }
+
+  var currentView = 'week';
+
+  window.rrSwitchView = function(v){
+    if (v === currentView) return;
+    currentView = v;
+    document.getElementById('rr-loading').style.display = 'flex';
+    document.getElementById('rr-page').style.visibility = 'hidden';
+    buildReport(v).catch(function(err){ showError(err); });
+  };
+
+  function highlightTab(v){
+    document.querySelectorAll('#rr-tabs .rr-tab').forEach(function(btn){
+      btn.classList.toggle('active', btn.getAttribute('data-v') === v);
+    });
+  }
+
+  function showError(err){
+    document.getElementById('rr-loading').style.display = 'flex';
+    document.getElementById('rr-loading').innerHTML =
+      '<div style="text-align:center;color:#f87171"><i class="fa-solid fa-triangle-exclamation"></i> Failed to build report<br>'+
+      '<span style="font-size:11px;color:#9fb3d1">'+ (err && err.message ? err.message : String(err)) +'</span></div>';
+    console.error(err);
+  }
+
+  document.addEventListener('DOMContentLoaded', async function(){
+    var loginUrl = '../../index.html';
+    try {
+      var sessRes = await _supa.auth.getSession();
+      if (!sessRes.data.session) { window.location.href = loginUrl; return; }
+    } catch(e) { window.location.href = loginUrl; return; }
+
+    var qp = new URLSearchParams(window.location.search);
+    var initView = qp.get('view');
+    if (['day','week','month'].indexOf(initView) === -1) initView = 'week';
+    currentView = initView;
+
+    try { await buildReport(currentView); } catch(err) { showError(err); }
+  });
+
+  async function buildReport(view){
+    highlightTab(view);
+    var cfg = buildPeriodConfig(view, new Date());
+
+    document.getElementById('rr-summary-label').textContent = cfg.summaryLabel;
+    document.getElementById('rr-range').textContent = cfg.rangeText;
+    document.getElementById('rr-report-date').textContent = fmtLongDate(new Date());
+    document.getElementById('rr-table-title').textContent = '2. USAGE SUMMARY BY APPLICATION & ' + cfg.granularity + ' (TIMES)';
+    document.getElementById('rr-trend-title').textContent = '3. USAGE TREND BY ' + cfg.granularity + ' (ALL APPLICATIONS)';
+
+    // ── Fetch current-period logs + previous-period comparison totals in parallel ──
+    var logsPromise = fetchAllLogs('app_name,machine,timestamp,branch_id', cfg.periodStart, cfg.periodEnd);
+    var prevPromise = fetchPeriodTotals(cfg.prevStart, cfg.prevEnd);
+    // Supabase query builders are thenables, not real Promise instances — they
+    // don't reliably expose .catch()/.finally(), so wrap with Promise.resolve()
+    // before chaining a fallback.
+    var issuesPromise = Promise.resolve(
+      _supa.from('vibes_errors').select('id,error_type')
+        .eq('resolved', false)
+        .not('error_type', 'in', '("batch_skip","amount_unresolved","folder_not_found","row_skip_portal_lag","batch_incomplete_no_file")')
+        .limit(500)
+    ).catch(function(){ return { data: [] }; });
+
+    var results = await Promise.all([logsPromise, prevPromise, issuesPromise]);
+    var rows = results[0] || [];
+    var prev = results[1];
+    var issueCount = (results[2].data || []).length;
+
+    var nBuckets = cfg.bucketStarts.length;
+    var perApp = APPS.map(function(a){ return { app:a, bucket: new Array(nBuckets).fill(0), total:0 }; });
+    var bucketTotal = new Array(nBuckets).fill(0);
+    var branchTotals = {}, branchBucket = {};
+    var distinctAppNames = {};
+
+    rows.forEach(function(r){
+      var ts = r.timestamp || '';
+      var bIdx = -1;
+      for (var i=0;i<nBuckets;i++){ if (ts >= cfg.bucketStarts[i] && ts <= cfg.bucketEnds[i]) { bIdx = i; break; } }
+      if (bIdx === -1) return;
+      var an = r.app_name || '';
+      distinctAppNames[an.toLowerCase()] = true;
+      var matched = null;
+      for (var j=0;j<perApp.length;j++){ if (perApp[j].app.re.test(an)) { matched = perApp[j]; break; } }
+      if (!matched) return;
+      matched.bucket[bIdx]++; matched.total++;
+      bucketTotal[bIdx]++;
+      var bId = r.branch_id || null;
+      var bKey = bId ? bId.toLowerCase() : '__unknown';
+      branchTotals[bKey] = (branchTotals[bKey]||0) + 1;
+      if (!branchBucket[bKey]) branchBucket[bKey] = new Array(nBuckets).fill(0);
+      branchBucket[bKey][bIdx]++;
+    });
+
+    var activeApps = perApp.filter(function(a){ return a.total > 0; });
+    var totalEvents = bucketTotal.reduce(function(a,b){return a+b;},0);
+
+    // ── Hide Sat/Sun bucket columns when genuinely zero (week view only) ──
+    var visibleIdx = [];
+    for (var vi=0; vi<nBuckets; vi++){
+      var isWeekend = cfg.hideWeekend && (vi === 5 || vi === 6);
+      if (!isWeekend || bucketTotal[vi] > 0) visibleIdx.push(vi);
+    }
+
+    // ── KPI: Peak bucket ──
+    var peakIdx = 0;
+    for (var i=1;i<nBuckets;i++){ if (bucketTotal[i] > bucketTotal[peakIdx]) peakIdx = i; }
+    var peakVal = bucketTotal[peakIdx];
+    var peakPct = totalEvents ? (peakVal/totalEvents*100) : 0;
+
+    // ── KPI: Top application ──
+    var topApp = activeApps.slice().sort(function(a,b){return b.total-a.total;})[0] || null;
+    var topAppPct = (topApp && totalEvents) ? (topApp.total/totalEvents*100) : 0;
+
+    // ── KPI: Top location ──
+    var topBranchKey = null;
+    Object.keys(branchTotals).forEach(function(k){ if (!topBranchKey || branchTotals[k] > branchTotals[topBranchKey]) topBranchKey = k; });
+    var topBranchName = topBranchKey ? (topBranchKey==='__unknown' ? 'Unassigned' : branchName(topBranchKey)) : '—';
+    var topBranchPeakLabel = '—';
+    if (topBranchKey && branchBucket[topBranchKey]){
+      var bb = branchBucket[topBranchKey], bpi = 0;
+      for (var k=1;k<nBuckets;k++){ if (bb[k] > bb[bpi]) bpi = k; }
+      if (bb[bpi] > 0) topBranchPeakLabel = cfg.bucketLabels[bpi];
+    }
+
+    // ── Render KPI cards ──
+    var totalTrend = trendBadge(totalEvents, prev.grand);
+    var kpiHtml =
+      '<div class="rr-kpi"><i class="fa-solid fa-arrow-trend-up" style="color:'+CV.blue+'"></i><div class="rr-kpi-lbl">Total App Usage</div><div class="rr-kpi-val">'+fmtNum(totalEvents)+'</div><div class="rr-kpi-sub">'+totalTrend+' vs prev.</div></div>' +
+      '<div class="rr-kpi"><i class="fa-solid fa-square-check" style="color:'+CV.green+'"></i><div class="rr-kpi-lbl">Active Applications</div><div class="rr-kpi-val">'+activeApps.length+'</div><div class="rr-kpi-sub">applications</div></div>' +
+      '<div class="rr-kpi"><i class="fa-solid fa-clock" style="color:'+CV.purple+'"></i><div class="rr-kpi-lbl">'+cfg.peakLabel+'</div><div class="rr-kpi-val">'+(cfg.bucketLabels[peakIdx]||'—')+'</div><div class="rr-kpi-sub">'+fmtNum(peakVal)+' times ('+peakPct.toFixed(1)+'%)</div></div>' +
+      '<div class="rr-kpi"><i class="fa-solid fa-user-group" style="color:'+CV.orange+'"></i><div class="rr-kpi-lbl">Top Application</div><div class="rr-kpi-val">'+(topApp?topApp.app.label:'—')+'</div><div class="rr-kpi-sub">'+(topApp?fmtNum(topApp.total)+' times ('+topAppPct.toFixed(1)+'%)':'—')+'</div></div>' +
+      '<div class="rr-kpi"><i class="fa-solid fa-building" style="color:'+CV.navy+'"></i><div class="rr-kpi-lbl">Top Location</div><div class="rr-kpi-val">'+topBranchName+'</div><div class="rr-kpi-sub">'+(topBranchPeakLabel!=='—'?('Mostly in '+topBranchPeakLabel):'—')+'</div></div>';
+    document.getElementById('rr-kpis').innerHTML = kpiHtml;
+
+    // ── Render table (with vs-previous trend column) ──
+    var thead = '<tr><th>Category</th>'+visibleIdx.map(function(i){ return '<th class="'+(i===peakIdx?'rr-peak':'')+'">'+cfg.bucketLabels[i]+'</th>'; }).join('')+'<th>Total</th><th>% of Total</th><th>vs Previous</th></tr>';
+    var tbody = activeApps.map(function(a){
+      var cells = visibleIdx.map(function(i){ return '<td class="'+(i===peakIdx?'rr-peak':'')+'">'+fmtNum(a.bucket[i])+'</td>'; }).join('');
+      var pct = totalEvents ? (a.total/totalEvents*100) : 0;
+      var prevVal = prev.totals[a.app.label] || 0;
+      return '<tr><td class="rr-cat"><span class="rr-sw" style="background:'+a.app.color+'"></span>'+a.app.label+'</td>'+cells+'<td style="font-weight:700">'+fmtNum(a.total)+'</td><td>'+pct.toFixed(1)+'%</td><td class="rr-trend">'+trendBadge(a.total, prevVal)+'</td></tr>';
+    }).join('');
+    var totalRow = '<tr class="rr-total"><td>TOTAL</td>'+visibleIdx.map(function(i){return '<td>'+fmtNum(bucketTotal[i])+'</td>';}).join('')+'<td>'+fmtNum(totalEvents)+'</td><td>100%</td><td class="rr-trend">'+trendBadge(totalEvents, prev.grand)+'</td></tr>';
+    document.getElementById('rr-table').innerHTML = thead + tbody + totalRow;
+
+    // ── Line chart ──
+    var lineLabels = visibleIdx.map(function(i){ return cfg.bucketLabels[i]; });
+    var lineData = visibleIdx.map(function(i){ return bucketTotal[i]; });
+    if (lineChartInst) { lineChartInst.destroy(); }
+    lineChartInst = new Chart(document.getElementById('rr-line'), {
+      type: 'line',
+      data: { labels: lineLabels, datasets: [{
+        data: lineData, borderColor: CV.blue, backgroundColor: 'rgba(59,130,246,0.08)',
+        fill: true, tension: 0.35, pointBackgroundColor: CV.blue, pointRadius: 3, borderWidth: 2
+      }]},
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display:false }, tooltip: { enabled:false } },
+        scales: {
+          y: { beginAtZero:true, ticks:{ font:{size:7}, color:'#64748B', stepSize: niceStep(lineData) }, grid:{color:'#E2E8F0'} },
+          x: { ticks:{ font:{size:7.5}, color:'#334155' }, grid:{display:false} }
+        }
+      },
+      plugins: [{
+        id: 'rrPointLabels',
+        afterDatasetsDraw: function(chart){
+          var ctx = chart.ctx;
+          ctx.save();
+          ctx.font = '700 7.5px Inter, sans-serif';
+          ctx.fillStyle = '#12294F';
+          ctx.textAlign = 'center';
+          chart.data.datasets[0].data.forEach(function(v,i){
+            var pt = chart.getDatasetMeta(0).data[i];
+            if (pt) ctx.fillText(fmtNum(v), pt.x, pt.y - 7);
+          });
+          ctx.restore();
+        }
+      }]
+    });
+
+    // ── Donut chart ──
+    document.getElementById('rr-donut-total').textContent = fmtNum(totalEvents);
+    if (donutChartInst) { donutChartInst.destroy(); }
+    donutChartInst = new Chart(document.getElementById('rr-donut'), {
+      type: 'doughnut',
+      data: {
+        labels: activeApps.map(function(a){return a.app.label;}),
+        datasets: [{ data: activeApps.map(function(a){return a.total;}), backgroundColor: activeApps.map(function(a){return a.app.color;}), borderWidth: 2, borderColor:'#fff' }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, cutout:'68%', plugins:{ legend:{display:false}, tooltip:{enabled:false} } }
+    });
+    document.getElementById('rr-donut-legend').innerHTML = activeApps.map(function(a){
+      var pct = totalEvents ? (a.total/totalEvents*100) : 0;
+      return '<div class="rr-legend-row"><div class="rr-legend-sw" style="background:'+a.app.color+'"></div><div class="rr-legend-name">'+a.app.label+'</div><div class="rr-legend-pct">'+pct.toFixed(1)+'%</div></div>';
+    }).join('');
+
+    // ── Section 5: Key Insights (dynamic) ──
+    var activeIdx = []; bucketTotal.forEach(function(v,i){ if (v>0) activeIdx.push(i); });
+    var insights = [];
+    if (totalEvents > 0){
+      insights.push({ icon:'fa-arrow-trend-up', color:CV.blue, text: (cfg.bucketLabels[peakIdx])+' recorded the highest usage ('+fmtNum(peakVal)+' times), representing '+peakPct.toFixed(1)+'% of total usage.' });
+      var top2 = activeApps.slice().sort(function(a,b){return b.total-a.total;}).slice(0,2);
+      if (top2.length === 2){
+        var top2Pct = totalEvents ? ((top2[0].total+top2[1].total)/totalEvents*100) : 0;
+        insights.push({ icon:'fa-file-lines', color:CV.green, text: top2[0].app.label+' and '+top2[1].app.label+' are the most utilized tools, together accounting for '+top2Pct.toFixed(1)+'% of usage.' });
+      } else if (top2.length === 1){
+        insights.push({ icon:'fa-file-lines', color:CV.green, text: top2[0].app.label+' was the sole active application this period, accounting for 100% of usage.' });
+      }
+      if (activeIdx.length && activeIdx.length < nBuckets){
+        var span = activeIdx.map(function(i){return cfg.bucketLabels[i];}).join(', ');
+        insights.push({ icon:'fa-clock', color:CV.purple, text: 'Usage concentrated on '+span+', indicating operational cycle.' });
+      } else {
+        insights.push({ icon:'fa-clock', color:CV.purple, text: 'Usage recorded across all '+nBuckets+' periods of the range.' });
+      }
+      var zeroLbls = cfg.bucketLabels.filter(function(l,i){ return bucketTotal[i]===0; });
+      if (zeroLbls.length){
+        insights.push({ icon:'fa-lightbulb', color:CV.orange, text: 'No usage recorded on '+zeroLbls.join(', ')+'.' });
+      }
+      insights.push({ icon: (totalEvents>=prev.grand?'fa-arrow-trend-up':'fa-arrow-trend-down'), color:(totalEvents>=prev.grand?CV.green:CV.red), text: 'Total usage is '+(totalEvents>=prev.grand?'up':'down')+' compared to '+cfg.prevRangeText+' ('+fmtNum(prev.grand)+' → '+fmtNum(totalEvents)+').' });
+    } else {
+      insights.push({ icon:'fa-circle-info', color:CV.mute, text:'No application usage was recorded during this reporting period.' });
+    }
+    document.getElementById('rr-insights').innerHTML = insights.map(function(it){
+      return '<div class="rr-bullet"><i class="fa-solid '+it.icon+'" style="color:'+it.color+'"></i><div>'+it.text+'</div></div>';
+    }).join('');
+
+    // ── Section 6: Productivity & Business Impact ──
+    var TIME_PER_TASK_MIN = 2;
+    var hoursSaved = (totalEvents * TIME_PER_TASK_MIN / 60);
+    var processesAutomated = Object.keys(distinctAppNames).length;
+    var opImpact = totalEvents >= 1000 ? 'High' : (totalEvents >= 300 ? 'Moderate' : (totalEvents > 0 ? 'Low' : 'None'));
+    var impactHtml =
+      '<div class="rr-metric-row"><i class="fa-solid fa-hourglass-half" style="color:'+CV.blue+'"></i><div><div class="rr-metric-lbl">Estimated Time Saved* <span class="rr-metric-val">~'+hoursSaved.toFixed(1)+' hours</span></div><div class="rr-metric-desc">Based on avg. time savings per task using our tools.</div></div></div>' +
+      '<div class="rr-metric-row"><i class="fa-solid fa-gears" style="color:'+CV.green+'"></i><div><div class="rr-metric-lbl">Processes Automated <span class="rr-metric-val">'+processesAutomated+'+</span></div><div class="rr-metric-desc">File handling, renaming, splitting, scanning, data extraction &amp; more.</div></div></div>' +
+      '<div class="rr-metric-row"><i class="fa-solid fa-bolt" style="color:'+CV.orange+'"></i><div><div class="rr-metric-lbl">Operational Impact <span class="rr-metric-val">'+opImpact+'</span></div><div class="rr-metric-desc">Improved efficiency, reduced manual work &amp; faster turnaround.</div></div></div>' +
+      '<div class="rr-metric-row"><i class="fa-solid fa-shield-halved" style="color:'+CV.cyan+'"></i><div><div class="rr-metric-lbl">Reliability <span class="rr-metric-val">'+(issueCount===0?'Stable':issueCount+' Open Issue'+(issueCount>1?'s':''))+'</span></div><div class="rr-metric-desc">'+(issueCount===0?'No unresolved system issues recorded.':'See Issues &amp; Risks for details.')+'</div></div></div>';
+    document.getElementById('rr-impact').innerHTML = impactHtml;
+
+    // ── Section 7: Recommendations ──
+    var reco = [
+      'Continue monitoring core tools performance and reliability.',
+      'Explore further automation opportunities to improve productivity mid-week.',
+      (cfg.hideWeekend && bucketTotal[5]===0 && bucketTotal[6]===0) ? 'Consider weekend usage enablement if future operations expand.' : 'Maintain current operational cadence across active periods.',
+      'Regular review of usage trends for capacity planning.'
+    ];
+    document.getElementById('rr-reco').innerHTML = reco.map(function(t){
+      return '<div class="rr-bullet"><i class="fa-solid fa-circle-check" style="color:'+CV.green+'"></i><div>'+t+'</div></div>';
+    }).join('');
+
+    // ── Section 8: Operational Dependency ──
+    document.getElementById('rr-dep-chips').innerHTML = activeApps.map(function(a){
+      return '<div class="rr-chip"><i class="fa-solid '+a.app.icon+'" style="color:'+a.app.color+'"></i>'+a.app.label+'</div>';
+    }).join('') || '<span style="color:var(--mute);font-size:8px">No active applications this period.</span>';
+
+    // ── Section 9: Data & Reporting Details ──
+    document.getElementById('rr-details').innerHTML =
+      '<div class="rr-detail-row"><i class="fa-solid fa-calendar-week"></i><div><span class="rr-detail-lbl">Reporting Period: </span><span class="rr-detail-val">'+cfg.rangeText+'</span></div></div>' +
+      '<div class="rr-detail-row"><i class="fa-solid fa-code-compare"></i><div><span class="rr-detail-lbl">Compared To: </span><span class="rr-detail-val">'+cfg.prevRangeText+'</span></div></div>' +
+      '<div class="rr-detail-row"><i class="fa-solid fa-database"></i><div><span class="rr-detail-lbl">Data Source: </span><span class="rr-detail-val">Application Usage Logs (Rasumi Internal System)</span></div></div>' +
+      '<div class="rr-detail-row"><i class="fa-solid fa-check-double"></i><div><span class="rr-detail-lbl">Data Accuracy: </span><span class="rr-detail-val">100% automated log collection</span></div></div>' +
+      '<div class="rr-detail-row"><i class="fa-solid fa-circle-info"></i><div><span class="rr-detail-lbl">Note: </span>Usage count refers to the number of times each application was run.</div></div>';
+
+    // ── Section 10: Issues & Risks ──
+    document.getElementById('rr-issues').innerHTML = issueCount === 0
+      ? '<div class="rr-issue-box"><i class="fa-solid fa-circle-check" style="color:'+CV.green+'"></i><div><div class="t">No significant issues recorded.</div><div class="d">Continue regular monitoring to ensure system reliability and data integrity.</div></div></div>'
+      : '<div class="rr-issue-box"><i class="fa-solid fa-triangle-exclamation" style="color:'+CV.orange+'"></i><div><div class="t">'+issueCount+' unresolved issue'+(issueCount>1?'s':'')+' recorded.</div><div class="d">Review the VIBES Agent Error Monitor and resolve promptly to maintain reliability.</div></div></div>';
+
+    document.getElementById('rr-loading').style.display = 'none';
+    document.getElementById('rr-page').style.visibility = 'visible';
+  }
+
+  function niceStep(arr){ var max = Math.max.apply(null, arr.concat([1])); var step = Math.ceil(max/5); return step<1?1:step; }
+})();
+</script>
+</body>
+</html>

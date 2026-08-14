@@ -2812,6 +2812,7 @@
       '<div style="display:flex;align-items:center;gap:8px;margin-top:12px">' +
       '<div id="d-chart-legend" style="display:flex;gap:12px;flex-wrap:wrap;flex:1"></div>' +
       '<button class="r-btn-sm" style="background:rgba(255,255,255,0.05);color:var(--rc-text);border-color:var(--rc-border)" onclick="window.rExportDashChart()"><i class="fa-solid fa-file-excel" style="color:#22c55e"></i> Export</button>' +
+      '<button class="r-btn-sm" style="background:rgba(255,255,255,0.05);color:var(--rc-text);border-color:var(--rc-border)" onclick="window.rOpenFullReport()"><i class="fa-solid fa-file-lines" style="color:#0ea5e9"></i> Full Report</button>' +
       '</div>' +
       '</div>' +
       '</div>';
@@ -3908,6 +3909,14 @@
       context: viewLabel + ' Breakdown · ' + typeLabel,
       fileBase: 'Rasumi_Usage_' + typeLabel.replace(/\s+/g, '') + '_' + viewLabel
     });
+  };
+
+  // Opens the standalone printable Full Report page (report/index.html) in a
+  // new tab. That page pulls its own live data straight from Supabase — no
+  // params to pass, it always renders the current Mon–Sun week.
+  window.rOpenFullReport = function () {
+    var view = (window.dashChartState && window.dashChartState.view) || 'week';
+    window.open('report/?view=' + encodeURIComponent(view), '_blank');
   };
 
   window.dashDrawUsageChart = function (canvas, datasets, labels) {
