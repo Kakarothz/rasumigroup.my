@@ -176,7 +176,7 @@
 
   <!-- 2. Table -->
   <div class="rr-sec">
-    <div class="rr-sec-bar" id="rr-table-title">2. USAGE SUMMARY BY APPLICATION &amp; DAY (TIMES)</div>
+    <div class="rr-sec-bar" id="rr-table-title">2. USAGE SUMMARY BY APPLICATION &amp; DAY (DOCS)</div>
     <div class="rr-sec-body"><table class="rr-tbl" id="rr-table"></table></div>
   </div>
 
@@ -192,7 +192,7 @@
         <div class="rr-donut-wrap">
           <div class="rr-donut-canvas-wrap">
             <canvas id="rr-donut"></canvas>
-            <div class="rr-donut-center"><div class="n" id="rr-donut-total">0</div><div class="l">times</div></div>
+            <div class="rr-donut-center"><div class="n" id="rr-donut-total">0</div><div class="l">Docs</div></div>
           </div>
           <div class="rr-legend" id="rr-donut-legend"></div>
         </div>
@@ -459,7 +459,7 @@
     document.getElementById('rr-summary-label').textContent = cfg.summaryLabel;
     document.getElementById('rr-range').textContent = cfg.rangeText;
     document.getElementById('rr-report-date').textContent = fmtLongDate(new Date());
-    document.getElementById('rr-table-title').textContent = '2. USAGE SUMMARY BY APPLICATION & ' + cfg.granularity + ' (TIMES)';
+    document.getElementById('rr-table-title').textContent = '2. USAGE SUMMARY BY APPLICATION & ' + cfg.granularity + ' (DOCS)';
     document.getElementById('rr-trend-title').textContent = '3. USAGE TREND BY ' + cfg.granularity + ' (ALL APPLICATIONS)';
 
     // ── Fetch current-period logs + previous-period comparison totals in parallel ──
@@ -541,8 +541,8 @@
     var kpiHtml =
       '<div class="rr-kpi"><i class="fa-solid fa-arrow-trend-up" style="color:'+CV.blue+'"></i><div class="rr-kpi-lbl">Total App Usage</div><div class="rr-kpi-val">'+fmtNum(totalEvents)+'</div><div class="rr-kpi-sub">'+totalTrend+' vs prev.</div></div>' +
       '<div class="rr-kpi"><i class="fa-solid fa-square-check" style="color:'+CV.green+'"></i><div class="rr-kpi-lbl">Active Applications</div><div class="rr-kpi-val">'+activeApps.length+'</div><div class="rr-kpi-sub">applications</div></div>' +
-      '<div class="rr-kpi"><i class="fa-solid fa-clock" style="color:'+CV.purple+'"></i><div class="rr-kpi-lbl">'+cfg.peakLabel+'</div><div class="rr-kpi-val">'+(cfg.bucketLabels[peakIdx]||'—')+'</div><div class="rr-kpi-sub">'+fmtNum(peakVal)+' times ('+peakPct.toFixed(1)+'%)</div></div>' +
-      '<div class="rr-kpi"><i class="fa-solid fa-user-group" style="color:'+CV.orange+'"></i><div class="rr-kpi-lbl">Top Application</div><div class="rr-kpi-val">'+(topApp?topApp.app.label:'—')+'</div><div class="rr-kpi-sub">'+(topApp?fmtNum(topApp.total)+' times ('+topAppPct.toFixed(1)+'%)':'—')+'</div></div>' +
+      '<div class="rr-kpi"><i class="fa-solid fa-clock" style="color:'+CV.purple+'"></i><div class="rr-kpi-lbl">'+cfg.peakLabel+'</div><div class="rr-kpi-val">'+(cfg.bucketLabels[peakIdx]||'—')+'</div><div class="rr-kpi-sub">'+fmtNum(peakVal)+' Docs ('+peakPct.toFixed(1)+'%)</div></div>' +
+      '<div class="rr-kpi"><i class="fa-solid fa-user-group" style="color:'+CV.orange+'"></i><div class="rr-kpi-lbl">Top Application</div><div class="rr-kpi-val">'+(topApp?topApp.app.label:'—')+'</div><div class="rr-kpi-sub">'+(topApp?fmtNum(topApp.total)+' Docs ('+topAppPct.toFixed(1)+'%)':'—')+'</div></div>' +
       '<div class="rr-kpi"><i class="fa-solid fa-building" style="color:'+CV.navy+'"></i><div class="rr-kpi-lbl">Top Location</div><div class="rr-kpi-val">'+topBranchName+'</div><div class="rr-kpi-sub">'+(topBranchPeakLabel!=='—'?('Mostly in '+topBranchPeakLabel):'—')+'</div></div>';
     document.getElementById('rr-kpis').innerHTML = kpiHtml;
 
@@ -612,7 +612,7 @@
     var activeIdx = []; bucketTotal.forEach(function(v,i){ if (v>0) activeIdx.push(i); });
     var insights = [];
     if (totalEvents > 0){
-      insights.push({ icon:'fa-arrow-trend-up', color:CV.blue, text: (cfg.bucketLabels[peakIdx])+' recorded the highest usage ('+fmtNum(peakVal)+' times), representing '+peakPct.toFixed(1)+'% of total usage.' });
+      insights.push({ icon:'fa-arrow-trend-up', color:CV.blue, text: (cfg.bucketLabels[peakIdx])+' recorded the highest usage ('+fmtNum(peakVal)+' Docs), representing '+peakPct.toFixed(1)+'% of total usage.' });
       var top2 = activeApps.slice().sort(function(a,b){return b.total-a.total;}).slice(0,2);
       if (top2.length === 2){
         var top2Pct = totalEvents ? ((top2[0].total+top2[1].total)/totalEvents*100) : 0;
@@ -672,7 +672,7 @@
       '<div class="rr-detail-row"><i class="fa-solid fa-code-compare"></i><div><span class="rr-detail-lbl">Compared To: </span><span class="rr-detail-val">'+cfg.prevRangeText+'</span></div></div>' +
       '<div class="rr-detail-row"><i class="fa-solid fa-database"></i><div><span class="rr-detail-lbl">Data Source: </span><span class="rr-detail-val">Application Usage Logs (Rasumi Internal System)</span></div></div>' +
       '<div class="rr-detail-row"><i class="fa-solid fa-check-double"></i><div><span class="rr-detail-lbl">Data Accuracy: </span><span class="rr-detail-val">100% automated log collection</span></div></div>' +
-      '<div class="rr-detail-row"><i class="fa-solid fa-circle-info"></i><div><span class="rr-detail-lbl">Note: </span>Usage count refers to the number of times each application was run.</div></div>';
+      '<div class="rr-detail-row"><i class="fa-solid fa-circle-info"></i><div><span class="rr-detail-lbl">Note: </span>Usage count (Docs) refers to the number of documents/files processed by each application.</div></div>';
 
     // ── Section 10: Issues & Risks ──
     document.getElementById('rr-issues').innerHTML = issueCount === 0
