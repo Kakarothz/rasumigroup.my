@@ -3259,6 +3259,16 @@
 
   // ── Live Data Stream (Supabase Realtime, Fasa 6) ─────────
   var _liveChannel = null;
+  var _usageChartRefreshTimer = null;
+  // Debounced trigger — coalesces bursts of INSERTs (e.g. a batch job logging
+  // many files in a row) into a single chart refresh instead of one per row.
+  function _scheduleUsageChartRefresh() {
+    if (_usageChartRefreshTimer) return;
+    _usageChartRefreshTimer = setTimeout(function () {
+      _usageChartRefreshTimer = null;
+      if (typeof window.loadDashUsageChart === 'function') window.loadDashUsageChart();
+    }, 2500);
+  }
   function startLiveStream() {
     if (_liveChannel) { RS.supa.removeChannel(_liveChannel); _liveChannel = null; }
     if (!RS.supa) return;
@@ -3271,13 +3281,29 @@
         rows.forEach(function (e) { appendTerminalLine(e); });
       }).catch(function () { });
 
-    // Subscribe to new INSERT events — zero polling cost
+    // Subscribe to new INSERT + UPDATE events — zero polling cost.
+    // UPDATE matters too: bots INSERT a row (often PROCESSING) then UPDATE it
+    // to status=COMPLETED once done — and the Usage chart only counts COMPLETED
+    // rows, so without listening to UPDATE the chart would miss that transition.
     _liveChannel = RS.supa.channel('supa-logs-live')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'logs' },
-        function (payload) { appendTerminalLine(payload.new); }
+        function (payload) {
+          appendTerminalLine(payload.new);
+          // Keep Usage Analytics (Day/Week/Month) in sync with new log data.
+          // loadDashUsageChart() no-ops safely if the dashboard canvas isn't mounted.
+          _scheduleUsageChartRefresh();
+        }
+      )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'logs' },
+        function (payload) {
+          _scheduleUsageChartRefresh();
+        }
       ).subscribe();
 
-    addL(function () { if (_liveChannel) { RS.supa.removeChannel(_liveChannel); _liveChannel = null; } });
+    addL(function () {
+      if (_liveChannel) { RS.supa.removeChannel(_liveChannel); _liveChannel = null; }
+      if (_usageChartRefreshTimer) { clearTimeout(_usageChartRefreshTimer); _usageChartRefreshTimer = null; }
+    });
   }
 
   function appendTerminalLine(e) {
