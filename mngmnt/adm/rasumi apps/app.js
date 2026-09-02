@@ -2313,17 +2313,26 @@
         if (d.machine) d.machine = _canonHost(d.machine); // resolve NetBIOS-truncated Vibes hostname
         var gid = d.job_group_id ||
           ((d.machine || '') + '|' + (d.app_name || '') + '|' + (d.branch_id || '') + '|' + (d.timestamp || '').substring(0, 13));
-        if (!groups[gid]) groups[gid] = { hasFail: false, hasCancelled: false, hasNonProc: false, hasCompFail: false, _start: null, _machine: d.machine || '' };
+        if (!groups[gid]) groups[gid] = { hasFail: false, hasCancelled: false, hasNonProc: false, _start: null, _machine: d.machine || '' };
         var st = (d.status || '').toUpperCase();
-        if (st === 'FAILED' || st === 'ERROR') { groups[gid].hasFail = true; groups[gid].hasCompFail = true; }
-        if (st === 'COMPLETED') groups[gid].hasCompFail = true;
-        if (st === 'CANCELLED') { groups[gid].hasCancelled = true; groups[gid].hasCompFail = true; }
+        if (st === 'FAILED' || st === 'ERROR') groups[gid].hasFail = true;
+        if (st === 'CANCELLED') groups[gid].hasCancelled = true;
         if (st !== 'PROCESSING') groups[gid].hasNonProc = true;
         if (d.timestamp && (!groups[gid]._start || d.timestamp < groups[gid]._start))
           groups[gid]._start = d.timestamp;
       });
+      // A session counts as a real run once it has ANY non-PROCESSING row
+      // (hasNonProc) — matching Log Explorer's own definition of "done"
+      // (_processAndRenderLogs: g._st defaults to COMPLETED unless the
+      // session is allProcessing/hasFail/hasCancelled). This used to ALSO
+      // require an explicit COMPLETED/FAILED/ERROR/CANCELLED status row
+      // (hasCompFail), which silently dropped any session whose only
+      // non-PROCESSING row uses a different terminal status string (e.g.
+      // "FINISH", which Log Explorer already special-cases elsewhere as
+      // finishReportsWork) — exactly why "Runs Today" could read 3 while
+      // Log Explorer's own session list for the same day showed 4.
       var sessions = Object.values(groups).filter(function (s) {
-        if (!s.hasNonProc || !s.hasCompFail) return false;
+        if (!s.hasNonProc) return false;
         if (!s._start) return (s.hasFail || s.hasCancelled) && !!machineSet[s._machine];
         return _isToday(s._start);
       });
@@ -2403,15 +2412,18 @@
           if (d.machine) d.machine = _canonHost(d.machine); // resolve NetBIOS-truncated Vibes hostname
           var gid = d.job_group_id ||
             ((d.machine || '') + '|' + (d.app_name || '') + '|' + (d.branch_id || '') + '|' + (d.timestamp || '').substring(0, 13));
-          if (!sessionMap[gid]) sessionMap[gid] = { hasFail: false, hasNonProc: false, hasCompFail: false };
+          if (!sessionMap[gid]) sessionMap[gid] = { hasFail: false, hasNonProc: false };
           var st = (d.status || '').toUpperCase();
-          if (st === 'FAILED' || st === 'ERROR') { sessionMap[gid].hasFail = true; sessionMap[gid].hasCompFail = true; }
-          if (st === 'COMPLETED') sessionMap[gid].hasCompFail = true;
+          if (st === 'FAILED' || st === 'ERROR') sessionMap[gid].hasFail = true;
           if (st !== 'PROCESSING') sessionMap[gid].hasNonProc = true;
         });
         var allSessions = Object.values(sessionMap);
-        // Exclude phantom sessions: hasNonProc but zero actual COMPLETED/FAILED docs
-        var todayCnt = allSessions.filter(function (s) { return s.hasNonProc && s.hasCompFail; }).length;
+        // A session counts once it has any non-PROCESSING row — see the
+        // matching comment in loadGlobalTodayStats()'s _commit() for why
+        // this no longer also requires an explicit COMPLETED/FAILED/ERROR
+        // row (that extra gate silently dropped sessions whose terminal
+        // status log used a different string, e.g. "FINISH").
+        var todayCnt = allSessions.filter(function (s) { return s.hasNonProc; }).length;
         var errCnt = allSessions.filter(function (s) { return s.hasFail; }).length;
         RS.appStats[app.key] = { today: todayCnt, errors: errCnt, last_ts: lastTs };
         pending--;
@@ -6461,13 +6473,21 @@
         Object.keys(hostMap).forEach(function (host) {
           var devRows = hostMap[host];
           var devOpen = devRows.filter(function (e) { return !_isVibesRowExpected(e) && !e.resolved; }).length;
-          // Declutter: a device with zero genuinely-open rows is pure noise for
-          // the admin (auto-EXPECTED false-positives + already-FIXED rows only)
-          // — drop it from the rendered list entirely. Header counts above
-          // ("N error(s) — M open | ... device(s)") are computed from the
-          // unfiltered docs/allDevices arrays, so they stay historically
-          // accurate even as fully-resolved devices disappear from view.
-          if (devOpen === 0) return;
+          // Declutter: hide a device ONLY when every one of its rows was
+          // actually fixed by an admin (.resolved === true) — that's pure
+          // noise, nothing left to look at. Previously this checked
+          // devOpen === 0, which ALSO hides a device whose rows are merely
+          // auto-classified "expected/no action" (_isVibesRowExpected) —
+          // for the whole "batch_incomplete_no_file" EXPECTED — NO ACTION
+          // group, EVERY row in EVERY device is expected by definition, so
+          // devOpen was always 0 there and every device got dropped: the
+          // header would honestly say "1 device(s)" but expanding the
+          // group showed nothing at all. Gating on .resolved instead keeps
+          // expected-but-unresolved rows visible (they render with the
+          // muted "EXPECTED" badge below), so the header count and the
+          // expanded content actually agree.
+          var devAllResolved = devRows.every(function (e) { return !!e.resolved; });
+          if (devAllResolved) return;
           var devKey2 = (etKey + '_' + host).replace(/[^a-z0-9]/gi, '_');
 
           // ── Level 3: group this device's rows by claim (No. Tuntutan) ──
