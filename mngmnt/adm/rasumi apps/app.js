@@ -10945,7 +10945,17 @@
   };
 
   // ── Hospital Users Management ──────────────────────────────────
-  var _HOSPITAL_APPS = ['Scanify', 'Renamer HQ', 'FV Branch', 'PDF Splitter', 'PDF Studio', 'Quick Rename', 'Vibes Automation'];
+  var _HOSPITAL_APPS = ['Scanify', 'Renamer HQ', 'FV Branch', 'PDF Splitter', 'PDF Studio', 'Quick Rename', 'Vibes Automation', 'Store Mngmnt'];
+  // Kept in sync with index.html's #admin-store-branch-group in the
+  // desktop app — "" = All Branches (SUPER_ADMIN-style free pick),
+  // otherwise the one branch a Store Mngmnt user is locked to.
+  var _STORE_BRANCH_OPTIONS = [
+    { val: '', label: 'All Branches' },
+    { val: 'FVKL', label: 'FVKL — Farmasi Veteran Kuala Lumpur' },
+    { val: 'FVT', label: 'FVT — Farmasi Veteran Terendak' },
+    { val: 'FVL', label: 'FVL — Farmasi Veteran Lumut' },
+    { val: 'FVG', label: 'FVG — Farmasi Veteran Gemas' },
+  ];
 
   window.rOpenHospitalUsers = function () {
     if (RS.userRole !== 'superadmin') return;
@@ -10959,7 +10969,7 @@
     var list = document.getElementById('r-husers-list');
     if (!list || !RS.supa) return;
     list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;"><span class="r-spin"></span> Loading…</div>';
-    RS.supa.from('users').select('username,role,status,allowed_apps').order('username').then(function (res) {
+    RS.supa.from('users').select('username,role,status,allowed_apps,store_branch').order('username').then(function (res) {
       if (res.error) throw new Error(res.error.message);
       if (!res.data || !res.data.length) {
         list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;">No users found</div>';
@@ -10971,6 +10981,7 @@
         var role = u.role || 'VIEWER';
         var status = u.status || 'ACTIVE';
         var apps = Array.isArray(u.allowed_apps) ? u.allowed_apps : [];
+        var storeBranch = u.store_branch || '';
         var isMaster = (uname === 'mustaqim' || role === 'SUPER_ADMIN');
         var isActive = (status === 'ACTIVE');
         var safeId = uname.replace(/[^a-z0-9]/gi, '_');
@@ -11002,17 +11013,36 @@
         _HOSPITAL_APPS.forEach(function (app) {
           var appId = 'uapp_' + safeId + '_' + app.replace(/[^a-z0-9]/gi, '_');
           var checked = apps.indexOf(app) !== -1;
+          var isStoreApp = (app === 'Store Mngmnt');
           if (isMaster) {
             row += '<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--rc-text-dim,#9ca3af);opacity:0.55;cursor:not-allowed;">';
             row += '<input type="checkbox"' + (checked ? ' checked' : '') + ' disabled style="cursor:not-allowed;accent-color:var(--rc-cyan,#38bdf8);"> ' + esc(app);
             row += '</label>';
           } else {
             row += '<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--rc-text-dim,#d1d5db);cursor:pointer;">';
-            row += '<input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') + ' style="cursor:pointer;accent-color:var(--rc-cyan,#38bdf8);"> ' + esc(app);
+            row += '<input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') +
+              (isStoreApp ? ' onchange="_toggleHospitalStoreBranch(\'' + safeId + '\', this.checked)"' : '') +
+              ' style="cursor:pointer;accent-color:var(--rc-cyan,#38bdf8);"> ' + esc(app);
             row += '</label>';
           }
         });
         row += '</div>';
+        // Store Mngmnt branch lock — only meaningful for non-master users
+        // with the Store Mngmnt app checked; SUPER_ADMIN accounts get a
+        // free branch pick inside the app itself, so no lock to set here
+        // (mirrors #admin-store-branch-group in the desktop app's own
+        // Admin Settings modal, same store_branch column).
+        if (!isMaster) {
+          var storeAppChecked = apps.indexOf('Store Mngmnt') !== -1;
+          row += '<div id="ubranch_' + safeId + '" style="' + (storeAppChecked ? '' : 'display:none;') + 'margin-bottom:10px;display:flex;align-items:center;gap:6px;">';
+          row += '<span style="font-size:10px;color:var(--rc-text-dim,#9ca3af);">Store branch:</span>';
+          row += '<select id="ubranchsel_' + safeId + '" style="background:var(--rc-bg-2,#1f2937);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);font-size:10px;border-radius:4px;padding:3px 6px;font-family:inherit;">';
+          _STORE_BRANCH_OPTIONS.forEach(function (opt) {
+            row += '<option value="' + esc(opt.val) + '"' + (opt.val === storeBranch ? ' selected' : '') + '>' + esc(opt.label) + '</option>';
+          });
+          row += '</select>';
+          row += '</div>';
+        }
         if (!isMaster) {
           row += '<button onclick="rSaveUserApps(\'' + uname.replace(/'/g, "\\'") + '\')" ';
           row += 'style="padding:4px 14px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;">SAVE APPS</button>';
@@ -11065,6 +11095,14 @@
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
 
+  // Shows/hides the store-branch <select> next to the Store Mngmnt
+  // checkbox as it's toggled, before Save is even clicked — same UX as
+  // #admin-store-branch-group in the desktop app's Admin Settings modal.
+  window._toggleHospitalStoreBranch = function (safeId, checked) {
+    var div = document.getElementById('ubranch_' + safeId);
+    if (div) div.style.display = checked ? 'flex' : 'none';
+  };
+
   window.rSaveUserApps = function (username) {
     if (RS.userRole !== 'superadmin') return;
     if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
@@ -11075,7 +11113,16 @@
       var cb = document.getElementById(appId);
       if (cb && cb.checked) apps.push(app);
     });
-    RS.supa.from('users').update({ allowed_apps: apps }).eq('username', username).then(function (res) {
+    // store_branch only means anything while Store Mngmnt is checked —
+    // cleared to null otherwise, same rule the desktop app's
+    // saveAdminUser() applies, so an unchecked user is never left locked
+    // to a stale branch from a previous save.
+    var storeBranch = null;
+    if (apps.indexOf('Store Mngmnt') !== -1) {
+      var sel = document.getElementById('ubranchsel_' + safeId);
+      storeBranch = (sel && sel.value) ? sel.value : null;
+    }
+    RS.supa.from('users').update({ allowed_apps: apps, store_branch: storeBranch }).eq('username', username).then(function (res) {
       if (res.error) throw new Error(res.error.message);
       rToast(username + ' — ' + apps.length + '/' + _HOSPITAL_APPS.length + ' apps saved', 'success');
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
