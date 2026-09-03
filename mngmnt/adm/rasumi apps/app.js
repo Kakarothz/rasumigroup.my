@@ -2313,13 +2313,24 @@
         if (d.machine) d.machine = _canonHost(d.machine); // resolve NetBIOS-truncated Vibes hostname
         var gid = d.job_group_id ||
           ((d.machine || '') + '|' + (d.app_name || '') + '|' + (d.branch_id || '') + '|' + (d.timestamp || '').substring(0, 13));
-        if (!groups[gid]) groups[gid] = { hasFail: false, hasCancelled: false, hasNonProc: false, _start: null, _machine: d.machine || '' };
+        if (!groups[gid]) groups[gid] = { hasFail: false, hasCancelled: false, hasNonProc: false, hasTodayRow: false, _machine: d.machine || '' };
         var st = (d.status || '').toUpperCase();
         if (st === 'FAILED' || st === 'ERROR') groups[gid].hasFail = true;
         if (st === 'CANCELLED') groups[gid].hasCancelled = true;
         if (st !== 'PROCESSING') groups[gid].hasNonProc = true;
-        if (d.timestamp && (!groups[gid]._start || d.timestamp < groups[gid]._start))
-          groups[gid]._start = d.timestamp;
+        // A job_group_id can be REUSED across different calendar days (e.g.
+        // a VIBES claim retried days apart keeps the same gid — confirmed
+        // via SQL: "09/26 (BALQIS) KL" has rows on both 02/09 and 03/09).
+        // P2 below deliberately fetches every row ever logged under a
+        // gid seen today, with no date bound (needed to catch null-ts
+        // FAILED rows sharing that gid). That means logMap can contain
+        // OLD rows for a gid alongside today's — tracking a single
+        // earliest "_start" timestamp let an old row silently win and
+        // make a session that DID run today look like it didn't, since
+        // _isToday(_start) tested the wrong (older) date. Tracking
+        // "does this gid have AT LEAST ONE row dated today" instead is
+        // immune to older rows mixed into the same group.
+        if (d.timestamp && _isToday(d.timestamp)) groups[gid].hasTodayRow = true;
       });
       // A session counts as a real run once it has ANY non-PROCESSING row
       // (hasNonProc) — matching Log Explorer's own definition of "done"
@@ -2333,8 +2344,11 @@
       // Log Explorer's own session list for the same day showed 4.
       var sessions = Object.values(groups).filter(function (s) {
         if (!s.hasNonProc) return false;
-        if (!s._start) return (s.hasFail || s.hasCancelled) && !!machineSet[s._machine];
-        return _isToday(s._start);
+        if (s.hasTodayRow) return true;
+        // No dated row at all (every row for this gid has a null
+        // timestamp) — keep counting a genuine failure tied to a machine
+        // that's active today, same fallback as before.
+        return (s.hasFail || s.hasCancelled) && !!machineSet[s._machine];
       });
       RS.runsToday = sessions.length;
       RS.failedToday = sessions.filter(function (s) { return s.hasFail || s.hasCancelled; }).length;
