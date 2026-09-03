@@ -8486,11 +8486,23 @@
             .catch(function () { onDone(Object.values(logMap)); });
         }
 
-        // P2 — all logs sharing gids from P1 (catches null-ts FAILED with valid gid)
+        // P2 — logs sharing gids from P1 (catches null-ts FAILED with valid gid).
+        // job_group_id can be REUSED across different calendar days (a claim
+        // retried in a later session keeps the same gid), so this fetch is
+        // NOT date-bound at the query level — it must filter client-side to
+        // only merge rows that are either missing a timestamp (the exact
+        // failure case this pass exists for) or actually fall on dateVal.
+        // Blindly merging every row sharing the gid pulled in prior days'
+        // sessions wholesale (e.g. Log Explorer showing 2 sessions/98 entries
+        // for a date that only had 1 session/9 entries).
         if (!gids.length) { doP3(); return; }
         RS.supa.from('logs').select('*').in('job_group_id', gids).limit(500)
           .then(function (r2) {
-            (r2.data || []).forEach(function (l) { if (l.id) logMap[l.id] = l; });
+            (r2.data || []).forEach(function (l) {
+              if (!l.id) return;
+              if (l.timestamp && l.timestamp.substring(0, 10) !== dateVal) return;
+              logMap[l.id] = l;
+            });
             doP3();
           })
           .catch(function () { doP3(); });
