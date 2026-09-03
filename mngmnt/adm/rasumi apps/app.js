@@ -45,6 +45,13 @@
     { key: 'vims', label: 'VIMS Scraper', icon: 'fa-magnifying-glass-chart', firebaseNames: ['VIMS', 'Vims Scraper'] },
     { key: 'scanify', label: 'Scanify', icon: 'fa-scanner', firebaseNames: ['Scanify'] },
     { key: 'pdf_splitter', label: 'PDF Splitter', icon: 'fa-file-pdf', firebaseNames: ['PDF Splitter', 'pdf_studio'] },
+    // store_manager_controller.py's send_live_log("Store Mngmt", ...) calls
+    // (perform_stock_transfer / save_transfer_voucher / post_stock_receive,
+    // plus store_offline_queue.py's failed-item logging) — adding this one
+    // entry is everything needed for Store Mngmt to show up in the App
+    // Overview cards, Log Explorer's app filter, and per-app today/error
+    // counts, since all three are purely data-driven off this array.
+    { key: 'store_mngmt', label: 'Store Mngmt', icon: 'fa-store', firebaseNames: ['Store Mngmt'] },
   ];
 
   // ── State ──────────────────────────────────────────────────
@@ -909,6 +916,14 @@
       '            </div>',
       '            <i class="fa-solid fa-chevron-right" style="margin-left:auto;color:var(--rc-text-dim,#6b7280);font-size:11px;"></i>',
       '          </div>',
+      '          <div onclick="window.rOpenStoreStaffFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#38bdf8\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
+      '            <i class="fa-solid fa-store" style="font-size:20px;color:var(--rc-cyan,#38bdf8);flex-shrink:0;"></i>',
+      '            <div>',
+      '              <div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;letter-spacing:0.5px;">STORE MANAGEMENT STAFF</div>',
+      '              <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:2px;">Create, edit &amp; deactivate Store Portal login accounts</div>',
+      '            </div>',
+      '            <i class="fa-solid fa-chevron-right" style="margin-left:auto;color:var(--rc-text-dim,#6b7280);font-size:11px;"></i>',
+      '          </div>',
       '        </div>',
       '      </div>',
       '    </div>',
@@ -985,6 +1000,37 @@
       '          <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:6px;letter-spacing:0.3px;">Add new users ID.</div>',
       '        </div>',
       '        <div id="r-husers-list" style="overflow-y:auto;padding:0 20px;flex:1;"></div>',
+      '      </div>',
+      '    </div>',
+
+      '    <!-- STORE MANAGEMENT STAFF MODAL (store_user_profiles — actual Store Portal login accounts) -->',
+      '    <div id="r-store-staff-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
+      '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:760px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
+      '        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
+      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#38bdf8);letter-spacing:1px;"><i class="fa-solid fa-store"></i> STORE MANAGEMENT STAFF</h3>',
+      '          <button id="btn-close-store-staff" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
+      '        </div>',
+      '        <div style="padding:12px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
+      '          <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">ADD NEW STAFF</div>',
+      '          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">',
+      '            <input id="r-sstaff-new-id" type="text" placeholder="Staff ID" style="flex:1;min-width:110px;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:12px;font-family:inherit;">',
+      '            <input id="r-sstaff-new-name" type="text" placeholder="Full Name" style="flex:1;min-width:130px;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:12px;font-family:inherit;">',
+      '            <select id="r-sstaff-new-role" style="padding:9px 10px;background:#1f2937;border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:11px;font-family:inherit;cursor:pointer;">',
+      '              <option value="STOREKEEPER">STOREKEEPER</option>',
+      '              <option value="STORE_ADMIN">STORE_ADMIN</option>',
+      '              <option value="ADMIN">ADMIN</option>',
+      '            </select>',
+      '            <select id="r-sstaff-new-branch" style="padding:9px 10px;background:#1f2937;border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:11px;font-family:inherit;cursor:pointer;min-width:110px;">',
+      '              <option value="ALL">ALL — HQ/ADMIN</option>',
+      '            </select>',
+      '          </div>',
+      '          <div style="display:flex;gap:8px;align-items:center;">',
+      '            <input id="r-sstaff-new-pass" type="password" placeholder="Initial password (min 6 chars)" style="flex:1;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:12px;font-family:inherit;">',
+      '            <button onclick="rAddStoreStaff()" style="padding:9px 16px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">ADD</button>',
+      '          </div>',
+      '          <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:6px;letter-spacing:0.3px;">This is the actual login used on the Store Management Portal (desktop app) — separate from Admin Console access above.</div>',
+      '        </div>',
+      '        <div id="r-sstaff-list" style="overflow-y:auto;padding:0 20px;flex:1;"></div>',
       '      </div>',
       '    </div>',
 
@@ -11174,6 +11220,243 @@
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
 
+  // ── Store Management Staff (store_user_profiles) ───────────────────
+  // Separate from the "APP USERS" table above (which controls who can
+  // see what INSIDE this admin console) — this is the actual login
+  // system for the Store Management Portal, a screen inside the Rasumi
+  // Apps desktop app. Wired directly here per store_admin_console_access_v7.sql:
+  // these RPCs accept a genuinely-signed-in `authenticated` Supabase
+  // session (which every admin console user already has) as valid
+  // authorization, instead of the desktop-app-only app secret — so
+  // nothing sensitive needs to be embedded in this public JS file.
+  //
+  // Password hashing MUST match store_manager_db.py's scheme exactly
+  // (PBKDF2-HMAC-SHA256, 100,000 iterations, 16-byte random salt,
+  // hex-encoded) since the same store_user_profiles.password_hash
+  // column is read back by the desktop app's verify_password(). Uses
+  // the browser's native Web Crypto API — no extra library needed.
+  function _bufToHex(buf) {
+    return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('00' + b.toString(16)).slice(-2); }).join('');
+  }
+  function _storePbkdf2Hash(password) {
+    var saltBytes = window.crypto.getRandomValues(new Uint8Array(16));
+    var enc = new TextEncoder();
+    return window.crypto.subtle.importKey('raw', enc.encode(password), { name: 'PBKDF2' }, false, ['deriveBits'])
+      .then(function (keyMaterial) {
+        return window.crypto.subtle.deriveBits(
+          { name: 'PBKDF2', salt: saltBytes, iterations: 100000, hash: 'SHA-256' },
+          keyMaterial, 256
+        );
+      })
+      .then(function (bits) {
+        return { hash: _bufToHex(bits), salt: _bufToHex(saltBytes) };
+      });
+  }
+
+  var _sstaffBranchOptionsLoaded = false;
+  function _loadStoreBranchOptions() {
+    if (_sstaffBranchOptionsLoaded || !RS.supa) return Promise.resolve();
+    return RS.supa.from('store_locations').select('code,name').order('code').then(function (res) {
+      if (res.error || !res.data) return;
+      var opts = res.data.map(function (l) {
+        return '<option value="' + esc(l.code) + '">' + esc(l.code) + ' — ' + esc(l.name || '') + '</option>';
+      }).join('');
+      ['r-sstaff-new-branch'].forEach(function (id) {
+        var sel = document.getElementById(id);
+        if (sel) sel.insertAdjacentHTML('beforeend', opts);
+      });
+      _sstaffBranchOptionsCache = res.data;
+      _sstaffBranchOptionsLoaded = true;
+    }).catch(function () { });
+  }
+  var _sstaffBranchOptionsCache = [];
+
+  window.rOpenStoreStaffFromSettings = function () {
+    var sm = document.getElementById('r-settings-modal');
+    if (sm) sm.classList.add('hidden');
+    var modal = document.getElementById('r-store-staff-modal');
+    if (modal) { modal.classList.remove('hidden'); _loadStoreBranchOptions().then(_loadStoreStaff); }
+  };
+
+  function _sstaffBranchSelectHtml(selectedId, currentVal) {
+    var html = '<select id="' + selectedId + '" style="background:var(--rc-bg-2,#1f2937);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);font-size:10px;border-radius:4px;padding:3px 6px;font-family:inherit;">';
+    html += '<option value="ALL"' + (currentVal === 'ALL' ? ' selected' : '') + '>ALL — HQ/ADMIN</option>';
+    _sstaffBranchOptionsCache.forEach(function (l) {
+      html += '<option value="' + esc(l.code) + '"' + (l.code === currentVal ? ' selected' : '') + '>' + esc(l.code) + ' — ' + esc(l.name || '') + '</option>';
+    });
+    html += '</select>';
+    return html;
+  }
+
+  function _loadStoreStaff() {
+    var list = document.getElementById('r-sstaff-list');
+    if (!list || !RS.supa) return;
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;"><span class="r-spin"></span> Loading…</div>';
+    RS.supa.from('store_user_profiles')
+      .select('id,full_name,role,home_branch_code,is_active,created_at')
+      .order('created_at')
+      .then(function (res) {
+        if (res.error) throw new Error(res.error.message);
+        if (!res.data || !res.data.length) {
+          list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;">No staff accounts found</div>';
+          return;
+        }
+        // SUPER_ADMIN (mustaqim) always sorted first and rendered as a
+        // fully protected, non-editable row — no deactivate, no role/
+        // branch edit, no delete — matching the "berada di atas sekali
+        // tak boleh deactivate" requirement. Everyone else keeps their
+        // created_at order beneath it.
+        var sorted = res.data.slice().sort(function (a, b) {
+          if (a.role === 'SUPER_ADMIN' && b.role !== 'SUPER_ADMIN') return -1;
+          if (b.role === 'SUPER_ADMIN' && a.role !== 'SUPER_ADMIN') return 1;
+          return 0;
+        });
+        var rows = [];
+        sorted.forEach(function (u) {
+          var safeId = u.id.replace(/[^a-z0-9]/gi, '_');
+          var isActive = (u.is_active !== false);
+          var isSuperAdmin = (u.role === 'SUPER_ADMIN');
+          var roleColor = isSuperAdmin ? '#f59e0b' : u.role === 'ADMIN' ? '#38bdf8' : u.role === 'STORE_ADMIN' ? '#8b5cf6' : '#9ca3af';
+
+          var row = '<div style="padding:14px 0;border-bottom:1px solid var(--rc-border,#1f2937);">';
+          row += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+          row += '<div style="display:flex;align-items:center;gap:8px;">';
+          row += '<span style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;">' + esc(u.id) + '</span>';
+          row += '<span style="font-size:10px;color:var(--rc-text-dim,#9ca3af);">' + esc(u.full_name || '') + '</span>';
+          if (isSuperAdmin) {
+            row += '<span style="font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid ' + roleColor + ';color:' + roleColor + ';letter-spacing:0.5px;">SUPER_ADMIN</span>';
+          }
+          row += '</div>';
+          if (isSuperAdmin) {
+            row += '<span style="font-size:10px;color:var(--rc-cyan,#38bdf8);padding:3px 8px;border:1px solid rgba(56,189,248,0.3);border-radius:10px;">Owner — protected</span>';
+          } else {
+            var statusStyle = isActive
+              ? 'background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.5);color:#10b981;'
+              : 'background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);color:#ef4444;';
+            row += '<button onclick="rToggleStoreStaffActive(\'' + u.id.replace(/'/g, "\\'") + '\',' + (isActive ? 'false' : 'true') + ')" ';
+            row += 'style="' + statusStyle + 'padding:3px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;">';
+            row += isActive ? '● ACTIVE' : '○ DEACTIVATED';
+            row += '</button>';
+          }
+          row += '</div>';
+
+          if (isSuperAdmin) {
+            row += '<div style="font-size:10px;color:var(--rc-text-dim,#6b7280);">Branch: ' + esc(u.home_branch_code || 'ALL') + ' — role, branch, activation and deletion are locked for this account.</div>';
+          } else {
+            row += '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;">';
+            row += '<select id="srole_' + safeId + '" style="background:var(--rc-bg-2,#1f2937);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);font-size:10px;border-radius:4px;padding:3px 6px;font-family:inherit;">';
+            ['STOREKEEPER', 'STORE_ADMIN', 'ADMIN'].forEach(function (r) {
+              row += '<option value="' + r + '"' + (r === u.role ? ' selected' : '') + '>' + r + '</option>';
+            });
+            row += '</select>';
+            row += _sstaffBranchSelectHtml('sbranch_' + safeId, u.home_branch_code || 'ALL');
+            row += '<button onclick="rSaveStoreStaffProfile(\'' + u.id.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;">SAVE</button>';
+            row += '<button onclick="rDeleteStoreStaff(\'' + u.id.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);color:#ef4444;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;margin-left:auto;">DELETE</button>';
+            row += '</div>';
+
+            row += '<div style="display:flex;gap:6px;align-items:center;">';
+            row += '<input type="password" id="spass_' + safeId + '" placeholder="New password (min 6 chars)" style="flex:1;max-width:220px;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:10px;font-family:inherit;">';
+            row += '<button onclick="rResetStoreStaffPassword(\'' + u.id.replace(/'/g, "\\'") + '\')" style="padding:5px 12px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);color:var(--rc-cyan,#38bdf8);border-radius:4px;cursor:pointer;font-size:10px;font-weight:700;font-family:inherit;">RESET PASSWORD</button>';
+            row += '</div>';
+          }
+
+          row += '</div>';
+          rows.push(row);
+        });
+        list.innerHTML = rows.join('');
+      }).catch(function (e) {
+        list.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;font-size:12px;">Error: ' + esc(e.message || String(e)) + '</div>';
+      });
+  }
+
+  window.rAddStoreStaff = function () {
+    if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
+    var idInp = document.getElementById('r-sstaff-new-id');
+    var nameInp = document.getElementById('r-sstaff-new-name');
+    var roleInp = document.getElementById('r-sstaff-new-role');
+    var branchInp = document.getElementById('r-sstaff-new-branch');
+    var passInp = document.getElementById('r-sstaff-new-pass');
+    var userId = idInp ? idInp.value.trim().toLowerCase() : '';
+    var fullName = nameInp ? nameInp.value.trim() : '';
+    var role = roleInp ? roleInp.value : 'STOREKEEPER';
+    var branch = branchInp ? branchInp.value : 'ALL';
+    var password = passInp ? passInp.value : '';
+
+    if (!userId || !fullName) { rToast('Staff ID and Full Name are required', 'error'); return; }
+    if (!/^[a-z0-9_]+$/.test(userId)) { rToast('Staff ID: huruf kecil, angka, underscore sahaja', 'error'); return; }
+    if (!password || password.length < 6) { rToast('Password must be at least 6 characters', 'error'); return; }
+
+    _storePbkdf2Hash(password).then(function (h) {
+      return RS.supa.rpc('store_create_staff', {
+        p_user_id: userId, p_full_name: fullName, p_role: role,
+        p_home_branch_code: branch, p_password_hash: h.hash, p_salt: h.salt
+      });
+    }).then(function (res) {
+      if (res.error) {
+        if (/duplicate key|23505/i.test(res.error.message || '')) { rToast('Staff ID already exists: ' + userId, 'error'); }
+        else { throw new Error(res.error.message); }
+        return;
+      }
+      rToast('Staff added: ' + userId + ' (' + role + ')', 'success');
+      if (idInp) idInp.value = ''; if (nameInp) nameInp.value = ''; if (passInp) passInp.value = '';
+      _loadStoreStaff();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
+
+  window.rToggleStoreStaffActive = function (userId, makeActive) {
+    if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
+    RS.supa.rpc('store_update_profile', { p_user_id: userId, p_full_name: null, p_is_active: makeActive }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      rToast(userId + ' → ' + (makeActive ? 'ACTIVE' : 'DEACTIVATED'), makeActive ? 'success' : 'info');
+      _loadStoreStaff();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
+
+  window.rSaveStoreStaffProfile = function (userId) {
+    if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
+    var safeId = userId.replace(/[^a-z0-9]/gi, '_');
+    var roleSel = document.getElementById('srole_' + safeId);
+    var branchSel = document.getElementById('sbranch_' + safeId);
+    var role = roleSel ? roleSel.value : null;
+    var branch = branchSel ? branchSel.value : null;
+    RS.supa.rpc('store_update_profile', {
+      p_user_id: userId, p_full_name: null, p_role: role, p_home_branch_code: branch
+    }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      rToast(userId + ' — role/branch saved', 'success');
+      _loadStoreStaff();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
+
+  window.rResetStoreStaffPassword = function (userId) {
+    if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
+    var safeId = userId.replace(/[^a-z0-9]/gi, '_');
+    var passInp = document.getElementById('spass_' + safeId);
+    var password = passInp ? passInp.value : '';
+    if (!password || password.length < 6) { rToast('Password must be at least 6 characters', 'error'); return; }
+    _storePbkdf2Hash(password).then(function (h) {
+      return RS.supa.rpc('store_set_password', { p_user_id: userId, p_password_hash: h.hash, p_salt: h.salt });
+    }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      rToast(userId + ' — password reset', 'success');
+      if (passInp) passInp.value = '';
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
+
+  // Hard delete — genuinely removes the row from Supabase, per explicit
+  // request (not the soft is_active=false toggle above). store_delete_staff
+  // refuses SUPER_ADMIN rows server-side regardless of what this UI does,
+  // but that row is never given a delete button in the first place.
+  window.rDeleteStoreStaff = function (userId) {
+    if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
+    if (!window.confirm('Delete staff account "' + userId + '" permanently? This removes the row from Supabase and cannot be undone.')) return;
+    RS.supa.rpc('store_delete_staff', { p_user_id: userId }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      rToast(userId + ' — deleted', 'info');
+      _loadStoreStaff();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
+
   // ── Profile Modal Handlers ────────────────────────────────────
   window.initProfileHandlers = function () {
     // Close buttons
@@ -11192,6 +11475,10 @@
     var btnCloseHusers = document.getElementById('btn-close-husers');
     var husersModal = document.getElementById('r-husers-modal');
     if (btnCloseHusers && husersModal) btnCloseHusers.addEventListener('click', function () { husersModal.classList.add('hidden'); });
+
+    var btnCloseStoreStaff = document.getElementById('btn-close-store-staff');
+    var storeStaffModal = document.getElementById('r-store-staff-modal');
+    if (btnCloseStoreStaff && storeStaffModal) btnCloseStoreStaff.addEventListener('click', function () { storeStaffModal.classList.add('hidden'); });
 
     // Avatar: immediate upload on file select → compress → save to Supabase
     var imgDisplay = document.getElementById('r-profile-img-display');
