@@ -1447,7 +1447,6 @@
         var em = d.email;
         var isSA = (em.toLowerCase() === _SUPER_ADMIN_EMAIL);
         var canW = d.can_write === true;
-        var pw = d.password || '';
         var nick = d.nickname || '';
         var pwId = 'apw_' + em.replace(/[^a-z0-9]/gi, '_');
         var permId = 'prm_' + em.replace(/[^a-z0-9]/gi, '_');
@@ -2359,11 +2358,20 @@
         if (d.machine) d.machine = _canonHost(d.machine); // resolve NetBIOS-truncated Vibes hostname
         var gid = d.job_group_id ||
           ((d.machine || '') + '|' + (d.app_name || '') + '|' + (d.branch_id || '') + '|' + (d.timestamp || '').substring(0, 13));
-        if (!groups[gid]) groups[gid] = { hasFail: false, hasCancelled: false, hasNonProc: false, hasTodayRow: false, _machine: d.machine || '' };
+        if (!groups[gid]) groups[gid] = {
+          hasFail: false, hasCancelled: false, hasNonProc: false, hasTodayRow: false,
+          hasCompleted: false, hasFinishWork: false, _machine: d.machine || ''
+        };
         var st = (d.status || '').toUpperCase();
         if (st === 'FAILED' || st === 'ERROR') groups[gid].hasFail = true;
         if (st === 'CANCELLED') groups[gid].hasCancelled = true;
         if (st !== 'PROCESSING') groups[gid].hasNonProc = true;
+        if (st === 'COMPLETED') groups[gid].hasCompleted = true;
+        // Same "FINISH log reporting actual work" carve-out Log Explorer's
+        // own phantom-session filter uses (_processAndRenderLogs) — a
+        // FINISH status row whose job_info.total_files > 0 counts as real
+        // work even with no separate COMPLETED row.
+        if (st === 'FINISH' && d.job_info && d.job_info.total_files > 0) groups[gid].hasFinishWork = true;
         // A job_group_id can be REUSED across different calendar days (e.g.
         // a VIBES claim retried days apart keeps the same gid — confirmed
         // via SQL: "09/26 (BALQIS) KL" has rows on both 02/09 and 03/09).
@@ -2388,8 +2396,20 @@
       // "FINISH", which Log Explorer already special-cases elsewhere as
       // finishReportsWork) — exactly why "Runs Today" could read 3 while
       // Log Explorer's own session list for the same day showed 4.
+      //
+      // BUG FIX: the inverse drift — Log Explorer ALSO drops (and deletes)
+      // "phantom" sessions: no FAILED/CANCELLED, not still PROCESSING, but
+      // zero real COMPLETED rows and no FINISH-with-work either (stray
+      // logs sent after a real job ends, with no actual file outcomes).
+      // This function never applied that same filter, so it could count
+      // phantom sessions Log Explorer had already dropped — exactly why
+      // "Runs Today" read 4 while Log Explorer's own list for the same
+      // day showed only 2. A session with any fail/cancel is still always
+      // kept regardless (matches Log Explorer: `hasFail || hasCancelled
+      // || allProcessing` always survives its phantom filter).
       var sessions = Object.values(groups).filter(function (s) {
         if (!s.hasNonProc) return false;
+        if (!s.hasFail && !s.hasCancelled && !s.hasCompleted && !s.hasFinishWork) return false;
         if (s.hasTodayRow) return true;
         // No dated row at all (every row for this gid has a null
         // timestamp) — keep counting a genuine failure tied to a machine
@@ -2407,7 +2427,7 @@
 
     // P1 — today's valid-timestamp logs
     RS.supa.from('logs')
-      .select('id,status,job_group_id,machine,app_name,branch_id,timestamp')
+      .select('id,status,job_group_id,machine,app_name,branch_id,timestamp,job_info')
       .gte('timestamp', todayIso)
       .order('timestamp', { ascending: false }).limit(1000)
       .then(function (r1) {
@@ -2423,7 +2443,7 @@
         // P3 — null-ts logs for today's machines (catches null-ts + null-gid FAILED)
         function doP3() {
           RS.supa.from('logs')
-            .select('id,status,job_group_id,machine,app_name,branch_id,timestamp')
+            .select('id,status,job_group_id,machine,app_name,branch_id,timestamp,job_info')
             .is('timestamp', null).in('machine', machines).limit(500)
             .then(function (r3) {
               (r3.data || []).forEach(function (d) { if (d.id) logMap[d.id] = d; });
@@ -2436,7 +2456,7 @@
         if (!gids.length) { doP3(); return; }
 
         RS.supa.from('logs')
-          .select('id,status,job_group_id,machine,app_name,branch_id,timestamp')
+          .select('id,status,job_group_id,machine,app_name,branch_id,timestamp,job_info')
           .in('job_group_id', gids).limit(1000)
           .then(function (r2) {
             (r2.data || []).forEach(function (d) { if (d.id) logMap[d.id] = d; });
@@ -2460,7 +2480,7 @@
       var lastTsPromise = RS.supa.from('logs').select('timestamp')
         .in('app_name', names).order('timestamp', { ascending: false }).limit(1);
       // Count today's runs and errors with server-side date filter — avoids limit(200) truncation
-      var todayPromise = RS.supa.from('logs').select('id,status', { count: 'exact' })
+      var todayPromise = RS.supa.from('logs').select('id,status,job_info', { count: 'exact' })
         .in('app_name', names).gte('timestamp', todayIso);
       Promise.all([lastTsPromise, todayPromise]).then(function (results) {
         var lastRow = (results[0].data || [])[0];
@@ -2472,18 +2492,26 @@
           if (d.machine) d.machine = _canonHost(d.machine); // resolve NetBIOS-truncated Vibes hostname
           var gid = d.job_group_id ||
             ((d.machine || '') + '|' + (d.app_name || '') + '|' + (d.branch_id || '') + '|' + (d.timestamp || '').substring(0, 13));
-          if (!sessionMap[gid]) sessionMap[gid] = { hasFail: false, hasNonProc: false };
+          if (!sessionMap[gid]) sessionMap[gid] = { hasFail: false, hasNonProc: false, hasCompleted: false, hasFinishWork: false };
           var st = (d.status || '').toUpperCase();
           if (st === 'FAILED' || st === 'ERROR') sessionMap[gid].hasFail = true;
           if (st !== 'PROCESSING') sessionMap[gid].hasNonProc = true;
+          if (st === 'COMPLETED') sessionMap[gid].hasCompleted = true;
+          if (st === 'FINISH' && d.job_info && d.job_info.total_files > 0) sessionMap[gid].hasFinishWork = true;
         });
         var allSessions = Object.values(sessionMap);
         // A session counts once it has any non-PROCESSING row — see the
         // matching comment in loadGlobalTodayStats()'s _commit() for why
         // this no longer also requires an explicit COMPLETED/FAILED/ERROR
         // row (that extra gate silently dropped sessions whose terminal
-        // status log used a different string, e.g. "FINISH").
-        var todayCnt = allSessions.filter(function (s) { return s.hasNonProc; }).length;
+        // status log used a different string, e.g. "FINISH"). It ALSO now
+        // excludes phantom sessions (no fail, no real COMPLETED/FINISH-work
+        // row) the same way loadGlobalTodayStats()/_commit() does, so this
+        // per-app widget doesn't drift from Log Explorer either.
+        var todayCnt = allSessions.filter(function (s) {
+          if (!s.hasNonProc) return false;
+          return s.hasFail || s.hasCompleted || s.hasFinishWork;
+        }).length;
         var errCnt = allSessions.filter(function (s) { return s.hasFail; }).length;
         RS.appStats[app.key] = { today: todayCnt, errors: errCnt, last_ts: lastTs };
         pending--;
@@ -11180,7 +11208,14 @@
   window.rToggleHospitalUserStatus = function (username, newStatus) {
     if (RS.userRole !== 'superadmin') return;
     if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
-    RS.supa.from('users').update({ status: newStatus }).eq('username', username).then(function (res) {
+    // BUG FIX (security): this used to write straight to the `users`
+    // table (RS.supa.from('users').update(...)), gated only by the
+    // client-side check above — anyone signed in to the Admin Console
+    // could call this directly from devtools regardless of their real
+    // role. Now goes through a SECURITY DEFINER RPC that checks
+    // admin_users.role = 'superadmin' itself before writing. See
+    // sql/users_hospital_admin_rpc_gate_v9.sql.
+    RS.supa.rpc('rpc_toggle_hospital_user_status', { p_username: username, p_new_status: newStatus }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
       rToast(username + ' → ' + newStatus, newStatus === 'ACTIVE' ? 'success' : 'info');
       _loadHospitalUsers();
@@ -11214,7 +11249,11 @@
       var sel = document.getElementById('ubranchsel_' + safeId);
       storeBranch = (sel && sel.value) ? sel.value : null;
     }
-    RS.supa.from('users').update({ allowed_apps: apps, store_branch: storeBranch }).eq('username', username).then(function (res) {
+    // BUG FIX (security): same as rToggleHospitalUserStatus above — was a
+    // direct table write gated only client-side; now goes through a
+    // SECURITY DEFINER RPC that checks admin_users.role = 'superadmin'
+    // server-side. See sql/users_hospital_admin_rpc_gate_v9.sql.
+    RS.supa.rpc('rpc_save_user_apps', { p_username: username, p_allowed_apps: apps, p_store_branch: storeBranch }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
       rToast(username + ' — ' + apps.length + '/' + _HOSPITAL_APPS.length + ' apps saved', 'success');
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
@@ -11534,13 +11573,15 @@
           })
           .then(function (r) {
             if (r.error) throw new Error(r.error.message);
-            // Step 3: Sync to admin_users record
-            RS.supa.from('admin_users').update({ password: np }).eq('email', user.email)
-              .then(function (res) {
-                if (res.error) { rToast('Password ✓ — record sync failed: ' + res.error.message, 'warn'); }
-                else { rToast('Password updated & saved', 'success'); }
-              })
-              .catch(function () { rToast('Password ✓ — record sync failed', 'warn'); });
+            // BUG FIX (security): this used to also write the raw new
+            // password into admin_users.password ("Step 3: Sync to
+            // admin_users record") — directly contradicting this file's
+            // own _loadAdminUsers() comment ("no plaintext stored") and
+            // leaving every admin's current real password readable in
+            // cleartext by anyone who could SELECT that row. Supabase
+            // Auth's updateUser() above is the actual, properly-hashed
+            // credential store — nothing else needs a copy of it.
+            rToast('Password updated', 'success');
             setStatus('');
             btnPwd.disabled = false;
             document.getElementById('r-p-curr-pass').value = '';
