@@ -11317,6 +11317,42 @@
     if (modal) { modal.classList.remove('hidden'); _loadStoreBranchOptions().then(_loadStoreStaff); }
   };
 
+  // Per-staff capability overrides — additive on top of role (see
+  // store_staff_capabilities_v15.sql / _has_capability() in
+  // store_manager_controller.py). Ticking one of these grants that
+  // specific extra power to THIS account only, regardless of its role
+  // tier — e.g. a STOREKEEPER ticked for "Dispatch Confirmation" can
+  // approve a Kounter/VIMS Indent stock request even though the
+  // STOREKEEPER role alone cannot. Never removes anything the role
+  // already grants; a box left unticked just means "no extra grant",
+  // not "blocked".
+  var STORE_CAPABILITY_DEFS = [
+    { key: 'vims_sync', label: 'VIMS Sync' },
+    { key: 'dispatch_confirm', label: 'Dispatch Confirmation' },
+    { key: 'bincard_edit', label: 'Bin Card Correction' }
+  ];
+  function _sstaffCapabilitiesHtml(safeId, caps) {
+    caps = caps || {};
+    var html = '<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;">';
+    STORE_CAPABILITY_DEFS.forEach(function (c) {
+      var checked = caps[c.key] ? ' checked' : '';
+      html += '<label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--rc-text-dim,#9ca3af);cursor:pointer;white-space:nowrap;">';
+      html += '<input type="checkbox" id="scap_' + safeId + '_' + c.key + '"' + checked + ' style="cursor:pointer;">';
+      html += c.label;
+      html += '</label>';
+    });
+    html += '</div>';
+    return html;
+  }
+  function _readStaffCapabilities(safeId) {
+    var caps = {};
+    STORE_CAPABILITY_DEFS.forEach(function (c) {
+      var el = document.getElementById('scap_' + safeId + '_' + c.key);
+      caps[c.key] = !!(el && el.checked);
+    });
+    return caps;
+  }
+
   function _sstaffBranchSelectHtml(selectedId, currentVal) {
     var html = '<select id="' + selectedId + '" style="background:var(--rc-bg-2,#1f2937);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);font-size:10px;border-radius:4px;padding:3px 6px;font-family:inherit;">';
     html += '<option value="ALL"' + (currentVal === 'ALL' ? ' selected' : '') + '>ALL — HQ/ADMIN</option>';
@@ -11332,7 +11368,7 @@
     if (!list || !RS.supa) return;
     list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;"><span class="r-spin"></span> Loading…</div>';
     RS.supa.from('store_user_profiles')
-      .select('id,full_name,role,home_branch_code,is_active,created_at')
+      .select('id,full_name,role,home_branch_code,is_active,created_at,capabilities')
       .order('created_at')
       .then(function (res) {
         if (res.error) throw new Error(res.error.message);
@@ -11392,6 +11428,8 @@
             row += '<button onclick="rSaveStoreStaffProfile(\'' + u.id.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;">SAVE</button>';
             row += '<button onclick="rDeleteStoreStaff(\'' + u.id.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);color:#ef4444;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;margin-left:auto;">DELETE</button>';
             row += '</div>';
+
+            row += '<div style="margin-bottom:8px;">' + _sstaffCapabilitiesHtml(safeId, u.capabilities) + '</div>';
 
             row += '<div style="display:flex;gap:6px;align-items:center;">';
             row += '<input type="password" id="spass_' + safeId + '" placeholder="New password (min 6 chars)" style="flex:1;max-width:220px;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:10px;font-family:inherit;">';
@@ -11458,11 +11496,13 @@
     var branchSel = document.getElementById('sbranch_' + safeId);
     var role = roleSel ? roleSel.value : null;
     var branch = branchSel ? branchSel.value : null;
+    var capabilities = _readStaffCapabilities(safeId);
     RS.supa.rpc('store_update_profile', {
-      p_user_id: userId, p_full_name: null, p_role: role, p_home_branch_code: branch
+      p_user_id: userId, p_full_name: null, p_role: role, p_home_branch_code: branch,
+      p_capabilities: capabilities
     }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
-      rToast(userId + ' — role/branch saved', 'success');
+      rToast(userId + ' — role/branch/capabilities saved', 'success');
       _loadStoreStaff();
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
