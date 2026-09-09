@@ -337,36 +337,54 @@ body {
     z-index: 100;
 }
 
+/* header-brand — 1:1 port of the desktop app's own header (src/web/
+   store_portal.css .header-brand/.header-logo-img/.logo-divider/
+   .portal-subtitle): real logo image + "|" divider + subtitle text,
+   not a separately-invented mobile mark. Sized down and the subtitle
+   truncated with ellipsis so the same three elements fit next to the
+   branch selector/sync badge/logout button in a 52px mobile header —
+   the logo itself (the actual recognizable brand mark) always shows in
+   full; only the text label shrinks/truncates for space. */
 .header-brand {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
 }
 
-.header-logo {
-    width: 26px;
-    height: 26px;
-    background: linear-gradient(135deg, #2563eb, #3b82f6);
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 800;
-    font-size: 14px;
+.header-logo-img {
+    height: 20px;
+    width: auto;
+    object-fit: contain;
+    display: block;
+    flex: none;
+}
+
+.logo-divider {
+    color: rgba(255, 255, 255, 0.25);
+    font-weight: 300;
+    font-size: 12px;
+    flex: none;
 }
 
 .header-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: 0.3px;
+    font-size: 9.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .header-controls {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex: none;
 }
 
 .branch-select-sm {
@@ -808,24 +826,34 @@ body {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
+    gap: 5px;
     box-shadow: var(--dt-card-shadow);
     flex: 0 0 calc((100% - 16px) / 3);
     scroll-snap-align: start;
     min-width: 0;
 }
 
+/* Icon + title label side by side (matches desktop's icon-beside-title
+   pairing), full-width row so the label has room to wrap to 2 lines on
+   longer titles ("TOTAL OUT OF STOCK") without pushing the icon down. */
+.dt-kpi-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+
 .dt-kpi-icon {
-    width: 28px;
-    height: 28px;
-    min-width: 28px;
-    border-radius: 8px;
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    border-radius: 7px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.dt-kpi-icon svg { width: 15px; height: 15px; }
+.dt-kpi-icon svg { width: 13px; height: 13px; }
 
 .dt-kpi-icon.bg-blue { background-color: var(--dt-primary); }
 .dt-kpi-icon.bg-red { background-color: var(--dt-danger); }
@@ -833,21 +861,15 @@ body {
 .dt-kpi-icon.bg-orange { background-color: var(--dt-orange); }
 .dt-kpi-icon.bg-purple { background-color: var(--dt-purple); }
 
-.dt-kpi-body {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    min-width: 0;
-    width: 100%;
-}
-
 .dt-kpi-label {
-    font-size: 8px;
+    font-size: 7.5px;
     font-weight: 700;
     color: var(--dt-text-light);
     letter-spacing: 0.2px;
-    line-height: 1.2;
+    line-height: 1.15;
     white-space: normal;
+    min-width: 0;
+    flex: 1 1 auto;
 }
 
 .dt-kpi-number {

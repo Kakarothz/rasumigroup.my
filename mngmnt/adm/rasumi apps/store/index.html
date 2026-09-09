@@ -28,7 +28,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <!-- Mobile CSS -->
-    <link rel="stylesheet" href="mobile_store.css?v=2.2">
+    <link rel="stylesheet" href="mobile_store.css?v=2.3">
 </head>
 <body>
 
@@ -134,9 +134,14 @@
 
         <!-- Top Header -->
         <header class="mobile-header">
+            <!-- 1:1 port of the desktop app's own header-brand (src/web/
+                 store_portal.html .header-brand / store_portal.css lines
+                 116-139): same logo image, same "|" divider, same
+                 subtitle text — not a separately-invented mobile mark. -->
             <div class="header-brand">
-                <div class="header-logo">R</div>
-                <div class="header-title">RASUMI STORE</div>
+                <img src="assets/store_portal_logo.png" alt="Rasumi" class="header-logo-img" onerror="this.style.display='none'">
+                <span class="logo-divider">|</span>
+                <span class="header-title">Store Operations Management</span>
             </div>
             <div class="header-controls">
                 <select id="mob-branch-select" class="branch-select-sm" onchange="onMobBranchChange(this.value)">
@@ -181,47 +186,49 @@
                     <p>Real-time balances and transaction analytics for branch <strong id="dt-dash-branch">FVKL</strong></p>
                 </div>
 
-                <!-- 5 KPI Cards -->
+                <!-- 5 KPI Cards — icon sits beside its title label (top
+                     row), number + sub-label span the full card width
+                     below, matching how the desktop app pairs icon+title. -->
                 <div class="dt-kpi-grid">
                     <div class="dt-kpi-card">
-                        <div class="dt-kpi-icon bg-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
-                        <div class="dt-kpi-body">
+                        <div class="dt-kpi-top">
+                            <div class="dt-kpi-icon bg-blue"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
                             <span class="dt-kpi-label">TOTAL STOCK TRANSFER</span>
-                            <div class="dt-kpi-number" id="dt-stat-total-transfer">&mdash;</div>
-                            <span class="dt-kpi-sub">Transfers this month</span>
                         </div>
+                        <div class="dt-kpi-number" id="dt-stat-total-transfer">&mdash;</div>
+                        <span class="dt-kpi-sub">Transfers this month</span>
                     </div>
                     <div class="dt-kpi-card">
-                        <div class="dt-kpi-icon bg-red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8V21H3V8"/><path d="M1 3H23V8H1V3Z"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="9.5" y1="14.5" x2="14.5" y2="14.5"/></svg></div>
-                        <div class="dt-kpi-body">
+                        <div class="dt-kpi-top">
+                            <div class="dt-kpi-icon bg-red"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8V21H3V8"/><path d="M1 3H23V8H1V3Z"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="9.5" y1="14.5" x2="14.5" y2="14.5"/></svg></div>
                             <span class="dt-kpi-label">TOTAL OUT OF STOCK</span>
-                            <div class="dt-kpi-number" id="dt-stat-out-stock">&mdash;</div>
-                            <span class="dt-kpi-sub">Items out of stock</span>
                         </div>
+                        <div class="dt-kpi-number" id="dt-stat-out-stock">&mdash;</div>
+                        <span class="dt-kpi-sub">Items out of stock</span>
                     </div>
                     <div class="dt-kpi-card">
-                        <div class="dt-kpi-icon bg-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
-                        <div class="dt-kpi-body">
+                        <div class="dt-kpi-top">
+                            <div class="dt-kpi-icon bg-green"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
                             <span class="dt-kpi-label">TOTAL STOCK IN</span>
-                            <div class="dt-kpi-number" id="dt-stat-total-in">&mdash;</div>
-                            <span class="dt-kpi-sub">Total received</span>
                         </div>
+                        <div class="dt-kpi-number" id="dt-stat-total-in">&mdash;</div>
+                        <span class="dt-kpi-sub">Total received</span>
                     </div>
                     <div class="dt-kpi-card">
-                        <div class="dt-kpi-icon bg-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
-                        <div class="dt-kpi-body">
+                        <div class="dt-kpi-top">
+                            <div class="dt-kpi-icon bg-orange"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
                             <span class="dt-kpi-label">TOTAL STOCK OUT</span>
-                            <div class="dt-kpi-number" id="dt-stat-total-out">&mdash;</div>
-                            <span class="dt-kpi-sub">Total issued</span>
                         </div>
+                        <div class="dt-kpi-number" id="dt-stat-total-out">&mdash;</div>
+                        <span class="dt-kpi-sub">Total issued</span>
                     </div>
                     <div class="dt-kpi-card">
-                        <div class="dt-kpi-icon bg-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
-                        <div class="dt-kpi-body">
+                        <div class="dt-kpi-top">
+                            <div class="dt-kpi-icon bg-purple"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
                             <span class="dt-kpi-label">REMAINING STOCK</span>
-                            <div class="dt-kpi-number" id="dt-stat-remaining">&mdash;</div>
-                            <span class="dt-kpi-sub">Current stock on hand</span>
                         </div>
+                        <div class="dt-kpi-number" id="dt-stat-remaining">&mdash;</div>
+                        <span class="dt-kpi-sub">Current stock on hand</span>
                     </div>
                 </div>
 
