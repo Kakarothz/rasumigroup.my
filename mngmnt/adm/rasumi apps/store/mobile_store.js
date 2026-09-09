@@ -39,6 +39,13 @@ let mobSession = null; // { token, user }
 let pendingTotpToken = null; // short-lived, only while mid-2FA-challenge
 let qrRenderer = null; // QRCode instance, torn down/recreated per setup screen visit
 
+// Dashboard list data kept in memory so the search boxes on Out of
+// Stock/Expiring Soon can filter client-side without re-hitting the API,
+// same pattern as masterlistData/filterMobMasterlist().
+let dashOutOfStockData = [];
+let dashExpiringSoonData = [];
+let dashMovementsTab = "fast"; // "fast" | "slow" | "recent" — which list the segmented tab control shows
+
 const DEST_SHORTFORMS = {
     "RASUMI SHAH ALAM": "RSA",
     "FARMASI VETERAN TERENDAK": "FVT",
@@ -201,9 +208,27 @@ async function showAppScreen() {
         const sel = document.getElementById("mob-branch-select");
         if (sel) sel.value = currentBranch;
     }
+    renderMobGreeting();
     await loadMobMasterlist();
     await loadMobDashboardStats();
     loadMobBinCardDropdown();
+}
+
+// Time-based greeting using the logged-in staff's own name (already in
+// the session — no backend change needed) + today's date computed
+// client-side. Branch chip is updated separately by
+// loadMobDashboardStats() (id="dt-dash-branch").
+function renderMobGreeting() {
+    const hour = new Date().getHours();
+    const label = hour < 12 ? "Good Morning," : hour < 18 ? "Good Afternoon," : "Good Evening,";
+    setText("dt-greeting-label", label);
+
+    const user = mobSession && mobSession.user;
+    const name = (user && (user.full_name || user.name)) || "Staff";
+    setText("dt-greeting-name", name.toUpperCase());
+
+    const dateStr = new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+    setText("dt-greeting-date-text", dateStr);
 }
 
 // ── 3. Initialization ───────────────────────────────────────────────
@@ -556,19 +581,23 @@ async function loadMobDashboardStats() {
         const branchLabelEl = document.getElementById("dt-dash-branch");
         if (branchLabelEl) branchLabelEl.textContent = currentBranch;
 
-        setText("dt-stat-total-transfer", data.total_transfer);
+        setText("dt-stat-total-item", data.total_items);
         setText("dt-stat-out-stock", data.out_of_stock);
         setText("dt-stat-total-in", data.total_in);
         setText("dt-stat-total-out", data.total_out);
         setText("dt-stat-remaining", data.remaining_stock);
 
-        renderDtTable("mob-dash-outstock-tbody", data.out_of_stock_list, 3, "All items in stock", (p) => `
-            <tr>
-                <td><strong style="color:var(--primary-blue);">${escapeHtml(p.sku)}</strong></td>
-                <td>${escapeHtml(p.name)}</td>
-                <td style="color:var(--dt-text-muted); font-size:10px;">${escapeHtml(p.date || "-")}</td>
-            </tr>
-        `);
+        renderKpiTrend("dt-trend-total-in", computeMonthTrend(data.chart_in || []));
+        renderKpiTrend("dt-trend-total-out", computeMonthTrend(data.chart_out || []));
+
+        dashOutOfStockData = data.out_of_stock_list || [];
+        dashExpiringSoonData = data.expiring_soon || [];
+        const outstockSearchEl = document.getElementById("dt-outstock-search");
+        const expiringSearchEl = document.getElementById("dt-expiring-search");
+        if (outstockSearchEl) outstockSearchEl.value = "";
+        if (expiringSearchEl) expiringSearchEl.value = "";
+        renderDashOutOfStock(dashOutOfStockData);
+        renderDashExpiring(dashExpiringSoonData);
 
         renderDtTable("mob-dash-transfers-tbody", data.transfer_summary, 4, "No recent transfers", (t) => `
             <tr>
@@ -579,29 +608,10 @@ async function loadMobDashboardStats() {
             </tr>
         `);
 
-        renderDtTable("dash-fast-tbody", data.fast_moving, 3, "No movement data yet", (p, i) => `
-            <tr>
-                <td><span class="dt-rank-badge">${i + 1}</span></td>
-                <td>${escapeHtml(p.name)}</td>
-                <td class="dt-tr">${p.total_qty}</td>
-            </tr>
-        `);
-
-        renderDtTable("dash-slow-tbody", data.slow_moving, 3, "No movement data yet", (p, i) => `
-            <tr>
-                <td><span class="dt-rank-badge">${i + 1}</span></td>
-                <td>${escapeHtml(p.name)}</td>
-                <td class="dt-tr">${p.total_qty}</td>
-            </tr>
-        `);
-
-        renderDtTable("dash-expiring-tbody", data.expiring_soon, 3, "No items expiring within 90 days", (p) => `
-            <tr>
-                <td>${escapeHtml(p.name)}</td>
-                <td class="dt-tc">${escapeHtml(p.expiry_date)}</td>
-                <td class="dt-tr">${p.qty}</td>
-            </tr>
-        `);
+        dashFastMovingData = data.fast_moving || [];
+        dashSlowMovingData = data.slow_moving || [];
+        dashRecentMovementsData = data.recent_movements || [];
+        renderDashMovementsTab();
 
         renderDashAlerts(data);
         renderDashMiniStats(data);
@@ -611,9 +621,170 @@ async function loadMobDashboardStats() {
     }
 }
 
+// ── Out of Stock / Expiring Soon — icon-row lists + client-side search ──
+function renderIconList(containerId, list, emptyMsg, rowFn) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    const rows = list || [];
+    if (rows.length === 0) {
+        el.innerHTML = `<div class="dt-empty">${escapeHtml(emptyMsg)}</div>`;
+        return;
+    }
+    el.innerHTML = rows.map(rowFn).join("");
+}
+
+function renderDashOutOfStock(list, hasQuery) {
+    const emptyMsg = hasQuery ? "No matching items found" : "All items in stock";
+    renderIconList("mob-dash-outstock-list", list, emptyMsg, (p) => `
+        <div class="dt-icon-row">
+            <span class="dt-icon-row-icon red"><i class="fa-solid fa-circle-exclamation"></i></span>
+            <div class="dt-icon-row-body">
+                <div class="dt-icon-row-title">${escapeHtml(p.name)}</div>
+                <div class="dt-icon-row-sub">SKU: ${escapeHtml(p.sku)}</div>
+            </div>
+            <i class="fa-solid fa-chevron-right dt-icon-row-chevron"></i>
+        </div>
+    `);
+    setText("dt-outstock-count", `${list.length} item${list.length === 1 ? "" : "s"}`);
+}
+
+function renderDashExpiring(list, hasQuery) {
+    const emptyMsg = hasQuery ? "No matching items found" : "No items expiring within 90 days";
+    renderIconList("mob-dash-expiring-list", list, emptyMsg, (p) => `
+        <div class="dt-icon-row">
+            <span class="dt-icon-row-icon orange"><i class="fa-solid fa-calendar-days"></i></span>
+            <div class="dt-icon-row-body">
+                <div class="dt-icon-row-title">${escapeHtml(p.name)}</div>
+                <div class="dt-icon-row-sub">EXP: ${escapeHtml(p.expiry_date)}</div>
+            </div>
+            <span class="dt-days-left-badge">${p.days_left}d left</span>
+        </div>
+    `);
+    setText("dt-expiring-count", `${list.length} item${list.length === 1 ? "" : "s"}`);
+}
+
+// which: "outstock" | "expiring" — mirrors filterMobMasterlist()'s pattern
+// of filtering an in-memory array already fetched with the dashboard.
+function filterDashList(which) {
+    const inputId = which === "outstock" ? "dt-outstock-search" : "dt-expiring-search";
+    const query = (document.getElementById(inputId).value || "").toLowerCase().trim();
+    const source = which === "outstock" ? dashOutOfStockData : dashExpiringSoonData;
+    const filtered = !query ? source : source.filter((p) =>
+        (p.sku || "").toLowerCase().includes(query) || (p.name || "").toLowerCase().includes(query)
+    );
+    if (which === "outstock") renderDashOutOfStock(filtered, !!query);
+    else renderDashExpiring(filtered, !!query);
+}
+
+// ── Fast Moving / Slow Moving / Recent Movements — segmented tab switcher ──
+let dashFastMovingData = [];
+let dashSlowMovingData = [];
+let dashRecentMovementsData = [];
+
+function switchDashMovementsTab(tab) {
+    dashMovementsTab = tab;
+    document.querySelectorAll(".dt-seg-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+    renderDashMovementsTab();
+}
+
+function renderDashMovementsTab() {
+    const titleEl = document.getElementById("dt-movements-title");
+    const badgeEl = document.getElementById("dt-movements-badge");
+    if (dashMovementsTab === "fast") {
+        if (titleEl) titleEl.textContent = "Fast Moving Items";
+        if (badgeEl) badgeEl.textContent = "(Top 10)";
+        renderDtTable("dt-movements-tbody", dashFastMovingData, 3, "No movement data yet", (p, i) => `
+            <tr>
+                <td><span class="dt-rank-badge">${i + 1}</span></td>
+                <td>${escapeHtml(p.name)}</td>
+                <td class="dt-tr">${p.total_qty}</td>
+            </tr>
+        `);
+        setMovementsHeader([
+            { label: "#", style: "width:36px;" },
+            { label: "ITEM NAME" },
+            { label: "QTY OUT (30D)", cls: "dt-tr" },
+        ]);
+    } else if (dashMovementsTab === "slow") {
+        if (titleEl) titleEl.textContent = "Slow Moving Items";
+        if (badgeEl) badgeEl.textContent = "(Top 10)";
+        renderDtTable("dt-movements-tbody", dashSlowMovingData, 3, "No movement data yet", (p, i) => `
+            <tr>
+                <td><span class="dt-rank-badge">${i + 1}</span></td>
+                <td>${escapeHtml(p.name)}</td>
+                <td class="dt-tr">${p.total_qty}</td>
+            </tr>
+        `);
+        setMovementsHeader([
+            { label: "#", style: "width:36px;" },
+            { label: "ITEM NAME" },
+            { label: "QTY OUT (90D)", cls: "dt-tr" },
+        ]);
+    } else {
+        if (titleEl) titleEl.textContent = "Recent Movements";
+        if (badgeEl) badgeEl.textContent = "(Last 10)";
+        renderDtTable("dt-movements-tbody", dashRecentMovementsData, 4, "No recent movements", (m) => {
+            const isIn = m.direction === "IN";
+            return `
+                <tr>
+                    <td>${escapeHtml(m.name)}</td>
+                    <td style="color:var(--dt-text-muted); font-size:10px;">${escapeHtml(m.performed_at || "-")}</td>
+                    <td class="dt-tc">${escapeHtml((m.movement_type || "").replace(/_/g, " "))}</td>
+                    <td class="dt-tr" style="color:${isIn ? "var(--dt-success)" : "var(--dt-danger)"}; font-weight:700;">${isIn ? "+" : "-"}${m.qty}</td>
+                </tr>
+            `;
+        });
+        setMovementsHeader([
+            { label: "ITEM NAME" },
+            { label: "WHEN", cls: "dt-tc" },
+            { label: "TYPE", cls: "dt-tc" },
+            { label: "QTY", cls: "dt-tr" },
+        ]);
+    }
+}
+
+function setMovementsHeader(cols) {
+    const theadRow = document.getElementById("dt-movements-thead");
+    if (!theadRow) return;
+    theadRow.innerHTML = cols.map((c) =>
+        `<th${c.style ? ` style="${c.style}"` : ""}${c.cls ? ` class="${c.cls}"` : ""}>${escapeHtml(c.label)}</th>`
+    ).join("");
+}
+
 function setText(id, value) {
     const el = document.getElementById(id);
     if (el) el.textContent = value == null ? "—" : value;
+}
+
+// Real "vs last month" trend for Total Stock In/Out — the only 2 of the 5
+// KPI cards where a truthful month-over-month comparison is possible
+// without new backend infrastructure: chart_in/chart_out are genuine
+// monthly totals for the CURRENT year (Jan-index 0 .. Dec-index 11)
+// already returned by /dashboard. Total Stock Item / Out of Stock /
+// Remaining Stock are point-in-time snapshot counts with no history
+// captured anywhere, so a "+X% vs last month" badge for those would have
+// to be fabricated — deliberately not done here (see task #35: KPI cards
+// must never show mock/fake numbers). In January there is no prior month
+// inside this same Jan-Dec array (December belongs to the previous year's
+// data, which this endpoint doesn't return), so trend is skipped that
+// month and the static fallback text in the HTML is left as-is.
+function computeMonthTrend(seriesArr) {
+    const monthIdx = new Date().getMonth(); // 0 = Jan
+    if (monthIdx === 0) return null;
+    const current = seriesArr[monthIdx] || 0;
+    const prev = seriesArr[monthIdx - 1] || 0;
+    if (prev > 0) return Math.round(((current - prev) / prev) * 1000) / 10;
+    return current > 0 ? 100 : 0;
+}
+
+function renderKpiTrend(id, pct) {
+    if (pct == null) return; // leave the static fallback text untouched
+    const el = document.getElementById(id);
+    if (!el) return;
+    const arrow = pct >= 0 ? "▲" : "▼";
+    const sign = pct >= 0 ? "+" : "";
+    el.textContent = `${arrow} ${sign}${pct}% vs last month`;
+    el.style.color = pct >= 0 ? "var(--dt-success)" : "var(--dt-danger)";
 }
 
 // Shared table-body renderer for every dashboard panel — desktop's

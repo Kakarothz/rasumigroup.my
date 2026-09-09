@@ -780,6 +780,57 @@ body {
     margin-bottom: 14px;
 }
 
+/* Greeting — replaces the old plain page-header title on the Dashboard
+   panel specifically, per the new mockup. */
+.dt-greeting {
+    margin-bottom: 14px;
+}
+
+.dt-greeting-label {
+    font-size: 11.5px;
+    color: var(--dt-text-muted);
+    font-weight: 500;
+}
+
+.dt-greeting-name {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--dt-text-main);
+    letter-spacing: 0.2px;
+    margin-top: 1px;
+}
+
+.dt-greeting-sub {
+    font-size: 10.5px;
+    color: var(--dt-text-light);
+    margin-top: 3px;
+}
+
+.dt-greeting-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.dt-greeting-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--dt-text-muted);
+    background: var(--dt-bg-subtle);
+    border: 1px solid var(--dt-border);
+    border-radius: 20px;
+    padding: 4px 10px;
+}
+
+.dt-greeting-chip i {
+    font-size: 9.5px;
+    color: var(--dt-primary);
+}
+
 .dt-page-header h1 {
     font-size: 17px;
     font-weight: 800;
@@ -1018,6 +1069,134 @@ body {
     color: #fff;
     font-size: 9px;
     font-weight: 700;
+}
+
+/* Icon-row lists (Out of Stock / Expiring Soon) — replaces the old plain
+   3-column table with a searchable list of icon+name+detail rows. */
+.dt-list-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--dt-bg-subtle);
+    border: 1px solid var(--dt-border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    color: var(--dt-text-light);
+    font-size: 11px;
+}
+
+.dt-list-search input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--dt-text-main);
+    font-size: 11px;
+    min-width: 0;
+}
+
+.dt-list-search input::placeholder {
+    color: var(--dt-text-light);
+}
+
+.dt-icon-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.dt-icon-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--dt-border-subtle);
+}
+
+.dt-icon-row:last-child {
+    border-bottom: none;
+}
+
+.dt-icon-row-icon {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.dt-icon-row-icon.red { background: rgba(239, 68, 68, 0.15); color: var(--dt-danger); }
+.dt-icon-row-icon.orange { background: rgba(249, 115, 22, 0.15); color: var(--dt-orange); }
+
+.dt-icon-row-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.dt-icon-row-title {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--dt-text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dt-icon-row-sub {
+    font-size: 10px;
+    color: var(--dt-text-muted);
+    margin-top: 1px;
+}
+
+.dt-icon-row-chevron {
+    color: var(--dt-text-light);
+    font-size: 11px;
+    flex: none;
+}
+
+/* Segmented tab control (Fast Moving / Slow Moving / Recent Movements) */
+.dt-seg-control {
+    display: flex;
+    gap: 4px;
+    background: var(--dt-bg-subtle);
+    border-radius: 10px;
+    padding: 3px;
+    margin-bottom: 10px;
+}
+
+.dt-seg-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 4px;
+    font-size: 9.5px;
+    font-weight: 700;
+    color: var(--dt-text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dt-seg-tab.active {
+    background: var(--dt-primary);
+    color: #fff;
+}
+
+.dt-days-left-badge {
+    flex: none;
+    font-size: 9.5px;
+    font-weight: 700;
+    color: var(--dt-orange);
+    background: rgba(249, 115, 22, 0.15);
+    padding: 3px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
 }
 
 /* Inventory Flow Chart */

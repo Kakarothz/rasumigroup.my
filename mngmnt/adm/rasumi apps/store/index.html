@@ -28,7 +28,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <!-- Mobile CSS -->
-    <link rel="stylesheet" href="mobile_store.css?v=2.3">
+    <link rel="stylesheet" href="mobile_store.css?v=3.0">
 </head>
 <body>
 
@@ -181,9 +181,19 @@
                  desktop's multi-column grid, dark tokens instead of light. -->
             <section id="panel-dash" class="panel active">
 
-                <div class="dt-page-header">
-                    <h1>Store Metrics Dashboard</h1>
-                    <p>Real-time balances and transaction analytics for branch <strong id="dt-dash-branch">FVKL</strong></p>
+                <!-- Greeting — time-based, uses the logged-in staff's own
+                     full_name (already in the session, no backend change)
+                     and today's date computed client-side. Branch chip
+                     keeps the id="dt-dash-branch" target that
+                     loadMobDashboardStats() already writes to. -->
+                <div class="dt-greeting">
+                    <p class="dt-greeting-label" id="dt-greeting-label">Good Morning,</p>
+                    <h1 class="dt-greeting-name" id="dt-greeting-name">STAFF</h1>
+                    <p class="dt-greeting-sub">Here&rsquo;s what&rsquo;s happening at your store today.</p>
+                    <div class="dt-greeting-meta">
+                        <span class="dt-greeting-chip"><i class="fa-regular fa-calendar"></i> <span id="dt-greeting-date-text">&mdash;</span></span>
+                        <span class="dt-greeting-chip"><i class="fa-solid fa-location-dot"></i> <span id="dt-dash-branch">FVKL</span> Branch</span>
+                    </div>
                 </div>
 
                 <!-- 5 KPI Cards — icon sits beside its title label (top
@@ -192,11 +202,11 @@
                 <div class="dt-kpi-grid">
                     <div class="dt-kpi-card">
                         <div class="dt-kpi-top">
-                            <div class="dt-kpi-icon bg-blue"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
-                            <span class="dt-kpi-label">TOTAL STOCK TRANSFER</span>
+                            <div class="dt-kpi-icon bg-blue"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
+                            <span class="dt-kpi-label">TOTAL STOCK ITEM</span>
                         </div>
-                        <div class="dt-kpi-number" id="dt-stat-total-transfer">&mdash;</div>
-                        <span class="dt-kpi-sub">Transfers this month</span>
+                        <div class="dt-kpi-number" id="dt-stat-total-item">&mdash;</div>
+                        <span class="dt-kpi-sub">Active products in catalog</span>
                     </div>
                     <div class="dt-kpi-card">
                         <div class="dt-kpi-top">
@@ -212,7 +222,13 @@
                             <span class="dt-kpi-label">TOTAL STOCK IN</span>
                         </div>
                         <div class="dt-kpi-number" id="dt-stat-total-in">&mdash;</div>
-                        <span class="dt-kpi-sub">Total received</span>
+                        <!-- Real "vs last month" trend (computed client-side
+                             from chart_in — genuine monthly totals already
+                             returned by the backend). Falls back to this
+                             static text on months where a true prior-month
+                             comparison isn't possible (see computeMonthTrend
+                             in mobile_store.js). -->
+                        <span class="dt-kpi-sub" id="dt-trend-total-in">Total received</span>
                     </div>
                     <div class="dt-kpi-card">
                         <div class="dt-kpi-top">
@@ -220,7 +236,7 @@
                             <span class="dt-kpi-label">TOTAL STOCK OUT</span>
                         </div>
                         <div class="dt-kpi-number" id="dt-stat-total-out">&mdash;</div>
-                        <span class="dt-kpi-sub">Total issued</span>
+                        <span class="dt-kpi-sub" id="dt-trend-total-out">Total issued</span>
                     </div>
                     <div class="dt-kpi-card">
                         <div class="dt-kpi-top">
@@ -232,23 +248,33 @@
                     </div>
                 </div>
 
-                <!-- Out of Stock Items -->
+                <!-- Out of Stock Items — icon-row list + real client-side
+                     search over the already-loaded out_of_stock_list array
+                     (mirrors the existing filterMobMasterlist() pattern). -->
                 <div class="dt-panel-box">
                     <div class="dt-panel-header">
                         <div class="dt-panel-title"><span class="dt-panel-icon icon-red"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><h2>Out of Stock Items</h2></div>
+                        <span class="dt-badge-sub" id="dt-outstock-count">&mdash;</span>
                     </div>
-                    <div class="dt-table-wrap dt-scrollable-lg">
-                        <table class="dt-table">
-                            <thead><tr><th>SKU CODE</th><th>ITEM NAME</th><th>LAST UPDATE</th></tr></thead>
-                            <tbody id="mob-dash-outstock-tbody"><tr><td colspan="3" class="dt-empty">Loading data...</td></tr></tbody>
-                        </table>
+                    <div class="dt-list-search">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="dt-outstock-search" placeholder="Search item..." oninput="filterDashList('outstock')">
+                    </div>
+                    <div class="dt-icon-list dt-scrollable-lg" id="mob-dash-outstock-list">
+                        <div class="dt-empty">Loading data...</div>
                     </div>
                 </div>
 
-                <!-- Stock Transfer Summary -->
+                <!-- Stock Transfer Summary — "This Month" is a static label,
+                     not an interactive dropdown: transfer_summary isn't
+                     actually period-filtered server-side (it's a snapshot
+                     of current pending+received vouchers), so a working
+                     dropdown would need backend support this doesn't have
+                     yet. Honest static text instead of a fake control. -->
                 <div class="dt-panel-box">
                     <div class="dt-panel-header">
                         <div class="dt-panel-title"><span class="dt-panel-icon icon-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></span><h2>Stock Transfer Summary</h2></div>
+                        <span class="dt-badge-sub">This Month</span>
                     </div>
                     <div class="dt-table-wrap">
                         <table class="dt-table">
@@ -258,10 +284,13 @@
                     </div>
                 </div>
 
-                <!-- Inventory Flow Chart -->
+                <!-- Inventory Flow Chart — "This Year" is a static label
+                     matching what chart_labels/chart_in/chart_out actually
+                     are (current calendar year, Jan-Dec). -->
                 <div class="dt-panel-box">
                     <div class="dt-panel-header">
                         <div class="dt-panel-title"><span class="dt-panel-icon icon-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span><h2>Inventory Flow Chart</h2></div>
+                        <span class="dt-badge-sub">This Year</span>
                     </div>
                     <div class="dt-chart-legend">
                         <span class="dt-legend-item"><span class="dt-dot bg-green"></span> Stock In</span>
@@ -274,42 +303,42 @@
                     <div class="dt-chart-tagline">Better inventory insights for a smarter tomorrow.</div>
                 </div>
 
-                <!-- Fast Moving Items -->
+                <!-- Fast Moving / Slow Moving / Recent Movements — single
+                     panel with a 3-way segmented tab control instead of two
+                     always-visible panels, matching the new mockup.
+                     Recent Movements re-sorts the same movement data the
+                     dashboard already fetches (see dashboard.js), no new
+                     table/migration. -->
                 <div class="dt-panel-box">
                     <div class="dt-panel-header">
-                        <div class="dt-panel-title"><span class="dt-panel-icon icon-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span><h2>Fast Moving Items <span class="dt-badge-sub">(Top 10)</span></h2></div>
+                        <div class="dt-panel-title"><span class="dt-panel-icon icon-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span><h2 id="dt-movements-title">Fast Moving Items</h2> <span class="dt-badge-sub" id="dt-movements-badge">(Top 10)</span></div>
+                    </div>
+                    <div class="dt-seg-control">
+                        <button type="button" class="dt-seg-tab active" data-tab="fast" onclick="switchDashMovementsTab('fast')">Fast Moving</button>
+                        <button type="button" class="dt-seg-tab" data-tab="slow" onclick="switchDashMovementsTab('slow')">Slow Moving</button>
+                        <button type="button" class="dt-seg-tab" data-tab="recent" onclick="switchDashMovementsTab('recent')">Recent Movements</button>
                     </div>
                     <div class="dt-table-wrap dt-scrollable">
                         <table class="dt-table">
-                            <thead><tr><th style="width:36px;">#</th><th>ITEM NAME</th><th class="dt-tr">QTY OUT (30D)</th></tr></thead>
-                            <tbody id="dash-fast-tbody"><tr><td colspan="3" class="dt-empty">Loading data...</td></tr></tbody>
+                            <thead><tr id="dt-movements-thead"><th style="width:36px;">#</th><th>ITEM NAME</th><th class="dt-tr">QTY OUT (30D)</th></tr></thead>
+                            <tbody id="dt-movements-tbody"><tr><td colspan="4" class="dt-empty">Loading data...</td></tr></tbody>
                         </table>
                     </div>
                 </div>
 
-                <!-- Slow Moving Items -->
-                <div class="dt-panel-box">
-                    <div class="dt-panel-header">
-                        <div class="dt-panel-title"><span class="dt-panel-icon icon-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M12 2v20M4.9 4.9l14.2 14.2M19.1 4.9L4.9 19.1"/></svg></span><h2>Slow Moving Items <span class="dt-badge-sub">(Top 10)</span></h2></div>
-                    </div>
-                    <div class="dt-table-wrap dt-scrollable">
-                        <table class="dt-table">
-                            <thead><tr><th style="width:36px;">#</th><th>ITEM NAME</th><th class="dt-tr">QTY OUT (90D)</th></tr></thead>
-                            <tbody id="dash-slow-tbody"><tr><td colspan="3" class="dt-empty">Loading data...</td></tr></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Expiring Soon -->
+                <!-- Expiring Soon — same icon-row list + search treatment
+                     as Out of Stock. -->
                 <div class="dt-panel-box">
                     <div class="dt-panel-header">
                         <div class="dt-panel-title"><span class="dt-panel-icon icon-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span><h2>Expiring Soon</h2></div>
+                        <span class="dt-badge-sub" id="dt-expiring-count">&mdash;</span>
                     </div>
-                    <div class="dt-table-wrap dt-scrollable">
-                        <table class="dt-table">
-                            <thead><tr><th>ITEM NAME</th><th class="dt-tc">EXPIRY</th><th class="dt-tr">QTY</th></tr></thead>
-                            <tbody id="dash-expiring-tbody"><tr><td colspan="3" class="dt-empty">Loading data...</td></tr></tbody>
-                        </table>
+                    <div class="dt-list-search">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="dt-expiring-search" placeholder="Search item..." oninput="filterDashList('expiring')">
+                    </div>
+                    <div class="dt-icon-list dt-scrollable" id="mob-dash-expiring-list">
+                        <div class="dt-empty">Loading data...</div>
                     </div>
                 </div>
 
@@ -515,6 +544,6 @@
     </div>
 
     <!-- Mobile JS Controller -->
-    <script src="mobile_store.js?v=2.1"></script>
+    <script src="mobile_store.js?v=3.0"></script>
 </body>
 </html>
