@@ -28,7 +28,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <!-- Mobile CSS -->
-    <link rel="stylesheet" href="mobile_store.css?v=3.2">
+    <link rel="stylesheet" href="mobile_store.css?v=3.4">
 </head>
 <body>
 
@@ -144,16 +144,19 @@
                 <span class="header-title">Store Operations Management</span>
             </div>
             <!-- Notification bell + profile icon replace the old branch
-                 dropdown/"Live" tag. The bell scrolls to the real Alerts &
-                 Notifications panel (id="panel-alerts-anchor") instead of
-                 duplicating it with a fake header notification list; its
-                 badge count is the same real alert count that panel
-                 computes. The profile icon opens a small menu with the
+                 dropdown/"Live" tag. The bell opens the real Transfer
+                 Queue review modal (matches desktop's Notifications bell
+                 exactly — see confirm_transfer_queue_lines() in
+                 store_manager_controller.py): a Transfer Out queues here
+                 instead of moving stock immediately, and this is where
+                 it gets reviewed/confirmed. Badge count is the queue's
+                 own line_count (GET /notifications), not a stock-alert
+                 count. The profile icon opens a small menu with the
                  staff's own name/role, Log Out, and — SUPER_ADMIN only —
                  the branch switcher that used to live in the header
                  (moved here since only admins need to change branch). -->
             <div class="header-controls">
-                <button class="header-icon-btn" onclick="toggleNotifPanel()" title="Alerts & Notifications">
+                <button class="header-icon-btn" onclick="openTransferQueueModal()" title="Transfer Queue">
                     <i class="fa-regular fa-bell"></i>
                     <span class="header-icon-badge" id="mob-notif-badge" style="display:none;">0</span>
                 </button>
@@ -163,13 +166,45 @@
             </div>
         </header>
 
+        <!-- Transfer Queue Review modal — opened directly by the header
+             bell (openTransferQueueModal() in mobile_store.js). Lists the
+             caller's branch's single accumulating queued-transfer
+             notification (GET /notifications, GET /notifications/lines);
+             Confirm posts the checked line_ids (+ any qty edits) to
+             POST /notifications/confirm, which is the only place stock
+             actually moves for a queued Transfer Out. A line that fails
+             to confirm (e.g. insufficient stock by the time it's
+             reviewed) stays checked with its error shown inline, ready
+             to retry, instead of disappearing. -->
+        <div id="tq-modal-overlay" class="mobile-modal-overlay" onclick="if(event.target===this) closeTransferQueueModal()">
+            <div class="mobile-modal-card">
+                <div class="modal-header-sm">
+                    <span class="modal-title-sm">Transfer Queue</span>
+                    <button class="btn-close-sm" onclick="closeTransferQueueModal()">&times;</button>
+                </div>
+                <div class="tq-select-all-row" id="tq-select-all-row" style="display:none;">
+                    <label><input type="checkbox" id="tq-select-all" onchange="toggleTqSelectAll(this.checked)"> Select All</label>
+                    <span id="tq-selected-count" style="font-size:10.5px;color:var(--dt-text-muted);"></span>
+                </div>
+                <div class="tq-line-list" id="tq-line-list">
+                    <div class="tq-empty">Loading&hellip;</div>
+                </div>
+                <div class="tq-modal-footer" id="tq-modal-footer" style="display:none;">
+                    <button class="btn-secondary-sm" onclick="closeTransferQueueModal()">Close</button>
+                    <button class="btn-primary-sm" id="tq-confirm-btn" onclick="submitTransferQueueConfirm()">
+                        <i class="fa-solid fa-check"></i> Confirm Selected
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Profile Menu — anchored dropdown under the header profile
              icon. Branch switcher only shown for SUPER_ADMIN (see
              renderMobGreeting()/toggleProfileMenu() in mobile_store.js);
              everything here is real session data, not placeholders. -->
         <div id="mob-profile-menu" class="mob-profile-menu" style="display:none;">
             <div class="mob-profile-menu-header">
-                <div class="mob-profile-avatar"><i class="fa-solid fa-user"></i></div>
+                <div class="mob-profile-avatar" id="mob-profile-avatar"><i class="fa-solid fa-user"></i></div>
                 <div>
                     <div class="mob-profile-name" id="mob-profile-name">STAFF</div>
                     <div class="mob-profile-role" id="mob-profile-role">&mdash;</div>
@@ -186,9 +221,64 @@
                     <option value="HQ">HQ</option>
                 </select>
             </div>
+            <button class="btn-secondary-sm" style="width:100%; margin-bottom:8px;" onclick="openProfileSettingsModal()">
+                <i class="fa-solid fa-gear"></i> Profile Settings
+            </button>
             <button class="mob-profile-logout-btn" onclick="logoutMob()">
                 <i class="fa-solid fa-arrow-right-from-bracket"></i> Log Out
             </button>
+        </div>
+
+        <!-- Profile Settings modal — real self-service Full Name edit +
+             Change Password (desktop's "My Account" panel — see
+             update_my_profile()/set_user_password() in
+             store_manager_controller.py), plus a photo upload feature
+             that is genuinely NEW (desktop has no avatar upload at all).
+             Opened from the Profile Settings button above
+             (openProfileSettingsModal() in mobile_store.js). -->
+        <div id="ps-modal-overlay" class="mobile-modal-overlay" onclick="if(event.target===this) closeProfileSettingsModal()">
+            <div class="mobile-modal-card">
+                <div class="modal-header-sm">
+                    <span class="modal-title-sm">Profile Settings</span>
+                    <button class="btn-close-sm" onclick="closeProfileSettingsModal()">&times;</button>
+                </div>
+
+                <div class="ps-section">
+                    <div class="ps-section-title">Photo &amp; Name</div>
+                    <div class="ps-avatar-row">
+                        <div class="ps-avatar-preview" id="ps-avatar-preview"><i class="fa-solid fa-user"></i></div>
+                        <div class="ps-avatar-actions">
+                            <button type="button" class="btn-secondary-sm" onclick="document.getElementById('ps-avatar-file').click()">
+                                <i class="fa-solid fa-camera"></i> Change Photo
+                            </button>
+                            <button type="button" class="btn-secondary-sm" id="ps-remove-avatar-btn" onclick="removeProfileAvatar()" style="display:none;">
+                                <i class="fa-solid fa-trash"></i> Remove Photo
+                            </button>
+                        </div>
+                        <input type="file" id="ps-avatar-file" accept="image/*" style="display:none;" onchange="handleProfileAvatarSelect(this)">
+                    </div>
+                    <form onsubmit="submitProfileSettings(event)">
+                        <label class="ps-field-label" for="ps-full-name">Full Name</label>
+                        <input type="text" id="ps-full-name" class="ps-field-input" placeholder="Your full name" required>
+                        <div class="ps-feedback" id="ps-profile-feedback"></div>
+                        <button type="submit" class="btn-primary-sm" style="width:100%;">Save Profile</button>
+                    </form>
+                </div>
+
+                <hr class="ps-divider">
+
+                <div class="ps-section">
+                    <div class="ps-section-title">Change Password</div>
+                    <form onsubmit="submitProfilePassword(event)">
+                        <label class="ps-field-label" for="ps-new-password">New Password</label>
+                        <input type="password" id="ps-new-password" class="ps-field-input" placeholder="At least 6 characters" minlength="6" required autocomplete="new-password">
+                        <label class="ps-field-label" for="ps-confirm-password">Confirm New Password</label>
+                        <input type="password" id="ps-confirm-password" class="ps-field-input" placeholder="Re-enter new password" minlength="6" required autocomplete="new-password">
+                        <div class="ps-feedback" id="ps-password-feedback"></div>
+                        <button type="submit" class="btn-primary-sm" style="width:100%;">Change Password</button>
+                    </form>
+                </div>
+            </div>
         </div>
 
         <!-- Main Body Container -->
@@ -363,9 +453,12 @@
                     </div>
                 </div>
 
-                <!-- Alerts & Notifications — also the target the header
-                     bell icon scrolls to (real alert data, not a separate
-                     fake notification list). -->
+                <!-- Alerts & Notifications — real stock-health alerts
+                     (out-of-stock/expiring-soon/sync-status) computed on
+                     this Dashboard panel itself. Unrelated to the header
+                     bell, which is the separate Transfer Queue review
+                     modal (see tq-modal-overlay near the header markup;
+                     openTransferQueueModal() in mobile_store.js). -->
                 <div class="dt-panel-box" id="panel-alerts-anchor">
                     <div class="dt-panel-header">
                         <div class="dt-panel-title"><span class="dt-panel-icon icon-yellow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><h2>Alerts &amp; Notifications</h2></div>
@@ -567,6 +660,6 @@
     </div>
 
     <!-- Mobile JS Controller -->
-    <script src="mobile_store.js?v=3.2"></script>
+    <script src="mobile_store.js?v=3.4"></script>
 </body>
 </html>

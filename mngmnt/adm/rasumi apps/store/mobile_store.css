@@ -886,6 +886,263 @@ body {
     cursor: pointer;
 }
 
+/* Transfer Queue Review modal — the header bell opens this
+   .mobile-modal-card directly (no intermediate small dropdown like the
+   profile menu) since its content — the queued line list, per-line qty
+   edit, per-line error state, Confirm — needs real room. Mirrors
+   desktop's own Notifications bell -> review modal single-step flow
+   (see confirm_transfer_queue_lines() in store_manager_controller.py). */
+.tq-select-all-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px 10px;
+    border-bottom: 1px solid var(--dt-border-subtle);
+    margin-bottom: 10px;
+}
+
+.tq-select-all-row label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--dt-text-muted);
+    cursor: pointer;
+}
+
+.tq-select-all-row input[type="checkbox"] {
+    accent-color: var(--dt-primary);
+    width: 15px;
+    height: 15px;
+}
+
+.tq-line-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 46vh;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
+.tq-line-list::-webkit-scrollbar {
+    display: none;
+}
+
+.tq-line-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--dt-bg-subtle);
+    border: 1px solid var(--dt-border);
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.tq-line-row.has-error {
+    border-color: var(--dt-danger);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.tq-line-checkbox {
+    margin-top: 3px;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--dt-primary);
+    flex: none;
+}
+
+.tq-line-info {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tq-line-name {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--dt-text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tq-line-meta {
+    font-size: 10px;
+    color: var(--dt-text-muted);
+    margin-top: 2px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+}
+
+.tq-line-dest {
+    font-weight: 600;
+    color: var(--dt-primary);
+}
+
+.tq-line-error {
+    font-size: 10px;
+    color: var(--dt-danger);
+    margin-top: 4px;
+    font-weight: 600;
+}
+
+.tq-line-qty {
+    flex: none;
+    width: 52px;
+    background: var(--dt-bg-page);
+    border: 1px solid var(--dt-border);
+    border-radius: 6px;
+    color: var(--dt-text-main);
+    font-size: 11.5px;
+    text-align: center;
+    padding: 6px 4px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.tq-line-qty:focus {
+    outline: none;
+    border-color: var(--dt-primary);
+}
+
+.tq-empty {
+    text-align: center;
+    color: var(--dt-text-muted);
+    font-size: 11.5px;
+    padding: 30px 10px;
+}
+
+.tq-modal-footer {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--dt-border-subtle);
+}
+
+.tq-modal-footer .btn-primary-sm {
+    flex: 1 1 auto;
+}
+
+.tq-modal-footer .btn-primary-sm:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.btn-secondary-sm {
+    flex: none;
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid var(--dt-border);
+    color: var(--dt-text-muted);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+/* Profile Settings modal — Full Name + Change Password (real desktop
+   self-service "My Account" panel fields — see update_my_profile()/
+   set_user_password() in store_manager_controller.py) plus a photo
+   upload desktop has no equivalent of at all (see
+   sql/store_mobile_profile_v18.sql's avatar_data_url column doc-comment
+   for why this is stored as a data: URL, not a Supabase Storage file). */
+.ps-section {
+    margin-bottom: 16px;
+}
+
+.ps-section-title {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--dt-text-muted);
+    margin-bottom: 8px;
+}
+
+.ps-avatar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.ps-avatar-preview {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--dt-bg-subtle);
+    border: 1px solid var(--dt-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex: none;
+    font-size: 22px;
+    color: var(--dt-text-muted);
+}
+
+.ps-avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.ps-avatar-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ps-avatar-actions button {
+    font-size: 11px;
+}
+
+.ps-field-label {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--dt-text-muted);
+    margin-bottom: 5px;
+}
+
+.ps-field-input {
+    width: 100%;
+    background: var(--dt-bg-page);
+    border: 1px solid var(--dt-border);
+    border-radius: 6px;
+    color: var(--dt-text-main);
+    font-size: 12px;
+    padding: 9px 10px;
+    margin-bottom: 10px;
+}
+
+.ps-field-input:focus {
+    outline: none;
+    border-color: var(--dt-primary);
+}
+
+.ps-feedback {
+    font-size: 10.5px;
+    min-height: 14px;
+    margin-top: 2px;
+    margin-bottom: 4px;
+}
+
+.ps-feedback.success { color: var(--dt-success); }
+.ps-feedback.error { color: var(--dt-danger); }
+
+.ps-divider {
+    border: none;
+    border-top: 1px solid var(--dt-border-subtle);
+    margin: 16px 0;
+}
+
 /* ============================================================================
    Desktop-parity components (Dashboard + Bin Card) — dark-mode port of
    src/web/store_portal.css. Structure, spacing and column layout mirror

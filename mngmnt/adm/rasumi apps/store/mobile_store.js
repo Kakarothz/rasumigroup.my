@@ -39,6 +39,26 @@ let mobSession = null; // { token, user }
 let pendingTotpToken = null; // short-lived, only while mid-2FA-challenge
 let qrRenderer = null; // QRCode instance, torn down/recreated per setup screen visit
 
+// Transfer Queue Review modal state — the queued lines for the caller's
+// branch's single open (resolved_at IS NULL) TRANSFER_QUEUE notification,
+// kept in memory between openTransferQueueModal() and
+// submitTransferQueueConfirm() the same way masterlistData/dashOutOfStockData
+// back their own panels.
+let tqNotificationId = null;
+let tqLines = [];
+
+// Profile Settings state — fetched separately from GET /profile rather
+// than carried in the session JWT (the token is deliberately kept small;
+// an avatar_data_url can be tens of KB, far too big to put in a header
+// sent on every single request). pendingAvatarChange tracks whether the
+// user actually touched the photo this modal visit, so Save Profile only
+// sends avatar_data_url when it's really changing (see
+// store_update_profile()'s NULL-vs-empty-string "don't touch" convention
+// in sql/store_mobile_profile_v18.sql).
+let mobProfile = null;
+let pendingAvatarDataUrl = undefined;
+let pendingAvatarChanged = false;
+
 // Dashboard list data kept in memory so the search boxes on Out of
 // Stock/Expiring Soon can filter client-side without re-hitting the API,
 // same pattern as masterlistData/filterMobMasterlist().
@@ -219,6 +239,33 @@ async function showAppScreen() {
     await loadMobMasterlist();
     await loadMobDashboardStats();
     loadMobBinCardDropdown();
+    refreshNotifBadge();
+    loadMobProfile();
+}
+
+// Fetches the caller's own profile row (Full Name + avatar) so the
+// profile dropdown can show a real photo instead of the generic icon.
+// Non-fatal on failure — the dropdown just keeps showing the icon.
+async function loadMobProfile() {
+    try {
+        const { ok, data } = await apiFetch("/profile");
+        if (ok && data.success) {
+            mobProfile = data.profile;
+            renderProfileAvatar();
+        }
+    } catch {
+        // Non-fatal — see comment above.
+    }
+}
+
+function renderProfileAvatar() {
+    const el = document.getElementById("mob-profile-avatar");
+    if (!el) return;
+    if (mobProfile && mobProfile.avatar_data_url) {
+        el.innerHTML = `<img src="${mobProfile.avatar_data_url}" alt="">`;
+    } else {
+        el.innerHTML = `<i class="fa-solid fa-user"></i>`;
+    }
 }
 
 // Time-based greeting using the logged-in staff's own name (already in
@@ -238,10 +285,15 @@ function renderMobGreeting() {
     setText("dt-greeting-date-text", dateStr);
 }
 
-// ── Header: notification bell + profile menu ────────────────────────
-// Bell scrolls to the real Alerts & Notifications panel instead of
-// duplicating it as a separate fake notification list; its badge is the
-// same real alert count that panel computes (see renderDashAlerts()).
+// ── Header: notification bell (Transfer Queue) + profile menu ───────
+// The bell is desktop's real Transfer Queue notification system, not a
+// shortcut to the Alerts & Notifications dashboard panel (that panel is
+// unrelated stock-health info, computed independently — see
+// renderDashAlerts()). A Transfer Out queues into store_notifications
+// instead of moving stock immediately (routes/transfer.js); this modal
+// is where it gets reviewed and confirmed (POST /notifications/confirm),
+// mirroring confirm_transfer_queue_lines() in
+// store_manager_controller.py exactly.
 function renderHeaderNotifBadge(count) {
     const badge = document.getElementById("mob-notif-badge");
     if (!badge) return;
@@ -253,11 +305,167 @@ function renderHeaderNotifBadge(count) {
     }
 }
 
-function toggleNotifPanel() {
+// Refreshes just the badge count without opening the modal — called
+// after login, after switching branch, after queueing a new transfer,
+// and after any confirm action. "ALL" (SUPER_ADMIN's home_branch_code)
+// isn't a real branch, so skip the call rather than let it 400.
+async function refreshNotifBadge() {
+    if (!currentBranch || currentBranch.toUpperCase() === "ALL") {
+        renderHeaderNotifBadge(0);
+        return;
+    }
+    try {
+        const { ok, data } = await apiFetch(`/notifications?branch_code=${encodeURIComponent(currentBranch)}`);
+        if (ok && data.success) {
+            renderHeaderNotifBadge(data.notification ? data.notification.line_count : 0);
+        }
+    } catch {
+        // Non-fatal — badge just stays at its last known value.
+    }
+}
+
+async function openTransferQueueModal() {
     closeProfileMenu();
-    switchMobTab("dash");
-    const anchor = document.getElementById("panel-alerts-anchor");
-    if (anchor) anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+    const overlay = document.getElementById("tq-modal-overlay");
+    const list = document.getElementById("tq-line-list");
+    const selectAllRow = document.getElementById("tq-select-all-row");
+    const footer = document.getElementById("tq-modal-footer");
+    if (!overlay) return;
+    overlay.classList.add("open");
+    list.innerHTML = `<div class="tq-empty">Loading&hellip;</div>`;
+    selectAllRow.style.display = "none";
+    footer.style.display = "none";
+    tqNotificationId = null;
+    tqLines = [];
+
+    if (!currentBranch || currentBranch.toUpperCase() === "ALL") {
+        list.innerHTML = `<div class="tq-empty">Select a branch first.</div>`;
+        return;
+    }
+
+    try {
+        const { ok, data } = await apiFetch(`/notifications?branch_code=${encodeURIComponent(currentBranch)}`);
+        if (!ok || !data.success) throw new Error(data.message || "Failed to load Transfer Queue.");
+        if (!data.notification) {
+            list.innerHTML = `<div class="tq-empty">No pending transfers to confirm.</div>`;
+            renderHeaderNotifBadge(0);
+            return;
+        }
+        tqNotificationId = data.notification.id;
+        renderHeaderNotifBadge(data.notification.line_count);
+        const linesRes = await apiFetch(`/notifications/lines?notification_id=${encodeURIComponent(tqNotificationId)}`);
+        if (!linesRes.ok || !linesRes.data.success) throw new Error(linesRes.data.message || "Failed to load queued lines.");
+        tqLines = linesRes.data.lines || [];
+        renderTransferQueueLines();
+    } catch (e) {
+        list.innerHTML = `<div class="tq-empty" style="color:var(--dt-danger);">${escapeHtml(e.message)}</div>`;
+    }
+}
+
+function closeTransferQueueModal() {
+    const overlay = document.getElementById("tq-modal-overlay");
+    if (overlay) overlay.classList.remove("open");
+}
+
+function renderTransferQueueLines() {
+    const list = document.getElementById("tq-line-list");
+    const selectAllRow = document.getElementById("tq-select-all-row");
+    const footer = document.getElementById("tq-modal-footer");
+    if (!tqLines.length) {
+        list.innerHTML = `<div class="tq-empty">No pending transfers to confirm.</div>`;
+        selectAllRow.style.display = "none";
+        footer.style.display = "none";
+        return;
+    }
+    selectAllRow.style.display = "flex";
+    footer.style.display = "flex";
+    list.innerHTML = tqLines.map((l) => `
+        <div class="tq-line-row ${l._error ? "has-error" : ""}">
+            <input type="checkbox" class="tq-line-checkbox" data-line-id="${escapeHtml(l.line_id)}" checked onchange="updateTqSelectedCount()">
+            <div class="tq-line-info">
+                <div class="tq-line-name">${escapeHtml(l.name || l.sku)}</div>
+                <div class="tq-line-meta">
+                    <span>${escapeHtml(l.sku)}</span>
+                    <span>&rarr; <span class="tq-line-dest">${escapeHtml(l.destination_label || l.destination_code || "")}</span></span>
+                    ${l.batch_no ? `<span>Batch ${escapeHtml(l.batch_no)}</span>` : ""}
+                </div>
+                ${l._error ? `<div class="tq-line-error"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(l._error)}</div>` : ""}
+            </div>
+            <input type="number" class="tq-line-qty" min="1" value="${Number(l.qty) || 1}" data-line-id="${escapeHtml(l.line_id)}">
+        </div>
+    `).join("");
+    updateTqSelectedCount();
+}
+
+function toggleTqSelectAll(checked) {
+    document.querySelectorAll("#tq-line-list .tq-line-checkbox").forEach((cb) => (cb.checked = checked));
+    updateTqSelectedCount();
+}
+
+function updateTqSelectedCount() {
+    const checkboxes = document.querySelectorAll("#tq-line-list .tq-line-checkbox");
+    const checked = document.querySelectorAll("#tq-line-list .tq-line-checkbox:checked");
+    const countEl = document.getElementById("tq-selected-count");
+    const selectAll = document.getElementById("tq-select-all");
+    const confirmBtn = document.getElementById("tq-confirm-btn");
+    if (countEl) countEl.textContent = `${checked.length} of ${checkboxes.length} selected`;
+    if (selectAll) selectAll.checked = checkboxes.length > 0 && checked.length === checkboxes.length;
+    if (confirmBtn) confirmBtn.disabled = checked.length === 0;
+}
+
+async function submitTransferQueueConfirm() {
+    const checkedBoxes = Array.from(document.querySelectorAll("#tq-line-list .tq-line-checkbox:checked"));
+    if (!checkedBoxes.length || !tqNotificationId) return;
+    const lineIds = checkedBoxes.map((cb) => cb.dataset.lineId);
+    const qtyOverrides = {};
+    document.querySelectorAll("#tq-line-list .tq-line-qty").forEach((input) => {
+        const lineId = input.dataset.lineId;
+        const original = tqLines.find((l) => l.line_id === lineId);
+        const val = parseInt(input.value, 10);
+        if (lineIds.includes(lineId) && Number.isFinite(val) && val > 0 && original && val !== Number(original.qty)) {
+            qtyOverrides[lineId] = val;
+        }
+    });
+
+    const confirmBtn = document.getElementById("tq-confirm-btn");
+    if (confirmBtn) confirmBtn.disabled = true;
+    try {
+        const { ok, data } = await apiFetch("/notifications/confirm", {
+            method: "POST",
+            body: { notification_id: tqNotificationId, line_ids: lineIds, qty_overrides: qtyOverrides },
+        });
+        if (!ok) throw new Error(data.message || "Failed to confirm transfer.");
+
+        const succeeded = (data.line_results || []).filter((r) => r.success).length;
+        const failed = (data.line_results || []).filter((r) => !r.success);
+        await refreshNotifBadge();
+        await loadMobMasterlist(); // confirmed lines actually moved stock now
+
+        if (data.remaining === 0) {
+            alert(`✅ ${succeeded} item(s) confirmed. Transfer Queue cleared.`);
+            closeTransferQueueModal();
+            return;
+        }
+
+        // Some lines remain (unconfirmed selections + any failures) —
+        // refetch the queue's current line list rather than trying to
+        // reconstruct it from line_results, so the modal always reflects
+        // the real store_notifications row.
+        const linesRes = await apiFetch(`/notifications/lines?notification_id=${encodeURIComponent(tqNotificationId)}`);
+        if (linesRes.ok && linesRes.data.success) {
+            tqLines = linesRes.data.lines || [];
+            renderTransferQueueLines();
+        }
+        if (failed.length) {
+            alert(`${succeeded} confirmed, ${failed.length} failed:\n` + failed.map((f) => `• ${f.sku}: ${f.message}`).join("\n"));
+        } else {
+            alert(`✅ ${succeeded} item(s) confirmed.`);
+        }
+    } catch (e) {
+        alert("❌ " + e.message);
+    } finally {
+        if (confirmBtn) confirmBtn.disabled = false;
+    }
 }
 
 // Profile menu — real session data only (name/role/branch), no invented
@@ -302,6 +510,184 @@ function populateProfileMenu() {
     if (isSuperAdmin) {
         const sel = document.getElementById("mob-branch-select");
         if (sel) sel.value = currentBranch;
+    }
+}
+
+// ── Profile Settings modal: Full Name + Change Password + Photo ─────
+// Full Name/Change Password mirror desktop's real "My Account" panel
+// (update_my_profile()/set_user_password() in
+// store_manager_controller.py) exactly — two separate save actions with
+// their own feedback line, same as desktop. Photo upload has no desktop
+// equivalent at all (see sql/store_mobile_profile_v18.sql).
+async function openProfileSettingsModal() {
+    closeProfileMenu();
+    const overlay = document.getElementById("ps-modal-overlay");
+    if (!overlay) return;
+    overlay.classList.add("open");
+
+    pendingAvatarDataUrl = undefined;
+    pendingAvatarChanged = false;
+    document.getElementById("ps-avatar-file").value = "";
+    setText("ps-profile-feedback", "");
+    setText("ps-password-feedback", "");
+    document.getElementById("ps-new-password").value = "";
+    document.getElementById("ps-confirm-password").value = "";
+
+    const nameInput = document.getElementById("ps-full-name");
+    const user = mobSession && mobSession.user;
+    nameInput.value = (mobProfile && mobProfile.full_name) || (user && (user.full_name || user.name)) || "";
+    renderProfileSettingsAvatarPreview((mobProfile && mobProfile.avatar_data_url) || null);
+
+    // Refresh from the server in case the cached mobProfile is stale
+    // (e.g. photo set from a different device).
+    try {
+        const { ok, data } = await apiFetch("/profile");
+        if (ok && data.success) {
+            mobProfile = data.profile;
+            nameInput.value = mobProfile.full_name || nameInput.value;
+            renderProfileSettingsAvatarPreview(mobProfile.avatar_data_url || null);
+        }
+    } catch {
+        // Non-fatal — modal still usable with whatever was cached.
+    }
+}
+
+function closeProfileSettingsModal() {
+    const overlay = document.getElementById("ps-modal-overlay");
+    if (overlay) overlay.classList.remove("open");
+}
+
+function renderProfileSettingsAvatarPreview(dataUrl) {
+    const preview = document.getElementById("ps-avatar-preview");
+    const removeBtn = document.getElementById("ps-remove-avatar-btn");
+    if (dataUrl) {
+        preview.innerHTML = `<img src="${dataUrl}" alt="">`;
+        removeBtn.style.display = "inline-flex";
+    } else {
+        preview.innerHTML = `<i class="fa-solid fa-user"></i>`;
+        removeBtn.style.display = "none";
+    }
+}
+
+// Resizes/compresses the chosen photo client-side via <canvas> before it
+// ever reaches the network — keeps the data: URL small (avatar_data_url
+// is stored directly in Postgres, see store_mobile_profile_v18.sql, so
+// there's no server-side resize step the way an actual file-upload
+// pipeline would have one).
+const AVATAR_MAX_DIMENSION = 256;
+const AVATAR_JPEG_QUALITY = 0.75;
+
+function handleProfileAvatarSelect(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+        alert("Please choose an image file.");
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = AVATAR_MAX_DIMENSION;
+            canvas.height = AVATAR_MAX_DIMENSION;
+            const ctx = canvas.getContext("2d");
+            // Cover-crop to a square so different aspect ratios don't
+            // get squished into an oval-looking avatar.
+            const side = Math.min(img.width, img.height);
+            const sx = (img.width - side) / 2;
+            const sy = (img.height - side) / 2;
+            ctx.drawImage(img, sx, sy, side, side, 0, 0, AVATAR_MAX_DIMENSION, AVATAR_MAX_DIMENSION);
+            const dataUrl = canvas.toDataURL("image/jpeg", AVATAR_JPEG_QUALITY);
+            pendingAvatarDataUrl = dataUrl;
+            pendingAvatarChanged = true;
+            renderProfileSettingsAvatarPreview(dataUrl);
+        };
+        img.onerror = () => alert("Could not read that image — please try a different file.");
+        img.src = reader.result;
+    };
+    reader.onerror = () => alert("Could not read that file.");
+    reader.readAsDataURL(file);
+}
+
+function removeProfileAvatar() {
+    pendingAvatarDataUrl = ""; // "" = explicit clear, per store_update_profile()'s convention
+    pendingAvatarChanged = true;
+    document.getElementById("ps-avatar-file").value = "";
+    renderProfileSettingsAvatarPreview(null);
+}
+
+async function submitProfileSettings(e) {
+    e.preventDefault();
+    const fullName = document.getElementById("ps-full-name").value.trim();
+    const feedback = document.getElementById("ps-profile-feedback");
+    if (!fullName) {
+        feedback.textContent = "Full Name cannot be empty.";
+        feedback.className = "ps-feedback error";
+        return;
+    }
+
+    feedback.textContent = "Saving...";
+    feedback.className = "ps-feedback";
+    try {
+        const body = { full_name: fullName };
+        if (pendingAvatarChanged) body.avatar_data_url = pendingAvatarDataUrl;
+
+        const { ok, data } = await apiFetch("/profile", { method: "POST", body });
+        if (!ok || !data.success) throw new Error(data.message || "Failed to save profile.");
+
+        feedback.textContent = "Saved.";
+        feedback.className = "ps-feedback success";
+        pendingAvatarChanged = false;
+
+        // Keep the session's cached name in sync everywhere it's shown
+        // (greeting, profile menu, header) without forcing a re-login —
+        // same reasoning as desktop's own in-memory session sync in
+        // update_my_profile().
+        if (mobSession && mobSession.user) {
+            mobSession.user.full_name = fullName;
+            saveMobSession(mobSession);
+        }
+        renderMobGreeting();
+        populateProfileMenu();
+        await loadMobProfile();
+    } catch (err) {
+        feedback.textContent = "❌ " + err.message;
+        feedback.className = "ps-feedback error";
+    }
+}
+
+async function submitProfilePassword(e) {
+    e.preventDefault();
+    const newPassword = document.getElementById("ps-new-password").value;
+    const confirmPassword = document.getElementById("ps-confirm-password").value;
+    const feedback = document.getElementById("ps-password-feedback");
+
+    if (newPassword.length < 6) {
+        feedback.textContent = "Password must be at least 6 characters.";
+        feedback.className = "ps-feedback error";
+        return;
+    }
+    if (newPassword !== confirmPassword) {
+        feedback.textContent = "Passwords do not match.";
+        feedback.className = "ps-feedback error";
+        return;
+    }
+
+    feedback.textContent = "Updating...";
+    feedback.className = "ps-feedback";
+    try {
+        const { ok, data } = await apiFetch("/profile/password", { method: "POST", body: { new_password: newPassword } });
+        if (!ok || !data.success) throw new Error(data.message || "Failed to change password.");
+
+        feedback.textContent = "Password changed.";
+        feedback.className = "ps-feedback success";
+        document.getElementById("ps-new-password").value = "";
+        document.getElementById("ps-confirm-password").value = "";
+    } catch (err) {
+        feedback.textContent = "❌ " + err.message;
+        feedback.className = "ps-feedback error";
     }
 }
 
@@ -479,6 +865,7 @@ async function onMobBranchChange(branchCode) {
     if (bincardSelect && bincardSelect.value) {
         loadMobBinCard(bincardSelect.value);
     }
+    refreshNotifBadge(); // switching branch switches whose Transfer Queue applies
 }
 
 // ── 6. Tab Navigation Switcher ───────────────────────────────────────
@@ -902,10 +1289,6 @@ function renderDashAlerts(data) {
         alerts.push({ icon: "🔄", pill: "yellow", title: "VIMS Sync Offline", desc: data.last_sync_label || "Never synced", count: null });
     }
 
-    // Header bell badge — same real alert count computed above, not a
-    // separate/fake notification counter.
-    renderHeaderNotifBadge(alerts.length);
-
     if (alerts.length === 0) {
         list.innerHTML = `<div class="dt-empty">No active alerts</div>`;
         return;
@@ -1034,11 +1417,15 @@ async function submitMobTransfer(e) {
                 lines: [{ sku, qty }],
             },
         });
-        if (!ok || !data.success) throw new Error(data.message || "Failed to process transfer.");
+        if (!ok || !data.success) throw new Error(data.message || "Failed to queue transfer.");
 
-        alert(`✅ Stock transfer to ${dest} processed successfully!`);
+        // Queued, not moved — stock only actually moves once someone with
+        // confirm authority reviews it in the Transfer Queue (header bell),
+        // same as desktop. No point refreshing masterlist/bin card here,
+        // since nothing on hand has changed yet.
+        alert(`📥 Transfer to ${dest} queued for confirmation.`);
         document.getElementById("mob-transfer-form").reset();
-        await loadMobMasterlist();
+        await refreshNotifBadge();
         switchMobTab("dash");
     } catch (err) {
         alert("❌ Failed to submit transfer: " + err.message);
