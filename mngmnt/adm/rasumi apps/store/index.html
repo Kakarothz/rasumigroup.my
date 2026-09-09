@@ -17,7 +17,12 @@
          functions/store_api/README.md), so the Supabase SDK (and any
          Supabase key) has no reason to be loaded into this public page. -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-    
+
+    <!-- QR rendering for the one-time Google Authenticator link screen —
+         renders client-side from the otpauth:// URI store-api returns;
+         the TOTP secret itself never touches this page's own code. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
     <!-- Mobile CSS -->
     <link rel="stylesheet" href="mobile_store.css?v=1.0">
 </head>
@@ -49,6 +54,46 @@
                 <input type="password" id="mob-login-password" class="input-sm" placeholder="Password" autocomplete="current-password">
                 <div id="mob-login-error" style="color:var(--red-alert); font-size:12px; display:none;"></div>
                 <button type="submit" id="mob-login-submit" class="btn-primary-sm" style="margin-top:4px;"><i class="fa-solid fa-right-to-bracket"></i> Log In</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2FA — First-time link to Google Authenticator. Shown only once per
+         staff account: after this succeeds, totp_enabled flips on
+         server-side and this screen never shows again for that account
+         (only /totp/verify's simpler code-only screen, for a NEW device). -->
+    <div id="mob-totp-setup-screen" class="mob-login-container" style="display: none;">
+        <div class="mob-login-card">
+            <div class="header-logo" style="width:56px;height:56px;font-size:24px;margin:0 auto 14px;"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="desktop-blocked-title" style="font-size:18px;">LINK GOOGLE AUTHENTICATOR</div>
+            <div style="color:var(--text-muted); font-size:12px; margin-top:8px; line-height:1.5;">
+                Buka app Google Authenticator (atau app TOTP lain), scan QR code ni untuk daftar akaun anda. Wajib buat sekali sahaja.
+            </div>
+            <div id="mob-totp-qr" style="display:flex; justify-content:center; margin:16px 0; background:#fff; padding:12px; border-radius:8px; width:fit-content; margin-left:auto; margin-right:auto;"></div>
+            <div style="color:var(--text-muted); font-size:11px;">Tak boleh scan? Masukkan kod ni secara manual:</div>
+            <div id="mob-totp-secret-fallback" style="font-family:monospace; font-size:13px; letter-spacing:1px; word-break:break-all; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:6px; padding:8px; margin:6px 0 14px;"></div>
+            <form id="mob-totp-setup-form" onsubmit="submitMobTotpSetup(event)" style="display:flex; flex-direction:column; gap:10px;">
+                <input type="text" id="mob-totp-setup-code" class="input-sm" placeholder="Masukkan 6-digit kod" inputmode="numeric" pattern="[0-9]*" maxlength="6" required autocomplete="one-time-code">
+                <div id="mob-totp-setup-error" style="color:var(--red-alert); font-size:12px; display:none;"></div>
+                <button type="submit" id="mob-totp-setup-submit" class="btn-primary-sm" style="margin-top:4px;"><i class="fa-solid fa-link"></i> Verify &amp; Link Device</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2FA — code prompt for a NEW device on an account that already has
+         TOTP enabled (staff already linked their authenticator before,
+         just not from this browser). -->
+    <div id="mob-totp-verify-screen" class="mob-login-container" style="display: none;">
+        <div class="mob-login-card">
+            <div class="header-logo" style="width:56px;height:56px;font-size:24px;margin:0 auto 14px;"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="desktop-blocked-title" style="font-size:18px;">TWO-FACTOR VERIFICATION</div>
+            <div style="color:var(--text-muted); font-size:12px; margin-top:8px; line-height:1.5;">
+                Device baru dikesan. Masukkan 6-digit kod dari Google Authenticator anda.
+            </div>
+            <form id="mob-totp-verify-form" onsubmit="submitMobTotpVerify(event)" style="margin-top:14px; display:flex; flex-direction:column; gap:10px;">
+                <input type="text" id="mob-totp-verify-code" class="input-sm" placeholder="Masukkan 6-digit kod" inputmode="numeric" pattern="[0-9]*" maxlength="6" required autocomplete="one-time-code">
+                <div id="mob-totp-verify-error" style="color:var(--red-alert); font-size:12px; display:none;"></div>
+                <button type="submit" id="mob-totp-verify-submit" class="btn-primary-sm" style="margin-top:4px;"><i class="fa-solid fa-check"></i> Verify</button>
             </form>
         </div>
     </div>

@@ -25,11 +25,19 @@
 const STORE_API_BASE_URL = "https://rasumi-store-api.captainclaw77.workers.dev";
 
 const SESSION_STORAGE_KEY = "rasumi_store_mobile_session";
+// Long-lived, independent of the 8h session JWT — this is what lets a
+// staff member log out/back in on the SAME phone without re-entering a
+// TOTP code. Only cleared if the account's admin revokes this device from
+// the Admin Console (in which case the next /login attempt gets
+// totp_required again, same as a brand new device).
+const DEVICE_TOKEN_STORAGE_KEY = "rasumi_store_device_token";
 
 let currentBranch = "FVKL";
 let masterlistData = [];
 let movementChart = null;
 let mobSession = null; // { token, user }
+let pendingTotpToken = null; // short-lived, only while mid-2FA-challenge
+let qrRenderer = null; // QRCode instance, torn down/recreated per setup screen visit
 
 const DEST_SHORTFORMS = {
     "RASUMI SHAH ALAM": "RSA",
@@ -79,6 +87,23 @@ async function apiFetch(path, { method = "GET", body, auth = true } = {}) {
     return { ok: res.ok, status: res.status, data };
 }
 
+// Separate from apiFetch on purpose: the /totp/* routes accept a
+// short-lived pending token (from /login's totp_setup_required /
+// totp_required response), never the real mobSession token — reusing
+// apiFetch's auth logic would silently send the wrong bearer.
+async function totpFetch(path, body) {
+    const res = await fetch(`${STORE_API_BASE_URL}${path}`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${pendingTotpToken}`,
+        },
+        body: JSON.stringify(body || {}),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+}
+
 // ── 1. Device Guard (Mobile-Only Enforcer) ──────────────────────────
 function checkDeviceGuard() {
     const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -115,8 +140,34 @@ function clearMobSession() {
     localStorage.removeItem(SESSION_STORAGE_KEY);
 }
 
-function showLoginScreen(errorMsg) {
+function loadStoredDeviceToken() {
+    try {
+        return localStorage.getItem(DEVICE_TOKEN_STORAGE_KEY) || null;
+    } catch {
+        return null;
+    }
+}
+
+function saveDeviceToken(token) {
+    if (!token) return;
+    try {
+        localStorage.setItem(DEVICE_TOKEN_STORAGE_KEY, token);
+    } catch {
+        // localStorage unavailable (private browsing etc.) — device just
+        // won't be remembered; every login will re-prompt for TOTP. Not
+        // fatal, so fail silently rather than blocking login.
+    }
+}
+
+function hideAllAuthScreens() {
+    document.getElementById("mob-login-screen").style.display = "none";
+    document.getElementById("mob-totp-setup-screen").style.display = "none";
+    document.getElementById("mob-totp-verify-screen").style.display = "none";
     document.getElementById("mobile-app-wrapper").style.display = "none";
+}
+
+function showLoginScreen(errorMsg) {
+    hideAllAuthScreens();
     document.getElementById("mob-login-screen").style.display = "flex";
     const errEl = document.getElementById("mob-login-error");
     if (errorMsg) {
@@ -127,8 +178,23 @@ function showLoginScreen(errorMsg) {
     }
 }
 
+function showTotpSetupScreen(secret, otpauthUri) {
+    hideAllAuthScreens();
+    document.getElementById("mob-totp-setup-screen").style.display = "flex";
+    document.getElementById("mob-totp-secret-fallback").textContent = secret;
+
+    const qrEl = document.getElementById("mob-totp-qr");
+    qrEl.innerHTML = "";
+    qrRenderer = new QRCode(qrEl, { text: otpauthUri, width: 180, height: 180 });
+}
+
+function showTotpVerifyScreen() {
+    hideAllAuthScreens();
+    document.getElementById("mob-totp-verify-screen").style.display = "flex";
+}
+
 async function showAppScreen() {
-    document.getElementById("mob-login-screen").style.display = "none";
+    hideAllAuthScreens();
     document.getElementById("mobile-app-wrapper").style.display = "block";
     if (mobSession && mobSession.user && mobSession.user.home_branch_code) {
         currentBranch = mobSession.user.home_branch_code;
@@ -164,7 +230,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     showLoginScreen();
 });
 
-// ── 4. Login / Logout ───────────────────────────────────────────────
+// ── 4. Login / 2FA / Logout ──────────────────────────────────────────
+// Sequence: /login (password) -> either straight in (device already
+// trusted), or a pending_token + one of totp_setup_required/totp_required
+// -> submitMobTotpSetup / submitMobTotpVerify finishes the job and hands
+// back the same {success, session_token, user} shape /login's direct
+// success path would have returned.
 async function submitMobLogin(e) {
     e.preventDefault();
     const userId = document.getElementById("mob-login-userid").value.trim();
@@ -177,12 +248,29 @@ async function submitMobLogin(e) {
     submitBtn.disabled = true;
     submitBtn.textContent = "Logging in...";
     try {
-        const { data } = await apiFetch("/login", { method: "POST", body: { user_id: userId, password }, auth: false });
+        const deviceToken = loadStoredDeviceToken();
+        const { data } = await apiFetch("/login", {
+            method: "POST",
+            body: { user_id: userId, password, device_token: deviceToken },
+            auth: false,
+        });
+
+        if (data.status === "totp_setup_required") {
+            pendingTotpToken = data.pending_token;
+            await beginMobTotpSetup();
+            return;
+        }
+        if (data.status === "totp_required") {
+            pendingTotpToken = data.pending_token;
+            showTotpVerifyScreen();
+            return;
+        }
         if (!data.success) {
             errEl.textContent = data.message || "Login failed.";
             errEl.style.display = "block";
             return;
         }
+
         saveMobSession({ token: data.session_token, user: data.user });
         document.getElementById("mob-login-form").reset();
         await showAppScreen();
@@ -195,8 +283,90 @@ async function submitMobLogin(e) {
     }
 }
 
+// Fetches the QR/secret for a brand-new TOTP setup right after /login says
+// this account has none confirmed yet.
+async function beginMobTotpSetup() {
+    try {
+        const { data } = await totpFetch("/totp/setup");
+        if (!data.success) {
+            showLoginScreen(data.message || "Could not start 2FA setup. Please try again.");
+            return;
+        }
+        showTotpSetupScreen(data.secret, data.otpauth_uri);
+    } catch {
+        showLoginScreen("Could not reach the server. Please try again.");
+    }
+}
+
+async function submitMobTotpSetup(e) {
+    e.preventDefault();
+    const code = document.getElementById("mob-totp-setup-code").value.trim();
+    const submitBtn = document.getElementById("mob-totp-setup-submit");
+    const errEl = document.getElementById("mob-totp-setup-error");
+    errEl.style.display = "none";
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Verifying...";
+    try {
+        // trust_device: true — the device completing first-time setup IS
+        // the device being registered, per the "bank app" model requested:
+        // password + TOTP together is the registration event.
+        const { data } = await totpFetch("/totp/verify-setup", { code, trust_device: true });
+        if (!data.success) {
+            errEl.textContent = data.message || "Incorrect code.";
+            errEl.style.display = "block";
+            return;
+        }
+        finishMobTotpLogin(data);
+    } catch {
+        errEl.textContent = "Could not reach the server. Please try again.";
+        errEl.style.display = "block";
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-link"></i> Verify &amp; Link Device';
+    }
+}
+
+async function submitMobTotpVerify(e) {
+    e.preventDefault();
+    const code = document.getElementById("mob-totp-verify-code").value.trim();
+    const submitBtn = document.getElementById("mob-totp-verify-submit");
+    const errEl = document.getElementById("mob-totp-verify-error");
+    errEl.style.display = "none";
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Verifying...";
+    try {
+        const { data } = await totpFetch("/totp/verify", { code, trust_device: true });
+        if (!data.success) {
+            errEl.textContent = data.message || "Incorrect code.";
+            errEl.style.display = "block";
+            return;
+        }
+        finishMobTotpLogin(data);
+    } catch {
+        errEl.textContent = "Could not reach the server. Please try again.";
+        errEl.style.display = "block";
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> Verify';
+    }
+}
+
+function finishMobTotpLogin(data) {
+    pendingTotpToken = null;
+    if (data.device_token) saveDeviceToken(data.device_token);
+    saveMobSession({ token: data.session_token, user: data.user });
+    document.getElementById("mob-totp-setup-form").reset();
+    document.getElementById("mob-totp-verify-form").reset();
+    showAppScreen();
+}
+
 function logoutMob() {
     clearMobSession();
+    // Deliberately NOT clearing the device token here — logging out and
+    // back in on the same phone shouldn't force a fresh TOTP prompt. Only
+    // an admin revoking this device (Admin Console) should do that.
     showLoginScreen();
 }
 

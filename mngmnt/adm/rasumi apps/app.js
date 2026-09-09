@@ -11353,6 +11353,46 @@
     return caps;
   }
 
+  // Trusted Devices (store_totp_2fa_v17.sql) — a device is registered the
+  // first time a staff member successfully passes password + TOTP on a
+  // browser that hasn't proven itself before. Shown here so admin can see
+  // exactly what's trusted per account, and revoke one immediately if a
+  // phone is lost/stolen — the alternative (only recourse = reset
+  // password) doesn't actually kick out a device that's still logged in
+  // with a valid session.
+  function _fmtDeviceDate(iso) {
+    if (!iso) return '—';
+    try { return new Date(iso).toLocaleString(); } catch (e) { return iso; }
+  }
+  function _sstaffDevicesHtml(devices) {
+    devices = devices || [];
+    if (!devices.length) {
+      return '<div style="font-size:10px;color:var(--rc-text-dim,#6b7280);">Tiada device didaftarkan lagi.</div>';
+    }
+    var html = '<div style="display:flex;flex-direction:column;gap:4px;">';
+    devices.forEach(function (d) {
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:rgba(255,255,255,0.03);border:1px solid var(--rc-border,#1f2937);border-radius:4px;padding:5px 8px;">';
+      html += '<div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);line-height:1.5;">';
+      html += '<span style="color:var(--rc-text,#e5e7eb);font-weight:600;">' + esc(d.device_label || 'Unknown device') + '</span>';
+      html += ' &middot; IP ' + esc(d.last_ip || '—');
+      html += ' &middot; last used ' + esc(_fmtDeviceDate(d.last_used_at));
+      html += '</div>';
+      html += '<button onclick="rRevokeStoreStaffDevice(' + d.device_id + ')" style="padding:3px 9px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);color:#ef4444;border-radius:4px;font-size:9px;cursor:pointer;font-family:inherit;font-weight:700;white-space:nowrap;">REVOKE</button>';
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+  window.rRevokeStoreStaffDevice = function (deviceId) {
+    if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
+    if (!window.confirm('Revoke this device? It will need password + a fresh 2FA code to log in again.')) return;
+    RS.supa.rpc('store_totp_revoke_device', { p_device_id: deviceId }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      rToast('Device revoked', 'info');
+      _loadStoreStaff();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
+
   function _sstaffBranchSelectHtml(selectedId, currentVal) {
     var html = '<select id="' + selectedId + '" style="background:var(--rc-bg-2,#1f2937);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);font-size:10px;border-radius:4px;padding:3px 6px;font-family:inherit;">';
     html += '<option value="ALL"' + (currentVal === 'ALL' ? ' selected' : '') + '>ALL — HQ/ADMIN</option>';
@@ -11367,11 +11407,28 @@
     var list = document.getElementById('r-sstaff-list');
     if (!list || !RS.supa) return;
     list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;"><span class="r-spin"></span> Loading…</div>';
-    RS.supa.from('store_user_profiles')
-      .select('id,full_name,role,home_branch_code,is_active,created_at,capabilities')
-      .order('created_at')
-      .then(function (res) {
+    Promise.all([
+      RS.supa.from('store_user_profiles')
+        .select('id,full_name,role,home_branch_code,is_active,created_at,capabilities')
+        .order('created_at'),
+      // Fetch every staff member's trusted devices in one call (p_user_id
+      // left NULL) rather than one RPC round-trip per row — the roster
+      // here is small (single pharmacy operation), same "fetch once,
+      // group client-side" approach as the rest of this admin panel.
+      RS.supa.rpc('store_totp_list_devices', {})
+    ]).then(function (results) {
+        var res = results[0];
+        var devicesRes = results[1];
         if (res.error) throw new Error(res.error.message);
+        var devicesByUser = {};
+        if (!devicesRes.error && devicesRes.data) {
+          devicesRes.data.forEach(function (d) {
+            if (!devicesByUser[d.user_id]) devicesByUser[d.user_id] = [];
+            devicesByUser[d.user_id].push(d);
+          });
+        } else if (devicesRes.error) {
+          console.warn('store_totp_list_devices failed:', devicesRes.error.message);
+        }
         if (!res.data || !res.data.length) {
           list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;">No staff accounts found</div>';
           return;
@@ -11416,7 +11473,8 @@
           row += '</div>';
 
           if (isSuperAdmin) {
-            row += '<div style="font-size:10px;color:var(--rc-text-dim,#6b7280);">Branch: ' + esc(u.home_branch_code || 'ALL') + ' — role, branch, activation and deletion are locked for this account.</div>';
+            row += '<div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-bottom:8px;">Branch: ' + esc(u.home_branch_code || 'ALL') + ' — role, branch, activation and deletion are locked for this account.</div>';
+            row += _sstaffDevicesHtml(devicesByUser[u.id]);
           } else {
             row += '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;">';
             row += '<select id="srole_' + safeId + '" style="background:var(--rc-bg-2,#1f2937);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);font-size:10px;border-radius:4px;padding:3px 6px;font-family:inherit;">';
@@ -11430,6 +11488,8 @@
             row += '</div>';
 
             row += '<div style="margin-bottom:8px;">' + _sstaffCapabilitiesHtml(safeId, u.capabilities) + '</div>';
+
+            row += '<div style="margin-bottom:8px;">' + _sstaffDevicesHtml(devicesByUser[u.id]) + '</div>';
 
             row += '<div style="display:flex;gap:6px;align-items:center;">';
             row += '<input type="password" id="spass_' + safeId + '" placeholder="New password (min 6 chars)" style="flex:1;max-width:220px;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:10px;font-family:inherit;">';
