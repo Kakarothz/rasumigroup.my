@@ -259,12 +259,16 @@ async function loadMobProfile() {
 }
 
 function renderProfileAvatar() {
-    const el = document.getElementById("mob-profile-avatar");
-    if (!el) return;
-    if (mobProfile && mobProfile.avatar_data_url) {
-        el.innerHTML = `<img src="${mobProfile.avatar_data_url}" alt="">`;
-    } else {
-        el.innerHTML = `<i class="fa-solid fa-user"></i>`;
+    const hasPhoto = !!(mobProfile && mobProfile.avatar_data_url);
+    const dropdownEl = document.getElementById("mob-profile-avatar");
+    if (dropdownEl) {
+        dropdownEl.innerHTML = hasPhoto ? `<img src="${mobProfile.avatar_data_url}" alt="">` : `<i class="fa-solid fa-user"></i>`;
+    }
+    // Header's own profile icon button — same photo, smaller, so the
+    // header itself shows who's logged in, not just the dropdown.
+    const headerEl = document.getElementById("header-profile-icon");
+    if (headerEl) {
+        headerEl.innerHTML = hasPhoto ? `<img src="${mobProfile.avatar_data_url}" alt="">` : `<i class="fa-regular fa-circle-user"></i>`;
     }
 }
 

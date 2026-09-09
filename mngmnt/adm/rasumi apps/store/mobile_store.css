@@ -414,6 +414,19 @@ body {
     justify-content: center;
 }
 
+#header-profile-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#header-profile-icon img {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
 .header-icon-badge {
     position: absolute;
     top: -1px;
