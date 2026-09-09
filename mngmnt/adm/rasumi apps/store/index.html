@@ -11,6 +11,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- JetBrains Mono — matches the desktop Store Management app's login
+         screen (src/web/store_portal.html/.css) exactly, so the mobile
+         auth screens look like the same product, not a different app. -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     
     <!-- Chart.js only — this page no longer talks to Supabase directly.
          All data goes through the store-api Cloud Function proxy (see
@@ -52,16 +56,28 @@
          read access anymore: every request to store-api needs a session
          token minted by /login, which itself is just a thin wrapper over
          the SAME store_verify_login RPC the desktop app's lock screen
-         uses (see functions/store_api/routes/login.js). -->
-    <div id="mob-login-screen" class="mob-login-container" style="display: none;">
-        <div class="mob-login-card">
-            <div class="header-logo" style="width:56px;height:56px;font-size:24px;margin:0 auto 14px;">R</div>
-            <div class="desktop-blocked-title" style="font-size:18px;">RASUMI STORE PORTAL</div>
-            <form id="mob-login-form" onsubmit="submitMobLogin(event)" style="margin-top:18px; display:flex; flex-direction:column; gap:10px;">
-                <input type="text" id="mob-login-userid" class="input-sm" placeholder="Staff ID" required autocomplete="username">
-                <input type="password" id="mob-login-password" class="input-sm" placeholder="Password" autocomplete="current-password">
-                <div id="mob-login-error" style="color:var(--red-alert); font-size:12px; display:none;"></div>
-                <button type="submit" id="mob-login-submit" class="btn-primary-sm" style="margin-top:4px;"><i class="fa-solid fa-right-to-bracket"></i> Log In</button>
+         uses (see functions/store_api/routes/login.js).
+
+         Visual design is a deliberate 1:1 port of the desktop Store
+         Management app's own login screen (src/web/store_portal.html /
+         store_portal.css — #portal-login-overlay / .cyber-box) so mobile
+         and desktop feel like the same product, not two different apps.
+         Same logo/background assets, same JetBrains Mono font, same hot-
+         pink (#ff008c) accent, same square-cornered glass-card styling. -->
+    <div id="mob-login-screen" class="mob-auth-screen" style="display: none;">
+        <div class="mob-auth-grid"></div>
+        <div class="mob-cyber-box">
+            <img src="assets/store_portal_logo.png" alt="Rasumi" class="mob-auth-logo" onerror="this.style.display='none'">
+            <p class="mob-auth-subtitle">RASUMI STORE OPERATIONS PORTAL</p>
+            <form id="mob-login-form" onsubmit="submitMobLogin(event)">
+                <div class="mob-input-group">
+                    <input type="text" id="mob-login-userid" placeholder="STAFF ID" required autocomplete="username">
+                </div>
+                <div class="mob-input-group">
+                    <input type="password" id="mob-login-password" placeholder="PASSWORD" autocomplete="current-password">
+                </div>
+                <button type="submit" id="mob-login-submit" class="mob-cyber-btn">SIGN IN</button>
+                <div id="mob-login-error" class="mob-auth-error"></div>
             </form>
         </div>
     </div>
@@ -69,39 +85,46 @@
     <!-- 2FA — First-time link to Google Authenticator. Shown only once per
          staff account: after this succeeds, totp_enabled flips on
          server-side and this screen never shows again for that account
-         (only /totp/verify's simpler code-only screen, for a NEW device). -->
-    <div id="mob-totp-setup-screen" class="mob-login-container" style="display: none;">
-        <div class="mob-login-card">
-            <div class="header-logo" style="width:56px;height:56px;font-size:24px;margin:0 auto 14px;"><i class="fa-solid fa-shield-halved"></i></div>
-            <div class="desktop-blocked-title" style="font-size:18px;">LINK GOOGLE AUTHENTICATOR</div>
-            <div style="color:var(--text-muted); font-size:12px; margin-top:8px; line-height:1.5;">
+         (only /totp/verify's simpler code-only screen, for a NEW device).
+         Same cyber-box visual system as the login screen above. -->
+    <div id="mob-totp-setup-screen" class="mob-auth-screen" style="display: none;">
+        <div class="mob-auth-grid"></div>
+        <div class="mob-cyber-box">
+            <img src="assets/store_portal_logo.png" alt="Rasumi" class="mob-auth-logo mob-auth-logo-sm" onerror="this.style.display='none'">
+            <p class="mob-auth-title"><i class="fa-solid fa-shield-halved"></i> LINK GOOGLE AUTHENTICATOR</p>
+            <p class="mob-auth-desc">
                 Open Google Authenticator (or another TOTP app) and scan this QR code to link your account. This is a one-time setup.
-            </div>
-            <div id="mob-totp-qr" style="display:flex; justify-content:center; margin:16px 0; background:#fff; padding:12px; border-radius:8px; width:fit-content; margin-left:auto; margin-right:auto;"></div>
-            <div style="color:var(--text-muted); font-size:11px;">Can't scan? Enter this code manually:</div>
-            <div id="mob-totp-secret-fallback" style="font-family:monospace; font-size:13px; letter-spacing:1px; word-break:break-all; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:6px; padding:8px; margin:6px 0 14px;"></div>
-            <form id="mob-totp-setup-form" onsubmit="submitMobTotpSetup(event)" style="display:flex; flex-direction:column; gap:10px;">
-                <input type="text" id="mob-totp-setup-code" class="input-sm" placeholder="Enter 6-digit code" inputmode="numeric" pattern="[0-9]*" maxlength="6" required autocomplete="one-time-code">
-                <div id="mob-totp-setup-error" style="color:var(--red-alert); font-size:12px; display:none;"></div>
-                <button type="submit" id="mob-totp-setup-submit" class="btn-primary-sm" style="margin-top:4px;"><i class="fa-solid fa-link"></i> Verify &amp; Link Device</button>
+            </p>
+            <div id="mob-totp-qr" class="mob-auth-qr"></div>
+            <p class="mob-auth-desc" style="margin-bottom:6px;">Can't scan? Enter this code manually:</p>
+            <div id="mob-totp-secret-fallback" class="mob-auth-secret"></div>
+            <form id="mob-totp-setup-form" onsubmit="submitMobTotpSetup(event)">
+                <div class="mob-input-group">
+                    <input type="text" id="mob-totp-setup-code" placeholder="ENTER 6-DIGIT CODE" inputmode="numeric" pattern="[0-9]*" maxlength="6" required autocomplete="one-time-code">
+                </div>
+                <button type="submit" id="mob-totp-setup-submit" class="mob-cyber-btn"><i class="fa-solid fa-link"></i> VERIFY &amp; LINK DEVICE</button>
+                <div id="mob-totp-setup-error" class="mob-auth-error"></div>
             </form>
         </div>
     </div>
 
     <!-- 2FA — code prompt for a NEW device on an account that already has
          TOTP enabled (staff already linked their authenticator before,
-         just not from this browser). -->
-    <div id="mob-totp-verify-screen" class="mob-login-container" style="display: none;">
-        <div class="mob-login-card">
-            <div class="header-logo" style="width:56px;height:56px;font-size:24px;margin:0 auto 14px;"><i class="fa-solid fa-shield-halved"></i></div>
-            <div class="desktop-blocked-title" style="font-size:18px;">TWO-FACTOR VERIFICATION</div>
-            <div style="color:var(--text-muted); font-size:12px; margin-top:8px; line-height:1.5;">
+         just not from this browser). Same cyber-box visual system. -->
+    <div id="mob-totp-verify-screen" class="mob-auth-screen" style="display: none;">
+        <div class="mob-auth-grid"></div>
+        <div class="mob-cyber-box">
+            <img src="assets/store_portal_logo.png" alt="Rasumi" class="mob-auth-logo mob-auth-logo-sm" onerror="this.style.display='none'">
+            <p class="mob-auth-title"><i class="fa-solid fa-shield-halved"></i> TWO-FACTOR VERIFICATION</p>
+            <p class="mob-auth-desc">
                 New device detected. Enter the 6-digit code from your Google Authenticator app.
-            </div>
-            <form id="mob-totp-verify-form" onsubmit="submitMobTotpVerify(event)" style="margin-top:14px; display:flex; flex-direction:column; gap:10px;">
-                <input type="text" id="mob-totp-verify-code" class="input-sm" placeholder="Enter 6-digit code" inputmode="numeric" pattern="[0-9]*" maxlength="6" required autocomplete="one-time-code">
-                <div id="mob-totp-verify-error" style="color:var(--red-alert); font-size:12px; display:none;"></div>
-                <button type="submit" id="mob-totp-verify-submit" class="btn-primary-sm" style="margin-top:4px;"><i class="fa-solid fa-check"></i> Verify</button>
+            </p>
+            <form id="mob-totp-verify-form" onsubmit="submitMobTotpVerify(event)">
+                <div class="mob-input-group">
+                    <input type="text" id="mob-totp-verify-code" placeholder="ENTER 6-DIGIT CODE" inputmode="numeric" pattern="[0-9]*" maxlength="6" required autocomplete="one-time-code">
+                </div>
+                <button type="submit" id="mob-totp-verify-submit" class="mob-cyber-btn"><i class="fa-solid fa-check"></i> VERIFY</button>
+                <div id="mob-totp-verify-error" class="mob-auth-error"></div>
             </form>
         </div>
     </div>
