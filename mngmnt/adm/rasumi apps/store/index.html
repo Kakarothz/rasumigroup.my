@@ -28,15 +28,23 @@
 </head>
 <body>
 
-    <!-- Mobile Device Guard (Desktop Block Screen Container) -->
-    <div id="desktop-blocked-screen" class="desktop-blocked-container" style="display: none;">
-        <div class="desktop-blocked-card">
-            <div class="desktop-blocked-icon">📱</div>
-            <div class="desktop-blocked-title">Akses Terhad (Mobile App Sahaja)</div>
-            <div class="desktop-blocked-desc">
-                Portal Store Mobile ini direka khas untuk peranti telefon pintar dan tablet sahaja.<br><br>
-                Sila imbas atau buka URL <strong>rasumigroup.my</strong> pada peranti mudah alih anda untuk mengakses sistem ini.
+    <!-- Mobile Device Guard — deliberately styled as a genuine-looking
+         GitHub Pages 404, not an "access restricted" notice. A desktop
+         visitor (anyone who isn't mobile-guard-passing staff) should come
+         away thinking this URL simply doesn't exist, not that there's a
+         portal here worth trying to break into. Do not reintroduce any
+         "mobile only" / "restricted access" wording on this screen. -->
+    <div id="desktop-blocked-screen" class="gh404-page" style="display: none;">
+        <div class="gh404-container">
+            <h1 class="gh404-heading">404</h1>
+            <div class="gh404-suggestion">
+                <p><strong>File not found</strong></p>
+                <p>The site configured at this address does not contain the requested file.</p>
+                <p>If this is your site, make sure that the filename case matches the URL as well as any file permissions.</p>
+                <p>For root URLs (like <code>http://example.com/</code>) you must provide an <code>index.html</code> file.</p>
+                <p><a href="https://docs.github.com/pages">Read the full documentation</a> for more information about using <strong>GitHub Pages</strong>.</p>
             </div>
+            <p class="gh404-info"><i class="fa-brands fa-github"></i>&nbsp; GitHub Status &mdash; <a href="https://www.githubstatus.com/">@githubstatus</a></p>
         </div>
     </div>
 
@@ -67,13 +75,13 @@
             <div class="header-logo" style="width:56px;height:56px;font-size:24px;margin:0 auto 14px;"><i class="fa-solid fa-shield-halved"></i></div>
             <div class="desktop-blocked-title" style="font-size:18px;">LINK GOOGLE AUTHENTICATOR</div>
             <div style="color:var(--text-muted); font-size:12px; margin-top:8px; line-height:1.5;">
-                Buka app Google Authenticator (atau app TOTP lain), scan QR code ni untuk daftar akaun anda. Wajib buat sekali sahaja.
+                Open Google Authenticator (or another TOTP app) and scan this QR code to link your account. This is a one-time setup.
             </div>
             <div id="mob-totp-qr" style="display:flex; justify-content:center; margin:16px 0; background:#fff; padding:12px; border-radius:8px; width:fit-content; margin-left:auto; margin-right:auto;"></div>
-            <div style="color:var(--text-muted); font-size:11px;">Tak boleh scan? Masukkan kod ni secara manual:</div>
+            <div style="color:var(--text-muted); font-size:11px;">Can't scan? Enter this code manually:</div>
             <div id="mob-totp-secret-fallback" style="font-family:monospace; font-size:13px; letter-spacing:1px; word-break:break-all; background:var(--bg-dark); border:1px solid var(--border-color); border-radius:6px; padding:8px; margin:6px 0 14px;"></div>
             <form id="mob-totp-setup-form" onsubmit="submitMobTotpSetup(event)" style="display:flex; flex-direction:column; gap:10px;">
-                <input type="text" id="mob-totp-setup-code" class="input-sm" placeholder="Masukkan 6-digit kod" inputmode="numeric" pattern="[0-9]*" maxlength="6" required autocomplete="one-time-code">
+                <input type="text" id="mob-totp-setup-code" class="input-sm" placeholder="Enter 6-digit code" inputmode="numeric" pattern="[0-9]*" maxlength="6" required autocomplete="one-time-code">
                 <div id="mob-totp-setup-error" style="color:var(--red-alert); font-size:12px; display:none;"></div>
                 <button type="submit" id="mob-totp-setup-submit" class="btn-primary-sm" style="margin-top:4px;"><i class="fa-solid fa-link"></i> Verify &amp; Link Device</button>
             </form>
@@ -88,10 +96,10 @@
             <div class="header-logo" style="width:56px;height:56px;font-size:24px;margin:0 auto 14px;"><i class="fa-solid fa-shield-halved"></i></div>
             <div class="desktop-blocked-title" style="font-size:18px;">TWO-FACTOR VERIFICATION</div>
             <div style="color:var(--text-muted); font-size:12px; margin-top:8px; line-height:1.5;">
-                Device baru dikesan. Masukkan 6-digit kod dari Google Authenticator anda.
+                New device detected. Enter the 6-digit code from your Google Authenticator app.
             </div>
             <form id="mob-totp-verify-form" onsubmit="submitMobTotpVerify(event)" style="margin-top:14px; display:flex; flex-direction:column; gap:10px;">
-                <input type="text" id="mob-totp-verify-code" class="input-sm" placeholder="Masukkan 6-digit kod" inputmode="numeric" pattern="[0-9]*" maxlength="6" required autocomplete="one-time-code">
+                <input type="text" id="mob-totp-verify-code" class="input-sm" placeholder="Enter 6-digit code" inputmode="numeric" pattern="[0-9]*" maxlength="6" required autocomplete="one-time-code">
                 <div id="mob-totp-verify-error" style="color:var(--red-alert); font-size:12px; display:none;"></div>
                 <button type="submit" id="mob-totp-verify-submit" class="btn-primary-sm" style="margin-top:4px;"><i class="fa-solid fa-check"></i> Verify</button>
             </form>

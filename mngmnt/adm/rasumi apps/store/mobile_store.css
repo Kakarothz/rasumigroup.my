@@ -37,32 +37,80 @@ body {
     padding-bottom: calc(var(--nav-height) + 10px);
 }
 
-/* Mobile Guard Notice */
-.desktop-blocked-container {
+/* Mobile Guard — deliberately a look-alike GitHub Pages 404, not a
+   dark-themed "restricted" notice. Light background on purpose: a real
+   GitHub 404 is a plain light page, and this screen only exists so a
+   desktop visitor believes the URL is simply dead. Don't reuse the app's
+   dark theme variables here. */
+.gh404-page {
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
     min-height: 100vh;
     padding: 24px;
+    background-color: #f6f8fa;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.gh404-container {
+    max-width: 480px;
     text-align: center;
-    background-color: var(--bg-dark);
+    color: #24292f;
 }
 
-.desktop-blocked-card {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 32px 24px;
-    max-width: 420px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+.gh404-heading {
+    font-size: 96px;
+    font-weight: 300;
+    color: #57606a;
+    margin: 0 0 8px;
+    line-height: 1;
 }
 
-.desktop-blocked-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
+.gh404-suggestion p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #57606a;
+    margin: 10px 0;
 }
 
+.gh404-suggestion strong {
+    color: #24292f;
+}
+
+.gh404-suggestion code {
+    background-color: rgba(175,184,193,0.2);
+    border-radius: 4px;
+    padding: 0.1em 0.3em;
+    font-size: 90%;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.gh404-suggestion a {
+    color: #0969da;
+    text-decoration: none;
+}
+
+.gh404-suggestion a:hover {
+    text-decoration: underline;
+}
+
+.gh404-info {
+    margin-top: 24px;
+    font-size: 12px;
+    color: #8c959f;
+}
+
+.gh404-info a {
+    color: #8c959f;
+    text-decoration: none;
+}
+
+.gh404-info a:hover {
+    text-decoration: underline;
+}
+
+/* Shared bold red header used by the login/2FA screens further down (NOT
+   the 404 guard above, which has its own gh404-* styling). */
 .desktop-blocked-title {
     color: var(--red-alert);
     font-size: 18px;

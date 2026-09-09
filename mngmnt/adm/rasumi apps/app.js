@@ -11367,7 +11367,7 @@
   function _sstaffDevicesHtml(devices) {
     devices = devices || [];
     if (!devices.length) {
-      return '<div style="font-size:10px;color:var(--rc-text-dim,#6b7280);">Tiada device didaftarkan lagi.</div>';
+      return '<div style="font-size:10px;color:var(--rc-text-dim,#6b7280);">No devices registered yet.</div>';
     }
     var html = '<div style="display:flex;flex-direction:column;gap:4px;">';
     devices.forEach(function (d) {
