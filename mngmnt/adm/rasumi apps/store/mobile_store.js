@@ -203,8 +203,15 @@ function showTotpVerifyScreen() {
 async function showAppScreen() {
     hideAllAuthScreens();
     document.getElementById("mobile-app-wrapper").style.display = "block";
-    if (mobSession && mobSession.user && mobSession.user.home_branch_code) {
-        currentBranch = mobSession.user.home_branch_code;
+    // SUPER_ADMIN accounts carry home_branch_code = "ALL" (all-branch
+    // access), which isn't a real store_locations row — passing it
+    // straight to /dashboard, /masterlist etc. gets rejected server-side
+    // ("Branch ALL does not exist."). Fall back to the default FVKL for
+    // those accounts; the branch selector still lets them switch to any
+    // real branch afterward.
+    const homeBranch = mobSession && mobSession.user && mobSession.user.home_branch_code;
+    if (homeBranch && homeBranch.toUpperCase() !== "ALL") {
+        currentBranch = homeBranch;
         const sel = document.getElementById("mob-branch-select");
         if (sel) sel.value = currentBranch;
     }
