@@ -238,6 +238,73 @@ function renderMobGreeting() {
     setText("dt-greeting-date-text", dateStr);
 }
 
+// ── Header: notification bell + profile menu ────────────────────────
+// Bell scrolls to the real Alerts & Notifications panel instead of
+// duplicating it as a separate fake notification list; its badge is the
+// same real alert count that panel computes (see renderDashAlerts()).
+function renderHeaderNotifBadge(count) {
+    const badge = document.getElementById("mob-notif-badge");
+    if (!badge) return;
+    if (count > 0) {
+        badge.textContent = count > 9 ? "9+" : String(count);
+        badge.style.display = "flex";
+    } else {
+        badge.style.display = "none";
+    }
+}
+
+function toggleNotifPanel() {
+    closeProfileMenu();
+    switchMobTab("dash");
+    const anchor = document.getElementById("panel-alerts-anchor");
+    if (anchor) anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// Profile menu — real session data only (name/role/branch), no invented
+// "Settings" screens with nothing behind them. SUPER_ADMIN accounts get
+// the branch switcher here (moved out of the header); everyone else just
+// sees their own name/role + Log Out.
+function toggleProfileMenu() {
+    const menu = document.getElementById("mob-profile-menu");
+    if (!menu) return;
+    if (menu.style.display === "block") {
+        closeProfileMenu();
+    } else {
+        populateProfileMenu();
+        menu.style.display = "block";
+        setTimeout(() => document.addEventListener("click", handleProfileMenuOutsideClick), 0);
+    }
+}
+
+function closeProfileMenu() {
+    const menu = document.getElementById("mob-profile-menu");
+    if (menu) menu.style.display = "none";
+    document.removeEventListener("click", handleProfileMenuOutsideClick);
+}
+
+function handleProfileMenuOutsideClick(e) {
+    const menu = document.getElementById("mob-profile-menu");
+    if (!menu || menu.contains(e.target)) return;
+    closeProfileMenu();
+}
+
+function populateProfileMenu() {
+    const user = mobSession && mobSession.user;
+    const name = (user && (user.full_name || user.name)) || "Staff";
+    setText("mob-profile-name", name);
+    const role = (user && user.role) || "";
+    setText("mob-profile-role", role ? role.replace(/_/g, " ").toLowerCase() : "—");
+
+    const branchRow = document.getElementById("mob-profile-branch-row");
+    if (!branchRow) return;
+    const isSuperAdmin = role === "SUPER_ADMIN";
+    branchRow.style.display = isSuperAdmin ? "block" : "none";
+    if (isSuperAdmin) {
+        const sel = document.getElementById("mob-branch-select");
+        if (sel) sel.value = currentBranch;
+    }
+}
+
 // ── 3. Initialization ───────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
     if (!checkDeviceGuard()) return;
@@ -405,6 +472,7 @@ function logoutMob() {
 // ── 5. Branch Change Handler ─────────────────────────────────────────
 async function onMobBranchChange(branchCode) {
     currentBranch = branchCode;
+    closeProfileMenu(); // branch switcher now lives in the profile menu
     await loadMobMasterlist();
     await loadMobDashboardStats();
     const bincardSelect = document.getElementById("mob-bincard-sku-select");
@@ -414,10 +482,17 @@ async function onMobBranchChange(branchCode) {
 }
 
 // ── 6. Tab Navigation Switcher ───────────────────────────────────────
+// The top horizontal sub-tabs bar is gone — the bottom nav is now the
+// only navigation, so this only needs to touch panels + bottom nav items.
+// IMPORTANT: scope the nav-item lookup to .mobile-bottom-nav specifically.
+// A bare ".nav-item" query used to also match the old header logout
+// button (it shared the same class), which shifted every active-state
+// index off by one — e.g. clicking "Home" would highlight the logout
+// icon instead of the actual Home button. The logout button now lives in
+// the profile menu with its own class, but scoping here defensively
+// prevents this exact class-collision bug from recurring.
 function switchMobTab(tabName) {
     document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
-    document.querySelectorAll(".tab-btn-sm").forEach((b) => b.classList.remove("active"));
-    document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("active"));
 
     const targetPanel = document.getElementById(`panel-${tabName}`);
     if (targetPanel) targetPanel.classList.add("active");
@@ -425,10 +500,8 @@ function switchMobTab(tabName) {
     const tabsMap = { dash: 0, masterlist: 1, bincard: 2, receive: 3, transfer: 4 };
     const tabIdx = tabsMap[tabName] || 0;
 
-    const subTabBtns = document.querySelectorAll(".tab-btn-sm");
-    if (subTabBtns[tabIdx]) subTabBtns[tabIdx].classList.add("active");
-
-    const bottomNavBtns = document.querySelectorAll(".nav-item");
+    const bottomNavBtns = document.querySelectorAll(".mobile-bottom-nav .nav-item");
+    bottomNavBtns.forEach((n) => n.classList.remove("active"));
     if (bottomNavBtns[tabIdx]) bottomNavBtns[tabIdx].classList.add("active");
 
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -828,6 +901,10 @@ function renderDashAlerts(data) {
     if (data.sync_online === false) {
         alerts.push({ icon: "🔄", pill: "yellow", title: "VIMS Sync Offline", desc: data.last_sync_label || "Never synced", count: null });
     }
+
+    // Header bell badge — same real alert count computed above, not a
+    // separate/fake notification counter.
+    renderHeaderNotifBadge(alerts.length);
 
     if (alerts.length === 0) {
         list.innerHTML = `<div class="dt-empty">No active alerts</div>`;
