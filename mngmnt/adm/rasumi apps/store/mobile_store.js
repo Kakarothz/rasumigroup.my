@@ -236,11 +236,17 @@ async function showAppScreen() {
         if (sel) sel.value = currentBranch;
     }
     renderMobGreeting();
-    await loadMobMasterlist();
-    await loadMobDashboardStats();
+    // These 4 network calls are independent of each other (none reads
+    // another's result — dashboard stats don't need masterlistData, the
+    // notif badge/profile fetches don't need either) so they run
+    // concurrently instead of one after another. Previously
+    // loadMobMasterlist and loadMobDashboardStats were sequential
+    // `await`s — each a full Worker->Supabase round trip — so page load
+    // took roughly their SUM; this brings it down to roughly the slowest
+    // of the four. loadMobBinCardDropdown() is a synchronous no-op, not
+    // part of this (see its own comment).
+    await Promise.all([loadMobMasterlist(), loadMobDashboardStats(), refreshNotifBadge(), loadMobProfile()]);
     loadMobBinCardDropdown();
-    refreshNotifBadge();
-    loadMobProfile();
 }
 
 // Fetches the caller's own profile row (Full Name + avatar) so the
@@ -863,13 +869,13 @@ function logoutMob() {
 async function onMobBranchChange(branchCode) {
     currentBranch = branchCode;
     closeProfileMenu(); // branch switcher now lives in the profile menu
-    await loadMobMasterlist();
-    await loadMobDashboardStats();
+    // Independent calls — run concurrently rather than sum their latency
+    // (see the matching comment in showAppScreen()).
+    await Promise.all([loadMobMasterlist(), loadMobDashboardStats(), refreshNotifBadge()]);
     const bincardSelect = document.getElementById("mob-bincard-sku-select");
     if (bincardSelect && bincardSelect.value) {
         loadMobBinCard(bincardSelect.value);
     }
-    refreshNotifBadge(); // switching branch switches whose Transfer Queue applies
 }
 
 // ── 6. Tab Navigation Switcher ───────────────────────────────────────
