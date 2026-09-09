@@ -491,11 +491,17 @@ function openItemBinCard(sku) {
     loadMobBinCard(sku);
 }
 
-// ── 8. Bin Card Ledger Loader ────────────────────────────────────────
+// ── 8. Bin Card Ledger Loader ──────────────────────────────────────────
+// Markup mirrors the desktop app's Stock Control Card exactly (grouped
+// PARTICULARS/REMARKS header, MFG + EXPIRY columns the old mobile table
+// didn't show at all) — see index.html #panel-bincard.
 async function loadMobBinCard(sku) {
     if (!sku) {
-        document.getElementById("mob-bincard-meta").style.display = "none";
-        document.getElementById("mob-bincard-tbody").innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--text-muted);">Select a product to view ledger</td></tr>`;
+        document.getElementById("mob-bin-name").textContent = "SELECT AN ITEM TO VIEW";
+        document.getElementById("mob-bin-sku").textContent = "-";
+        document.getElementById("mob-bin-price").textContent = "-";
+        document.getElementById("mob-bin-pack").textContent = "-";
+        document.getElementById("mob-bincard-tbody").innerHTML = `<tr><td colspan="11" class="dt-empty">Select a product above to load its transaction history ledger.</td></tr>`;
         return;
     }
 
@@ -503,117 +509,223 @@ async function loadMobBinCard(sku) {
         const { ok, data } = await apiFetch(`/bincard?sku=${encodeURIComponent(sku)}&branch_code=${encodeURIComponent(currentBranch)}`);
         if (!ok || data.error) throw new Error(data.error || "Failed to load bin card.");
 
-        document.getElementById("mob-bincard-meta").style.display = "block";
         document.getElementById("mob-bin-name").textContent = (data.name || "").toUpperCase();
         document.getElementById("mob-bin-sku").textContent = data.sku || sku;
         document.getElementById("mob-bin-pack").textContent = data.pack_size || 1;
-
-        const boxPrice = parseFloat(data.selling_price || 0);
-        const packSz = data.pack_size || 1;
-        const tabPrice = packSz > 0 ? boxPrice / packSz : boxPrice;
-        document.getElementById("mob-bin-price-box").textContent = `RM ${boxPrice.toFixed(2)}`;
-        document.getElementById("mob-bin-price-tab").textContent = `RM ${tabPrice.toFixed(2)}`;
+        document.getElementById("mob-bin-price").textContent = parseFloat(data.selling_price || 0).toFixed(2);
 
         const rows = data.ledger || [];
         const tbody = document.getElementById("mob-bincard-tbody");
         if (rows.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--text-muted);">No ledger movements recorded for this item</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="11" class="dt-empty">No ledger movements recorded for this item</td></tr>`;
         } else {
             tbody.innerHTML = rows.map((r) => `
                 <tr>
-                    <td style="text-align:center;">${r.no}</td>
+                    <td>${r.no}</td>
                     <td>${escapeHtml(r.date)}</td>
                     <td>${escapeHtml(r.po || "-")}</td>
                     <td>${escapeHtml(r.inv || "-")}</td>
-                    <td style="text-align:center; color:#60a5fa; font-weight:700;">${r.in || "-"}</td>
-                    <td style="text-align:center; color:#f87171; font-weight:700;">${r.out || "-"}</td>
-                    <td style="text-align:center; font-weight:800;">${r.bal}</td>
+                    <td class="dt-in">${r.in || "-"}</td>
+                    <td class="dt-out">${r.out || "-"}</td>
+                    <td><strong>${r.bal}</strong></td>
                     <td>${escapeHtml(r.batch || "-")}</td>
+                    <td>${escapeHtml(r.mfg || "-")}</td>
+                    <td>${escapeHtml(r.expiry || "-")}</td>
                     <td>${escapeHtml((r.staff || "SYSTEM").toUpperCase())}</td>
                 </tr>
             `).join("");
         }
     } catch (e) {
         console.error("Error loading bin card:", e);
-        document.getElementById("mob-bincard-tbody").innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--red-alert);">Error loading ledger: ${escapeHtml(e.message)}</td></tr>`;
+        document.getElementById("mob-bincard-tbody").innerHTML = `<tr><td colspan="11" class="dt-empty" style="color:var(--red-alert);">Error loading ledger: ${escapeHtml(e.message)}</td></tr>`;
     }
 }
 
-// ── 9. Dashboard Stats & Chart Loader ─────────────────────────────────
+// ── 9. Dashboard Stats & Chart Loader ───────────────────────────────────
+// 1:1 port of the desktop "Store Metrics Dashboard" (src/web/
+// store_portal.html view-dashboard + store_portal.js renderInventoryFlow-
+// Chart) — same 5 KPI fields, same panel sections, same mixed bar+line
+// chart config. All fields below already exist in get_store_dashboard_
+// stats()'s response (cloudflare/store-api/src/routes/dashboard.js) —
+// this only changes how the mobile page RENDERS them, not the backend.
 async function loadMobDashboardStats() {
     try {
         const { ok, data } = await apiFetch(`/dashboard?branch_code=${encodeURIComponent(currentBranch)}`);
         if (!ok || data.error) throw new Error(data.error || "Failed to load dashboard.");
 
-        document.getElementById("mob-stat-total-items").textContent = data.total_items;
-        document.getElementById("mob-stat-stock-val").textContent = `RM ${(data.stock_value / 1000).toFixed(1)}k`;
-        document.getElementById("mob-stat-low-stock").textContent = data.remaining_stock;
-        document.getElementById("mob-stat-out-stock").textContent = data.out_of_stock;
+        const branchLabelEl = document.getElementById("dt-dash-branch");
+        if (branchLabelEl) branchLabelEl.textContent = currentBranch;
 
-        const outTbody = document.getElementById("mob-dash-outstock-tbody");
-        const outList = data.out_of_stock_list || [];
-        if (outList.length === 0) {
-            outTbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--emerald-green);">All items in stock 👍</td></tr>`;
-        } else {
-            outTbody.innerHTML = outList.slice(0, 5).map((p) => `
-                <tr>
-                    <td><strong style="color:var(--primary-blue);">${escapeHtml(p.sku)}</strong></td>
-                    <td>${escapeHtml(p.name)}</td>
-                    <td>${escapeHtml(p.category || "General")}</td>
-                    <td style="color:var(--text-muted); font-size:10px;">${escapeHtml(p.date || "-")}</td>
-                </tr>
-            `).join("");
-        }
+        setText("dt-stat-total-transfer", data.total_transfer);
+        setText("dt-stat-out-stock", data.out_of_stock);
+        setText("dt-stat-total-in", data.total_in);
+        setText("dt-stat-total-out", data.total_out);
+        setText("dt-stat-remaining", data.remaining_stock);
 
-        const trfTbody = document.getElementById("mob-dash-transfers-tbody");
-        const transferSummary = data.transfer_summary || [];
-        if (transferSummary.length === 0) {
-            trfTbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No recent transfers</td></tr>`;
-        } else {
-            trfTbody.innerHTML = transferSummary.slice(0, 5).map((t) => {
-                const shortDest = formatDestShortform(t.destination);
-                const totalEvents = (t.received || 0) + (t.pending || 0);
-                const statusLabel = t.pending > 0 ? "Pending" : "Completed";
-                const statusColor = t.pending > 0 ? "var(--amber-warn)" : "var(--emerald-green)";
-                return `
-                    <tr>
-                        <td><strong>${totalEvents}x</strong></td>
-                        <td><span class="price-tag-box" style="background:rgba(245,158,11,0.15); color:#fbbf24;">${escapeHtml(shortDest)}</span></td>
-                        <td>${totalEvents} item(s)</td>
-                        <td><span style="color:${statusColor}; font-weight:700;">${statusLabel}</span></td>
-                    </tr>
-                `;
-            }).join("");
-        }
+        renderDtTable("mob-dash-outstock-tbody", data.out_of_stock_list, 3, "All items in stock", (p) => `
+            <tr>
+                <td><strong style="color:var(--primary-blue);">${escapeHtml(p.sku)}</strong></td>
+                <td>${escapeHtml(p.name)}</td>
+                <td style="color:var(--dt-text-muted); font-size:10px;">${escapeHtml(p.date || "-")}</td>
+            </tr>
+        `);
 
+        renderDtTable("mob-dash-transfers-tbody", data.transfer_summary, 4, "No recent transfers", (t) => `
+            <tr>
+                <td>${escapeHtml(formatDestShortform(t.destination))}</td>
+                <td class="dt-tc">${t.in_transit || 0}</td>
+                <td class="dt-tc">${t.received || 0}</td>
+                <td class="dt-tc">${t.pending || 0}</td>
+            </tr>
+        `);
+
+        renderDtTable("dash-fast-tbody", data.fast_moving, 3, "No movement data yet", (p, i) => `
+            <tr>
+                <td><span class="dt-rank-badge">${i + 1}</span></td>
+                <td>${escapeHtml(p.name)}</td>
+                <td class="dt-tr">${p.total_qty}</td>
+            </tr>
+        `);
+
+        renderDtTable("dash-slow-tbody", data.slow_moving, 3, "No movement data yet", (p, i) => `
+            <tr>
+                <td><span class="dt-rank-badge">${i + 1}</span></td>
+                <td>${escapeHtml(p.name)}</td>
+                <td class="dt-tr">${p.total_qty}</td>
+            </tr>
+        `);
+
+        renderDtTable("dash-expiring-tbody", data.expiring_soon, 3, "No items expiring within 90 days", (p) => `
+            <tr>
+                <td>${escapeHtml(p.name)}</td>
+                <td class="dt-tc">${escapeHtml(p.expiry_date)}</td>
+                <td class="dt-tr">${p.qty}</td>
+            </tr>
+        `);
+
+        renderDashAlerts(data);
+        renderDashMiniStats(data);
         renderMobChart(data.chart_labels || [], data.chart_in || [], data.chart_out || []);
     } catch (e) {
         console.error("Error loading dashboard stats:", e);
     }
 }
 
+function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value == null ? "—" : value;
+}
+
+// Shared table-body renderer for every dashboard panel — desktop's
+// backend already returns these lists pre-sorted/pre-limited (fast_moving/
+// slow_moving to top 10, expiring_soon to 30), so this just maps rows to
+// markup and shows a friendly empty-state row otherwise.
+function renderDtTable(tbodyId, list, colspan, emptyMsg, rowFn) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    const rows = list || [];
+    if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${colspan}" class="dt-empty">${escapeHtml(emptyMsg)}</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = rows.map(rowFn).join("");
+}
+
+// Synthesized from the same stats every other panel uses — the desktop
+// app's exact alert-generation rule set lives in store_portal.js and
+// wasn't ported field-for-field; this covers the same real conditions
+// (out-of-stock count, items expiring soon, VIMS sync health) a pharmacy
+// staff member actually needs surfaced.
+function renderDashAlerts(data) {
+    const list = document.getElementById("dash-alerts-list");
+    if (!list) return;
+    const alerts = [];
+
+    if ((data.out_of_stock || 0) > 0) {
+        alerts.push({ icon: "⚠️", pill: "red", title: "Out of Stock Alerts", desc: "Items need immediate attention", count: data.out_of_stock });
+    }
+    if ((data.expiring_soon || []).length > 0) {
+        alerts.push({ icon: "⏳", pill: "orange", title: "Expiring Soon", desc: "Items expiring within 90 days", count: data.expiring_soon.length });
+    }
+    if (data.sync_online === false) {
+        alerts.push({ icon: "🔄", pill: "yellow", title: "VIMS Sync Offline", desc: data.last_sync_label || "Never synced", count: null });
+    }
+
+    if (alerts.length === 0) {
+        list.innerHTML = `<div class="dt-empty">No active alerts</div>`;
+        return;
+    }
+
+    list.innerHTML = alerts.map((a) => `
+        <div class="dt-alert-row">
+            <div class="dt-alert-left">
+                <span class="dt-alert-icon-pill ${a.pill}">${a.icon}</span>
+                <div>
+                    <div class="dt-alert-title">${escapeHtml(a.title)}</div>
+                    <div class="dt-alert-desc">${escapeHtml(a.desc)}</div>
+                </div>
+            </div>
+            ${a.count != null ? `<span class="dt-alert-count">${a.count}</span>` : ""}
+        </div>
+    `).join("");
+}
+
+function renderDashMiniStats(data) {
+    setText("mini-total-products", data.total_items);
+    setText("mini-total-categories", data.total_categories);
+    setText("mini-total-suppliers", data.total_suppliers);
+    setText("mini-stock-value", `RM ${Number(data.stock_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+    setText("mini-transactions", data.transactions_30d);
+    const pctEl = document.getElementById("mini-transactions-pct");
+    if (pctEl) {
+        const pct = data.transactions_30d_pct_change;
+        if (pct == null) {
+            pctEl.textContent = "";
+        } else {
+            pctEl.textContent = `${pct >= 0 ? "↑" : "↓"} ${Math.abs(pct)}% vs last month`;
+            pctEl.style.color = pct >= 0 ? "var(--dt-success)" : "var(--dt-danger)";
+        }
+    }
+    if (data.last_ledger_update) {
+        const daysAgo = data.last_ledger_days_ago;
+        setText("mini-last-ledger", daysAgo === 0 ? "Today" : `${data.last_ledger_update} (${daysAgo}d ago)`);
+    } else {
+        setText("mini-last-ledger", "No data");
+    }
+    setText("mini-sync-status", data.sync_online ? "Online" : (data.last_sync_label || "Offline"));
+}
+
+// Mixed bar+line config — matches desktop's renderInventoryFlowChart()
+// (store_portal.js) exactly: Net Flow as a line dataset drawn over Stock
+// In / Stock Out bars, Net Flow computed client-side as in-minus-out per
+// month (backend only sends the two raw series).
 function renderMobChart(labels, dataIn, dataOut) {
     const ctx = document.getElementById("mob-chart-trends");
     if (!ctx) return;
 
+    const netFlow = (dataIn || []).map((v, i) => (v || 0) - ((dataOut || [])[i] || 0));
+
     if (movementChart) movementChart.destroy();
 
     movementChart = new Chart(ctx, {
-        type: "line",
         data: {
             labels: labels.length ? labels : ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
             datasets: [
-                { label: "Stock In", data: dataIn, borderColor: "#2563eb", backgroundColor: "rgba(37, 99, 235, 0.1)", fill: true, tension: 0.4 },
-                { label: "Stock Out", data: dataOut, borderColor: "#ef4444", backgroundColor: "rgba(239, 68, 68, 0.1)", fill: true, tension: 0.4 },
+                { type: "line", label: "Net Flow", data: netFlow, borderColor: "#8b5cf6", borderWidth: 2.5, tension: 0.35, pointBackgroundColor: "#8b5cf6", pointRadius: 3, order: 1 },
+                { type: "bar", label: "Stock In", data: dataIn, backgroundColor: "#10b981", borderRadius: 4, barPercentage: 0.5, categoryPercentage: 0.7, order: 2 },
+                { type: "bar", label: "Stock Out", data: dataOut, backgroundColor: "#f97316", borderRadius: 4, barPercentage: 0.5, categoryPercentage: 0.7, order: 3 },
             ],
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: "#8b949e", font: { size: 10 } } } },
+            plugins: {
+                legend: { display: false },
+                tooltip: { backgroundColor: "#0f172a", padding: 10, cornerRadius: 8 },
+            },
             scales: {
-                x: { ticks: { color: "#6e7681", font: { size: 9 } }, grid: { color: "#21262d" } },
-                y: { ticks: { color: "#6e7681", font: { size: 9 } }, grid: { color: "#21262d" } },
+                x: { grid: { display: false }, ticks: { color: "#8b949e", font: { size: 9 } } },
+                y: { beginAtZero: true, grid: { color: "#21262d" }, ticks: { color: "#8b949e", font: { size: 9 }, callback: (v) => Number(v).toLocaleString() } },
             },
         },
     });

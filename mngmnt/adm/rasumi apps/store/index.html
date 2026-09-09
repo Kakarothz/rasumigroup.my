@@ -168,82 +168,161 @@
         <!-- Main Body Container -->
         <main class="main-container">
             
-            <!-- PANEL 1: DASHBOARD -->
+            <!-- PANEL 1: DASHBOARD — 1:1 port of the desktop Store Management
+                 app's "Store Metrics Dashboard" (src/web/store_portal.html,
+                 view-dashboard). Same 5 KPI cards, same panel cards, same
+                 Chart.js mixed bar+line config, same footer mini-stats —
+                 stacked into a single column for mobile width instead of
+                 desktop's multi-column grid, dark tokens instead of light. -->
             <section id="panel-dash" class="panel active">
-                
-                <!-- 2x2 Compact Stat Cards -->
-                <div class="stats-grid-2x2">
-                    <div class="stat-card-compact blue">
-                        <span class="stat-label">Total Items</span>
-                        <span id="mob-stat-total-items" class="stat-value">-</span>
-                        <span class="stat-sub">Active Products</span>
+
+                <div class="dt-page-header">
+                    <h1>Store Metrics Dashboard</h1>
+                    <p>Real-time balances and transaction analytics for branch <strong id="dt-dash-branch">FVKL</strong></p>
+                </div>
+
+                <!-- 5 KPI Cards -->
+                <div class="dt-kpi-grid">
+                    <div class="dt-kpi-card">
+                        <div class="dt-kpi-icon bg-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></div>
+                        <div class="dt-kpi-body">
+                            <span class="dt-kpi-label">TOTAL STOCK TRANSFER</span>
+                            <div class="dt-kpi-number" id="dt-stat-total-transfer">&mdash;</div>
+                            <span class="dt-kpi-sub">Transfers this month</span>
+                        </div>
                     </div>
-                    <div class="stat-card-compact green">
-                        <span class="stat-label">Stock Value Est.</span>
-                        <span id="mob-stat-stock-val" class="stat-value">-</span>
-                        <span class="stat-sub">Store Total (RM)</span>
+                    <div class="dt-kpi-card">
+                        <div class="dt-kpi-icon bg-red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8V21H3V8"/><path d="M1 3H23V8H1V3Z"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="9.5" y1="14.5" x2="14.5" y2="14.5"/></svg></div>
+                        <div class="dt-kpi-body">
+                            <span class="dt-kpi-label">TOTAL OUT OF STOCK</span>
+                            <div class="dt-kpi-number" id="dt-stat-out-stock">&mdash;</div>
+                            <span class="dt-kpi-sub">Items out of stock</span>
+                        </div>
                     </div>
-                    <div class="stat-card-compact amber">
-                        <span class="stat-label">Low Stock</span>
-                        <span id="mob-stat-low-stock" class="stat-value">-</span>
-                        <span class="stat-sub">Below Reorder Level</span>
+                    <div class="dt-kpi-card">
+                        <div class="dt-kpi-icon bg-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                        <div class="dt-kpi-body">
+                            <span class="dt-kpi-label">TOTAL STOCK IN</span>
+                            <div class="dt-kpi-number" id="dt-stat-total-in">&mdash;</div>
+                            <span class="dt-kpi-sub">Total received</span>
+                        </div>
                     </div>
-                    <div class="stat-card-compact red">
-                        <span class="stat-label">Out of Stock</span>
-                        <span id="mob-stat-out-stock" class="stat-value">-</span>
-                        <span class="stat-sub">0 Quantity Items</span>
+                    <div class="dt-kpi-card">
+                        <div class="dt-kpi-icon bg-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                        <div class="dt-kpi-body">
+                            <span class="dt-kpi-label">TOTAL STOCK OUT</span>
+                            <div class="dt-kpi-number" id="dt-stat-total-out">&mdash;</div>
+                            <span class="dt-kpi-sub">Total issued</span>
+                        </div>
+                    </div>
+                    <div class="dt-kpi-card">
+                        <div class="dt-kpi-icon bg-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
+                        <div class="dt-kpi-body">
+                            <span class="dt-kpi-label">REMAINING STOCK</span>
+                            <div class="dt-kpi-number" id="dt-stat-remaining">&mdash;</div>
+                            <span class="dt-kpi-sub">Current stock on hand</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Stock Movement Trend Chart -->
-                <div class="card-panel">
-                    <div class="card-title">
-                        <span><i class="fa-solid fa-chart-line text-blue"></i> Movement Trends</span>
-                        <span style="font-size:10px; color:var(--text-muted);">Last 30 Days</span>
+                <!-- Out of Stock Items -->
+                <div class="dt-panel-box">
+                    <div class="dt-panel-header">
+                        <div class="dt-panel-title"><span class="dt-panel-icon icon-red"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><h2>Out of Stock Items</h2></div>
                     </div>
-                    <div class="chart-container-sm">
+                    <div class="dt-table-wrap">
+                        <table class="dt-table">
+                            <thead><tr><th>SKU CODE</th><th>ITEM NAME</th><th>LAST UPDATE</th></tr></thead>
+                            <tbody id="mob-dash-outstock-tbody"><tr><td colspan="3" class="dt-empty">Loading data...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Stock Transfer Summary -->
+                <div class="dt-panel-box">
+                    <div class="dt-panel-header">
+                        <div class="dt-panel-title"><span class="dt-panel-icon icon-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></span><h2>Stock Transfer Summary</h2></div>
+                    </div>
+                    <div class="dt-table-wrap">
+                        <table class="dt-table">
+                            <thead><tr><th>DESTINATION</th><th class="dt-tc">IN TRANSIT</th><th class="dt-tc">RECEIVED</th><th class="dt-tc">PENDING</th></tr></thead>
+                            <tbody id="mob-dash-transfers-tbody"><tr><td colspan="4" class="dt-empty">Loading data...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Inventory Flow Chart -->
+                <div class="dt-panel-box">
+                    <div class="dt-panel-header">
+                        <div class="dt-panel-title"><span class="dt-panel-icon icon-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span><h2>Inventory Flow Chart</h2></div>
+                    </div>
+                    <div class="dt-chart-legend">
+                        <span class="dt-legend-item"><span class="dt-dot bg-green"></span> Stock In</span>
+                        <span class="dt-legend-item"><span class="dt-dot bg-orange"></span> Stock Out</span>
+                        <span class="dt-legend-item"><span class="dt-dot bg-purple"></span> Net Flow</span>
+                    </div>
+                    <div class="dt-chart-canvas-wrap">
                         <canvas id="mob-chart-trends"></canvas>
                     </div>
+                    <div class="dt-chart-tagline">Better inventory insights for a smarter tomorrow.</div>
                 </div>
 
-                <!-- Out of Stock Table Card -->
-                <div class="card-panel">
-                    <div class="card-title"><i class="fa-solid fa-triangle-exclamation text-red"></i> Out of Stock Items</div>
-                    <div class="table-responsive">
-                        <table class="mob-table">
-                            <thead>
-                                <tr>
-                                    <th>SKU</th>
-                                    <th>Item Name</th>
-                                    <th>Category</th>
-                                    <th>Last Update</th>
-                                </tr>
-                            </thead>
-                            <tbody id="mob-dash-outstock-tbody">
-                                <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Loading data...</td></tr>
-                            </tbody>
+                <!-- Fast Moving Items -->
+                <div class="dt-panel-box">
+                    <div class="dt-panel-header">
+                        <div class="dt-panel-title"><span class="dt-panel-icon icon-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span><h2>Fast Moving Items <span class="dt-badge-sub">(Top 10)</span></h2></div>
+                    </div>
+                    <div class="dt-table-wrap dt-scrollable">
+                        <table class="dt-table">
+                            <thead><tr><th style="width:36px;">#</th><th>ITEM NAME</th><th class="dt-tr">QTY OUT (30D)</th></tr></thead>
+                            <tbody id="dash-fast-tbody"><tr><td colspan="3" class="dt-empty">Loading data...</td></tr></tbody>
                         </table>
                     </div>
                 </div>
 
-                <!-- Stock Transfer Summary Card -->
-                <div class="card-panel">
-                    <div class="card-title"><i class="fa-solid fa-arrow-right-arrow-left text-amber"></i> Stock Transfer Summary</div>
-                    <div class="table-responsive">
-                        <table class="mob-table">
-                            <thead>
-                                <tr>
-                                    <th>Trf ID</th>
-                                    <th>Dest</th>
-                                    <th>Items</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="mob-dash-transfers-tbody">
-                                <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Loading data...</td></tr>
-                            </tbody>
+                <!-- Slow Moving Items -->
+                <div class="dt-panel-box">
+                    <div class="dt-panel-header">
+                        <div class="dt-panel-title"><span class="dt-panel-icon icon-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M12 2v20M4.9 4.9l14.2 14.2M19.1 4.9L4.9 19.1"/></svg></span><h2>Slow Moving Items <span class="dt-badge-sub">(Top 10)</span></h2></div>
+                    </div>
+                    <div class="dt-table-wrap dt-scrollable">
+                        <table class="dt-table">
+                            <thead><tr><th style="width:36px;">#</th><th>ITEM NAME</th><th class="dt-tr">QTY OUT (90D)</th></tr></thead>
+                            <tbody id="dash-slow-tbody"><tr><td colspan="3" class="dt-empty">Loading data...</td></tr></tbody>
                         </table>
                     </div>
+                </div>
+
+                <!-- Expiring Soon -->
+                <div class="dt-panel-box">
+                    <div class="dt-panel-header">
+                        <div class="dt-panel-title"><span class="dt-panel-icon icon-blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span><h2>Expiring Soon</h2></div>
+                    </div>
+                    <div class="dt-table-wrap dt-scrollable">
+                        <table class="dt-table">
+                            <thead><tr><th>ITEM NAME</th><th class="dt-tc">EXPIRY</th><th class="dt-tr">QTY</th></tr></thead>
+                            <tbody id="dash-expiring-tbody"><tr><td colspan="3" class="dt-empty">Loading data...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Alerts & Notifications -->
+                <div class="dt-panel-box">
+                    <div class="dt-panel-header">
+                        <div class="dt-panel-title"><span class="dt-panel-icon icon-yellow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><h2>Alerts &amp; Notifications</h2></div>
+                    </div>
+                    <div class="dt-alerts-list" id="dash-alerts-list"><div class="dt-empty">Loading data...</div></div>
+                </div>
+
+                <!-- Footer Mini Stats -->
+                <div class="dt-mini-stats-grid">
+                    <div class="dt-mini-stat"><span class="dt-mini-label">Total Products</span><span class="dt-mini-val" id="mini-total-products">&mdash;</span></div>
+                    <div class="dt-mini-stat"><span class="dt-mini-label">Total Categories</span><span class="dt-mini-val" id="mini-total-categories">&mdash;</span></div>
+                    <div class="dt-mini-stat"><span class="dt-mini-label">Total Suppliers</span><span class="dt-mini-val" id="mini-total-suppliers">&mdash;</span></div>
+                    <div class="dt-mini-stat"><span class="dt-mini-label">Stock Value (Est.)</span><span class="dt-mini-val" id="mini-stock-value">&mdash;</span></div>
+                    <div class="dt-mini-stat"><span class="dt-mini-label">Transactions (30D)</span><span class="dt-mini-val" id="mini-transactions">&mdash;</span><span class="dt-mini-sub" id="mini-transactions-pct"></span></div>
+                    <div class="dt-mini-stat"><span class="dt-mini-label">Last Ledger Update</span><span class="dt-mini-val" id="mini-last-ledger">&mdash;</span></div>
+                    <div class="dt-mini-stat"><span class="dt-mini-label">VIMS Sync</span><span class="dt-mini-val" id="mini-sync-status">&mdash;</span></div>
                 </div>
 
             </section>
@@ -281,7 +360,13 @@
                 </div>
             </section>
 
-            <!-- PANEL 3: BIN CARD -->
+            <!-- PANEL 3: BIN CARD — 1:1 port of the desktop app's "Stock
+                 Control Card (Bin Card)" (src/web/store_portal.html,
+                 view-bincard): item info meta table + STOCK CARD watermark,
+                 grouped-header ledger table (PARTICULARS/REMARKS column
+                 groups, including MFG/EXPIRY which the old mobile table
+                 didn't show at all). Dark tokens instead of desktop's
+                 white-paper print styling. -->
             <section id="panel-bincard" class="panel">
                 <div class="search-filter-bar">
                     <select id="mob-bincard-sku-select" class="input-sm" onchange="loadMobBinCard(this.value)">
@@ -289,35 +374,39 @@
                     </select>
                 </div>
 
-                <div id="mob-bincard-meta" class="bincard-meta-card" style="display: none;">
-                    <div id="mob-bin-name" class="bincard-meta-title">-</div>
-                    <div class="bincard-meta-grid">
-                        <div class="bincard-meta-item">SKU: <strong id="mob-bin-sku">-</strong></div>
-                        <div class="bincard-meta-item">Qty/Box: <strong id="mob-bin-pack">-</strong></div>
-                        <div class="bincard-meta-item">Selling Price (Box): <span id="mob-bin-price-box" class="price-tag-box">-</span></div>
-                        <div class="bincard-meta-item">Selling Price (Tab): <span id="mob-bin-price-tab" class="price-tag-tab">-</span></div>
-                    </div>
-                </div>
-
-                <div class="table-responsive">
-                    <table class="mob-table">
-                        <thead>
-                            <tr>
-                                <th>No</th>
-                                <th>Date</th>
-                                <th>PO / Ref</th>
-                                <th>Inv</th>
-                                <th style="color:#60a5fa;">In</th>
-                                <th style="color:#f87171;">Out</th>
-                                <th>Balance</th>
-                                <th>Batch</th>
-                                <th>Staff</th>
-                            </tr>
-                        </thead>
-                        <tbody id="mob-bincard-tbody">
-                            <tr><td colspan="9" style="text-align:center; color:var(--text-muted);">Select a product to view ledger</td></tr>
-                        </tbody>
+                <div class="dt-panel-box">
+                    <table class="dt-bin-meta-table">
+                        <tr><td colspan="2" id="mob-bin-name" class="dt-bin-title-cell">SELECT AN ITEM TO VIEW</td></tr>
+                        <tr>
+                            <td style="width:50%;">SKU / Item Code: <strong id="mob-bin-sku">-</strong></td>
+                            <td style="width:50%; text-align:right;" rowspan="3" valign="middle"><div class="dt-bin-watermark">STOCK CARD</div></td>
+                        </tr>
+                        <tr><td>SELLING PRICE: RM <strong id="mob-bin-price">-</strong></td></tr>
+                        <tr><td>PACK SIZE: <strong id="mob-bin-pack">-</strong></td></tr>
                     </table>
+
+                    <div class="dt-table-wrap">
+                        <table class="dt-table dt-bin-ledger-table">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2">NO</th>
+                                    <th rowspan="2">DATE</th>
+                                    <th colspan="2">PARTICULARS</th>
+                                    <th rowspan="2">IN</th>
+                                    <th rowspan="2">OUT</th>
+                                    <th rowspan="2">BAL</th>
+                                    <th colspan="3">REMARKS</th>
+                                    <th rowspan="2">STAFF</th>
+                                </tr>
+                                <tr>
+                                    <th>PO NO</th><th>INVOICE NO</th><th>BATCH</th><th>MFG</th><th>EXPIRY</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mob-bincard-tbody">
+                                <tr><td colspan="11" class="dt-empty">Select a product above to load its transaction history ledger.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 

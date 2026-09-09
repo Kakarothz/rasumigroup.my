@@ -17,6 +17,33 @@
     --purple-accent: #8b5cf6;
     --nav-height: 60px;
     --header-height: 52px;
+
+    /* ── Desktop-parity tokens ──────────────────────────────────────────
+       Dark-mode mapping of the desktop Store Management app's own design
+       system (src/web/store_portal.css :root, light theme). Reused where
+       hex values already match 1:1 (primary/success/danger/purple are
+       IDENTICAL colors on both apps); added where the desktop token has
+       no dark-mode mobile equivalent yet (orange, teal). Dashboard/Bin
+       Card/Masterlist/Receive/Transfer markup should use these --dt-*
+       variables, not the older stat-card-compact/mob-table styles above,
+       so this page's structure stays a faithful port of the desktop app
+       rather than a bespoke mobile design. */
+    --dt-bg-page: var(--bg-dark);
+    --dt-bg-card: var(--bg-card);
+    --dt-bg-subtle: var(--bg-panel);
+    --dt-border: var(--border-color);
+    --dt-border-subtle: var(--border-light);
+    --dt-text-main: var(--text-primary);
+    --dt-text-muted: var(--text-secondary);
+    --dt-text-light: var(--text-muted);
+    --dt-primary: var(--primary-blue);
+    --dt-success: var(--emerald-green);
+    --dt-danger: var(--red-alert);
+    --dt-orange: #f97316;
+    --dt-purple: var(--purple-accent);
+    --dt-teal: #06b6d4;
+    --dt-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --dt-hover-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 
 * {
@@ -721,3 +748,380 @@ body {
     font-size: 20px;
     cursor: pointer;
 }
+
+/* ============================================================================
+   Desktop-parity components (Dashboard + Bin Card) — dark-mode port of
+   src/web/store_portal.css. Structure, spacing and column layout mirror
+   the desktop app 1:1, stacked to a single column for mobile width.
+   Prefixed dt- (desktop token/theme) to keep separate from the older
+   stat-card-compact/mob-table styles still used by Masterlist/Receive/
+   Transfer until those get the same treatment.
+   ============================================================================ */
+
+.dt-page-header {
+    margin-bottom: 14px;
+}
+
+.dt-page-header h1 {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--dt-text-main);
+}
+
+.dt-page-header p {
+    font-size: 11px;
+    color: var(--dt-text-muted);
+    margin-top: 2px;
+}
+
+.dt-page-header strong {
+    color: var(--dt-primary);
+}
+
+/* KPI cards — desktop is a 5-col grid; mobile stacks to one column since a
+   375px viewport can't fit 5 cards with icon+number+label legibly. */
+.dt-kpi-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.dt-kpi-card {
+    background: var(--dt-bg-card);
+    border: 1px solid var(--dt-border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    box-shadow: var(--dt-card-shadow);
+}
+
+.dt-kpi-icon {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dt-kpi-icon.bg-blue { background-color: var(--dt-primary); }
+.dt-kpi-icon.bg-red { background-color: var(--dt-danger); }
+.dt-kpi-icon.bg-green { background-color: var(--dt-success); }
+.dt-kpi-icon.bg-orange { background-color: var(--dt-orange); }
+.dt-kpi-icon.bg-purple { background-color: var(--dt-purple); }
+
+.dt-kpi-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.dt-kpi-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--dt-text-light);
+    letter-spacing: 0.5px;
+}
+
+.dt-kpi-number {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--dt-text-main);
+    line-height: 1.2;
+}
+
+.dt-kpi-sub {
+    font-size: 10.5px;
+    color: var(--dt-text-muted);
+}
+
+/* Panel cards — universal container for every dashboard/bincard section,
+   matches desktop's .panel-box exactly (just dark-mapped colors). */
+.dt-panel-box {
+    background: var(--dt-bg-card);
+    border: 1px solid var(--dt-border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    box-shadow: var(--dt-card-shadow);
+    margin-bottom: 12px;
+}
+
+.dt-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--dt-border-subtle);
+}
+
+.dt-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.dt-panel-title h2 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--dt-text-main);
+}
+
+.dt-badge-sub {
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--dt-text-light);
+}
+
+.dt-panel-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+}
+
+.dt-panel-icon.icon-red { background: rgba(239, 68, 68, 0.15); color: var(--dt-danger); }
+.dt-panel-icon.icon-blue { background: rgba(37, 99, 235, 0.15); color: var(--dt-primary); }
+.dt-panel-icon.icon-yellow { background: rgba(245, 158, 11, 0.15); color: var(--amber-warn); }
+
+/* Tables — matches desktop's .light-table conventions. */
+.dt-table-wrap {
+    overflow-x: auto;
+}
+
+.dt-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+}
+
+.dt-table th {
+    color: var(--dt-text-light);
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--dt-border-subtle);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.dt-table td {
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--dt-border-subtle);
+    color: var(--dt-text-main);
+}
+
+.dt-table .dt-tc { text-align: center; }
+.dt-table .dt-tr { text-align: right; }
+.dt-table th.dt-tc { text-align: center; }
+.dt-table th.dt-tr { text-align: right; }
+
+.dt-empty {
+    text-align: center;
+    color: var(--dt-text-muted);
+    padding: 16px !important;
+}
+
+.dt-scrollable {
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.dt-rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--dt-primary);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+/* Inventory Flow Chart */
+.dt-chart-legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+    font-size: 10.5px;
+    color: var(--dt-text-muted);
+}
+
+.dt-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.dt-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.dt-dot.bg-green { background: var(--dt-success); }
+.dt-dot.bg-orange { background: var(--dt-orange); }
+.dt-dot.bg-purple { background: var(--dt-purple); }
+
+.dt-chart-canvas-wrap {
+    position: relative;
+    height: 200px;
+}
+
+.dt-chart-tagline {
+    margin-top: 10px;
+    font-size: 10px;
+    color: var(--dt-text-light);
+    text-align: center;
+}
+
+/* Alerts & Notifications */
+.dt-alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.dt-alert-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 10px;
+    background: var(--dt-bg-subtle);
+    border-radius: 10px;
+}
+
+.dt-alert-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.dt-alert-icon-pill {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.dt-alert-icon-pill.yellow { background: rgba(245, 158, 11, 0.18); color: var(--amber-warn); }
+.dt-alert-icon-pill.red { background: rgba(239, 68, 68, 0.18); color: var(--dt-danger); }
+.dt-alert-icon-pill.orange { background: rgba(249, 115, 22, 0.18); color: var(--dt-orange); }
+
+.dt-alert-title {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--dt-text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dt-alert-desc {
+    font-size: 10px;
+    color: var(--dt-text-muted);
+}
+
+.dt-alert-count {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--dt-danger);
+    flex: none;
+}
+
+/* Footer mini stats */
+.dt-mini-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.dt-mini-stat {
+    background: var(--dt-bg-card);
+    border: 1px solid var(--dt-border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dt-mini-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: var(--dt-text-light);
+    letter-spacing: 0.3px;
+}
+
+.dt-mini-val {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: var(--dt-text-main);
+}
+
+.dt-mini-sub {
+    font-size: 9.5px;
+    color: var(--dt-text-muted);
+}
+
+/* Bin Card */
+.dt-bin-meta-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin-bottom: 12px;
+}
+
+.dt-bin-meta-table td {
+    padding: 7px 10px;
+    border: 1px solid var(--dt-border);
+    color: var(--dt-text-main);
+}
+
+.dt-bin-title-cell {
+    background: var(--dt-bg-subtle);
+    font-size: 13px;
+    text-align: center;
+    font-weight: 700;
+    color: var(--dt-primary);
+    padding: 10px !important;
+    letter-spacing: 0.4px;
+}
+
+.dt-bin-watermark {
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    color: var(--dt-border);
+    text-align: center;
+}
+
+.dt-bin-ledger-table th,
+.dt-bin-ledger-table td {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.dt-bin-ledger-table td.dt-in { color: #60a5fa; font-weight: 700; }
+.dt-bin-ledger-table td.dt-out { color: #f87171; font-weight: 700; }
