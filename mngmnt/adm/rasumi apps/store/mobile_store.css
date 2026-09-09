@@ -1187,34 +1187,38 @@ body {
     text-align: center;
 }
 
-/* Ledger table — must fit 11 columns (NO/DATE/PO NO/INVOICE NO/IN/OUT/BAL/
-   BATCH/MFG/EXPIRY/STAFF) on a phone screen with ZERO horizontal
-   scrolling. table-layout:fixed + the <colgroup> widths in index.html
-   (sized proportionally to what each column actually holds — NO and IN/
-   OUT/BAL are narrow numerics, PO NO/INVOICE NO/STAFF get the most room)
-   guarantee the table can never exceed its container's width. Long cell
-   content (e.g. "COUNTER INDENT", 10-digit invoice numbers) wraps onto a
-   second line inside its own narrow column instead of forcing the table
-   wider — the trade-off for zero side-scrolling on an 11-column table at
-   phone width. .dt-bin-table-wrap forces overflow-x:hidden as a hard
-   backstop in case any device renders slightly differently. */
+/* Ledger table — 11 columns (NO/DATE/PO NO/INVOICE NO/IN/OUT/BAL/BATCH/
+   MFG/EXPIRY/STAFF) at phone width can't all sit on one line without
+   either wrapping text or scrolling. Reverted from the fixed/wrap
+   approach (it forced long values like "COUNTER INDENT" or 10-digit
+   invoice numbers onto 2-3 lines, mangling the ledger) back to natural
+   auto-layout column sizing + horizontal scroll: every cell stays on ONE
+   line at full data fidelity, and the table simply grows wider than the
+   screen — .dt-bin-table-wrap scrolls sideways to reach the rest. Font
+   size is unchanged from the previous (fit-to-screen) attempt per
+   explicit request to keep it as-is. */
 .dt-bin-table-wrap {
-    overflow-x: hidden;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.dt-bin-table-wrap::-webkit-scrollbar {
+    display: none;
 }
 
 .dt-bin-ledger-table {
-    table-layout: fixed;
-    width: 100%;
+    table-layout: auto;
+    width: auto;
+    min-width: 100%;
 }
 
 .dt-bin-ledger-table th,
 .dt-bin-ledger-table td {
     text-align: center;
-    white-space: normal;
-    overflow-wrap: break-word;
-    word-break: break-word;
+    white-space: nowrap;
     font-size: 8px;
-    padding: 3px 2px;
+    padding: 4px 6px;
     line-height: 1.2;
 }
 
