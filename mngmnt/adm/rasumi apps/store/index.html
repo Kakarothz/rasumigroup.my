@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rasumi Store Mobile Portal</title>
+    <link rel="icon" type="image/png" href="../../assets/admin.png">
+    
+    <!-- FontAwesome & Google Fonts -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js only — this page no longer talks to Supabase directly.
+         All data goes through the store-api Cloud Function proxy (see
+         functions/store_api/README.md), so the Supabase SDK (and any
+         Supabase key) has no reason to be loaded into this public page. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    
+    <!-- Mobile CSS -->
+    <link rel="stylesheet" href="mobile_store.css?v=1.0">
+</head>
+<body>
+
+    <!-- Mobile Device Guard (Desktop Block Screen Container) -->
+    <div id="desktop-blocked-screen" class="desktop-blocked-container" style="display: none;">
+        <div class="desktop-blocked-card">
+            <div class="desktop-blocked-icon">📱</div>
+            <div class="desktop-blocked-title">Akses Terhad (Mobile App Sahaja)</div>
+            <div class="desktop-blocked-desc">
+                Portal Store Mobile ini direka khas untuk peranti telefon pintar dan tablet sahaja.<br><br>
+                Sila imbas atau buka URL <strong>rasumigroup.my</strong> pada peranti mudah alih anda untuk mengakses sistem ini.
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Screen — shown before anything else. There is no anonymous
+         read access anymore: every request to store-api needs a session
+         token minted by /login, which itself is just a thin wrapper over
+         the SAME store_verify_login RPC the desktop app's lock screen
+         uses (see functions/store_api/routes/login.js). -->
+    <div id="mob-login-screen" class="mob-login-container" style="display: none;">
+        <div class="mob-login-card">
+            <div class="header-logo" style="width:56px;height:56px;font-size:24px;margin:0 auto 14px;">R</div>
+            <div class="desktop-blocked-title" style="font-size:18px;">RASUMI STORE PORTAL</div>
+            <form id="mob-login-form" onsubmit="submitMobLogin(event)" style="margin-top:18px; display:flex; flex-direction:column; gap:10px;">
+                <input type="text" id="mob-login-userid" class="input-sm" placeholder="Staff ID" required autocomplete="username">
+                <input type="password" id="mob-login-password" class="input-sm" placeholder="Password" autocomplete="current-password">
+                <div id="mob-login-error" style="color:var(--red-alert); font-size:12px; display:none;"></div>
+                <button type="submit" id="mob-login-submit" class="btn-primary-sm" style="margin-top:4px;"><i class="fa-solid fa-right-to-bracket"></i> Log In</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- App Wrapper (Only visible on Mobile/Tablet, AND only after login) -->
+    <div id="mobile-app-wrapper" style="display: none;">
+
+        <!-- Top Header -->
+        <header class="mobile-header">
+            <div class="header-brand">
+                <div class="header-logo">R</div>
+                <div class="header-title">RASUMI STORE</div>
+            </div>
+            <div class="header-controls">
+                <select id="mob-branch-select" class="branch-select-sm" onchange="onMobBranchChange(this.value)">
+                    <option value="FVKL" selected>FVKL</option>
+                    <option value="RSA">RSA</option>
+                    <option value="FVT">FVT</option>
+                    <option value="FVL">FVL</option>
+                    <option value="FVG">FVG</option>
+                    <option value="HQ">HQ</option>
+                </select>
+                <div class="sync-badge-sm">
+                    <div class="sync-dot"></div> Live
+                </div>
+                <button class="nav-item" style="padding:4px 8px;" onclick="logoutMob()" title="Log out">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Horizontal Scroll Sub-Tabs -->
+        <div class="mobile-tabs-scroll">
+            <button class="tab-btn-sm active" onclick="switchMobTab('dash')"><i class="fa-solid fa-chart-pie"></i> Overview</button>
+            <button class="tab-btn-sm" onclick="switchMobTab('masterlist')"><i class="fa-solid fa-boxes-stacked"></i> Masterlist</button>
+            <button class="tab-btn-sm" onclick="switchMobTab('bincard')"><i class="fa-solid fa-clipboard-list"></i> Bin Card</button>
+            <button class="tab-btn-sm" onclick="switchMobTab('receive')"><i class="fa-solid fa-arrow-down-to-bracket"></i> Receive</button>
+            <button class="tab-btn-sm" onclick="switchMobTab('transfer')"><i class="fa-solid fa-arrow-right-from-bracket"></i> Transfer</button>
+        </div>
+
+        <!-- Main Body Container -->
+        <main class="main-container">
+            
+            <!-- PANEL 1: DASHBOARD -->
+            <section id="panel-dash" class="panel active">
+                
+                <!-- 2x2 Compact Stat Cards -->
+                <div class="stats-grid-2x2">
+                    <div class="stat-card-compact blue">
+                        <span class="stat-label">Total Items</span>
+                        <span id="mob-stat-total-items" class="stat-value">-</span>
+                        <span class="stat-sub">Active Products</span>
+                    </div>
+                    <div class="stat-card-compact green">
+                        <span class="stat-label">Stock Value Est.</span>
+                        <span id="mob-stat-stock-val" class="stat-value">-</span>
+                        <span class="stat-sub">Store Total (RM)</span>
+                    </div>
+                    <div class="stat-card-compact amber">
+                        <span class="stat-label">Low Stock</span>
+                        <span id="mob-stat-low-stock" class="stat-value">-</span>
+                        <span class="stat-sub">Below Reorder Level</span>
+                    </div>
+                    <div class="stat-card-compact red">
+                        <span class="stat-label">Out of Stock</span>
+                        <span id="mob-stat-out-stock" class="stat-value">-</span>
+                        <span class="stat-sub">0 Quantity Items</span>
+                    </div>
+                </div>
+
+                <!-- Stock Movement Trend Chart -->
+                <div class="card-panel">
+                    <div class="card-title">
+                        <span><i class="fa-solid fa-chart-line text-blue"></i> Movement Trends</span>
+                        <span style="font-size:10px; color:var(--text-muted);">Last 30 Days</span>
+                    </div>
+                    <div class="chart-container-sm">
+                        <canvas id="mob-chart-trends"></canvas>
+                    </div>
+                </div>
+
+                <!-- Out of Stock Table Card -->
+                <div class="card-panel">
+                    <div class="card-title"><i class="fa-solid fa-triangle-exclamation text-red"></i> Out of Stock Items</div>
+                    <div class="table-responsive">
+                        <table class="mob-table">
+                            <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Item Name</th>
+                                    <th>Category</th>
+                                    <th>Last Update</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mob-dash-outstock-tbody">
+                                <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Loading data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Stock Transfer Summary Card -->
+                <div class="card-panel">
+                    <div class="card-title"><i class="fa-solid fa-arrow-right-arrow-left text-amber"></i> Stock Transfer Summary</div>
+                    <div class="table-responsive">
+                        <table class="mob-table">
+                            <thead>
+                                <tr>
+                                    <th>Trf ID</th>
+                                    <th>Dest</th>
+                                    <th>Items</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mob-dash-transfers-tbody">
+                                <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Loading data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- PANEL 2: MASTERLIST -->
+            <section id="panel-masterlist" class="panel">
+                <div class="search-filter-bar">
+                    <input type="text" id="mob-search-input" class="input-sm" placeholder="🔍 Search SKU or Product Name..." onkeyup="filterMobMasterlist()">
+                    <select id="mob-cat-select" class="input-sm" onchange="filterMobMasterlist()">
+                        <option value="ALL">All Categories</option>
+                        <option value="TABLET">TABLET / CAPSULE</option>
+                        <option value="INJECTION">INJECTION / PEN</option>
+                        <option value="LIQUID">LIQUID / SYRUP</option>
+                        <option value="CREAM">CREAM / OINTMENT</option>
+                        <option value="EYE/EAR">EYE / EAR DROPS</option>
+                    </select>
+                </div>
+                <div class="table-responsive">
+                    <table class="mob-table">
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>Name</th>
+                                <th>On Hand</th>
+                                <th>Price (Box)</th>
+                                <th>Price (Tab)</th>
+                                <th>Total Cost</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mob-masterlist-tbody">
+                            <tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Loading masterlist...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- PANEL 3: BIN CARD -->
+            <section id="panel-bincard" class="panel">
+                <div class="search-filter-bar">
+                    <select id="mob-bincard-sku-select" class="input-sm" onchange="loadMobBinCard(this.value)">
+                        <option value="">-- Select Product for Bin Card --</option>
+                    </select>
+                </div>
+
+                <div id="mob-bincard-meta" class="bincard-meta-card" style="display: none;">
+                    <div id="mob-bin-name" class="bincard-meta-title">-</div>
+                    <div class="bincard-meta-grid">
+                        <div class="bincard-meta-item">SKU: <strong id="mob-bin-sku">-</strong></div>
+                        <div class="bincard-meta-item">Qty/Box: <strong id="mob-bin-pack">-</strong></div>
+                        <div class="bincard-meta-item">Selling Price (Box): <span id="mob-bin-price-box" class="price-tag-box">-</span></div>
+                        <div class="bincard-meta-item">Selling Price (Tab): <span id="mob-bin-price-tab" class="price-tag-tab">-</span></div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="mob-table">
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>Date</th>
+                                <th>PO / Ref</th>
+                                <th>Inv</th>
+                                <th style="color:#60a5fa;">In</th>
+                                <th style="color:#f87171;">Out</th>
+                                <th>Balance</th>
+                                <th>Batch</th>
+                                <th>Staff</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mob-bincard-tbody">
+                            <tr><td colspan="9" style="text-align:center; color:var(--text-muted);">Select a product to view ledger</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- PANEL 4: RECEIVE STOK -->
+            <section id="panel-receive" class="panel">
+                <div class="card-panel">
+                    <div class="card-title"><i class="fa-solid fa-arrow-down-to-bracket text-blue"></i> Terima Stok Baru (Stock Receive)</div>
+                    <form id="mob-receive-form" onsubmit="submitMobReceive(event)">
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            <div>
+                                <label style="font-size:11px; color:var(--text-secondary);">PO Number / Reference:</label>
+                                <input type="text" id="mob-rcv-po" class="input-sm" required placeholder="e.g. PO-2026-001">
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:var(--text-secondary);">Select Item (SKU):</label>
+                                <select id="mob-rcv-sku" class="input-sm" required>
+                                    <option value="">-- Select Product --</option>
+                                </select>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <div style="flex:1;">
+                                    <label style="font-size:11px; color:var(--text-secondary);">Quantity (Boxes):</label>
+                                    <input type="number" id="mob-rcv-qty" class="input-sm" required min="1" step="1">
+                                </div>
+                                <div style="flex:1;">
+                                    <label style="font-size:11px; color:var(--text-secondary);">Batch No:</label>
+                                    <input type="text" id="mob-rcv-batch" class="input-sm" placeholder="e.g. B12345">
+                                </div>
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:var(--text-secondary);">Expiry Date:</label>
+                                <input type="date" id="mob-rcv-exp" class="input-sm">
+                            </div>
+                            <button type="submit" class="btn-primary-sm" style="margin-top:6px;"><i class="fa-solid fa-check"></i> Submit Stock Receive</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- PANEL 5: TRANSFER STOK -->
+            <section id="panel-transfer" class="panel">
+                <div class="card-panel">
+                    <div class="card-title"><i class="fa-solid fa-arrow-right-from-bracket text-amber"></i> Pindah Stok (Stock Transfer Out)</div>
+                    <form id="mob-transfer-form" onsubmit="submitMobTransfer(event)">
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            <div>
+                                <label style="font-size:11px; color:var(--text-secondary);">Destination Branch:</label>
+                                <select id="mob-trf-dest" class="input-sm" required>
+                                    <option value="RSA">RSA (Rasumi Shah Alam)</option>
+                                    <option value="FVT">FVT (Farmasi Veteran Terendak)</option>
+                                    <option value="FVL">FVL (Farmasi Veteran Lumut)</option>
+                                    <option value="FVG">FVG (Farmasi Veteran Gemas)</option>
+                                    <option value="HQ">HQ (Rasumi HQ)</option>
+                                    <option value="STAFF">STAFF</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:var(--text-secondary);">Select Item (SKU):</label>
+                                <select id="mob-trf-sku" class="input-sm" required>
+                                    <option value="">-- Select Product --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:var(--text-secondary);">Quantity Transfer (Boxes):</label>
+                                <input type="number" id="mob-trf-qty" class="input-sm" required min="1" step="1">
+                            </div>
+                            <button type="submit" class="btn-primary-sm" style="margin-top:6px; background-color:var(--amber-warn);"><i class="fa-solid fa-paper-plane"></i> Process Transfer Out</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Fixed Bottom Navigation Bar -->
+        <nav class="mobile-bottom-nav">
+            <button class="nav-item active" onclick="switchMobTab('dash')">
+                <i class="fa-solid fa-house nav-icon"></i>
+                <span>Home</span>
+            </button>
+            <button class="nav-item" onclick="switchMobTab('masterlist')">
+                <i class="fa-solid fa-boxes-stacked nav-icon"></i>
+                <span>Products</span>
+            </button>
+            <button class="nav-item" onclick="switchMobTab('bincard')">
+                <i class="fa-solid fa-clipboard-list nav-icon"></i>
+                <span>BinCard</span>
+            </button>
+            <button class="nav-item" onclick="switchMobTab('receive')">
+                <i class="fa-solid fa-arrow-down-to-bracket nav-icon"></i>
+                <span>Receive</span>
+            </button>
+            <button class="nav-item" onclick="switchMobTab('transfer')">
+                <i class="fa-solid fa-arrow-right-from-bracket nav-icon"></i>
+                <span>Transfer</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- Mobile JS Controller -->
+    <script src="mobile_store.js?v=1.0"></script>
+</body>
+</html>
