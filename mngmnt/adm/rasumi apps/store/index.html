@@ -498,7 +498,8 @@
                             <tr>
                                 <th>SKU</th>
                                 <th>Name</th>
-                                <th>On Hand</th>
+                                <th>Portal</th>
+                                <th>VIMS</th>
                                 <th>Price (Box)</th>
                                 <th>Price (Tab)</th>
                                 <th>Total Cost</th>
@@ -506,7 +507,7 @@
                             </tr>
                         </thead>
                         <tbody id="mob-masterlist-tbody">
-                            <tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Loading masterlist...</td></tr>
+                            <tr><td colspan="8" style="text-align:center; color:var(--text-muted);">Loading masterlist...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -562,72 +563,96 @@
                 </div>
             </section>
 
-            <!-- PANEL 4: RECEIVE STOK -->
+            <!-- PANEL 4: RECEIVE STOK — multi-item cart, same pattern as Transfer
+                 (task #194): /receive already accepted a full `items` array in
+                 one call (post_stock_receive() port) — this UI used to only
+                 ever send one line per submit. PO Number is shared across the
+                 whole receipt (one delivery commonly covers several items),
+                 matching desktop's one-header/many-lines Stock Receive model. -->
             <section id="panel-receive" class="panel">
                 <div class="card-panel">
                     <div class="card-title"><i class="fa-solid fa-arrow-down-to-bracket text-blue"></i> Terima Stok Baru (Stock Receive)</div>
-                    <form id="mob-receive-form" onsubmit="submitMobReceive(event)">
-                        <div style="display:flex; flex-direction:column; gap:10px;">
-                            <div>
-                                <label style="font-size:11px; color:var(--text-secondary);">PO Number / Reference:</label>
-                                <input type="text" id="mob-rcv-po" class="input-sm" required placeholder="e.g. PO-2026-001">
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <div>
+                            <label style="font-size:11px; color:var(--text-secondary);">PO Number / Reference:</label>
+                            <input type="text" id="mob-rcv-po" class="input-sm" placeholder="e.g. PO-2026-001">
+                        </div>
+                        <div>
+                            <label style="font-size:11px; color:var(--text-secondary);">Select Item (SKU):</label>
+                            <select id="mob-rcv-sku" class="input-sm">
+                                <option value="">-- Select Product --</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <div style="flex:1;">
+                                <label style="font-size:11px; color:var(--text-secondary);">Quantity (Boxes):</label>
+                                <input type="number" id="mob-rcv-qty" class="input-sm" min="1" step="1">
                             </div>
-                            <div>
-                                <label style="font-size:11px; color:var(--text-secondary);">Select Item (SKU):</label>
-                                <select id="mob-rcv-sku" class="input-sm" required>
-                                    <option value="">-- Select Product --</option>
-                                </select>
+                            <div style="flex:1;">
+                                <label style="font-size:11px; color:var(--text-secondary);">Batch No:</label>
+                                <input type="text" id="mob-rcv-batch" class="input-sm" placeholder="e.g. B12345">
                             </div>
-                            <div style="display:flex; gap:8px;">
-                                <div style="flex:1;">
-                                    <label style="font-size:11px; color:var(--text-secondary);">Quantity (Boxes):</label>
-                                    <input type="number" id="mob-rcv-qty" class="input-sm" required min="1" step="1">
-                                </div>
-                                <div style="flex:1;">
-                                    <label style="font-size:11px; color:var(--text-secondary);">Batch No:</label>
-                                    <input type="text" id="mob-rcv-batch" class="input-sm" placeholder="e.g. B12345">
-                                </div>
-                            </div>
-                            <div>
+                        </div>
+                        <div style="display:flex; gap:8px; align-items:flex-end;">
+                            <div style="flex:1;">
                                 <label style="font-size:11px; color:var(--text-secondary);">Expiry Date:</label>
                                 <input type="date" id="mob-rcv-exp" class="input-sm">
                             </div>
-                            <button type="submit" class="btn-primary-sm" style="margin-top:6px;"><i class="fa-solid fa-check"></i> Submit Stock Receive</button>
+                            <button type="button" class="btn-primary-sm" style="background-color:var(--text-secondary);" onclick="addToMobReceiveCart()"><i class="fa-solid fa-plus"></i> Add</button>
                         </div>
-                    </form>
+
+                        <div id="mob-rcv-cart-wrap" style="display:none; margin-top:4px;">
+                            <label style="font-size:11px; color:var(--text-secondary);">Items to receive:</label>
+                            <div id="mob-rcv-cart-list" class="table-responsive" style="margin-top:4px;"></div>
+                        </div>
+
+                        <button type="button" id="mob-rcv-submit-btn" class="btn-primary-sm" style="margin-top:6px;" disabled onclick="submitMobReceiveCart()"><i class="fa-solid fa-check"></i> Submit Stock Receive (0 items)</button>
+                    </div>
                 </div>
             </section>
 
-            <!-- PANEL 5: TRANSFER STOK -->
+            <!-- PANEL 5: TRANSFER STOK — multi-item cart (parity with desktop's
+                 Transfer Out "Add Items to Transfer" cart): pick ONE destination
+                 for the group, add as many SKU+qty lines as needed, review the
+                 list, then submit the whole cart in one /transfer call. Backend
+                 (/transfer) already accepted a `lines` array from the start —
+                 this UI used to only ever send one line per submit. -->
             <section id="panel-transfer" class="panel">
                 <div class="card-panel">
                     <div class="card-title"><i class="fa-solid fa-arrow-right-from-bracket text-amber"></i> Pindah Stok (Stock Transfer Out)</div>
-                    <form id="mob-transfer-form" onsubmit="submitMobTransfer(event)">
-                        <div style="display:flex; flex-direction:column; gap:10px;">
-                            <div>
-                                <label style="font-size:11px; color:var(--text-secondary);">Destination Branch:</label>
-                                <select id="mob-trf-dest" class="input-sm" required>
-                                    <option value="RSA">RSA (Rasumi Shah Alam)</option>
-                                    <option value="FVT">FVT (Farmasi Veteran Terendak)</option>
-                                    <option value="FVL">FVL (Farmasi Veteran Lumut)</option>
-                                    <option value="FVG">FVG (Farmasi Veteran Gemas)</option>
-                                    <option value="HQ">HQ (Rasumi HQ)</option>
-                                    <option value="STAFF">STAFF</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style="font-size:11px; color:var(--text-secondary);">Select Item (SKU):</label>
-                                <select id="mob-trf-sku" class="input-sm" required>
-                                    <option value="">-- Select Product --</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style="font-size:11px; color:var(--text-secondary);">Quantity Transfer (Boxes):</label>
-                                <input type="number" id="mob-trf-qty" class="input-sm" required min="1" step="1">
-                            </div>
-                            <button type="submit" class="btn-primary-sm" style="margin-top:6px; background-color:var(--amber-warn);"><i class="fa-solid fa-paper-plane"></i> Process Transfer Out</button>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <div>
+                            <label style="font-size:11px; color:var(--text-secondary);">Destination Branch:</label>
+                            <select id="mob-trf-dest" class="input-sm" onchange="onMobTransferDestChanged()">
+                                <option value="RSA">RSA (Rasumi Shah Alam)</option>
+                                <option value="FVT">FVT (Farmasi Veteran Terendak)</option>
+                                <option value="FVL">FVL (Farmasi Veteran Lumut)</option>
+                                <option value="FVG">FVG (Farmasi Veteran Gemas)</option>
+                                <option value="HQ">HQ (Rasumi HQ)</option>
+                                <option value="STAFF">STAFF</option>
+                            </select>
                         </div>
-                    </form>
+                        <div>
+                            <label style="font-size:11px; color:var(--text-secondary);">Select Item (SKU):</label>
+                            <select id="mob-trf-sku" class="input-sm">
+                                <option value="">-- Select Product --</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; gap:8px; align-items:flex-end;">
+                            <div style="flex:1;">
+                                <label style="font-size:11px; color:var(--text-secondary);">Quantity (Boxes):</label>
+                                <input type="number" id="mob-trf-qty" class="input-sm" min="1" step="1">
+                            </div>
+                            <button type="button" class="btn-primary-sm" style="background-color:var(--text-secondary);" onclick="addToMobTransferCart()"><i class="fa-solid fa-plus"></i> Add</button>
+                        </div>
+
+                        <div id="mob-trf-cart-wrap" style="display:none; margin-top:4px;">
+                            <label style="font-size:11px; color:var(--text-secondary);">Items to transfer to <strong id="mob-trf-cart-dest-label"></strong>:</label>
+                            <div id="mob-trf-cart-list" class="table-responsive" style="margin-top:4px;"></div>
+                        </div>
+
+                        <button type="button" id="mob-trf-submit-btn" class="btn-primary-sm" style="margin-top:6px; background-color:var(--amber-warn);" disabled onclick="submitMobTransferCart()"><i class="fa-solid fa-paper-plane"></i> Queue Transfer (0 items)</button>
+                    </div>
                 </div>
             </section>
 
@@ -660,6 +685,6 @@
     </div>
 
     <!-- Mobile JS Controller -->
-    <script src="mobile_store.js?v=3.8"></script>
+    <script src="mobile_store.js?v=4.1"></script>
 </body>
 </html>

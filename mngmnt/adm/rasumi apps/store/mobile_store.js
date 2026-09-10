@@ -33,6 +33,9 @@ const SESSION_STORAGE_KEY = "rasumi_store_mobile_session";
 const DEVICE_TOKEN_STORAGE_KEY = "rasumi_store_device_token";
 
 let currentBranch = "FVKL";
+let currentMobTab = "dash"; // kept in sync by switchMobTab() — used by the
+                            // background refresh poller below to know which
+                            // panel's data to silently re-fetch.
 let masterlistData = [];
 let movementChart = null;
 let mobSession = null; // { token, user }
@@ -247,6 +250,63 @@ async function showAppScreen() {
     // part of this (see its own comment).
     await Promise.all([loadMobMasterlist(), loadMobDashboardStats(), refreshNotifBadge(), loadMobProfile()]);
     loadMobBinCardDropdown();
+    startMobRefreshPoll();
+}
+
+// ── Background refresh poll ──────────────────────────────────────────
+// Desktop (Eel/Python) got a true real-time Supabase push (websocket) so a
+// change from ANY source shows up instantly with no manual reload. Mobile
+// can't do the same thing safely: it would require putting the Supabase
+// anon key back in this public browser file, and store_* RLS here is
+// `TO anon USING(true) WITH CHECK(true)` — wide open read+write, not just
+// read — so that key alone would let anyone viewing this page's source
+// read AND write any store data directly, bypassing every login/role/
+// branch check the store-api Worker does. Not worth it just for a nicer
+// refresh. Instead: poll the SAME store-api endpoints the UI already uses
+// (session-token authenticated, same as every other request in this file)
+// every ~20s, but only refresh whichever tab is actually on screen right
+// now — this still kills the "have to pull-to-refresh / reopen the page to
+// see a change" complaint, just with up to ~20s of lag instead of instant.
+let _mobRefreshTimer = null;
+let _mobRefreshInFlight = false;
+
+function startMobRefreshPoll() {
+    if (_mobRefreshTimer) return; // already running — don't stack intervals
+    _mobRefreshTimer = setInterval(async () => {
+        // Skip entirely while the tab/app is backgrounded (phone screen
+        // off, browser tab switched away) — no point burning battery/data
+        // refreshing something nobody can see, and Chrome/Safari throttle
+        // background timers anyway.
+        if (document.hidden || _mobRefreshInFlight || !mobSession) return;
+        _mobRefreshInFlight = true;
+        try {
+            const tasks = [refreshNotifBadge()];
+            if (currentMobTab === "dash") {
+                tasks.push(loadMobDashboardStats());
+            } else if (currentMobTab === "masterlist") {
+                // loadMobMasterlist() re-renders the FULL unfiltered list —
+                // re-apply whatever search/category filter the user has
+                // active right now so a background refresh doesn't wipe it
+                // out from under them mid-search.
+                tasks.push(loadMobMasterlist().then(() => filterMobMasterlist()));
+            } else if (currentMobTab === "bincard") {
+                const sel = document.getElementById("mob-bincard-sku-select");
+                if (sel && sel.value) tasks.push(loadMobBinCard(sel.value));
+            }
+            await Promise.all(tasks);
+        } catch (e) {
+            console.error("[Poll] background refresh failed:", e);
+        } finally {
+            _mobRefreshInFlight = false;
+        }
+    }, 20000);
+}
+
+function stopMobRefreshPoll() {
+    if (_mobRefreshTimer) {
+        clearInterval(_mobRefreshTimer);
+        _mobRefreshTimer = null;
+    }
 }
 
 // Fetches the caller's own profile row (Full Name + avatar) so the
@@ -866,6 +926,7 @@ function finishMobTotpLogin(data) {
 }
 
 function logoutMob() {
+    stopMobRefreshPoll();
     clearMobSession();
     // Deliberately NOT clearing the device token here — logging out and
     // back in on the same phone shouldn't force a fresh TOTP prompt. Only
@@ -897,6 +958,7 @@ async function onMobBranchChange(branchCode) {
 // the profile menu with its own class, but scoping here defensively
 // prevents this exact class-collision bug from recurring.
 function switchMobTab(tabName) {
+    currentMobTab = tabName;
     document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
 
     const targetPanel = document.getElementById(`panel-${tabName}`);
@@ -924,14 +986,14 @@ async function loadMobMasterlist() {
     } catch (e) {
         console.error("Error loading masterlist:", e);
         const tbody = document.getElementById("mob-masterlist-tbody");
-        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--red-alert);">Error loading data: ${escapeHtml(e.message)}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--red-alert);">Error loading data: ${escapeHtml(e.message)}</td></tr>`;
     }
 }
 
 function renderMobMasterlist(items) {
     const tbody = document.getElementById("mob-masterlist-tbody");
     if (!items || items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No products found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">No products found</td></tr>`;
         return;
     }
 
@@ -943,12 +1005,24 @@ function renderMobMasterlist(items) {
         // masterlist / bin card — see get_store_products()).
         const qtyOnHandBox = p.app_balance || 0;
         const totalCostEst = qtyOnHandBox * boxPrice;
+        // VIMS comparison column — parity with desktop's Masterlist (which
+        // shows app_balance alongside vims_balance so a staff member can
+        // spot a portal-vs-VIMS mismatch at a glance). The Worker's
+        // /masterlist response already includes vims_balance; mobile just
+        // wasn't displaying it. vims_balance is in TABLET units (raw sum,
+        // same convention as app_balance's underlying store, see
+        // store_manager_controller.py) — divide by pack_size to compare
+        // box-to-box against qtyOnHandBox.
+        const vimsBox = packSize > 0 ? Math.floor((p.vims_balance || 0) / packSize) : (p.vims_balance || 0);
+        const hasVimsData = p.vims_balance !== undefined && p.vims_balance !== null;
+        const mismatch = hasVimsData && vimsBox !== qtyOnHandBox;
 
         return `
             <tr>
                 <td><strong style="color:var(--primary-blue);">${escapeHtml(p.sku)}</strong></td>
                 <td style="max-width: 140px; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.name)}</td>
-                <td style="text-align:center; font-weight:700;">${qtyOnHandBox}</td>
+                <td style="text-align:center; font-weight:700; ${mismatch ? "color:var(--red-alert);" : ""}">${qtyOnHandBox}</td>
+                <td style="text-align:center; ${mismatch ? "color:var(--amber-warn); font-weight:700;" : "color:var(--text-muted);"}">${hasVimsData ? vimsBox : "—"}${mismatch ? ' <i class="fa-solid fa-triangle-exclamation" title="Portal/VIMS mismatch"></i>' : ""}</td>
                 <td><span class="price-tag-box">RM ${boxPrice.toFixed(2)}</span></td>
                 <td><span class="price-tag-tab">RM ${pricePerTab.toFixed(2)}</span></td>
                 <td>RM ${totalCostEst.toFixed(2)}</td>
@@ -1388,29 +1462,86 @@ function renderMobChart(labels, dataIn, dataOut) {
 }
 
 // ── 10. Form Submit Handlers ──────────────────────────────────────────
-async function submitMobReceive(e) {
-    e.preventDefault();
-    const po = document.getElementById("mob-rcv-po").value.trim();
+// Receive cart (multi-item, one PO/reference shared across the whole
+// receipt) — same pattern as the Transfer cart above. /receive already
+// accepted a full `items` array in one call; this UI used to only ever
+// send one line per submit.
+let mobReceiveCart = []; // { sku, name, qty, batch, exp }
+
+function addToMobReceiveCart() {
     const sku = document.getElementById("mob-rcv-sku").value;
     const qty = parseInt(document.getElementById("mob-rcv-qty").value, 10);
     const batch = document.getElementById("mob-rcv-batch").value.trim();
     const exp = document.getElementById("mob-rcv-exp").value;
 
-    if (!sku || !qty) return alert("Please select an item and enter quantity.");
+    if (!sku || !qty || qty <= 0) return alert("Please select an item and enter a valid quantity.");
+    if (!batch) return alert("Batch number is required.");
+    if (mobReceiveCart.some((l) => l.sku === sku && l.batch === batch)) {
+        return alert(`${sku} (batch ${batch}) is already in the cart — remove it first if you need to change it.`);
+    }
+
+    const product = masterlistData.find((p) => p.sku === sku);
+    mobReceiveCart.push({ sku, name: (product && product.name) || sku, qty, batch, exp });
+
+    document.getElementById("mob-rcv-sku").value = "";
+    document.getElementById("mob-rcv-qty").value = "";
+    document.getElementById("mob-rcv-batch").value = "";
+    document.getElementById("mob-rcv-exp").value = "";
+    renderMobReceiveCart();
+}
+
+function removeMobReceiveCartLine(idx) {
+    mobReceiveCart.splice(idx, 1);
+    renderMobReceiveCart();
+}
+
+function renderMobReceiveCart() {
+    const wrap = document.getElementById("mob-rcv-cart-wrap");
+    const listEl = document.getElementById("mob-rcv-cart-list");
+    const submitBtn = document.getElementById("mob-rcv-submit-btn");
+
+    submitBtn.disabled = mobReceiveCart.length === 0;
+    submitBtn.innerHTML = `<i class="fa-solid fa-check"></i> Submit Stock Receive (${mobReceiveCart.length} item${mobReceiveCart.length === 1 ? "" : "s"})`;
+
+    if (!mobReceiveCart.length) {
+        wrap.style.display = "none";
+        return;
+    }
+    wrap.style.display = "block";
+
+    listEl.innerHTML = `<table class="mob-table"><tbody>${mobReceiveCart.map((l, idx) => `
+        <tr>
+            <td>${escapeHtml(l.sku)}<br><span style="font-size:10px; color:var(--text-muted);">${escapeHtml(l.name)} · Batch ${escapeHtml(l.batch)}${l.exp ? " · Exp " + escapeHtml(l.exp) : ""}</span></td>
+            <td style="text-align:right; white-space:nowrap;">${l.qty} box</td>
+            <td style="width:32px; text-align:center;"><i class="fa-solid fa-trash-can" style="color:var(--red-alert); cursor:pointer;" onclick="removeMobReceiveCartLine(${idx})"></i></td>
+        </tr>
+    `).join("")}</tbody></table>`;
+}
+
+async function submitMobReceiveCart() {
+    if (!mobReceiveCart.length) return;
+    const po = document.getElementById("mob-rcv-po").value.trim();
+    const items = mobReceiveCart.map((l) => ({
+        sku: l.sku, qty_received: l.qty, batch_no: l.batch, expiry_date: l.exp, po_ref: po,
+    }));
 
     try {
         const { ok, data } = await apiFetch("/receive", {
             method: "POST",
-            body: {
-                branch_code: currentBranch,
-                notes: "",
-                items: [{ sku, qty_received: qty, batch_no: batch, expiry_date: exp, po_ref: po }],
-            },
+            body: { branch_code: currentBranch, notes: "", items },
         });
         if (!ok || !data.success) throw new Error(data.message || "Failed to post receive.");
 
-        alert(`✅ Stock receive posted (${data.receipt_no}).`);
-        document.getElementById("mob-receive-form").reset();
+        const failed = (data.line_results || []).filter((r) => !r.success);
+        if (failed.length) {
+            alert(`⚠️ Receipt ${data.receipt_no} posted, but ${failed.length} line(s) failed:\n` +
+                failed.map((f) => `${f.sku}: ${f.message}`).join("\n"));
+        } else {
+            alert(`✅ Stock receive posted (${data.receipt_no}) — ${data.total_items} item(s), ${data.total_qty} box(es) total.`);
+        }
+        mobReceiveCart = [];
+        document.getElementById("mob-rcv-po").value = "";
+        renderMobReceiveCart();
         await loadMobMasterlist();
         switchMobTab("masterlist");
     } catch (err) {
@@ -1418,22 +1549,84 @@ async function submitMobReceive(e) {
     }
 }
 
-async function submitMobTransfer(e) {
-    e.preventDefault();
+// ── Transfer cart (multi-item, one destination per cart) ─────────────
+// Mirrors desktop's "Add Items to Transfer" cart: pick a destination once,
+// add as many SKU+qty lines as needed, then queue them all in ONE
+// /transfer call (the route always took a `lines` array — this UI used to
+// just never send more than one at a time). Scoped to a single destination
+// per cart rather than per-line like desktop, since /transfer's contract is
+// { target_location_code, lines } — one destination for the whole request.
+// Switching destination mid-cart clears it (confirmed first if non-empty)
+// rather than silently reassigning already-added lines to the new branch.
+let mobTransferCart = []; // { sku, name, qty }
+
+function onMobTransferDestChanged() {
+    if (mobTransferCart.length && !confirm("Changing the destination will clear your current transfer cart. Continue?")) {
+        // Revert the select back to whatever destination the cart was built for.
+        document.getElementById("mob-trf-dest").value = mobTransferCart._dest || document.getElementById("mob-trf-dest").value;
+        return;
+    }
+    mobTransferCart = [];
+    renderMobTransferCart();
+}
+
+function addToMobTransferCart() {
     const dest = document.getElementById("mob-trf-dest").value;
-    const sku = document.getElementById("mob-trf-sku").value;
+    const skuSel = document.getElementById("mob-trf-sku");
+    const sku = skuSel.value;
     const qty = parseInt(document.getElementById("mob-trf-qty").value, 10);
 
-    if (!sku || !qty) return alert("Please select an item and enter quantity.");
+    if (!sku || !qty || qty <= 0) return alert("Please select an item and enter a valid quantity.");
+    if (mobTransferCart.some((l) => l.sku === sku)) return alert(`${sku} is already in the cart — remove it first if you need to change the qty.`);
+
+    const product = masterlistData.find((p) => p.sku === sku);
+    mobTransferCart.push({ sku, name: (product && product.name) || sku, qty });
+    mobTransferCart._dest = dest;
+
+    document.getElementById("mob-trf-sku").value = "";
+    document.getElementById("mob-trf-qty").value = "";
+    renderMobTransferCart();
+}
+
+function removeMobTransferCartLine(idx) {
+    mobTransferCart.splice(idx, 1);
+    renderMobTransferCart();
+}
+
+function renderMobTransferCart() {
+    const wrap = document.getElementById("mob-trf-cart-wrap");
+    const listEl = document.getElementById("mob-trf-cart-list");
+    const submitBtn = document.getElementById("mob-trf-submit-btn");
+    const destLabelEl = document.getElementById("mob-trf-cart-dest-label");
+
+    submitBtn.disabled = mobTransferCart.length === 0;
+    submitBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Queue Transfer (${mobTransferCart.length} item${mobTransferCart.length === 1 ? "" : "s"})`;
+
+    if (!mobTransferCart.length) {
+        wrap.style.display = "none";
+        return;
+    }
+    wrap.style.display = "block";
+    destLabelEl.textContent = mobTransferCart._dest || document.getElementById("mob-trf-dest").value;
+
+    listEl.innerHTML = `<table class="mob-table"><tbody>${mobTransferCart.map((l, idx) => `
+        <tr>
+            <td>${escapeHtml(l.sku)}<br><span style="font-size:10px; color:var(--text-muted);">${escapeHtml(l.name)}</span></td>
+            <td style="text-align:right; white-space:nowrap;">${l.qty} box</td>
+            <td style="width:32px; text-align:center;"><i class="fa-solid fa-trash-can" style="color:var(--red-alert); cursor:pointer;" onclick="removeMobTransferCartLine(${idx})"></i></td>
+        </tr>
+    `).join("")}</tbody></table>`;
+}
+
+async function submitMobTransferCart() {
+    if (!mobTransferCart.length) return;
+    const dest = mobTransferCart._dest || document.getElementById("mob-trf-dest").value;
+    const lines = mobTransferCart.map((l) => ({ sku: l.sku, qty: l.qty }));
 
     try {
         const { ok, data } = await apiFetch("/transfer", {
             method: "POST",
-            body: {
-                branch_code: currentBranch,
-                target_location_code: dest,
-                lines: [{ sku, qty }],
-            },
+            body: { branch_code: currentBranch, target_location_code: dest, lines },
         });
         if (!ok || !data.success) throw new Error(data.message || "Failed to queue transfer.");
 
@@ -1441,8 +1634,9 @@ async function submitMobTransfer(e) {
         // confirm authority reviews it in the Transfer Queue (header bell),
         // same as desktop. No point refreshing masterlist/bin card here,
         // since nothing on hand has changed yet.
-        alert(`📥 Transfer to ${dest} queued for confirmation.`);
-        document.getElementById("mob-transfer-form").reset();
+        alert(`📥 ${lines.length} item(s) queued for transfer to ${dest} — review/confirm from the notification bell.`);
+        mobTransferCart = [];
+        renderMobTransferCart();
         await refreshNotifBadge();
         switchMobTab("dash");
     } catch (err) {
