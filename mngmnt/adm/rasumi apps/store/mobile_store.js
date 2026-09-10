@@ -266,15 +266,23 @@ async function loadMobProfile() {
 
 function renderProfileAvatar() {
     const hasPhoto = !!(mobProfile && mobProfile.avatar_data_url);
+    // SUPER_ADMIN gets the multi-color gradient ring (a visual "this
+    // account can act on any branch" cue); every other role gets a
+    // plain magenta ring — role-super-admin toggles which background
+    // .mob-profile-avatar/#header-profile-icon's CSS paints behind the
+    // padding that forms the ring.
+    const isSuperAdmin = !!(mobProfile && mobProfile.role === "SUPER_ADMIN");
     const dropdownEl = document.getElementById("mob-profile-avatar");
     if (dropdownEl) {
         dropdownEl.innerHTML = hasPhoto ? `<img src="${mobProfile.avatar_data_url}" alt="">` : `<i class="fa-solid fa-user"></i>`;
+        dropdownEl.classList.toggle("role-super-admin", isSuperAdmin);
     }
     // Header's own profile icon button — same photo, smaller, so the
     // header itself shows who's logged in, not just the dropdown.
     const headerEl = document.getElementById("header-profile-icon");
     if (headerEl) {
         headerEl.innerHTML = hasPhoto ? `<img src="${mobProfile.avatar_data_url}" alt="">` : `<i class="fa-regular fa-circle-user"></i>`;
+        headerEl.classList.toggle("role-super-admin", isSuperAdmin);
     }
 }
 
