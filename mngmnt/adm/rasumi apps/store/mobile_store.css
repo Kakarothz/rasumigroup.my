@@ -658,6 +658,35 @@ body {
     border-color: var(--primary-blue);
 }
 
+/* Masterlist "View Bin Card Ledger" action button — icon-only, no
+   border/background, parity with desktop's .ml-action-icon-btn
+   (store_portal.css). Replaces the old text "Ledger" pill button. */
+.mob-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0;
+    box-shadow: none;
+    transition: background 0.15s ease-in-out, color 0.15s ease-in-out, transform 0.1s ease;
+}
+
+.mob-icon-btn:hover {
+    background: #eff6ff;
+    color: var(--primary-blue);
+}
+
+.mob-icon-btn:active {
+    transform: scale(0.95);
+}
+
 /* Main Container & Panels */
 .main-container {
     padding: 10px;

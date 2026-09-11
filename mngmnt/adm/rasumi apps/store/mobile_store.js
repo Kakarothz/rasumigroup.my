@@ -981,30 +981,56 @@ async function loadMobMasterlist() {
         if (!ok) throw new Error(data.message || "Failed to load masterlist.");
         masterlistData = Array.isArray(data) ? data : [];
 
-        renderMobMasterlist(masterlistData);
+        // Route through the same filter pipeline the search/category
+        // controls use (adds the active-only default below) so the
+        // very first render already matches what re-filtering later
+        // would show, instead of briefly flashing inactive items.
+        filterMobMasterlist();
         populateProductDropdowns(masterlistData);
     } catch (e) {
         console.error("Error loading masterlist:", e);
         const tbody = document.getElementById("mob-masterlist-tbody");
-        if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--red-alert);">Error loading data: ${escapeHtml(e.message)}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--red-alert);">Error loading data: ${escapeHtml(e.message)}</td></tr>`;
     }
 }
 
 function renderMobMasterlist(items) {
     const tbody = document.getElementById("mob-masterlist-tbody");
     if (!items || items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">No products found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No products found</td></tr>`;
         return;
     }
 
-    tbody.innerHTML = items.map((p) => {
+    // BUG FIX: headers are no longer clickable/sortable (per explicit
+    // instruction) — always sort by SKU/Item Code ascending, matching
+    // desktop Masterlist's own default (masterlistSortCol = "sku" in
+    // store_portal.js) rather than whatever order the /masterlist
+    // response happened to arrive in (it's ordered by product NAME
+    // server-side, not SKU).
+    const sorted = items.slice().sort((a, b) => (a.sku || "").localeCompare(b.sku || ""));
+
+    tbody.innerHTML = sorted.map((p) => {
         const packSize = p.pack_size || 1;
-        const boxPrice = parseFloat(p.selling_price || 0);
-        const pricePerTab = packSize > 0 ? boxPrice / packSize : boxPrice;
+        // BUG FIX: selling_price in the DB is the price PER TAB/UNIT, not
+        // per box — same convention documented in store_portal.js's
+        // renderMasterlistTable() ("Note: selling_price in DB is price
+        // per unit/tab"). This used to be read as a per-BOX price and
+        // then (wrongly) divided by pack_size for "per tab", which is
+        // backwards, and never fell back to unit_cost when selling_price
+        // was unset — both together are why prices/Total Cost never
+        // matched the desktop app. Also removed the separate "Price
+        // (Box)" column entirely: desktop only ever shows ONE price
+        // column (Selling Price, per tab) plus Total Cost — mobile
+        // matches that now instead of inventing an extra column.
+        const unitPrice = (p.selling_price && p.selling_price > 0) ? p.selling_price : (p.unit_cost || 0);
         // app_balance is in BOX units (same convention as the desktop
         // masterlist / bin card — see get_store_products()).
         const qtyOnHandBox = p.app_balance || 0;
-        const totalCostEst = qtyOnHandBox * boxPrice;
+        const qtyOnHandTab = packSize > 0 ? qtyOnHandBox * packSize : qtyOnHandBox;
+        // Total Cost = total TAB units on hand × per-tab price — exactly
+        // desktop's `tabVal * unitPrice` (renderMasterlistTable()), not
+        // BOX qty × price like the old mobile code had.
+        const totalCostEst = qtyOnHandTab * unitPrice;
         // VIMS comparison column — parity with desktop's Masterlist (which
         // shows app_balance alongside vims_balance so a staff member can
         // spot a portal-vs-VIMS mismatch at a glance). The Worker's
@@ -1023,12 +1049,11 @@ function renderMobMasterlist(items) {
                 <td style="max-width: 140px; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.name)}</td>
                 <td style="text-align:center; font-weight:700; ${mismatch ? "color:var(--red-alert);" : ""}">${qtyOnHandBox}</td>
                 <td style="text-align:center; ${mismatch ? "color:var(--amber-warn); font-weight:700;" : "color:var(--text-muted);"}">${hasVimsData ? vimsBox : "—"}${mismatch ? ' <i class="fa-solid fa-triangle-exclamation" title="Portal/VIMS mismatch"></i>' : ""}</td>
-                <td><span class="price-tag-box">RM ${boxPrice.toFixed(2)}</span></td>
-                <td><span class="price-tag-tab">RM ${pricePerTab.toFixed(2)}</span></td>
+                <td><span class="price-tag-tab">RM ${unitPrice.toFixed(2)}</span></td>
                 <td>RM ${totalCostEst.toFixed(2)}</td>
                 <td>
-                    <button class="tab-btn-sm" style="padding:2px 8px; font-size:10px; background:var(--primary-blue);" onclick="openItemBinCard('${escapeHtml(p.sku)}')">
-                        <i class="fa-solid fa-eye"></i> Ledger
+                    <button class="mob-icon-btn" title="View Bin Card Ledger" onclick="openItemBinCard('${escapeHtml(p.sku)}')">
+                        <i class="fa-solid fa-book"></i>
                     </button>
                 </td>
             </tr>
@@ -1043,7 +1068,15 @@ function filterMobMasterlist() {
     const filtered = masterlistData.filter((p) => {
         const matchesQuery = !query || (p.sku || "").toLowerCase().includes(query) || (p.name || "").toLowerCase().includes(query);
         const matchesCat = cat === "ALL" || (p.category && p.category.toUpperCase() === cat);
-        return matchesQuery && matchesCat;
+        // BUG FIX: mobile had no active/inactive filtering at all, so a
+        // product marked inactive on desktop (toggle_product_active_status)
+        // still showed up here. Desktop's own Masterlist defaults its
+        // status filter to "active" (masterlistStatusFilter = "active" in
+        // store_portal.js) and hides is_active === false items unless the
+        // user explicitly switches the filter — mobile has no such filter
+        // UI, so it just always applies that same default instead.
+        const isActive = p.is_active !== false;
+        return matchesQuery && matchesCat && isActive;
     });
 
     renderMobMasterlist(filtered);
@@ -1208,7 +1241,7 @@ function renderDashOutOfStock(list, hasQuery) {
 }
 
 function renderDashExpiring(list, hasQuery) {
-    const emptyMsg = hasQuery ? "No matching items found" : "No items expiring within 90 days";
+    const emptyMsg = hasQuery ? "No matching items found" : "No items expiring within 8 months";
     renderIconList("mob-dash-expiring-list", list, emptyMsg, (p) => `
         <div class="dt-icon-row">
             <span class="dt-icon-row-icon orange"><i class="fa-solid fa-calendar-days"></i></span>
@@ -1375,7 +1408,7 @@ function renderDashAlerts(data) {
         alerts.push({ icon: "⚠️", pill: "red", title: "Out of Stock Alerts", desc: "Items need immediate attention", count: data.out_of_stock });
     }
     if ((data.expiring_soon || []).length > 0) {
-        alerts.push({ icon: "⏳", pill: "orange", title: "Expiring Soon", desc: "Items expiring within 90 days", count: data.expiring_soon.length });
+        alerts.push({ icon: "⏳", pill: "orange", title: "Expiring Soon", desc: "Items expiring within 8 months", count: data.expiring_soon.length });
     }
     if (data.sync_online === false) {
         alerts.push({ icon: "🔄", pill: "yellow", title: "VIMS Sync Offline", desc: data.last_sync_label || "Never synced", count: null });
