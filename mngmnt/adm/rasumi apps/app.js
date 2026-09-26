@@ -52,6 +52,15 @@
     // Overview cards, Log Explorer's app filter, and per-app today/error
     // counts, since all three are purely data-driven off this array.
     { key: 'store_mngmt', label: 'Store Mngmt', icon: 'fa-store', firebaseNames: ['Store Mngmt'] },
+    // main.py's po_extract_pdfs/po_create_draft/po_gmail_connect/
+    // po_gmail_disconnect all send_live_log() under this one app_name now
+    // (normalized from the old "PO Mailer (Extract)"/"(Draft)"/... split),
+    // with per-PO detail (po_no/patient/hospital/action) riding in job_info
+    // — same convention VIBES uses for tuntutan_no/invoice_no. This entry
+    // alone gives PO Auto Email its App Overview card + Log Explorer
+    // filter; the dedicated r-po-auto-email route below adds the
+    // access-control toggle list and the daily-volume chart.
+    { key: 'po_auto_email', label: 'PO Auto Email', icon: 'fa-envelope-circle-check', firebaseNames: ['PO Auto Email'] },
   ];
 
   // ── State ──────────────────────────────────────────────────
@@ -768,24 +777,29 @@
       '  </div>',
       '</nav>',
 
-      // ── HORIZONTAL NAV ──
-      '<nav class="r-h-nav">',
-      '  <div class="r-hn-item" id="rni-r-dashboard" onclick="rNav(\'r-dashboard\')"><i class="fa-solid fa-gauge-high"></i> Dashboard</div>',
-      '  <div class="r-hn-item" id="rni-r-devices"   onclick="rNav(\'r-devices\')"><i class="fa-solid fa-server"></i> Device Fleet</div>',
+      // ── HORIZONTAL NAV ── centered pill strip. Each item carries both a
+      // short label (.r-hn-short, always there) and the full name
+      // (.r-hn-full) — CSS shows only the short one normally and swaps to
+      // the full name once .active is applied by rNav(), so the tab the
+      // admin is actually on reads clearly while the rest stay compact.
+      '<nav class="r-h-nav r-h-nav-compact">',
+      '  <div class="r-hn-item" id="rni-r-dashboard" onclick="rNav(\'r-dashboard\')"><i class="fa-solid fa-gauge-high"></i><span class="r-hn-short">Dash</span><span class="r-hn-full">Dashboard</span></div>',
+      '  <div class="r-hn-item" id="rni-r-devices"   onclick="rNav(\'r-devices\')"><i class="fa-solid fa-server"></i><span class="r-hn-short">Devices</span><span class="r-hn-full">Device Fleet</span></div>',
       '  <div class="r-hn-sep"></div>',
-      '  <div class="r-hn-item" id="rni-r-renamer"    onclick="rNav(\'r-renamer\')"><i class="fa-solid fa-file-signature"></i> Renamer HQ <span class="r-nb warn" id="r-nb-renamer" style="display:none"></span></div>',
-      '  <div class="r-hn-item" id="rni-r-renamer-fv" onclick="rNav(\'r-renamer-fv\')"><i class="fa-solid fa-file-invoice"></i> Renamer FV</div>',
-      '  <div class="r-hn-item" id="rni-r-splitter"   onclick="rNav(\'r-splitter\')"><i class="fa-solid fa-scissors"></i> PDF Splitter</div>',
-      '  <div class="r-hn-item" id="rni-r-studio"     onclick="rNav(\'r-studio\')"><i class="fa-solid fa-file-pdf"></i> PDF Studio</div>',
-      '  <div class="r-hn-item" id="rni-r-quick"      onclick="rNav(\'r-quick\')"><i class="fa-solid fa-bolt"></i> Quick Rename</div>',
-      '  <div class="r-hn-item" id="rni-r-scanify"    onclick="rNav(\'r-scanify\')"><i class="fa-solid fa-camera"></i> Scanify</div>',
-      '  <div class="r-hn-item" id="rni-r-vibes"      onclick="rNav(\'r-vibes\')"><i class="fa-solid fa-file-arrow-up"></i> VIBES Agent <span class="r-nb err" id="r-nb-vibes" style="display:none"></span></div>',
-      '  <div class="r-hn-item" id="rni-r-vims"       onclick="rNav(\'r-vims\')"><i class="fa-solid fa-magnifying-glass-chart"></i> VIMS Agent <span class="r-nb warn" id="r-nb-vims" style="display:none"></span></div>',
+      '  <div class="r-hn-item" id="rni-r-renamer"    onclick="rNav(\'r-renamer\')"><i class="fa-solid fa-file-signature"></i><span class="r-hn-short">Renamer</span><span class="r-hn-full">Renamer HQ</span> <span class="r-nb warn" id="r-nb-renamer" style="display:none"></span></div>',
+      '  <div class="r-hn-item" id="rni-r-renamer-fv" onclick="rNav(\'r-renamer-fv\')"><i class="fa-solid fa-file-invoice"></i><span class="r-hn-short">Ren. FV</span><span class="r-hn-full">Renamer FV</span></div>',
+      '  <div class="r-hn-item" id="rni-r-splitter"   onclick="rNav(\'r-splitter\')"><i class="fa-solid fa-scissors"></i><span class="r-hn-short">Splitter</span><span class="r-hn-full">PDF Splitter</span></div>',
+      '  <div class="r-hn-item" id="rni-r-studio"     onclick="rNav(\'r-studio\')"><i class="fa-solid fa-file-pdf"></i><span class="r-hn-short">Studio</span><span class="r-hn-full">PDF Studio</span></div>',
+      '  <div class="r-hn-item" id="rni-r-quick"      onclick="rNav(\'r-quick\')"><i class="fa-solid fa-bolt"></i><span class="r-hn-short">Q.Rename</span><span class="r-hn-full">Quick Rename</span></div>',
+      '  <div class="r-hn-item" id="rni-r-scanify"    onclick="rNav(\'r-scanify\')"><i class="fa-solid fa-camera"></i><span class="r-hn-short">Scanify</span><span class="r-hn-full">Scanify</span></div>',
+      '  <div class="r-hn-item" id="rni-r-vibes"      onclick="rNav(\'r-vibes\')"><i class="fa-solid fa-file-arrow-up"></i><span class="r-hn-short">VIBES</span><span class="r-hn-full">VIBES Agent</span> <span class="r-nb err" id="r-nb-vibes" style="display:none"></span></div>',
+      '  <div class="r-hn-item" id="rni-r-vims"       onclick="rNav(\'r-vims\')"><i class="fa-solid fa-magnifying-glass-chart"></i><span class="r-hn-short">VIMS</span><span class="r-hn-full">VIMS Agent</span> <span class="r-nb warn" id="r-nb-vims" style="display:none"></span></div>',
+      '  <div class="r-hn-item" id="rni-r-po-auto-email" onclick="rNav(\'r-po-auto-email\')"><i class="fa-solid fa-envelope-circle-check"></i><span class="r-hn-short">PO Mail</span><span class="r-hn-full">PO Auto Email</span></div>',
       '  <div class="r-hn-sep"></div>',
-      '  <div class="r-hn-item" id="rni-r-logs"      onclick="rNav(\'r-logs\')"><i class="fa-solid fa-scroll"></i> Log Explorer</div>',
-      '  <div class="r-hn-item" id="rni-r-commands"  onclick="rNav(\'r-commands\')"><i class="fa-solid fa-terminal"></i> Commands</div>',
-      '  <div class="r-hn-item" id="rni-r-alerts"    onclick="rNav(\'r-alerts\')"><i class="fa-solid fa-triangle-exclamation"></i> Alerts <span class="r-nb err" id="r-nb-alerts" style="display:none"></span></div>',
-      '  <div class="r-hn-item" id="rni-r-release"   onclick="rNav(\'r-release\')"><i class="fa-solid fa-rocket"></i> Release Mgmt</div>',
+      '  <div class="r-hn-item" id="rni-r-logs"      onclick="rNav(\'r-logs\')"><i class="fa-solid fa-scroll"></i><span class="r-hn-short">Logs</span><span class="r-hn-full">Log Explorer</span></div>',
+      '  <div class="r-hn-item" id="rni-r-commands"  onclick="rNav(\'r-commands\')"><i class="fa-solid fa-terminal"></i><span class="r-hn-short">Commands</span><span class="r-hn-full">Commands</span></div>',
+      '  <div class="r-hn-item" id="rni-r-alerts"    onclick="rNav(\'r-alerts\')"><i class="fa-solid fa-triangle-exclamation"></i><span class="r-hn-short">Alerts</span><span class="r-hn-full">Alerts</span> <span class="r-nb err" id="r-nb-alerts" style="display:none"></span></div>',
+      '  <div class="r-hn-item" id="rni-r-release"   onclick="rNav(\'r-release\')"><i class="fa-solid fa-rocket"></i><span class="r-hn-short">Release</span><span class="r-hn-full">Release Mgmt</span></div>',
       '</nav>',
 
       // ── BODY (nodes-panel + main) ──
@@ -2532,6 +2546,7 @@
     'r-scanify': 'Scanify Logs',
     'r-vibes': 'VIBES Agent',
     'r-vims': 'VIMS Scrape',
+    'r-po-auto-email': 'PO Auto Email',
     'r-logs': 'Log Explorer',
     'r-commands': 'Commands',
     'r-alerts': 'Alerts',
@@ -2552,6 +2567,7 @@
     'r-quick': function () { window.rLoadAppLogs(_appSafeId('Quick Rename')); },
     'r-scanify': function () { window.rLoadAppLogs(_appSafeId('Scanify')); },
     'r-vibes': function () { window.rLoadVibesActivity(); window.rLoadVibes(); },
+    'r-po-auto-email': function () { window.rLoadPoAutoEmailActivity(); },
     'r-logs': function () { window.rLoadLogs(); }
   };
 
@@ -2589,6 +2605,7 @@
       case 'r-scanify': renderAppLogs('Scanify', 'Scanify', 'fa-camera'); break;
       case 'r-vibes': renderVibes(); break;
       case 'r-vims': renderVims(); break;
+      case 'r-po-auto-email': renderPoAutoEmail(); break;
       case 'r-logs': renderLogs(); break;
       case 'r-commands': renderCommands(); break;
       case 'r-alerts': renderAlerts(); break;
@@ -5138,7 +5155,7 @@
       '<div id="dd-health-body" style="margin-top:10px">' +
       '<div class="r-health-placeholder">' +
       '<i class="fa-solid fa-heart-pulse" style="font-size:22px;opacity:0.3;margin-bottom:8px"></i>' +
-      '<span>Click <strong style="color:#64748b">Refresh</strong> to load device health data</span>' +
+      '<span>Loading last known health snapshot…</span>' +
       '</div>' +
       '</div>' +
       '</div>' +
@@ -5174,7 +5191,21 @@
       var cached = RS._healthCache && RS._healthCache[hostname];
       if (cached) {
         _rDdRenderHealth(cached, hostname);
-      } else if (RS.supa) {
+        return;
+      }
+      if (!RS.supa) return;
+      // Prefer the persisted device_health_status snapshot — this is what
+      // both the once-a-day auto-sync AND a manual Refresh write to, so it
+      // shows the latest known health the moment the panel opens, without
+      // waiting on a fresh live round-trip. Falls back to the legacy
+      // commands-table lookup (pre-auto-sync devices / migration not yet
+      // run) if the RPC comes back empty.
+      RS.supa.rpc('device_health_get', { p_hostname: hostname }).then(function (res) {
+        var row = res.data && res.data[0];
+        if (row && row.health_json) {
+          _rDdRenderHealth(row.health_json, hostname, row.synced_at, row.source);
+          return;
+        }
         RS.supa.from('commands')
           .select('result,created_at')
           .eq('target_machine', hostname)
@@ -5182,12 +5213,12 @@
           .in('status', ['COMPLETED', 'EXECUTED'])
           .order('created_at', { ascending: false })
           .limit(1)
-          .then(function (res) {
-            if (res.data && res.data[0] && res.data[0].result) {
-              try { _rDdRenderHealth(JSON.parse(res.data[0].result), hostname); } catch (e) { }
+          .then(function (res2) {
+            if (res2.data && res2.data[0] && res2.data[0].result) {
+              try { _rDdRenderHealth(JSON.parse(res2.data[0].result), hostname, res2.data[0].created_at); } catch (e) { }
             }
           });
-      }
+      });
     }, 50);
   }
 
@@ -5499,7 +5530,7 @@
     });
   };
 
-  function _rDdRenderHealth(data, hostname) {
+  function _rDdRenderHealth(data, hostname, syncedAt, source) {
     var body = $r('dd-health-body');
     if (!body) return;
     var html = '<div class="r-health-grid">';
@@ -5587,7 +5618,9 @@
     }
 
     html += '</div>';
-    html += '<div style="font-size:10px;color:#1e293b;text-align:right;margin-top:6px">Last refreshed ' + new Date().toLocaleTimeString() + '</div>';
+    var _ts = syncedAt ? new Date(syncedAt) : new Date();
+    var _srcLabel = source === 'auto' ? ' (auto-synced)' : source === 'manual' ? ' (manual refresh)' : '';
+    html += '<div style="font-size:10px;color:#1e293b;text-align:right;margin-top:6px">Last refreshed ' + _ts.toLocaleTimeString() + _srcLabel + '</div>';
     body.innerHTML = html;
     RS._healthCache = RS._healthCache || {};
     RS._healthCache[hostname] = data;
@@ -6224,6 +6257,130 @@
       _fetchAndCacheAppLogs('Renamer HQ', _render);
     }
   };
+
+  // ── PO AUTO EMAIL ──────────────────────────────────────────────
+  // Three parts: (1) Access Control — grant/revoke po_auto_email_access
+  // per legacy branch login (sql/po_auto_email_admin_v1.sql), replacing
+  // the old hardcoded "rasumihq only" check in main.py; (2) a daily
+  // volume chart built from logs.job_info.action='extract' rows; (3) a
+  // flat recent-activity table pulled straight from logs.job_info (po_no /
+  // patient / hospital_name / action), rather than the generic grouped
+  // session view renderAppLogs() below uses — a purchaser cares about
+  // "which PO, which patient, which hospital", not session grouping.
+  function renderPoAutoEmail() {
+    var view = $r('r-view-area');
+    if (!view) return;
+
+    view.innerHTML =
+      '<div class="r-panel" style="margin-bottom:16px">' +
+      '<div class="r-panel-hdr"><h3><i class="fa-solid fa-user-lock"></i> Access Control</h3></div>' +
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Who can open PO Auto Email is managed the same way as every other app — go to <strong>Devices → App Users</strong> and check "PO Auto Email" for that login, same place you toggle Scanify/Renamer/etc.</div></div>' +
+      '</div>' +
+      '<div class="r-panel" style="margin-bottom:16px">' +
+      '<div class="r-panel-hdr"><h3><i class="fa-solid fa-chart-column"></i> POs Processed — Last 14 Days</h3></div>' +
+      '<div style="position:relative;height:180px;"><canvas id="r-po-chart"></canvas></div>' +
+      '</div>' +
+      '<div class="r-panel">' +
+      '<div class="r-panel-hdr"><h3><i class="fa-solid fa-envelope-circle-check"></i> Recent Activity</h3>' +
+      '<div class="r-filter-bar"><button class="r-btn-sm" onclick="rLoadPoAutoEmailActivity()">Refresh</button></div></div>' +
+      '<div id="r-po-activity"><div class="r-loading"><span class="r-spin"></span> Loading…</div></div>' +
+      '</div>';
+
+    window.rLoadPoAutoEmailActivity();
+  }
+
+  window.rLoadPoAutoEmailActivity = function () {
+    if (!RS.supa) return;
+    var since = new Date(); since.setDate(since.getDate() - 14); since.setHours(0, 0, 0, 0);
+    RS.supa.from('logs').select('machine,branch_id,status,timestamp,job_info,error_msg')
+      .eq('app_name', 'PO Auto Email').gte('timestamp', since.toISOString())
+      .order('timestamp', { ascending: false }).limit(500)
+      .then(function (res) {
+        var rows = (res && res.data) || [];
+        _renderPoChart(rows);
+        _renderPoActivityTable(rows);
+      })
+      .catch(function (e) {
+        var box = $r('r-po-activity');
+        if (box) box.innerHTML = '<div class="r-empty">Failed to load: ' + esc(e.message) + '</div>';
+      });
+  };
+
+  function _renderPoChart(rows) {
+    var canvas = $r('r-po-chart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    // Bucket per-PO 'extract' rows (one per PDF, not the batch-summary row) by day
+    var days = [];
+    for (var i = 13; i >= 0; i--) {
+      var d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i);
+      days.push(d.toISOString().substring(0, 10));
+    }
+    var counts = {}; days.forEach(function (d) { counts[d] = 0; });
+    rows.forEach(function (l) {
+      var ji = l.job_info;
+      if (!ji || ji.action !== 'extract') return;
+      var day = (l.timestamp || '').substring(0, 10);
+      if (counts.hasOwnProperty(day)) counts[day]++;
+    });
+    var labels = days.map(function (d) { return d.substring(5); }); // MM-DD
+    var data = days.map(function (d) { return counts[d]; });
+
+    if (RS._charts && RS._charts.poVolume) { RS._charts.poVolume.destroy(); }
+    if (!RS._charts) RS._charts = {};
+    RS._charts.poVolume = new Chart(canvas, {
+      type: 'bar',
+      data: { labels: labels, datasets: [{ data: data, backgroundColor: 'rgba(56,189,248,0.55)', borderRadius: 3, maxBarThickness: 22 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,14,26,0.9)', titleColor: '#aaa', bodyColor: '#38bdf8' } },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6B7A8F', font: { size: 9 } } },
+          y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6B7A8F', font: { size: 9 }, precision: 0 }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  var _PO_ACTION_LABEL = {
+    extract: 'Extracted', extract_batch: 'Batch Summary', draft: 'Draft Created',
+    gmail_connect: 'Gmail Connect', gmail_disconnect: 'Gmail Disconnect'
+  };
+  var _PO_ACTION_BADGE = {
+    extract: 'r-badge-info', extract_batch: 'r-badge-muted', draft: 'r-badge-ok',
+    gmail_connect: 'r-badge-blue', gmail_disconnect: 'r-badge-warn'
+  };
+
+  function _renderPoActivityTable(rows) {
+    var box = $r('r-po-activity');
+    if (!box) return;
+    // Show per-PO detail rows (extract / draft) — skip the batch-summary
+    // and connect/disconnect rows here since they carry no PO No/Patient;
+    // those are still visible in full via Log Explorer's app filter.
+    var detailRows = rows.filter(function (l) { return l.job_info && (l.job_info.action === 'extract' || l.job_info.action === 'draft'); });
+    if (!detailRows.length) { box.innerHTML = '<div class="r-empty">No PO activity in the last 14 days</div>'; return; }
+
+    var html = '<table class="r-table"><thead><tr>' +
+      '<th>Time</th><th>Action</th><th>PO No</th><th>Patient</th><th>Hospital</th><th>Machine</th><th>Status</th>' +
+      '</tr></thead><tbody>';
+    detailRows.forEach(function (l) {
+      var ji = l.job_info || {};
+      var act = ji.action || '';
+      var st = (l.status || '').toUpperCase();
+      var okBadge = act === 'extract' ? (ji.extraction_ok ? 'r-badge-ok' : 'r-badge-warn') : (st === 'FAILED' || st === 'ERROR' ? 'r-badge-err' : 'r-badge-ok');
+      var okText = act === 'extract' ? (ji.extraction_ok ? 'OK' : 'NEEDS REVIEW') : (st === 'FAILED' || st === 'ERROR' ? 'FAILED' : 'OK');
+      html += '<tr>' +
+        '<td>' + esc(_fmtDate(l.timestamp)) + ' ' + esc(_fmtTime(l.timestamp)) + '</td>' +
+        '<td><span class="r-badge ' + (_PO_ACTION_BADGE[act] || 'r-badge-muted') + '">' + esc(_PO_ACTION_LABEL[act] || act) + '</span></td>' +
+        '<td>' + esc(ji.po_no || '—') + '</td>' +
+        '<td>' + esc(ji.patient || '—') + '</td>' +
+        '<td>' + esc(ji.hospital_name || '—') + '</td>' +
+        '<td>' + esc(_canonHost(l.machine || '') || '—') + '</td>' +
+        '<td><span class="r-badge ' + okBadge + '">' + okText + '</span></td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    box.innerHTML = html;
+  }
 
   // ── APP LOG VIEWS (shared renderer for FV Branch / Splitter / Studio / Quick / Scanify) ──
   function renderAppLogs(appName, label, icon) {
@@ -11065,7 +11222,7 @@
   };
 
   // ── Hospital Users Management ──────────────────────────────────
-  var _HOSPITAL_APPS = ['Scanify', 'Renamer HQ', 'FV Branch', 'PDF Splitter', 'PDF Studio', 'Quick Rename', 'Vibes Automation', 'Store Mngmnt'];
+  var _HOSPITAL_APPS = ['Scanify', 'Renamer HQ', 'FV Branch', 'PDF Splitter', 'PDF Studio', 'Quick Rename', 'Vibes Automation', 'Store Mngmnt', 'PO Auto Email'];
   // Kept in sync with index.html's #admin-store-branch-group in the
   // desktop app — "" = All Branches (SUPER_ADMIN-style free pick),
   // otherwise the one branch a Store Mngmnt user is locked to.

@@ -272,6 +272,7 @@
 #rasumi-container .r-h-nav {
   display: flex;
   align-items: center;
+  justify-content: center;
   padding: 0 16px;
   background: rgba(6, 10, 18, 0.78);
   border-bottom: 1px solid var(--rc-border);
@@ -309,6 +310,21 @@
 #rasumi-container .r-hn-item i { font-size: 11px; flex-shrink: 0; }
 #rasumi-container .r-hn-item:hover { color: var(--rc-text); }
 #rasumi-container .r-hn-item.active { color: var(--rc-cyan); border-bottom-color: var(--rc-cyan); }
+
+/* Compact nav, centered as one pill strip. Bigger icons + a short label
+   fill the bar densely without overflowing once more tabs (PO Auto
+   Email) were added; the currently-open tab swaps its short label for
+   the full name (.r-hn-short/.r-hn-full toggled by .active, set in
+   rNav()) so the active page still reads clearly. */
+#rasumi-container .r-h-nav-compact .r-hn-item {
+  padding: 0 13px;
+  gap: 7px;
+  font-size: 11px;
+}
+#rasumi-container .r-h-nav-compact .r-hn-item i { font-size: 16px; }
+#rasumi-container .r-h-nav-compact .r-hn-full { display: none; }
+#rasumi-container .r-h-nav-compact .r-hn-item.active .r-hn-short { display: none; }
+#rasumi-container .r-h-nav-compact .r-hn-item.active .r-hn-full { display: inline; }
 
 #rasumi-container .r-hn-sep {
   width: 1px; height: 18px;
