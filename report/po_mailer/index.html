@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PO Mailer — Architecture Flow Map</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap');
+
+:root{
+  --bg:#08050e;
+  --bg2:#0f0a1c;
+  --panel:#140f24;
+  --panel2:#1a1330;
+  --line:#2a2247;
+  --text:#eae6f7;
+  --muted:#8b81ab;
+  --pink:#ff2fb0;
+  --purple:#a855f7;
+  --cyan:#22d3ee;
+  --amber:#fbbf24;
+  --green:#34d399;
+  --red:#f87171;
+  --neutral:#9aa3b2;
+  --glow-pink: 0 0 14px rgba(255,47,176,.65);
+  --glow-purple: 0 0 14px rgba(168,85,247,.65);
+  --glow-cyan: 0 0 14px rgba(34,211,238,.65);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;overflow:hidden;height:100%;}
+body{padding-top:50px;}
+#app{display:flex;flex-direction:column;height:calc(100vh - 50px);}
+
+/* ---------- top bar ---------- */
+#topbar{
+  padding:10px 20px;
+  background:linear-gradient(180deg, var(--bg2), var(--bg));
+  border-bottom:1px solid var(--line);
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+#hamburgerBtn{
+  flex-shrink:0;
+  width:34px;height:34px;border-radius:9px;
+  border:1px solid var(--line);background:var(--panel);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  gap:3px;flex-direction:column;
+  transition:border-color .15s ease, box-shadow .15s ease, background .2s ease;
+}
+#hamburgerBtn:hover{border-color:var(--muted);}
+#hamburgerBtn span{display:block;width:16px;height:2px;background:var(--text);border-radius:2px;transition:transform .25s ease, opacity .2s ease;}
+#hamburgerBtn.open{border-color:var(--purple);box-shadow:0 0 10px rgba(168,85,247,.35);}
+#hamburgerBtn.open span:nth-child(1){transform:translateY(5px) rotate(45deg);}
+#hamburgerBtn.open span:nth-child(2){opacity:0;}
+#hamburgerBtn.open span:nth-child(3){transform:translateY(-5px) rotate(-45deg);}
+#titleBlock{min-width:0;}
+#topbar h1{
+  font-family:'Orbitron',sans-serif;
+  font-weight:900;
+  font-size:16px;
+  letter-spacing:1.3px;
+  margin:0;
+  background:linear-gradient(90deg, var(--pink), var(--purple), var(--cyan));
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+#topbar .sub{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#navStatus{
+  margin-left:auto;flex-shrink:0;font-size:10.5px;color:var(--muted);
+  display:flex;align-items:center;gap:8px;
+}
+#navStatus .live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);display:none;}
+#navStatus.playing .live-dot{display:inline-block;animation:pulse 1.1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+/* ---------- collapsible nav panel ---------- */
+#navPanel{
+  flex-shrink:0;
+  overflow:hidden;
+  max-height:260px;
+  background:var(--bg2);
+  border-bottom:1px solid var(--line);
+  transition:max-height .32s ease, padding .32s ease, opacity .25s ease;
+  padding:12px 20px;
+}
+#navPanel.collapsed{max-height:0;padding-top:0;padding-bottom:0;opacity:0;border-bottom-color:transparent;}
+#controls{display:flex;flex-direction:column;gap:10px;}
+#flowRow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.flow-btn{
+  font-family:'Inter',sans-serif;
+  font-size:12px;font-weight:600;
+  padding:7px 13px;border-radius:20px;
+  border:1px solid var(--line);
+  background:var(--panel);
+  color:var(--text);
+  cursor:pointer;
+  display:flex;align-items:center;gap:7px;
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  white-space:nowrap;
+}
+.flow-btn:hover{transform:translateY(-1px);border-color:var(--muted);}
+.flow-btn.active{border-color:currentColor;box-shadow:0 0 12px currentColor;}
+.flow-dot{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor;}
+#rightControls{display:flex;gap:10px;align-items:center;padding-top:8px;border-top:1px solid var(--line);}
+#autoplayBtn{
+  font-size:12px;font-weight:600;padding:7px 14px;border-radius:20px;
+  border:1px solid var(--purple);background:rgba(168,85,247,.12);color:var(--text);cursor:pointer;
+  display:flex;align-items:center;gap:6px;
+}
+#autoplayBtn.on{background:var(--purple);box-shadow:var(--glow-purple);}
+#resetBtn{
+  font-size:12px;font-weight:600;padding:7px 14px;border-radius:20px;
+  border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer;
+}
+
+/* ---------- main layout ---------- */
+#main{flex:1;display:flex;min-height:0;}
+#graphWrap{flex:1;overflow:auto;position:relative;padding:18px 24px 34px 24px;}
+#graphInner{position:relative;min-width:1180px;}
+svg#edges{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;}
+
+.lane{display:flex;align-items:stretch;margin-bottom:6px;position:relative;}
+.lane-label{
+  width:230px;flex-shrink:0;display:flex;align-items:center;
+  font-family:'Orbitron',sans-serif;font-size:10.5px;font-weight:700;
+  letter-spacing:.5px;color:var(--muted);text-transform:uppercase;
+  padding-right:14px;line-height:1.4;
+}
+.lane-label .chip{width:7px;height:7px;border-radius:2px;margin-right:8px;flex-shrink:0;box-shadow:0 0 6px currentColor;}
+.lane-nodes{flex:1;display:flex;flex-wrap:wrap;gap:10px;padding:10px 6px;border-radius:14px;background:rgba(255,255,255,.012);border:1px dashed rgba(255,255,255,.05);min-height:64px;align-items:center;}
+
+.node{
+  position:relative;
+  padding:8px 12px;border-radius:10px;
+  background:var(--panel);
+  border:1.4px solid var(--line);
+  font-size:11.5px;font-weight:600;
+  cursor:pointer;
+  transition:transform .18s ease, box-shadow .25s ease, border-color .25s ease, background .25s ease;
+  width:210px;
+  max-width:210px;
+  line-height:1.35;
+  overflow-wrap:break-word;
+  word-break:break-word;
+  white-space:normal;
+  hyphens:auto;
+}
+.node .ntype{display:block;font-size:8.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px;overflow-wrap:break-word;}
+.node:hover{transform:translateY(-2px);border-color:var(--muted);}
+.node.dim{opacity:.22;}
+.node.lit{opacity:1;}
+.node.selected{outline:2px solid #fff;outline-offset:1px;}
+
+.node.actor{background:radial-gradient(circle at 30% 20%, #2a2440, var(--panel));}
+
+/* node active glow per flow color, set via inline style */
+
+/* ---------- legend ---------- */
+#legend{
+  display:flex;gap:16px;flex-wrap:wrap;padding:8px 24px 4px 24px;font-size:10.5px;color:var(--muted);
+  border-top:1px solid var(--line);background:var(--bg2);flex-shrink:0;
+}
+#legend .item{display:flex;align-items:center;gap:6px;}
+#legend .sw{width:9px;height:9px;border-radius:2px;box-shadow:0 0 5px currentColor;}
+
+/* ---------- side panel ---------- */
+#sidepanel{
+  width:340px;flex-shrink:0;background:var(--panel);border-left:1px solid var(--line);
+  padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;
+}
+#sidepanel h2{font-family:'Orbitron',sans-serif;font-size:13px;margin:0;color:var(--text);text-transform:uppercase;letter-spacing:.5px;}
+#sidepanel .placeholder{color:var(--muted);font-size:12.5px;line-height:1.6;}
+#sidepanel .field-label{font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-top:8px;}
+#sidepanel .field-val{font-size:12.5px;line-height:1.55;color:var(--text);}
+#sidepanel .mono{font-family:'Consolas','Menlo',monospace;font-size:11px;color:var(--cyan);background:rgba(34,211,238,.08);padding:6px 8px;border-radius:6px;word-break:break-word;}
+#stepList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+#stepList li{
+  font-size:11.5px;line-height:1.4;padding:8px 10px;border-radius:8px;
+  background:var(--panel2);border-left:3px solid var(--line);color:var(--muted);
+  transition:all .25s ease;
+}
+#stepList li.active{border-left-color:var(--cyan);color:var(--text);background:rgba(34,211,238,.09);box-shadow:0 0 10px rgba(34,211,238,.15);}
+#stepList li.done{color:var(--text);opacity:.6;}
+#stepList .num{font-family:'Orbitron',sans-serif;font-weight:700;color:var(--purple);margin-right:6px;}
+
+.flow-desc{font-size:12px;color:var(--muted);line-height:1.55;padding-bottom:6px;border-bottom:1px solid var(--line);}
+
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   REPORT SWITCHER (shared across all Rasumi Group technical reports)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+.report-switcher {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    z-index: 1000;
+    background: rgba(11, 16, 23, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+}
+.report-switcher-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0.1rem 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.rs-logo-img { height: 40px; width: auto; object-fit: contain; display: block; }
+.rs-dropdown { position: relative; }
+.rs-dropdown-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel); border: 1px solid var(--line); color: var(--text);
+    font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600;
+    padding: 8px 14px; border-radius: 8px; cursor: pointer; transition: all .2s ease;
+}
+.rs-dropdown-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.rs-caret { font-size: 0.7rem; transition: transform 0.2s ease; }
+.rs-dropdown.open .rs-caret { transform: rotate(180deg); }
+.rs-dropdown-menu {
+    position: absolute; top: calc(100% + 8px); right: 0; width: 300px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.5); padding: 6px;
+    display: none; flex-direction: column; gap: 2px;
+}
+.rs-dropdown.open .rs-dropdown-menu { display: flex; }
+.rs-item {
+    display: flex; flex-direction: column; gap: 2px; padding: 10px 12px;
+    border-radius: 8px; text-decoration: none; color: var(--text);
+    font-size: 0.88rem; font-weight: 600; transition: all .2s ease;
+}
+.rs-item:hover { background: rgba(34,211,238,0.08); }
+.rs-item.active { background: rgba(34,211,238,0.12); color: var(--cyan); }
+.rs-tag { font-size: 0.72rem; font-weight: 500; color: var(--muted); font-family: 'Consolas','Menlo',monospace; }
+
+</style>
+</head>
+<body>
+
+<nav class="report-switcher">
+    <div class="report-switcher-inner">
+        <img src="../assets/icon.png" alt="Rasumi Logo" class="rs-logo-img">
+        <div class="rs-dropdown" id="rsDropdown">
+            <button class="rs-dropdown-btn" id="rsDropdownBtn" type="button">
+                Switch Report <span class="rs-caret">▾</span>
+            </button>
+            <div class="rs-dropdown-menu">
+                <a href="../index.html" class="rs-item">Rasumi Apps <span class="rs-tag">Admin Console + Field Agents</span></a>
+                <a href="../sales_report/index.html" class="rs-item">Apps Sales Report <span class="rs-tag">VIMS Reporting Center</span></a>
+                <a href="../smart_printer_label/index.html" class="rs-item">Smart Printer Label <span class="rs-tag">Chrome Extension</span></a>
+                <a href="../vims_auto/index.html" class="rs-item">VIMS Auto Selesai <span class="rs-tag">Chrome Extension</span></a>
+                <a href="index.html" class="rs-item active">PO Mailer <span class="rs-tag">Architecture &amp; Flow Map</span></a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div id="app">
+  <div id="topbar">
+    <button id="hamburgerBtn" title="Toggle navigation"><span></span><span></span><span></span></button>
+    <div id="titleBlock">
+      <h1>⟡ PO Mailer — Architecture &amp; Flow Map</h1>
+      <div class="sub">Rasumi Apps V9.0 · index.html → main.py → po_extract_engine.py / po_lpo_splitter.py → Data &amp; Gmail</div>
+    </div>
+    <div id="navStatus"><span class="live-dot"></span><span id="navStatusText">Idle</span></div>
+  </div>
+
+  <div id="navPanel">
+    <div id="controls">
+      <div id="flowRow">
+        <button class="flow-btn" id="btnAll">Show full graph</button>
+        <span id="flowBtns" style="display:flex;gap:8px;flex-wrap:wrap;"></span>
+      </div>
+      <div id="rightControls">
+        <button id="autoplayBtn">▶ Autoplay</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="graphWrap">
+      <div id="graphInner">
+        <svg id="edges"></svg>
+        <div id="lanes"></div>
+      </div>
+    </div>
+    <div id="sidepanel">
+      <div id="panelDefault">
+        <h2>Details</h2>
+        <p class="placeholder">Click any node to see its file, signature and description. Pick a flow above to watch it animate step-by-step through the architecture — click a step below the description to jump straight to it.</p>
+      </div>
+      <div id="panelFlow" style="display:none;">
+        <h2 id="flowTitle"></h2>
+        <div id="flowDesc" class="flow-desc"></div>
+        <ol id="stepList"></ol>
+      </div>
+      <div id="panelNode" style="display:none;">
+        <h2 id="nodeTitle"></h2>
+        <div class="field-label">Layer</div>
+        <div class="field-val" id="nodeLayer"></div>
+        <div class="field-label" id="nodeFileLabel">File</div>
+        <div class="field-val mono" id="nodeFile"></div>
+        <div class="field-label" id="nodeSigLabel">Signature</div>
+        <div class="field-val mono" id="nodeSig"></div>
+        <div class="field-label">Description</div>
+        <div class="field-val" id="nodeDesc"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="legend"></div>
+</div>
+
+<script>
+const SPEC = {"meta": {"title": "PO Mailer — Architecture & Flow Graph Specification", "app": "Rasumi Apps V9.0 / PO Auto Email (\"PO Mailer\")", "version": "1.0.0", "generated": "2026-09-29", "description": "Complete function-level architecture map of the PO Mailer module: frontend UI handlers (src/web/index.html), eel-exposed backend orchestration (src/main.py), core extraction/matching/split engines (po_extract_engine.py, po_lpo_splitter.py), and external data/services (Supabase tables, Gmail API, local disk cache). Node ids are stable and referenced by every flow's step sequence.", "renderer_hint": "animated-swimlane-flow, see graphspec_viewer.html"}, "layers": [{"id": "user", "label": "User", "order": 0, "color": "neutral"}, {"id": "ui", "label": "Frontend UI (index.html)", "order": 1, "color": "pink"}, {"id": "bridge", "label": "Eel Bridge / Orchestration (main.py)", "order": 2, "color": "purple"}, {"id": "engine", "label": "Core Engines (po_extract_engine.py / po_lpo_splitter.py)", "order": 3, "color": "cyan"}, {"id": "data", "label": "Data & External Services", "order": 4, "color": "amber"}], "nodes": [{"id": "U1", "layer": "user", "type": "actor", "label": "Purchaser / User", "description": "Operator of the PO Mailer app inside the Rasumi Apps desktop shell."}, {"id": "F1", "layer": "ui", "type": "handler", "label": "poSelectPdfFiles()", "file": "src/web/index.html", "signature": "async function poSelectPdfFiles()", "description": "Drag-drop zone / 'Select PDFs' button handler. Calls eel.po_select_pdf_files() to open the native multi-file dialog, then kicks off extraction."}, {"id": "F2", "layer": "ui", "type": "renderer", "label": "poRenderResults()", "file": "src/web/index.html", "signature": "function poRenderResults()", "description": "Renders every extracted card: singleton PO cards, batch (multi-item same-supplier) cards, master-LPO-pending cards (awaiting split-mode choice), and split-LPO result cards. Computes isNoPoSplitCard/uploadPoHtml and toggles the Draft-All row when splitLpoCount > 0."}, {"id": "F3", "layer": "ui", "type": "widget", "label": "poCreateTagInput()", "file": "src/web/index.html", "signature": "function poCreateTagInput(container, initialTags)", "description": "Chip-style To/Cc email input widget used inside each rendered card."}, {"id": "F4", "layer": "ui", "type": "handler", "label": "poSplitMasterLpo(idx, mode)", "file": "src/web/index.html", "signature": "async function poSplitMasterLpo(idx, mode)", "description": "Fired when the user picks 'Separate LPO' (remove mode) or 'Highlight' mode on a master-LPO-pending card. Calls eel.po_split_master_lpo(lpo_path, lpo_name, mode)."}, {"id": "F5", "layer": "ui", "type": "handler", "label": "poCreateDraft(idx) / poCreateDraftInternal(idx)", "file": "src/web/index.html", "signature": "async function poCreateDraftInternal(idx) -> Promise", "description": "Draft button handler. If the card is a no-PO split-LPO card, first shows the poShowConfirm() modal ('proceed without PO?'); cancel resolves {skipped:true} immediately. Otherwise gathers to/cc/subject/body, swaps in a spinner, and calls eel.po_create_draft(...), returning a Promise resolved later by js_po_draft_finish via window._poDraftResolve."}, {"id": "F6", "layer": "ui", "type": "handler", "label": "poDraftAll()", "file": "src/web/index.html", "signature": "async function poDraftAll()", "description": "Collects every is_split_lpo_card index and awaits poCreateDraftInternal(idx) sequentially (not parallel), updating a running status counter (#po-draft-all-status)."}, {"id": "F7", "layer": "ui", "type": "handler", "label": "poUploadPoForCard(idx)", "file": "src/web/index.html", "signature": "async function poUploadPoForCard(idx)", "description": "Per-card 'Upload PO' button on no-PO split cards. Calls eel.po_select_single_pdf_file() then eel.po_attach_uploaded_po(card, path); splices the returned updated card back into poExtractedResults and re-renders."}, {"id": "F8", "layer": "ui", "type": "widget", "label": "poShowConfirm()/poCloseConfirm()", "file": "src/web/index.html", "signature": "function poShowConfirm(message, title)", "description": "Generic Proceed/Cancel confirmation modal. Used to gate drafting a split-LPO card that has no matched PO document."}, {"id": "F9", "layer": "ui", "type": "callback", "label": "js_po_extract_finish / js_po_draft_progress / js_po_draft_finish", "file": "src/web/index.html", "signature": "eel.expose(js_po_*_finish/progress)", "description": "Python-to-JS eel callbacks. js_po_draft_finish(res) resolves window._poDraftResolve(res), letting poCreateDraftInternal's Promise settle so poDraftAll can await it in sequence."}, {"id": "B10", "layer": "bridge", "type": "guard", "label": "check_permission(\"PO Mailer\")", "file": "src/main.py", "signature": "check_permission(module: str) -> bool", "description": "Cross-cutting access gate applied at the top of every @eel.expose PO Mailer function. Rejects the call if the logged-in user lacks the PO Mailer permission."}, {"id": "B1", "layer": "bridge", "type": "eel-endpoint", "label": "po_select_pdf_files() / po_select_single_pdf_file()", "file": "src/main.py", "signature": "@eel.expose def po_select_pdf_files() / po_select_single_pdf_file()", "description": "Native OS file-picker dialogs (filedialog.askopenfilenames / askopenfilename) run off the eel event loop; return chosen path(s) to JS."}, {"id": "B2", "layer": "bridge", "type": "eel-endpoint", "label": "po_extract_pdfs(file_paths)", "file": "src/main.py", "signature": "@eel.expose def po_extract_pdfs(file_paths: list[str])", "description": "Main extraction orchestrator, runs in a background thread. For each file: detects single PO vs. master LPO, calls extract_po_data / extract_lpo_items_structured, runs supplier/branch matching, checks PO<->LPO pairing, groups results into cards, attaches static supporting docs, then streams progress/finish back via js_po_extract_finish."}, {"id": "B3", "layer": "bridge", "type": "eel-endpoint", "label": "po_split_master_lpo(lpo_path, lpo_name, mode)", "file": "src/main.py", "signature": "@eel.expose def po_split_master_lpo(lpo_path: str, lpo_name: str, mode: str)", "description": "Master-LPO split orchestrator. Shared setup extracts ship_to_hospital_name/ship_to_address once, then branches: mode='remove' builds one compact renumbered PDF per supplier via build_remove_mode_pdf; mode='highlight' builds one annotated copy per supplier (scoped to that supplier's own items only) via build_highlight_mode_pdf. Both branches call _match_branch per supplier and _attach_static_supporting_docs per card, then build cards via _build_master_split_result_card."}, {"id": "B4", "layer": "bridge", "type": "eel-endpoint", "label": "po_attach_uploaded_po(card, file_path)", "file": "src/main.py", "signature": "@eel.expose def po_attach_uploaded_po(card: dict, file_path: str) -> dict", "description": "Extracts po_no via extract_po_data(file_path), merges it into a copy of the card, flips is_split_lpo_card to False if a PO number was found, appends the file to source_paths, and appends a warning if no PO number was detected. Returns {success, card, message}."}, {"id": "B5", "layer": "bridge", "type": "eel-endpoint", "label": "po_build_draft_preview(po_data)", "file": "src/main.py", "signature": "@eel.expose def po_build_draft_preview(po_data: dict) -> dict", "description": "Resolves the preview subject and body shown in each card. Resolves subject_override and body_override INDEPENDENTLY (each falls back to the computed default if its own override is unset) rather than all-or-nothing."}, {"id": "B6", "layer": "bridge", "type": "eel-endpoint", "label": "po_create_draft(po_data, to, cc, subject, body)", "file": "src/main.py", "signature": "@eel.expose def po_create_draft(po_data, to, cc, subject, body)", "description": "Gmail draft-creation orchestrator, async. Loads the OAuth token via gmail_oauth_manager, attaches all source_paths plus any statically-registered supporting docs, creates the draft, and reports completion through js_po_draft_progress / js_po_draft_finish."}, {"id": "B7", "layer": "bridge", "type": "helper", "label": "_attach_static_supporting_docs(card)", "file": "src/main.py", "signature": "def _attach_static_supporting_docs(card: dict) -> dict", "description": "Looks up po_static_attachments by brand/supplier and appends any registered always-attach documents (e.g. certificates, standard forms) to the card's source_paths."}, {"id": "B8", "layer": "bridge", "type": "helper", "label": "_check_tnb_po_lpo_pairing(card, lpo_docs, master_lpo_names)", "file": "src/main.py", "signature": "def _check_tnb_po_lpo_pairing(...)", "description": "Validates that a PO belonging to a TNB-style workflow has a matching LPO attached (or flags it as a master-LPO-pending card needing a split-mode decision)."}, {"id": "B9", "layer": "bridge", "type": "helper", "label": "_build_master_split_result_card / _build_master_lpo_pending_card", "file": "src/main.py", "signature": "def _build_master_split_result_card(brand, items, group, subject, attach_paths, warnings, lpo_name, ship_to_hospital_name, ship_to_address, branch_match) -> dict", "description": "Card-shape builders. _build_master_split_result_card sets hospital_name/address from the LPO's own extracted ship-to fields (not the brand name), builds a match dict (branch_name/bill_to/ship_to/branch_attention_name/branch_attention_phone) from branch_match, sets is_split_lpo_card=True, and only sets subject_override (body is resolved later by po_build_draft_preview via the shared template)."}, {"id": "B11", "layer": "bridge", "type": "helper", "label": "group_po_results_into_cards(results)", "file": "src/main.py", "signature": "def group_po_results_into_cards(results: list) -> list", "description": "Consolidates extraction results into displayable cards: merges same-supplier singleton POs into batch cards where applicable (e.g. TNB same-supplier consolidation)."}, {"id": "E1", "layer": "engine", "type": "parser", "label": "extract_po_data(pdf_path)", "file": "po_extract_engine.py", "signature": "def extract_po_data(pdf_path: str) -> dict", "description": "Parses a single ordinary Purchase Order PDF: PO number, supplier, items, totals, using pdfplumber structured line extraction."}, {"id": "E2", "layer": "engine", "type": "parser", "label": "extract_lpo_item_text(pdf_path)", "file": "po_extract_engine.py", "signature": "def extract_lpo_item_text(pdf_path: str) -> str", "description": "Legacy normalized full-text blob of an LPO, used by the PO<->LPO pairing check."}, {"id": "E3", "layer": "engine", "type": "parser", "label": "extract_lpo_items_structured(pdf_path)", "file": "po_extract_engine.py", "signature": "def extract_lpo_items_structured(pdf_path: str) -> dict", "description": "Structured master-LPO parser built on pdfplumber's extract_text_lines(layout=False), returning: items[] (with bounding-box coords), header_cutoff_y, ship_to_hospital_name, ship_to_address, footer_page_index, footer_top_y (grand-total-triggered), continuation_header_page_index, continuation_header_bottom_y (first page>0 column-header match). All three coordinate groups drive the PDF re-composition in po_lpo_splitter.py."}, {"id": "E4", "layer": "engine", "type": "classifier", "label": "classify_lpo_items_by_supplier(items, items_ref, group_code)", "file": "po_extract_engine.py", "signature": "def classify_lpo_items_by_supplier(...) -> dict[brand, items]", "description": "Maps each LPO line item to its owning brand/supplier via po_item_lookup, producing the per-brand item groups that drive one split card + one PDF per supplier."}, {"id": "E5", "layer": "engine", "type": "matcher", "label": "match_supplier_and_branch(data, lookup)", "file": "po_extract_engine.py", "signature": "def match_supplier_and_branch(data: dict, lookup: dict) -> dict", "description": "Single-PO supplier + branch matcher; delegates its branch-matching core to _match_branch."}, {"id": "E6", "layer": "engine", "type": "matcher", "label": "_match_branch(group_code, main_supplier, ship_blob, branches_ref)", "file": "po_extract_engine.py", "signature": "def _match_branch(...) -> tuple[branch_name, bill_to, ship_to, attention_name, attention_phone, branch_address]", "description": "Shared branch-matching core (factored out so both single-PO and split-LPO flows reuse it). Uses normalized substring matching (_normalize_match_text: uppercase, alnum-only) of ship-to text against po_branch_lookup rows, with uniqueness-based candidate exclusion to avoid false-positive matches (e.g. Farmasi Veteran branches sharing an address prefix)."}, {"id": "E7", "layer": "engine", "type": "builder", "label": "build_subject / build_email_body / _build_generic_email_body", "file": "po_extract_engine.py", "signature": "def build_email_body(po_data: dict) -> str", "description": "Dynamic subject/body builders. build_email_body routes to _build_generic_email_body (the officially reverse-engineered template matching projektommy.my/rasumi-email-generator), _build_batch_email_body, or _build_octopus_email_body depending on card type. Split-LPO cards now reuse the same generic template via their match/hospital_name/address fields, so wording is identical to normal PO+LPO cards."}, {"id": "E7b", "layer": "engine", "type": "builder", "label": "_build_po_header_lines / _build_po_item_table_lines / _build_supporting_doc_lines", "file": "po_extract_engine.py", "signature": "def _build_po_header_lines(...) / _build_po_item_table_lines(...)", "description": "Template sub-builders: Sold-to/Ship-to/Ship-To-No/Attn-to header block, the per-brand item table (blank price column), and the supporting-documents list section."}, {"id": "E8", "layer": "engine", "type": "builder", "label": "build_master_lpo_split_subject", "file": "po_extract_engine.py", "signature": "def build_master_lpo_split_subject(brand, lpo_name) -> str", "description": "Subject-line builder specific to split-LPO result cards."}, {"id": "L1", "layer": "engine", "type": "pdf-builder", "label": "build_remove_mode_pdf(pdf_path, header_cutoff_y, items, output_path, footer_page_index, footer_top_y, continuation_header_page_index, continuation_header_bottom_y)", "file": "po_lpo_splitter.py", "signature": "def build_remove_mode_pdf(...) -> bool", "description": "PyMuPDF-based generator for the compact 'Separate LPO' PDF, containing only one supplier's items. Clones the master's page-1 header (skipping the 'Page X/Y' corner text), renumbers/vertically-centers item rows against divider lines, clones the mini column-header block onto every continuation page, and clones the trailing disclaimer footer on demand (placed on the last item page if it fits, else a fresh page). Draws 'Page i / total' only when total_pages > 1."}, {"id": "L2", "layer": "engine", "type": "pdf-builder", "label": "build_highlight_mode_pdf(pdf_path, matched_items, out_path)", "file": "po_lpo_splitter.py", "signature": "def build_highlight_mode_pdf(pdf_path, matched_items: list, out_path: str) -> bool", "description": "PyMuPDF-based generator for 'Highlight' mode. Produces ONE annotated copy of the full original document PER SUPPLIER, highlighting only that supplier's own rows (fixing the earlier data-leak where one shared file highlighting all suppliers' rows was attached identically to every draft)."}, {"id": "D1", "layer": "data", "type": "table", "label": "Supabase: po_item_lookup", "description": "Item -> brand/supplier/email reference table used by classify_lpo_items_by_supplier and single-PO matching."}, {"id": "D2", "layer": "data", "type": "table", "label": "Supabase: po_branch_lookup", "description": "Branch -> bill_to/ship_to/attention-name/attention-phone/address reference table used by _match_branch."}, {"id": "D3", "layer": "data", "type": "table", "label": "Supabase: po_static_attachments", "description": "Registry (+ storage bucket) of always-attach supporting documents per brand/supplier, consumed by _attach_static_supporting_docs."}, {"id": "D4", "layer": "data", "type": "table", "label": "Supabase: po_gmail_connections / po_auth_2fa", "description": "OAuth token store and 2FA/recovery-code store for the Gmail account(s) used to create drafts."}, {"id": "D5", "layer": "data", "type": "service", "label": "Gmail API (gmail_oauth_manager.create_gmail_draft)", "description": "Creates the actual Gmail draft with to/cc/subject/body and all attachments, using the OAuth token from po_gmail_connections."}, {"id": "D6", "layer": "data", "type": "storage", "label": "Local disk cache", "description": "%LOCALAPPDATA%/RasumiApps/po_auto_email/lpo_splits — generated per-supplier split PDFs (remove-mode and highlight-mode) are written here before being attached to drafts."}], "edges": [{"id": "e1", "from": "U1", "to": "F1", "kind": "action", "label": "selects PDFs / drops files"}, {"id": "e2", "from": "F1", "to": "B1", "kind": "eel-call", "label": "eel.po_select_pdf_files()"}, {"id": "e3", "from": "B1", "to": "B10", "kind": "call", "label": "check_permission"}, {"id": "e4", "from": "F1", "to": "B2", "kind": "eel-call", "label": "eel.po_extract_pdfs(paths)"}, {"id": "e5", "from": "B2", "to": "B10", "kind": "call", "label": "check_permission"}, {"id": "e6", "from": "B2", "to": "E1", "kind": "call", "label": "single PO path"}, {"id": "e7", "from": "B2", "to": "E3", "kind": "call", "label": "master LPO path"}, {"id": "e8", "from": "E3", "to": "E4", "kind": "call", "label": "classify by supplier"}, {"id": "e9", "from": "E1", "to": "E5", "kind": "call", "label": "match supplier+branch"}, {"id": "e10", "from": "E5", "to": "E6", "kind": "call", "label": "branch match core"}, {"id": "e11", "from": "E4", "to": "E6", "kind": "call", "label": "per-brand branch match"}, {"id": "e12", "from": "E6", "to": "D2", "kind": "query", "label": "SELECT po_branch_lookup"}, {"id": "e13", "from": "E5", "to": "D1", "kind": "query", "label": "SELECT po_item_lookup"}, {"id": "e14", "from": "E4", "to": "D1", "kind": "query", "label": "SELECT po_item_lookup"}, {"id": "e15", "from": "B2", "to": "B11", "kind": "call", "label": "group into cards"}, {"id": "e16", "from": "B2", "to": "B8", "kind": "call", "label": "check PO<->LPO pairing"}, {"id": "e17", "from": "B2", "to": "B7", "kind": "call", "label": "attach static docs"}, {"id": "e18", "from": "B7", "to": "D3", "kind": "query", "label": "SELECT po_static_attachments"}, {"id": "e19", "from": "B2", "to": "F9", "kind": "eel-callback", "label": "js_po_extract_finish(cards)"}, {"id": "e20", "from": "F9", "to": "F2", "kind": "call", "label": "poRenderResults()"}, {"id": "e21", "from": "F2", "to": "F3", "kind": "render", "label": "mounts tag inputs"}, {"id": "e22", "from": "F2", "to": "B5", "kind": "eel-call", "label": "eel.po_build_draft_preview(po_data)"}, {"id": "e23", "from": "B5", "to": "E7", "kind": "call", "label": "build_email_body / build_subject"}, {"id": "e24", "from": "E7", "to": "E7b", "kind": "call", "label": "header/item-table/support-doc sub-builders"}, {"id": "e25", "from": "B5", "to": "F2", "kind": "return", "label": "subject/body preview"}, {"id": "e30", "from": "U1", "to": "F4", "kind": "action", "label": "picks Separate LPO / Highlight"}, {"id": "e31", "from": "F4", "to": "B3", "kind": "eel-call", "label": "eel.po_split_master_lpo(path, name, mode)"}, {"id": "e32", "from": "B3", "to": "B10", "kind": "call", "label": "check_permission"}, {"id": "e33", "from": "B3", "to": "E3", "kind": "call", "label": "extract structured items + ship-to + footer + continuation-header coords"}, {"id": "e34", "from": "B3", "to": "E4", "kind": "call", "label": "classify items per brand"}, {"id": "e35", "from": "B3", "to": "E6", "kind": "call", "label": "_match_branch per supplier"}, {"id": "e36", "from": "B3", "to": "L1", "kind": "call", "label": "mode=remove: build_remove_mode_pdf per supplier"}, {"id": "e37", "from": "B3", "to": "L2", "kind": "call", "label": "mode=highlight: build_highlight_mode_pdf per supplier (scoped)"}, {"id": "e38", "from": "L1", "to": "D6", "kind": "write", "label": "write split PDF"}, {"id": "e39", "from": "L2", "to": "D6", "kind": "write", "label": "write annotated PDF"}, {"id": "e40", "from": "B3", "to": "B7", "kind": "call", "label": "attach static docs per card"}, {"id": "e41", "from": "B3", "to": "B9", "kind": "call", "label": "_build_master_split_result_card"}, {"id": "e42", "from": "B9", "to": "E8", "kind": "call", "label": "build_master_lpo_split_subject"}, {"id": "e43", "from": "B3", "to": "F9", "kind": "eel-callback", "label": "return split cards"}, {"id": "e44", "from": "F9", "to": "F2", "kind": "call", "label": "poRenderResults() (splices split cards)"}, {"id": "e50", "from": "U1", "to": "F7", "kind": "action", "label": "clicks Upload PO on no-PO card"}, {"id": "e51", "from": "F7", "to": "B1", "kind": "eel-call", "label": "eel.po_select_single_pdf_file()"}, {"id": "e52", "from": "F7", "to": "B4", "kind": "eel-call", "label": "eel.po_attach_uploaded_po(card, path)"}, {"id": "e53", "from": "B4", "to": "B10", "kind": "call", "label": "check_permission"}, {"id": "e54", "from": "B4", "to": "E1", "kind": "call", "label": "extract_po_data(file_path)"}, {"id": "e55", "from": "B4", "to": "F7", "kind": "return", "label": "updated card (is_split_lpo_card=False if po_no found)"}, {"id": "e56", "from": "F7", "to": "F2", "kind": "call", "label": "splice + re-render"}, {"id": "e60", "from": "U1", "to": "F5", "kind": "action", "label": "clicks Draft"}, {"id": "e61", "from": "F5", "to": "F8", "kind": "call", "label": "if no-PO split card: show confirm modal"}, {"id": "e62", "from": "F8", "to": "F5", "kind": "return", "label": "Proceed / Cancel"}, {"id": "e63", "from": "F5", "to": "B6", "kind": "eel-call", "label": "eel.po_create_draft(po_data, to, cc, subject, body)"}, {"id": "e64", "from": "B6", "to": "B10", "kind": "call", "label": "check_permission"}, {"id": "e65", "from": "B6", "to": "D4", "kind": "query", "label": "load OAuth token"}, {"id": "e66", "from": "B6", "to": "D5", "kind": "call", "label": "create_gmail_draft(...) with attachments"}, {"id": "e67", "from": "B6", "to": "F9", "kind": "eel-callback", "label": "js_po_draft_progress / js_po_draft_finish(res)"}, {"id": "e68", "from": "F9", "to": "F5", "kind": "resolve", "label": "window._poDraftResolve(res)"}, {"id": "e70", "from": "U1", "to": "F6", "kind": "action", "label": "clicks Draft All"}, {"id": "e71", "from": "F6", "to": "F5", "kind": "call", "label": "await poCreateDraftInternal(idx) sequentially for each split card"}, {"id": "e72", "from": "F6", "to": "F2", "kind": "update", "label": "updates status counter"}], "flows": [{"id": "flow_extract", "label": "Extract & Match", "color": "cyan", "description": "User selects PDFs; system parses each (single PO or master LPO), matches supplier + branch, checks PO/LPO pairing, groups into cards, auto-attaches static docs, renders results.", "steps": ["e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8", "e9", "e10", "e11", "e12", "e13", "e14", "e16", "e15", "e17", "e18", "e19", "e20", "e21", "e22", "e23", "e24", "e25"]}, {"id": "flow_split_remove", "label": "Master LPO Split — Separate LPO (remove mode)", "color": "purple", "description": "User picks 'Separate LPO' on a master-LPO-pending card. System builds one compact, renumbered, header/footer/continuation-header-correct PDF per supplier and one result card per supplier.", "steps": ["e30", "e31", "e32", "e33", "e34", "e35", "e36", "e38", "e40", "e41", "e42", "e43", "e44"]}, {"id": "flow_split_highlight", "label": "Master LPO Split — Highlight mode (scoped)", "color": "pink", "description": "User picks 'Highlight' mode. System builds one annotated copy of the full document PER supplier, highlighting only that supplier's own rows — no cross-supplier data leakage.", "steps": ["e30", "e31", "e32", "e33", "e34", "e35", "e37", "e39", "e40", "e41", "e42", "e43", "e44"]}, {"id": "flow_upload_po", "label": "Upload PO for a split card", "color": "amber", "description": "User attaches a real PO to a no-PO split-LPO card; system extracts its PO number and, if found, converts the card out of 'no-PO' status.", "steps": ["e50", "e51", "e52", "e53", "e54", "e55", "e56"]}, {"id": "flow_draft_with_po", "label": "Create Draft (PO present)", "color": "green", "description": "Normal draft creation: no confirmation needed since a PO is already matched.", "steps": ["e60", "e63", "e64", "e65", "e66", "e67", "e68"]}, {"id": "flow_draft_without_po", "label": "Create Draft (no PO — confirm gate)", "color": "red", "description": "Drafting a split-LPO card that has no matched PO triggers a Proceed/Cancel confirmation before continuing.", "steps": ["e60", "e61", "e62", "e63", "e64", "e65", "e66", "e67", "e68"]}, {"id": "flow_draft_all", "label": "Draft All (batch)", "color": "purple", "description": "Sequentially drafts every split-LPO card one at a time (not parallel), reusing the same per-card confirm gate as needed, updating a live counter.", "steps": ["e70", "e71", "e60", "e61", "e62", "e63", "e64", "e65", "e66", "e67", "e68", "e72"]}]};
+
+const COLORS = {
+  pink: '#ff2fb0', purple:'#a855f7', cyan:'#22d3ee', amber:'#fbbf24',
+  green:'#34d399', red:'#f87171', neutral:'#9aa3b2'
+};
+
+const nodesById = {};
+SPEC.nodes.forEach(n => nodesById[n.id] = n);
+const edgesById = {};
+SPEC.edges.forEach(e => edgesById[e.id] = e);
+const layersById = {};
+SPEC.layers.forEach(l => layersById[l.id] = l);
+
+/* ---------------- render lanes + nodes ---------------- */
+const lanesEl = document.getElementById('lanes');
+const layersSorted = [...SPEC.layers].sort((a,b)=>a.order-b.order);
+
+layersSorted.forEach(layer => {
+  const lane = document.createElement('div');
+  lane.className = 'lane';
+  lane.dataset.layer = layer.id;
+
+  const label = document.createElement('div');
+  label.className = 'lane-label';
+  const color = COLORS[layer.color] || COLORS.neutral;
+  label.innerHTML = `<span class="chip" style="background:${color};color:${color}"></span>${layer.label}`;
+  lane.appendChild(label);
+
+  const nodesWrap = document.createElement('div');
+  nodesWrap.className = 'lane-nodes';
+  nodesWrap.style.borderColor = 'rgba(255,255,255,.05)';
+
+  SPEC.nodes.filter(n => n.layer === layer.id).forEach(n => {
+    const el = document.createElement('div');
+    el.className = 'node' + (n.type === 'actor' ? ' actor' : '');
+    el.id = 'node-' + n.id;
+    el.dataset.id = n.id;
+    el.innerHTML = `<span class="ntype">${n.type || ''}</span>${n.label}`;
+    el.style.borderColor = 'rgba(255,255,255,.09)';
+    el.addEventListener('click', () => showNode(n.id));
+    nodesWrap.appendChild(el);
+  });
+
+  lane.appendChild(nodesWrap);
+  lanesEl.appendChild(lane);
+});
+
+/* ---------------- legend ---------------- */
+const legendEl = document.getElementById('legend');
+layersSorted.forEach(layer => {
+  const color = COLORS[layer.color] || COLORS.neutral;
+  const item = document.createElement('div');
+  item.className = 'item';
+  item.innerHTML = `<span class="sw" style="background:${color};color:${color}"></span>${layer.label}`;
+  legendEl.appendChild(item);
+});
+
+/* ---------------- flow buttons ---------------- */
+const flowBtnsEl = document.getElementById('flowBtns');
+SPEC.flows.forEach(flow => {
+  const btn = document.createElement('button');
+  btn.className = 'flow-btn';
+  btn.id = 'flowbtn-' + flow.id;
+  const color = COLORS[flow.color] || COLORS.neutral;
+  btn.style.color = color;
+  btn.innerHTML = `<span class="flow-dot"></span>${flow.label}`;
+  btn.addEventListener('click', () => playFlow(flow.id));
+  flowBtnsEl.appendChild(btn);
+});
+document.getElementById('btnAll').addEventListener('click', () => { showFullGraph(); expandNav(); });
+document.getElementById('resetBtn').addEventListener('click', () => { stopAutoplay(); showFullGraph(); expandNav(); });
+
+/* ---------------- collapsible nav ---------------- */
+const navPanel = document.getElementById('navPanel');
+const hamburgerBtn = document.getElementById('hamburgerBtn');
+const navStatus = document.getElementById('navStatus');
+const navStatusText = document.getElementById('navStatusText');
+let navCollapsed = false;
+let userForcedNav = null; // null = auto behavior, true/false = user override until next flow
+
+function redrawAfterResize(){
+  // nav panel height changes affect graph area; redraw edges once the transition settles
+  setTimeout(() => { drawAllEdges(); if (activeFlow) jumpToStep(activeFlow, Math.max(flowStepIndex-1,0)); }, 340);
+}
+
+function collapseNav(){
+  if (navCollapsed) return;
+  navCollapsed = true;
+  navPanel.classList.add('collapsed');
+  hamburgerBtn.classList.remove('open');
+  redrawAfterResize();
+}
+function expandNav(){
+  if (!navCollapsed) return;
+  navCollapsed = false;
+  navPanel.classList.remove('collapsed');
+  hamburgerBtn.classList.add('open');
+  redrawAfterResize();
+}
+hamburgerBtn.classList.add('open'); // starts expanded
+hamburgerBtn.addEventListener('click', () => {
+  userForcedNav = navCollapsed; // remember the user just manually chose the opposite of current
+  if (navCollapsed) expandNav(); else collapseNav();
+});
+
+function setNavStatus(text, playing){
+  navStatusText.textContent = text;
+  navStatus.classList.toggle('playing', !!playing);
+}
+
+/* ---------------- SVG edge drawing ---------------- */
+const svg = document.getElementById('edges');
+const graphInner = document.getElementById('graphInner');
+
+function ensureDefs(){
+  if (svg.querySelector('defs')) return;
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  Object.entries(COLORS).forEach(([name,color]) => {
+    const marker = document.createElementNS('http://www.w3.org/2000/svg','marker');
+    marker.setAttribute('id','arrow-'+name);
+    marker.setAttribute('viewBox','0 0 10 10');
+    marker.setAttribute('refX','8'); marker.setAttribute('refY','5');
+    marker.setAttribute('markerWidth','7'); marker.setAttribute('markerHeight','7');
+    marker.setAttribute('orient','auto-start-reverse');
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d','M 0 0 L 10 5 L 0 10 z');
+    path.setAttribute('fill', color);
+    marker.appendChild(path);
+    defs.appendChild(marker);
+  });
+  svg.appendChild(defs);
+}
+ensureDefs();
+
+function edgeColorName(edgeId){
+  // color an edge by whichever flow "owns" it first, else neutral
+  for (const flow of SPEC.flows){
+    if (flow.steps.includes(edgeId)) return flow.color;
+  }
+  return 'neutral';
+}
+
+function nodeCenter(id){
+  const el = document.getElementById('node-'+id);
+  const innerRect = graphInner.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  return {
+    x: r.left - innerRect.left + r.width/2,
+    y: r.top - innerRect.top + r.height/2,
+    w: r.width, h: r.height,
+    top: r.top - innerRect.top, bottom: r.bottom - innerRect.top,
+    left: r.left - innerRect.left, right: r.right - innerRect.left
+  };
+}
+
+function pathBetween(a, b){
+  // connect bottom of A (if B is below) to top of B, with a smooth curve
+  const goingDown = b.top >= a.top;
+  const sx = a.x, sy = goingDown ? a.bottom : a.top;
+  const ex = b.x, ey = goingDown ? b.top : b.bottom;
+  const midY = (sy + ey) / 2;
+  return `M ${sx} ${sy} C ${sx} ${midY}, ${ex} ${midY}, ${ex} ${ey}`;
+}
+
+let edgeEls = {};
+
+function drawAllEdges(){
+  svg.innerHTML = '';
+  ensureDefs();
+  edgeEls = {};
+  const wrap = document.getElementById('graphWrap');
+  svg.setAttribute('width', graphInner.scrollWidth);
+  svg.setAttribute('height', graphInner.scrollHeight);
+
+  SPEC.edges.forEach(e => {
+    const a = nodeCenter(e.from), b = nodeCenter(e.to);
+    if(!a || !b) return;
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const colorName = edgeColorName(e.id);
+    const color = COLORS[colorName] || COLORS.neutral;
+    path.setAttribute('d', pathBetween(a,b));
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width','1.1');
+    path.setAttribute('stroke-opacity','0.16');
+    path.setAttribute('marker-end', `url(#arrow-${colorName})`);
+    path.dataset.id = e.id;
+    svg.appendChild(path);
+    edgeEls[e.id] = path;
+  });
+}
+
+/* ---------------- interaction state ---------------- */
+let activeFlow = null;
+let flowTimer = null;
+let flowStepIndex = 0;
+let autoplayOn = false;
+let autoplayTimer = null;
+
+function clearHighlights(){
+  document.querySelectorAll('.node').forEach(n => { n.classList.remove('dim','lit','selected'); n.style.boxShadow=''; n.style.borderColor='rgba(255,255,255,.09)'; });
+  Object.values(edgeEls).forEach(p => { p.setAttribute('stroke-opacity','0.16'); p.setAttribute('stroke-width','1.1'); p.classList.remove('flowing'); });
+}
+
+function showFullGraph(){
+  activeFlow = null;
+  if (flowTimer) clearTimeout(flowTimer);
+  document.querySelectorAll('.flow-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btnAll').classList.add('active');
+  clearHighlights();
+  document.getElementById('panelDefault').style.display = 'block';
+  document.getElementById('panelFlow').style.display = 'none';
+  document.getElementById('panelNode').style.display = 'none';
+}
+
+function showNode(id){
+  const n = nodesById[id];
+  document.querySelectorAll('.node.selected').forEach(el=>el.classList.remove('selected'));
+  const el = document.getElementById('node-'+id);
+  if (el) el.classList.add('selected');
+
+  document.getElementById('panelDefault').style.display = 'none';
+  document.getElementById('panelFlow').style.display = 'none';
+  const p = document.getElementById('panelNode');
+  p.style.display = 'block';
+  document.getElementById('nodeTitle').textContent = n.label;
+  document.getElementById('nodeLayer').textContent = layersById[n.layer] ? layersById[n.layer].label : n.layer;
+  const hasFile = !!n.file, hasSig = !!n.signature;
+  document.getElementById('nodeFileLabel').style.display = hasFile ? 'block':'none';
+  document.getElementById('nodeFile').style.display = hasFile ? 'block':'none';
+  document.getElementById('nodeFile').textContent = n.file || '';
+  document.getElementById('nodeSigLabel').style.display = hasSig ? 'block':'none';
+  document.getElementById('nodeSig').style.display = hasSig ? 'block':'none';
+  document.getElementById('nodeSig').textContent = n.signature || '';
+  document.getElementById('nodeDesc').textContent = n.description || '';
+}
+
+function nodesTouchedUpTo(flow, idx){
+  const touched = new Set();
+  for (let i=0;i<=idx;i++){
+    const e = edgesById[flow.steps[i]];
+    touched.add(e.from); touched.add(e.to);
+  }
+  return touched;
+}
+
+function renderFlowPanel(flow){
+  document.getElementById('panelDefault').style.display = 'none';
+  document.getElementById('panelNode').style.display = 'none';
+  document.getElementById('panelFlow').style.display = 'block';
+  document.getElementById('flowTitle').textContent = flow.label;
+  document.getElementById('flowTitle').style.color = COLORS[flow.color] || '#fff';
+  document.getElementById('flowDesc').textContent = flow.description;
+  const list = document.getElementById('stepList');
+  list.innerHTML = '';
+  flow.steps.forEach((eid, i) => {
+    const e = edgesById[eid];
+    const from = nodesById[e.from], to = nodesById[e.to];
+    const li = document.createElement('li');
+    li.id = 'step-' + i;
+    li.innerHTML = `<span class="num">${String(i+1).padStart(2,'0')}</span>${from.label} → ${to.label}<br><span style="color:var(--muted);font-size:10.5px;">${e.label}</span>`;
+    li.addEventListener('click', () => { stopAutoplayInnerLoop(); jumpToStep(flow, i); });
+    list.appendChild(li);
+  });
+}
+
+function jumpToStep(flow, idx){
+  clearHighlights();
+  const color = COLORS[flow.color] || '#fff';
+  const touched = nodesTouchedUpTo(flow, idx);
+  document.querySelectorAll('.node').forEach(el => {
+    const id = el.dataset.id;
+    if (touched.has(id)) {
+      el.classList.add('lit');
+      el.style.borderColor = color;
+      el.style.boxShadow = `0 0 14px ${color}88`;
+    } else {
+      el.classList.add('dim');
+    }
+  });
+  flow.steps.forEach((eid, i) => {
+    const p = edgeEls[eid];
+    if (!p) return;
+    if (i <= idx){
+      p.setAttribute('stroke-opacity', i===idx ? '1' : '0.85');
+      p.setAttribute('stroke-width', i===idx ? '2.6' : '1.8');
+      if (i===idx){
+        p.classList.add('flowing');
+        const len = p.getTotalLength();
+        p.setAttribute('stroke-dasharray', `${len}`);
+        p.setAttribute('stroke-dashoffset', `${len}`);
+        p.getBoundingClientRect(); // force reflow
+        p.style.transition = 'stroke-dashoffset .55s ease-out';
+        requestAnimationFrame(()=>{ p.setAttribute('stroke-dashoffset','0'); });
+      } else {
+        p.removeAttribute('stroke-dasharray');
+        p.style.transition = '';
+      }
+    }
+  });
+  document.querySelectorAll('#stepList li').forEach((li,i) => {
+    li.classList.toggle('active', i===idx);
+    li.classList.toggle('done', i<idx);
+  });
+  const activeLi = document.getElementById('step-'+idx);
+  if (activeLi) activeLi.scrollIntoView({block:'nearest', behavior:'smooth'});
+
+  autoScrollToEdge(flow.steps[idx]);
+}
+
+/* keep the graph area scrolled so the node(s) touched by the current step stay in view */
+function autoScrollToEdge(edgeId){
+  const e = edgesById[edgeId];
+  if (!e) return;
+  const fromEl = document.getElementById('node-'+e.from);
+  const toEl = document.getElementById('node-'+e.to);
+  if (!fromEl || !toEl) return;
+  const wrap = document.getElementById('graphWrap');
+  const wrapRect = wrap.getBoundingClientRect();
+  const fr = fromEl.getBoundingClientRect();
+  const tr = toEl.getBoundingClientRect();
+  const left = Math.min(fr.left, tr.left), right = Math.max(fr.right, tr.right);
+  const top = Math.min(fr.top, tr.top), bottom = Math.max(fr.bottom, tr.bottom);
+  const centerX = (left + right) / 2, centerY = (top + bottom) / 2;
+  const wrapCenterX = wrapRect.left + wrapRect.width / 2;
+  const wrapCenterY = wrapRect.top + wrapRect.height / 2;
+  // only bother scrolling if the pair isn't already comfortably on-screen
+  const margin = 40;
+  const alreadyVisible = left >= wrapRect.left + margin && right <= wrapRect.right - margin
+    && top >= wrapRect.top + margin && bottom <= wrapRect.bottom - margin;
+  if (alreadyVisible) return;
+  wrap.scrollTo({
+    left: Math.max(0, wrap.scrollLeft + (centerX - wrapCenterX)),
+    top: Math.max(0, wrap.scrollTop + (centerY - wrapCenterY)),
+    behavior: 'smooth'
+  });
+}
+
+function playFlow(flowId, opts){
+  opts = opts || {};
+  const flow = SPEC.flows.find(f => f.id === flowId);
+  if (!flow) return;
+  activeFlow = flow;
+  if (flowTimer) clearTimeout(flowTimer);
+  document.querySelectorAll('.flow-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btnAll').classList.remove('active');
+  const btn = document.getElementById('flowbtn-'+flowId);
+  if (btn) btn.classList.add('active');
+  renderFlowPanel(flow);
+  flowStepIndex = 0;
+  const stepDelay = opts.stepDelay || 900;
+
+  collapseNav();
+  setNavStatus('Playing: ' + flow.label, true);
+
+  function step(){
+    jumpToStep(flow, flowStepIndex);
+    flowStepIndex++;
+    if (flowStepIndex < flow.steps.length){
+      flowTimer = setTimeout(step, stepDelay);
+    } else if (opts.onDone){
+      flowTimer = setTimeout(opts.onDone, stepDelay + 700);
+    } else {
+      setNavStatus('Idle', false);
+    }
+  }
+  step();
+}
+
+function stopAutoplayInnerLoop(){
+  if (flowTimer) clearTimeout(flowTimer);
+}
+
+/* ---------------- autoplay across all flows ---------------- */
+function startAutoplay(){
+  autoplayOn = true;
+  document.getElementById('autoplayBtn').classList.add('on');
+  document.getElementById('autoplayBtn').textContent = '⏸ Autoplay';
+  collapseNav();
+  let i = 0;
+  function next(){
+    if (!autoplayOn) return;
+    playFlow(SPEC.flows[i].id, { stepDelay: 800, onDone: () => {
+      i = (i+1) % SPEC.flows.length;
+      if (autoplayOn) autoplayTimer = setTimeout(next, 400);
+    }});
+  }
+  next();
+}
+function stopAutoplay(){
+  autoplayOn = false;
+  document.getElementById('autoplayBtn').classList.remove('on');
+  document.getElementById('autoplayBtn').textContent = '▶ Autoplay';
+  if (autoplayTimer) clearTimeout(autoplayTimer);
+  if (flowTimer) clearTimeout(flowTimer);
+  setNavStatus('Idle', false);
+}
+document.getElementById('autoplayBtn').addEventListener('click', () => {
+  if (autoplayOn) stopAutoplay(); else startAutoplay();
+});
+
+/* ---------------- init ---------------- */
+function init(){
+  drawAllEdges();
+  showFullGraph();
+}
+window.addEventListener('load', () => setTimeout(init, 50));
+window.addEventListener('resize', () => { drawAllEdges(); if(activeFlow) jumpToStep(activeFlow, Math.max(flowStepIndex-1,0)); });
+
+/* Report Switcher dropdown toggle */
+(function () {
+  const dd = document.getElementById('rsDropdown');
+  const btn = document.getElementById('rsDropdownBtn');
+  if (!dd || !btn) return;
+  btn.addEventListener('click', (e) => { e.stopPropagation(); dd.classList.toggle('open'); });
+  document.addEventListener('click', (e) => { if (!dd.contains(e.target)) dd.classList.remove('open'); });
+})();
+
+</script>
+</body>
+</html>
