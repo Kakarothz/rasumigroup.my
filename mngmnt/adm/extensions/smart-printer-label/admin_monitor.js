@@ -718,11 +718,15 @@ async function openSettings() {
     if (storage.vims_local_blacklist) {
         state.blacklist_local = storage.vims_local_blacklist;
     } else {
-        // Fallback to json file if first time
-        try {
-            const res = await fetch('blacklist.json');
-            state.blacklist_local = await res.json();
-        } catch (e) { state.blacklist_local = []; }
+        // First time opening settings on this browser/profile — seed the
+        // local draft from the already-fetched remote list (step 1 above)
+        // rather than a bundled blacklist.json. That static file only
+        // exists inside the Chrome extension package, not on this
+        // GitHub-hosted mirror, so fetching it here always 404'd and left
+        // the draft empty. Seeding from state.blacklist_remote also avoids
+        // the staleness that bit us earlier (the bundled file was missing
+        // an item — "varexa" — that the live backend already had).
+        state.blacklist_local = [...state.blacklist_remote];
     }
 
     renderBlacklist();
