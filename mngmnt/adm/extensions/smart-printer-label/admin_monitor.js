@@ -26,6 +26,12 @@
  * "DUAL-BACKEND" in a comment — once every branch is confirmed upgraded,
  * search for that tag and delete the Firebase half of each one (and this
  * whole FIREBASE_* block) to finish the migration cleanly.
+ *
+ * V5.2: Blacklist "Add Drug" input gained an autocomplete dropdown sourced
+ * from store_products (Store Management's catalog) -- type the leading
+ * letters of a product name and pick it from the list instead of
+ * free-typing. Read-only anon SELECT against an existing table, no
+ * schema/RLS changes needed.
  */
 const SUPABASE_URL = "https://seqlkwdghibmsfkbuwqq.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp";
@@ -131,7 +137,8 @@ const state = {
     lastIdleAlertTime: 0,
     pinnedBranches: [], // Array of branch names
     blacklist_local: [],
-    blacklist_remote: []
+    blacklist_remote: [],
+    store_products_cache: null
 };
 
 let UI = {};
@@ -777,6 +784,7 @@ function addBlacklistItem() {
         }
         UI.newDrugInput.value = ''; // Auto clear
         UI.addDrugBtn.disabled = true; // Reset state
+        hideDrugSuggestions();
         return;
     }
     
@@ -784,6 +792,7 @@ function addBlacklistItem() {
     state.blacklist_local.push(name);
     UI.newDrugInput.value = '';
     UI.addDrugBtn.disabled = true; // Reset state
+    hideDrugSuggestions();
     renderBlacklist();
 }
 
@@ -827,6 +836,47 @@ async function syncBlacklistToSupabase() {
     }
 }
 
+// --- STORE PRODUCTS (Blacklist "Add Drug" autocomplete) ---
+// Sourced from store_products -- the Store Management module's product
+// catalog, not the blacklist table itself. anon has an unrestricted SELECT
+// policy on this table (qual=true), so this is a plain read, no RPC/secret
+// needed. Cached in-memory for the life of the page: ~300 rows today, cheap
+// to hold, no reason to re-fetch on every keystroke.
+async function loadStoreProducts() {
+    if (state.store_products_cache) return state.store_products_cache;
+    try {
+        const rows = await sbSelect('store_products', 'select=name&is_active=eq.true&order=name.asc');
+        const seen = new Set();
+        state.store_products_cache = (rows || [])
+            .map(r => (r.name || '').trim())
+            .filter(n => {
+                if (!n || seen.has(n.toLowerCase())) return false;
+                seen.add(n.toLowerCase());
+                return true;
+            });
+    } catch (e) {
+        console.error("Store product fetch failed:", e);
+        state.store_products_cache = [];
+    }
+    return state.store_products_cache;
+}
+
+function renderDrugSuggestions(matches) {
+    if (!UI.drugSuggestions) return;
+    if (matches.length === 0) {
+        UI.drugSuggestions.innerHTML = '<div class="drug-suggestion-empty">NO MATCH IN STORE MANAGEMENT</div>';
+    } else {
+        UI.drugSuggestions.innerHTML = matches.slice(0, 15).map(name =>
+            `<div class="drug-suggestion-item" data-name="${name.replace(/"/g, '&quot;')}">${name.toUpperCase()}</div>`
+        ).join('');
+    }
+    UI.drugSuggestions.style.display = 'block';
+}
+
+function hideDrugSuggestions() {
+    if (UI.drugSuggestions) UI.drugSuggestions.style.display = 'none';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     UI = {
         dashboard: document.getElementById('dashboard'),
@@ -844,16 +894,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         settingsDropdown: document.getElementById('settingsDropdown'),
         blacklistContainer: document.getElementById('blacklistContainer'),
         newDrugInput: document.getElementById('newDrugInput'),
-        addDrugBtn: document.getElementById('addDrugBtn')
+        addDrugBtn: document.getElementById('addDrugBtn'),
+        drugSuggestions: document.getElementById('drugSuggestions')
     };
 
-    // --- ADD DRUG BUTTON STATE LOGIC ---
-    UI.newDrugInput.oninput = () => {
-        UI.addDrugBtn.disabled = UI.newDrugInput.value.trim().length === 0;
+    // --- ADD DRUG BUTTON STATE LOGIC + AUTOCOMPLETE ---
+    UI.newDrugInput.oninput = async () => {
+        const q = UI.newDrugInput.value.trim();
+        UI.addDrugBtn.disabled = q.length === 0;
+        if (q.length === 0) { hideDrugSuggestions(); return; }
+        const products = await loadStoreProducts();
+        const ql = q.toLowerCase();
+        const matches = products.filter(n => n.toLowerCase().startsWith(ql));
+        renderDrugSuggestions(matches);
     };
     UI.newDrugInput.onkeydown = (e) => {
-        if (e.key === 'Enter') addBlacklistItem();
+        if (e.key === 'Enter') { addBlacklistItem(); hideDrugSuggestions(); }
+        if (e.key === 'Escape') hideDrugSuggestions();
     };
+    UI.newDrugInput.onblur = () => {
+        // Delay so a click on a suggestion item registers before it's hidden.
+        setTimeout(hideDrugSuggestions, 150);
+    };
+    if (UI.drugSuggestions) {
+        UI.drugSuggestions.onclick = (e) => {
+            const item = e.target.closest('.drug-suggestion-item');
+            if (!item) return;
+            UI.newDrugInput.value = item.dataset.name;
+            UI.addDrugBtn.disabled = false;
+            hideDrugSuggestions();
+            UI.newDrugInput.focus();
+        };
+    }
+    // Warm the cache as soon as the modal is reachable, so the first
+    // keystroke doesn't wait on the network.
+    loadStoreProducts();
 
     // --- SETTINGS BUTTONS ---
     document.getElementById('openSettingsBtn').onclick = (e) => {
