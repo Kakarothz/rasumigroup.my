@@ -989,9 +989,10 @@
             const el = document.getElementById('dashboardEmptyState');
             if (el && document.getElementById('dashboard').contains(el)) {
                 el.innerHTML = 'INITIALIZING SYSTEM...' +
-                    '<div class="diag-hint">No branch has reported presence to this Firebase project yet.<br>' +
-                    'If this persists while a branch PC has the extension running, open DevTools → Network and check ' +
-                    'for failed/blocked requests to smart-label-87910-default-rtdb.firebasedatabase.app.</div>';
+                    '<div class="diag-hint">No branch has reported presence to Supabase yet.<br>' +
+                    'If this persists while a branch PC has the extension running, that PC is likely still on the ' +
+                    'old Firebase-based build — reload the extension there, or open DevTools → Network and check ' +
+                    'for failed/blocked requests to seqlkwdghibmsfkbuwqq.supabase.co.</div>';
             }
         }, 8000);
     </script>
