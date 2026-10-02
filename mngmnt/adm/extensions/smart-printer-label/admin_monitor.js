@@ -661,6 +661,19 @@ function setFilter(mode) {
     renderDashboard();
 }
 
+// Makes the top-bar "CRITICAL ERROR" pill and the ERRORS stat tile actually
+// clickable -- before this they only carried a hover tooltip (title=) with
+// no onclick, so there was no way to act on them short of knowing the
+// hidden 'E' keyboard shortcut below. Both now toggle the same global
+// ERROR filter that the per-branch [ ERRORS ] tab already uses, so one
+// click surfaces every ❌ across all branches without hunting branch by
+// branch.
+function toggleErrorFilter() {
+    setFilter(state.filterMode === 'ERROR' ? 'ALL' : 'ERROR');
+    showToast(state.filterMode === 'ERROR' ? 'FILTER: ERRORS ONLY (click again or press E to clear)' : 'FILTER CLEARED');
+    document.querySelector('.dashboard-grid, #dashboard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 async function restartBranch(name) {
     if (!confirm(`RESTART ${name}?`)) return;
     try {
@@ -1005,11 +1018,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         location.reload();
     };
 
+    if (UI.globalAlert) UI.globalAlert.onclick = toggleErrorFilter;
+    if (UI.statErrors) {
+        UI.statErrors.style.cursor = 'pointer';
+        UI.statErrors.onclick = toggleErrorFilter;
+    }
+
     window.onkeydown = (e) => {
         const key = e.key.toUpperCase();
-        if (key === 'E') {
-            setFilter(state.filterMode === 'ERROR' ? 'ALL' : 'ERROR');
-        }
+        if (key === 'E') toggleErrorFilter();
         if (key === 'R') fetchData();
     };
 
