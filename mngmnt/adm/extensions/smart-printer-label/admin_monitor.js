@@ -58,6 +58,36 @@ async function fbDelete(path) {
 }
 // --- END DUAL-BACKEND (TEMP) Firebase helpers ---
 
+// --- STORAGE SHIM ---
+// This same admin_monitor.js is loaded two ways: inside the real Chrome
+// extension (chrome.storage.local exists), and as a plain web page on the
+// GitHub-hosted mirror (chrome is undefined there — it's not an extension
+// context). Calling chrome.storage.local directly on the mirror throws
+// synchronously inside the async DOMContentLoaded handler below and kills
+// the whole page's init before fetchData() ever runs, which is why the
+// mirror used to sit stuck on "INITIALIZING SYSTEM..." forever. localGet/
+// localSet fall back to localStorage (per-browser, not per-device, but
+// fine for a convenience mirror) when chrome.storage isn't available.
+const hasChromeStorage = (typeof chrome !== 'undefined' && !!chrome.storage && !!chrome.storage.local);
+function localGet(keys) {
+    if (hasChromeStorage) return chrome.storage.local.get(keys);
+    return Promise.resolve().then(() => {
+        const out = {};
+        keys.forEach(k => {
+            const raw = localStorage.getItem('vims_admin_' + k);
+            if (raw !== null) { try { out[k] = JSON.parse(raw); } catch (e) {} }
+        });
+        return out;
+    });
+}
+function localSet(obj) {
+    if (hasChromeStorage) return chrome.storage.local.set(obj);
+    return Promise.resolve().then(() => {
+        Object.keys(obj).forEach(k => localStorage.setItem('vims_admin_' + k, JSON.stringify(obj[k])));
+    });
+}
+// --- END STORAGE SHIM ---
+
 function sbHeaders(extra) {
     return Object.assign({
         'apikey': SUPABASE_ANON_KEY,
@@ -657,7 +687,7 @@ async function togglePin(name) {
     } else {
         state.pinnedBranches.push(name);
     }
-    await chrome.storage.local.set({ pinnedBranches: state.pinnedBranches });
+    await localSet({ pinnedBranches: state.pinnedBranches });
     renderDashboard();
 }
 
@@ -684,7 +714,7 @@ async function openSettings() {
     }
 
     // 2. Fetch Local (Storage)
-    const storage = await chrome.storage.local.get(['vims_local_blacklist']);
+    const storage = await localGet(['vims_local_blacklist']);
     if (storage.vims_local_blacklist) {
         state.blacklist_local = storage.vims_local_blacklist;
     } else {
@@ -759,7 +789,7 @@ function removeBlacklistItem(index) {
 }
 
 async function saveBlacklist() {
-    await chrome.storage.local.set({ vims_local_blacklist: state.blacklist_local });
+    await localSet({ vims_local_blacklist: state.blacklist_local });
     showToast("DRAFT SAVED LOCALLY");
 }
 
@@ -844,7 +874,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!e.target.closest('.top-actions')) UI.settingsDropdown.style.display = 'none';
     };
 
-    const storage = await chrome.storage.local.get(['pinnedBranches']);
+    const storage = await localGet(['pinnedBranches']);
     if (storage.pinnedBranches) state.pinnedBranches = storage.pinnedBranches;
 
     // --- EVENT DELEGATION ---
