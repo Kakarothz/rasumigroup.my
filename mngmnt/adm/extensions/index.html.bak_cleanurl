@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHROME EXTENSION — RASUMI MONITORING HUB</title>
+    <!-- Supabase JS SDK (session guard only — extensions themselves use Firebase, not Supabase) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <!-- Icons & Fonts -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            margin: 0; padding: 0;
+            background: #0a0a0f url('../camscanner/camscanner_admin/assets/background.png') no-repeat center center fixed;
+            background-size: cover;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .bg-grid {
+            position: fixed; inset: 0;
+            background-size: 40px 40px;
+            background-image:
+                linear-gradient(to right,  rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+            z-index: 0; pointer-events: none;
+        }
+
+        .hidden { display: none !important; }
+
+        /* ── Loading overlay ── */
+        #loading-overlay {
+            position: fixed; inset: 0; z-index: 200;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: #0a0a0f;
+        }
+        .loader-ring {
+            width: 48px; height: 48px;
+            border: 3px solid rgba(0,243,255,0.2);
+            border-top-color: #00f3ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px; letter-spacing: 2px; color: #848d97;
+        }
+
+        /* ── Menu panel ── */
+        #menu-panel {
+            position: fixed; inset: 0; z-index: 100;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+        }
+        .back-link {
+            position: fixed; top: 20px; left: 20px; z-index: 110;
+            font-family: 'JetBrains Mono', monospace; font-size: 12px;
+            color: #848d97; text-decoration: none; letter-spacing: 1px;
+            padding: 10px 16px; border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+            transition: all 0.2s;
+        }
+        .back-link:hover { color: #00f3ff; border-color: rgba(0,243,255,0.4); }
+
+        .menu-header { text-align: center; margin-bottom: 50px; }
+        .menu-header h1 {
+            font-family: 'Orbitron', sans-serif; font-size: 2.5rem;
+            letter-spacing: 2px; margin: 0;
+            color: #00f3ff; text-shadow: 0 0 15px rgba(0,243,255,0.5);
+        }
+        .menu-header p { color: #9ca3af; font-size: 1.1rem; margin-top: 10px; }
+
+        .card-container { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; }
+        .app-card {
+            background: rgba(30,30,40,0.6); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px; padding: 40px 30px; width: 260px;
+            text-align: center; cursor: pointer; text-decoration: none; color: #fff;
+            backdrop-filter: blur(10px); display: block;
+            transition: transform 0.3s, background 0.3s, border-color 0.3s, box-shadow 0.3s;
+        }
+        .app-card:hover { transform: translateY(-10px); background: rgba(40,40,55,0.8); }
+        .app-card.printer:hover { border-color: #f59e0b; box-shadow: 0 10px 30px rgba(245,158,11,0.3); }
+        .app-card.selesai:hover { border-color: #bd00ff; box-shadow: 0 10px 30px rgba(189,0,255,0.3); }
+        .app-icon { font-size: 3rem; margin-bottom: 20px; }
+        .app-card.printer .app-icon { color: #f59e0b; }
+        .app-card.selesai .app-icon { color: #bd00ff; }
+        .app-title {
+            font-family: 'Orbitron', sans-serif; font-size: 1.4rem;
+            font-weight: 700; margin-bottom: 10px;
+        }
+        .app-desc { font-size: 0.9rem; color: #9ca3af; line-height: 1.5; }
+    </style>
+    <!-- Mobile overrides — must come AFTER <style> block -->
+    <link rel="stylesheet" href="../mobile.css">
+</head>
+<body>
+    <div class="bg-grid"></div>
+
+    <!-- Loading overlay — shown while Supabase resolves session -->
+    <div id="loading-overlay">
+        <div class="loader-ring"></div>
+        <div class="loader-text">VERIFYING SESSION...</div>
+    </div>
+
+    <!-- Menu panel — shown after session confirmed -->
+    <div id="menu-panel" class="hidden">
+        <a href="../index.html" class="back-link">
+            <i class="fa-solid fa-arrow-left"></i> HUB
+        </a>
+
+        <div class="menu-header">
+            <h1>CHROME EXTENSION</h1>
+            <p>Browser Extension Fleet Consoles</p>
+        </div>
+
+        <div class="card-container">
+            <a href="smart-printer-label/index.html" class="app-card printer">
+                <div class="app-icon"><i class="fa-solid fa-print"></i></div>
+                <div class="app-title">SMART PRINTER LABEL</div>
+                <div class="app-desc">Monitor label print jobs, portal errors, and branch device fleet status.</div>
+            </a>
+            <a href="vims-auto-selesai/index.html" class="app-card selesai">
+                <div class="app-icon"><i class="fa-solid fa-list-check"></i></div>
+                <div class="app-title">VIMS AUTO SELESAI</div>
+                <div class="app-desc">Monitor Auto Selesai batches, VIBES verification, and per-branch device presence.</div>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const SUPA_URL  = 'https://seqlkwdghibmsfkbuwqq.supabase.co';
+        const SUPA_ANON = 'sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp';
+        const supa = supabase.createClient(SUPA_URL, SUPA_ANON);
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const { data: { session } } = await supa.auth.getSession();
+            if (!session) {
+                window.location.href = '../index.html';
+                return;
+            }
+            document.getElementById('loading-overlay').classList.add('hidden');
+            document.getElementById('menu-panel').classList.remove('hidden');
+
+            supa.auth.onAuthStateChange((event, session) => {
+                if (!session) window.location.href = '../index.html';
+            });
+        });
+    </script>
+</body>
+</html>
