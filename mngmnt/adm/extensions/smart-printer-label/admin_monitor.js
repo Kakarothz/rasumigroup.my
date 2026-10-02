@@ -1,5 +1,5 @@
 /**
- * VIMS Smart Printing Label - Admin Monitor v5.0
+ * VIMS Smart Printing Label - Admin Monitor v5.1
  * -----------------------------------------------
  * V5.0: Firebase Realtime DB -> Supabase (PostgREST) migration. Reads now
  * come from the dedicated vims_presence/vims_logs tables and get reshaped
@@ -14,11 +14,49 @@
  * path on vims_logs/vims_presence have no anon write policy by design —
  * this console is the only place that secret is embedded, consistent with
  * it already being reachable only via the popup's hidden PIN trigger.
+ *
+ * V5.1: TEMPORARY Firebase dual-read/dual-write for the migration rollout
+ * window. Not every branch PC has been upgraded to the Supabase-based
+ * extension build yet, so some branches are still writing presence/logs to
+ * the old Firebase RTDB and reading commands/blacklist from there too. This
+ * console now reads BOTH backends and merges them so every branch shows up
+ * regardless of which build it's on, and every admin action (restart,
+ * blacklist publish, wipe-all) writes to BOTH backends so it reaches
+ * branches on either side of the migration. Every touch point is tagged
+ * "DUAL-BACKEND" in a comment — once every branch is confirmed upgraded,
+ * search for that tag and delete the Firebase half of each one (and this
+ * whole FIREBASE_* block) to finish the migration cleanly.
  */
 const SUPABASE_URL = "https://seqlkwdghibmsfkbuwqq.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp";
 const ADMIN_SECRET = "ee55eea1a5f9f2356b4ed6a99ab97d4779b7bc8a4fbee6e5";
 const REST = `${SUPABASE_URL}/rest/v1`;
+
+// --- DUAL-BACKEND (TEMP): Firebase, kept alive only until every branch is
+// upgraded off it. See the V5.1 note above.
+const FIREBASE_DB_URL = "https://smart-label-87910-default-rtdb.asia-southeast1.firebasedatabase.app";
+const FIREBASE_SECRET = "5w3njKYG0mvxqYRE43Q0As2to2FJIEpXbdsP1M9N";
+function fbUrl(path) {
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    const connector = cleanPath.includes('?') ? '&' : '?';
+    return `${FIREBASE_DB_URL}${cleanPath}${connector}auth=${FIREBASE_SECRET}`;
+}
+async function fbGet(path) {
+    try {
+        const res = await fetch(fbUrl(path));
+        if (!res.ok) return null;
+        return await res.json();
+    } catch (e) { return null; }
+}
+async function fbPut(path, body) {
+    try { return await fetch(fbUrl(path), { method: 'PUT', body: JSON.stringify(body) }); }
+    catch (e) { return null; }
+}
+async function fbDelete(path) {
+    try { return await fetch(fbUrl(path), { method: 'DELETE' }); }
+    catch (e) { return null; }
+}
+// --- END DUAL-BACKEND (TEMP) Firebase helpers ---
 
 function sbHeaders(extra) {
     return Object.assign({
@@ -113,9 +151,13 @@ function showToast(msg) {
 async function fetchData() {
     const startTime = performance.now();
     try {
-        const [presRows, logRows] = await Promise.all([
+        // DUAL-BACKEND (TEMP): fetch Supabase and Firebase in parallel so a
+        // slow/unreachable one never blocks the other from rendering.
+        const [presRows, logRows, fbPresence, fbLogs] = await Promise.all([
             sbSelect('vims_presence', 'select=branch,uid,last_seen,is_running,status,print_mode'),
-            sbSelect('vims_logs', 'select=id,branch,message,created_at&order=created_at.desc&limit=5000')
+            sbSelect('vims_logs', 'select=id,branch,message,created_at&order=created_at.desc&limit=5000'),
+            fbGet('presence.json'),
+            fbGet('logs.json')
         ]);
 
         const presenceData = {};
@@ -132,11 +174,33 @@ async function fetchData() {
         const logsData = {};
         (logRows || []).forEach(r => {
             if (!logsData[r.branch]) logsData[r.branch] = {};
-            logsData[r.branch][r.id] = {
+            logsData[r.branch]['sb_' + r.id] = {
                 log: r.message,
                 timestamp: r.created_at
             };
         });
+
+        // DUAL-BACKEND (TEMP): merge in branches still reporting to Firebase
+        // (pre-upgrade extension builds). Firebase's presence shape is
+        // already {branch: {uid: {lastSeen, isRunning, status, printMode}}}
+        // — identical to what processState() expects — so it merges in
+        // directly at the branch level. Log keys are prefixed 'fb_' (vs.
+        // Supabase's 'sb_') so the two id spaces can never collide.
+        if (fbPresence) {
+            Object.keys(fbPresence).forEach(branch => {
+                if (!presenceData[branch]) presenceData[branch] = {};
+                Object.assign(presenceData[branch], fbPresence[branch]);
+            });
+        }
+        if (fbLogs) {
+            Object.keys(fbLogs).forEach(branch => {
+                if (branch === 'error' || branch === 'UNNAMED_BRANCH' || branch === 'UNNAMED') return;
+                if (!logsData[branch]) logsData[branch] = {};
+                Object.entries(fbLogs[branch]).forEach(([pushId, entry]) => {
+                    logsData[branch]['fb_' + pushId] = entry;
+                });
+            });
+        }
 
         state.latency = Math.round(performance.now() - startTime);
 
@@ -563,7 +627,14 @@ function setFilter(mode) {
 async function restartBranch(name) {
     if (!confirm(`RESTART ${name}?`)) return;
     try {
-        await sbUpsert('vims_commands', { branch: name, type: 'RESTART', command_ts: Date.now() }, 'branch');
+        const ts = Date.now();
+        // DUAL-BACKEND (TEMP): write to both — the console can't tell which
+        // build a given branch is running, so send to both and let whichever
+        // backend that branch actually polls pick it up.
+        await Promise.all([
+            sbUpsert('vims_commands', { branch: name, type: 'RESTART', command_ts: ts }, 'branch'),
+            fbPut(`commands/${encodeURIComponent(name)}.json`, { type: 'RESTART', timestamp: ts })
+        ]);
         alert('Signal sent.');
     } catch (e) { console.error(e); }
 }
@@ -595,10 +666,19 @@ async function togglePin(name) {
 async function openSettings() {
     UI.settingsModal.style.display = 'flex';
 
-    // 1. Fetch Remote (Supabase)
+    // 1. Fetch Remote (Supabase + Firebase — DUAL-BACKEND TEMP)
+    // An item only needs to show SYNCED if it made it to at least one
+    // backend; dual-write below keeps both current right after a publish,
+    // so union-ing avoids a false PENDING flash from whichever one lags.
     try {
-        const rows = await sbSelect('vims_app_config', 'key=eq.blacklist&select=value');
-        state.blacklist_remote = (rows && rows[0] && Array.isArray(rows[0].value)) ? rows[0].value : [];
+        const [rows, fbList] = await Promise.all([
+            sbSelect('vims_app_config', 'key=eq.blacklist&select=value'),
+            fbGet('blacklist.json')
+        ]);
+        const supaList = (rows && rows[0] && Array.isArray(rows[0].value)) ? rows[0].value : [];
+        const merged = new Set(supaList);
+        if (Array.isArray(fbList)) fbList.forEach(x => merged.add(x));
+        state.blacklist_remote = [...merged];
     } catch (e) {
         console.error("Failed to fetch remote blacklist", e);
     }
@@ -691,6 +771,11 @@ async function syncBlacklistToSupabase() {
         // blacklist_version itself, in one call, so background.js's poll
         // sees a single atomic change rather than a version/list race.
         const res = await sbRpc('vims_admin_set_blacklist', { items: state.blacklist_local, secret: ADMIN_SECRET });
+
+        // DUAL-BACKEND (TEMP): also publish to Firebase so branches still on
+        // the pre-upgrade build pick up the same blacklist. Best-effort —
+        // doesn't gate the Supabase result above.
+        fbPut('blacklist.json', state.blacklist_local).then(() => fbPut('blacklist_version.json', Date.now()));
 
         if (res.ok) {
             state.blacklist_remote = [...state.blacklist_local];
@@ -801,7 +886,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Secret-gated RPC — vims_logs/vims_presence have no anon DELETE
         // policy, so this (or the weekly pg_cron job) is the only way rows
         // in those tables ever get removed.
-        await sbRpc('vims_admin_wipe_all', { secret: ADMIN_SECRET });
+        // DUAL-BACKEND (TEMP): also wipe Firebase so the wipe is complete
+        // across both backends during the migration window.
+        await Promise.all([
+            sbRpc('vims_admin_wipe_all', { secret: ADMIN_SECRET }),
+            fbDelete('logs.json'),
+            fbDelete('presence.json')
+        ]);
         location.reload();
     };
 
