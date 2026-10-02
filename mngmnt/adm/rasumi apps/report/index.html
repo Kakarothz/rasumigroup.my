@@ -449,7 +449,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', async function(){
-    var loginUrl = '../../index.html';
+    var loginUrl = '../../';
     try {
       var sessRes = await _supa.auth.getSession();
       if (!sessRes.data.session) { window.location.href = loginUrl; return; }

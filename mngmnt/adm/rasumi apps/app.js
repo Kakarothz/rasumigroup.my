@@ -751,11 +751,11 @@
       '      </div>',
       '    </div>',
       '    <div id="r-nav-dropdown" class="nav-dropdown hidden" style="top:60px; right:20px; position:absolute; z-index:9999;">',
-      '      <div class="dropdown-item" onclick="window.location.href=\'../menu.html\'"><i class="fa-solid fa-house"></i> MAIN MENU</div>',
+      '      <div class="dropdown-item" onclick="window.location.href=\'../\'"><i class="fa-solid fa-house"></i> MAIN MENU</div>',
       '      <div class="dropdown-sep"></div>',
-      '      <div class="dropdown-item" onclick="window.location.href=\'index.html\'"><i class="fa-solid fa-border-all"></i> RASUMI APPS</div>',
-      '      <div class="dropdown-item" onclick="window.location.href=\'../sales report/index.html\'"><i class="fa-solid fa-shield-halved"></i> SALES REPORT</div>',
-      '      <div class="dropdown-item" onclick="window.location.href=\'../camscanner/camscanner_admin/index.html\'"><i class="fa-solid fa-camera"></i> CAMSCANNER ADMIN</div>',
+      '      <div class="dropdown-item" onclick="window.location.href=\'./\'"><i class="fa-solid fa-border-all"></i> RASUMI APPS</div>',
+      '      <div class="dropdown-item" onclick="window.location.href=\'../sales report/\'"><i class="fa-solid fa-shield-halved"></i> SALES REPORT</div>',
+      '      <div class="dropdown-item" onclick="window.location.href=\'../camscanner/camscanner_admin/\'"><i class="fa-solid fa-camera"></i> CAMSCANNER ADMIN</div>',
       '      <div class="dropdown-sep"></div>',
       '      <div class="dropdown-item" id="r-menu-profile" onclick="window.rOpenProfile()"><i class="fa-solid fa-user-gear"></i> UPDATE PROFILE</div>',
       '      <div class="dropdown-item" id="r-menu-settings" style="display:none" onclick="window.rOpenSettings()"><i class="fa-solid fa-sliders"></i> SETTINGS</div>',
@@ -1859,7 +1859,7 @@
               if (res.error || !res.data) {
                 // Not in admin_users — kick out
                 RS.supa.auth.signOut();
-                window.location.href = '../index.html';
+                window.location.href = '../';
                 return;
               }
               // Resolve pending_email — email confirmed, update the row
@@ -1884,7 +1884,7 @@
               }).eq('email', user.email).then(function () { }).catch(function () { });
             }).catch(function () {
               RS.supa.auth.signOut();
-              window.location.href = '../index.html';
+              window.location.href = '../';
             });
         }
       });

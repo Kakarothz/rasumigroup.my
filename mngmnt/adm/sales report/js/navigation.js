@@ -74,7 +74,7 @@ APP.initNavigation = function () {
 
     if (D.modeCamscanner) {
         D.modeCamscanner.addEventListener('click', () => {
-            window.location.href = "../../camscanner/camscanner_admin/index.html";
+            window.location.href = "../../camscanner/camscanner_admin/";
         });
     }
 

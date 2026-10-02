@@ -1,8 +1,54 @@
 /**
- * VIMS Smart Printing Label - Admin Monitor v4.3
+ * VIMS Smart Printing Label - Admin Monitor v5.0
+ * -----------------------------------------------
+ * V5.0: Firebase Realtime DB -> Supabase (PostgREST) migration. Reads now
+ * come from the dedicated vims_presence/vims_logs tables and get reshaped
+ * into the exact nested {branch: {uid/pushId: {...}}} object shapes
+ * processState() already expects, so none of the rendering/state logic
+ * below needed to change. Writes that used to go straight to Firebase are
+ * split in two: branch-facing data (commands) still goes through a plain
+ * anon upsert, since vims_commands is meant to be writable by anyone running
+ * the extension; admin-only destructive/privileged actions (wiping all
+ * logs, publishing the blacklist) now go through SECURITY DEFINER RPC
+ * functions gated by ADMIN_SECRET, because vims_app_config and the DELETE
+ * path on vims_logs/vims_presence have no anon write policy by design —
+ * this console is the only place that secret is embedded, consistent with
+ * it already being reachable only via the popup's hidden PIN trigger.
  */
-const FIREBASE_URL = "https://smart-label-87910-default-rtdb.asia-southeast1.firebasedatabase.app";
-const FIREBASE_SECRET = "5w3njKYG0mvxqYRE43Q0As2to2FJIEpXbdsP1M9N";
+const SUPABASE_URL = "https://seqlkwdghibmsfkbuwqq.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp";
+const ADMIN_SECRET = "ee55eea1a5f9f2356b4ed6a99ab97d4779b7bc8a4fbee6e5";
+const REST = `${SUPABASE_URL}/rest/v1`;
+
+function sbHeaders(extra) {
+    return Object.assign({
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json'
+    }, extra || {});
+}
+
+async function sbSelect(table, query) {
+    const res = await fetch(`${REST}/${table}?${query}`, { headers: sbHeaders() });
+    if (!res.ok) return [];
+    return await res.json();
+}
+
+async function sbUpsert(table, row, conflictCols) {
+    return fetch(`${REST}/${table}?on_conflict=${conflictCols}`, {
+        method: 'POST',
+        headers: sbHeaders({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
+        body: JSON.stringify(row)
+    });
+}
+
+async function sbRpc(fn, args) {
+    return fetch(`${REST}/rpc/${fn}`, {
+        method: 'POST',
+        headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+        body: JSON.stringify(args)
+    });
+}
 
 // --- STATE ---
 const state = {
@@ -45,12 +91,6 @@ function sanitizeId(name) {
 }
 
 // --- HELPERS ---
-function getAuthUrl(path) {
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    const connector = cleanPath.includes('?') ? '&' : '?';
-    return `${FIREBASE_URL}${cleanPath}${connector}auth=${FIREBASE_SECRET}`;
-}
-
 function showToast(msg) {
     const toast = document.createElement('div');
     toast.className = 'vims-toast';
@@ -60,16 +100,44 @@ function showToast(msg) {
 }
 
 // --- LOGIC ---
+// Supabase rows come back flat (one row per presence entry / log line) and
+// get reshaped here into the exact nested shapes processState() was built
+// against — {[branch]: {[uid]: {...}}} for presence, {[branch]: {[pushId]:
+// {log, timestamp}}} for logs — so nothing below this function needed to
+// change. created_at is an ISO timestamp string; processState already does
+// new Date(l.timestamp).getTime() on it, which works identically to the old
+// Firebase ISO string. Logs are capped at the latest 5000 rows (order
+// created_at.desc) as a safety net against an unbounded SELECT if the
+// weekly pg_cron wipe is ever delayed — old Firebase had no such cap, but
+// RAM/row-count here only grows across a week between wipes, not forever.
 async function fetchData() {
     const startTime = performance.now();
     try {
-        const [presRes, logsRes] = await Promise.all([
-            fetch(getAuthUrl('presence.json')),
-            fetch(getAuthUrl('logs.json'))
+        const [presRows, logRows] = await Promise.all([
+            sbSelect('vims_presence', 'select=branch,uid,last_seen,is_running,status,print_mode'),
+            sbSelect('vims_logs', 'select=id,branch,message,created_at&order=created_at.desc&limit=5000')
         ]);
 
-        const presenceData = await presRes.json();
-        const logsData = await logsRes.json();
+        const presenceData = {};
+        (presRows || []).forEach(r => {
+            if (!presenceData[r.branch]) presenceData[r.branch] = {};
+            presenceData[r.branch][r.uid] = {
+                lastSeen: new Date(r.last_seen).getTime(),
+                isRunning: r.is_running,
+                status: r.status,
+                printMode: r.print_mode
+            };
+        });
+
+        const logsData = {};
+        (logRows || []).forEach(r => {
+            if (!logsData[r.branch]) logsData[r.branch] = {};
+            logsData[r.branch][r.id] = {
+                log: r.message,
+                timestamp: r.created_at
+            };
+        });
+
         state.latency = Math.round(performance.now() - startTime);
 
         processState(presenceData, logsData);
@@ -77,39 +145,8 @@ async function fetchData() {
         renderDashboard();
         renderGlobalFeed();
 
-        // --- WEEKLY AUTO-CLEANUP ---
-        checkWeeklyCleanup();
-
     } catch (e) {
         console.error("Fetch failed:", e);
-    }
-}
-
-async function checkWeeklyCleanup() {
-    try {
-        const now = new Date();
-        const lastSunday = new Date(now);
-        lastSunday.setDate(now.getDate() - now.getDay());
-        lastSunday.setHours(0, 0, 0, 0);
-        const lastSundayTs = lastSunday.getTime();
-
-        const configUrl = getAuthUrl('system/lastCleanupTime.json');
-        const res = await fetch(configUrl);
-        const lastCleanupTs = await res.json() || 0;
-
-        if (lastSundayTs > lastCleanupTs) {
-            console.log("SYSTEM: Weekly Cleanup Triggered.");
-            await Promise.all([
-                fetch(getAuthUrl('logs.json'), { method: 'DELETE' }),
-                fetch(getAuthUrl('presence.json'), { method: 'DELETE' })
-            ]);
-            await fetch(configUrl, {
-                method: 'PUT',
-                body: JSON.stringify(lastSundayTs)
-            });
-        }
-    } catch (e) {
-        console.error("Auto-Cleanup Error:", e);
     }
 }
 
@@ -526,10 +563,7 @@ function setFilter(mode) {
 async function restartBranch(name) {
     if (!confirm(`RESTART ${name}?`)) return;
     try {
-        await fetch(getAuthUrl(`commands/${encodeURIComponent(name)}.json`), {
-            method: 'PUT',
-            body: JSON.stringify({ type: 'RESTART', timestamp: Date.now() })
-        });
+        await sbUpsert('vims_commands', { branch: name, type: 'RESTART', command_ts: Date.now() }, 'branch');
         alert('Signal sent.');
     } catch (e) { console.error(e); }
 }
@@ -560,11 +594,11 @@ async function togglePin(name) {
 
 async function openSettings() {
     UI.settingsModal.style.display = 'flex';
-    
-    // 1. Fetch Remote (Firebase)
+
+    // 1. Fetch Remote (Supabase)
     try {
-        const res = await fetch(getAuthUrl('blacklist.json'));
-        state.blacklist_remote = await res.json() || [];
+        const rows = await sbSelect('vims_app_config', 'key=eq.blacklist&select=value');
+        state.blacklist_remote = (rows && rows[0] && Array.isArray(rows[0].value)) ? rows[0].value : [];
     } catch (e) {
         console.error("Failed to fetch remote blacklist", e);
     }
@@ -649,21 +683,16 @@ async function saveBlacklist() {
     showToast("DRAFT SAVED LOCALLY");
 }
 
-async function syncBlacklistToFirebase() {
+async function syncBlacklistToSupabase() {
     try {
-        const res = await fetch(getAuthUrl('blacklist.json'), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(state.blacklist_local)
-        });
+        // Secret-gated RPC — vims_app_config has no anon write policy, so
+        // this is the only path (besides a service_role/dashboard edit)
+        // that can publish a new blacklist. The function also bumps
+        // blacklist_version itself, in one call, so background.js's poll
+        // sees a single atomic change rather than a version/list race.
+        const res = await sbRpc('vims_admin_set_blacklist', { items: state.blacklist_local, secret: ADMIN_SECRET });
 
         if (res.ok) {
-            // Update Version Timestamp for Smart Sync
-            await fetch(getAuthUrl('blacklist_version.json'), {
-                method: 'PUT',
-                body: JSON.stringify(Date.now())
-            });
-
             state.blacklist_remote = [...state.blacklist_local];
             renderBlacklist();
             showToast("SYNC COMPLETED (LIVE)");
@@ -673,9 +702,9 @@ async function syncBlacklistToFirebase() {
     } catch (err) {
         console.error("Sync Error:", err);
         showToast("OFFLINE - SYNC FAILED");
-        // We don't update state.blacklist_remote here, 
+        // We don't update state.blacklist_remote here,
         // which keeps items in 'PENDING' state visually
-        renderBlacklist(); 
+        renderBlacklist();
     }
 }
 
@@ -722,7 +751,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('closeSettingsBtn').onclick = () => UI.settingsModal.style.display = 'none';
     document.getElementById('addDrugBtn').onclick = addBlacklistItem;
     document.getElementById('saveBlacklistBtn').onclick = saveBlacklist;
-    document.getElementById('syncBlacklistBtn').onclick = syncBlacklistToFirebase;
+    document.getElementById('syncBlacklistBtn').onclick = syncBlacklistToSupabase;
 
     // Global click handler for closing dropdown/modal
     window.onclick = (e) => { 
@@ -769,10 +798,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     UI.clearAllBtn.onclick = async () => {
         if (!confirm("WIPE ALL LOGS?")) return;
-        await Promise.all([
-            fetch(getAuthUrl('logs.json'), { method: 'DELETE' }),
-            fetch(getAuthUrl('presence.json'), { method: 'DELETE' })
-        ]);
+        // Secret-gated RPC — vims_logs/vims_presence have no anon DELETE
+        // policy, so this (or the weekly pg_cron job) is the only way rows
+        // in those tables ever get removed.
+        await sbRpc('vims_admin_wipe_all', { secret: ADMIN_SECRET });
         location.reload();
     };
 
