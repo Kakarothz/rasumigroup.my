@@ -1,5 +1,5 @@
 /**
- * VIMS Smart Printing Label - Admin Monitor v5.1
+ * VIMS Smart Printing Label - Admin Monitor v5.3
  * -----------------------------------------------
  * V5.0: Firebase Realtime DB -> Supabase (PostgREST) migration. Reads now
  * come from the dedicated vims_presence/vims_logs tables and get reshaped
@@ -32,6 +32,22 @@
  * letters of a product name and pick it from the list instead of
  * free-typing. Read-only anon SELECT against an existing table, no
  * schema/RLS changes needed.
+ *
+ * V5.3: Fixed a false-OFFLINE flicker. hasPulse used to require
+ * (isLogRecent && b.lastPing !== 0) for the log-based fallback, on the
+ * theory that lastPing===0 always meant an explicit STOP (clearPresence()
+ * in background.js, which fires when isVimsRunning flips false). That
+ * theory doesn't hold: isVimsRunning also gates content.js's own log
+ * writes (content.js early-returns at "if (!data.isVimsRunning) return"),
+ * so a real STOP kills fresh logs within the same window anyway -- the
+ * guard was only ever suppressing the OTHER way lastPing hits 0: the MV3
+ * service worker getting suspended for >5min (laptop sleep, Chrome
+ * throttling an idle background tab), which prunes the presence device
+ * node (see the 5-minute prune above) even while a content-script-driven
+ * print action still wakes the SW just long enough to push a log entry.
+ * That's a live branch, not a stopped one. Dropped the lastPing!==0
+ * condition so isLogRecent alone is enough -- matches what the "Priority
+ * 3" comment below already said the intent was.
  */
 const SUPABASE_URL = "https://seqlkwdghibmsfkbuwqq.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp";
@@ -329,10 +345,14 @@ function processState(presence, logs) {
         const isPingRecent = timeSincePing > 0 && timeSincePing < 90000;
         const isLogRecent = hasLogsToday && timeSinceLog < 300000; // 5 minutes
 
-        // --- UNIFIED LOGIC ENGINE (v4.3.3) ---
-        // If presence node was explicitly deleted (lastPing=0), we force offline
-        // even if logs are recent, to respect the manual STOP action.
-        const hasPulse = isPingRecent || (isLogRecent && b.lastPing !== 0);
+        // --- UNIFIED LOGIC ENGINE (v5.3) ---
+        // isLogRecent alone is enough pulse evidence, even when lastPing===0
+        // (presence device node pruned after >5min, e.g. SW suspended by
+        // Chrome/laptop sleep). A real explicit STOP clears isVimsRunning,
+        // which also halts content.js's own log writes -- so logs don't
+        // stay "recent" past a genuine STOP for more than a beat. See the
+        // V5.3 changelog entry above for the full reasoning.
+        const hasPulse = isPingRecent || isLogRecent;
 
         if (hasPulse) {
             // Priority 1: Presence node confirms running state
