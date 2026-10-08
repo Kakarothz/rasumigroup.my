@@ -938,6 +938,28 @@
       '            </div>',
       '            <i class="fa-solid fa-chevron-right" style="margin-left:auto;color:var(--rc-text-dim,#6b7280);font-size:11px;"></i>',
       '          </div>',
+      '          <div onclick="window.rOpenPortalsFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#38bdf8\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
+      '            <i class="fa-solid fa-key" style="font-size:20px;color:var(--rc-cyan,#38bdf8);flex-shrink:0;"></i>',
+      '            <div>',
+      '              <div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;letter-spacing:0.5px;">SUPPLIER PORTALS &amp; DOCUSHARE</div>',
+      '              <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:2px;">URL, ID &amp; password for Delivery Status scraping and DocuShare</div>',
+      '            </div>',
+      '            <i class="fa-solid fa-chevron-right" style="margin-left:auto;color:var(--rc-text-dim,#6b7280);font-size:11px;"></i>',
+      '          </div>',
+      '        </div>',
+      '      </div>',
+      '    </div>',
+
+      '    <!-- SUPPLIER PORTALS MODAL (supplier_portals — credentials encrypted in Supabase) -->',
+      '    <div id="r-portals-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
+      '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:900px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
+      '        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
+      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#38bdf8);letter-spacing:1px;"><i class="fa-solid fa-key"></i> SUPPLIER PORTALS &amp; DOCUSHARE</h3>',
+      '          <button id="btn-close-portals" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
+      '        </div>',
+      '        <div style="padding:14px 20px;overflow-y:auto;flex:1;">',
+      '          <div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Set the portal URL, ID and password once — users need no setup. Passwords are encrypted in Supabase and are write-only here (never shown again). Leave the password blank to keep the saved one. Saving a new password clears the cached session.</div></div>',
+      '          <div id="r-supplier-portals" style="margin-top:12px"><div class="r-loading"><span class="r-spin"></span> Loading…</div></div>',
       '        </div>',
       '      </div>',
       '    </div>',
@@ -6267,14 +6289,442 @@
   // patient / hospital_name / action), rather than the generic grouped
   // session view renderAppLogs() below uses — a purchaser cares about
   // "which PO, which patient, which hospital", not session grouping.
+  var _poTab = 'overview';
+  var _poOrdersCache = [];
+  var _poDeliveryCache = [];
+
   function renderPoAutoEmail() {
     var view = $r('r-view-area');
     if (!view) return;
-
+    var tabs = [['overview', 'Overview'], ['orders', 'Orders & DocuShare'], ['delivery', 'Delivery / DO'], ['gmail', 'Gmail & 2FA'], ['ref', 'Reference Data'], ['activity', 'Activity']];
     view.innerHTML =
+      '<div class="r-tab-bar" id="r-po-tabs">' +
+      tabs.map(function (t) { return '<div class="r-tab" id="rpotab-' + t[0] + '" onclick="rPoTab(\'' + t[0] + '\')">' + t[1] + '</div>'; }).join('') +
+      '</div><div id="r-po-body" class="r-dd-content"></div>';
+    window.rPoTab(_poTab);
+  }
+
+  window.rPoTab = function (t) {
+    _poTab = t;
+    ['overview', 'orders', 'delivery', 'gmail', 'ref', 'activity'].forEach(function (k) {
+      var el = $r('rpotab-' + k); if (el) el.classList.toggle('active', k === t);
+    });
+    var body = $r('r-po-body'); if (!body) return;
+    if (t === 'overview') return _poOverview(body);
+    if (t === 'orders') return _poOrders(body);
+    if (t === 'delivery') return _poDelivery(body);
+    if (t === 'gmail') return _poGmail(body);
+    if (t === 'ref') return _poRef(body);
+    return _poActivity(body);
+  };
+
+  function _poLoading() { return '<div class="r-loading"><span class="r-spin"></span> Loading…</div>'; }
+  function _poErr(box, e) { if (box) box.innerHTML = '<div class="r-empty">' + esc((e && e.message) || String(e)) + '</div>'; }
+  function _poDt(ts) { return ts ? esc(_fmtDate(ts)) + ' ' + esc(_fmtTime(ts)) : '—'; }
+  function _poDtPlain(ts) { try { return new Date(ts).toLocaleString(); } catch (e) { return String(ts); } }
+  function _poBadge(cls, txt, title) { return '<span class="r-badge ' + cls + '"' + (title ? ' title="' + esc(title) + '"' : '') + '>' + esc(txt) + '</span>'; }
+
+  // ── Overview ──────────────────────────────────────────────
+  function _poOverview(body) {
+    body.innerHTML = _poLoading();
+    RS.supa.rpc('po_admin_overview', {}).then(function (res) {
+      if (res.error) return _poErr(body, res.error);
+      var o = res.data || {};
+      var n = function (k) { return o[k] == null ? 0 : o[k]; };
+      body.innerHTML = _poPortalPanel() +
+        '<div class="r-metric-row">' +
+        metricCard('', n('orders_total'), 'Orders', 'fa-file-invoice', n('orders_branch') + ' branch · ' + n('orders_tender') + ' tender', null, "rPoTab('orders')") +
+        metricCard('', n('orders_failed'), 'Draft Failures', 'fa-triangle-exclamation', 'orders with last error', null, "rPoTab('orders')") +
+        metricCard('', n('ds_ok'), 'Filed in DocuShare', 'fa-folder-closed', n('ds_failed') + ' failed · ' + n('ds_none') + ' not filed', null, "rPoTab('orders')") +
+        metricCard('', n('delivery_open'), 'Open Deliveries', 'fa-truck', n('delivery_total') + ' tracked lines', null, "rPoTab('delivery')") +
+        metricCard('', n('do_requested'), 'DO Requested', 'fa-file-signature', n('do_sent') + ' sent to TNB', null, "rPoTab('delivery')") +
+        metricCard('', n('gmail_connections'), 'Gmail Connected', 'fa-envelope-circle-check', n('tfa_enabled') + ' with 2FA', null, "rPoTab('gmail')") +
+        '</div>' +
+        '<div class="r-metric-row">' +
+        metricCard('', n('loa_expiring_90d'), 'LOA Expiring ≤ 90d', 'fa-hourglass-half', 'active tender LOAs', null, null) +
+        metricCard('', n('static_attachments'), 'Static Attachments', 'fa-paperclip', 'LOA / supporting docs', null, null) +
+        metricCard('', n('orders_incomplete'), 'Incomplete Extractions', 'fa-circle-exclamation', 'needs review', null, "rPoTab('orders')") +
+        '</div>' +
+        '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-chart-column"></i> POs Processed — Last 14 Days</h3></div>' +
+        '<div style="position:relative;height:180px;"><canvas id="r-po-chart"></canvas></div></div>';
+      window.rPoLoadPortalStatus();
+      window.rLoadPoAutoEmailActivity(true);
+    }).catch(function (e) { _poErr(body, e); });
+  }
+
+  // ── Orders & DocuShare ────────────────────────────────────
+  function _poDsCell(ds) {
+    if (!ds) return '<span style="color:#6B7A8F">—</span>';
+    var up = (ds.uploaded || []).length, sk = (ds.skipped || []).length, cr = (ds.created || []).length;
+    var tip = (ds.at ? 'At ' + ds.at + '\n' : '') + (up ? 'Uploaded: ' + ds.uploaded.join(', ') + '\n' : '') +
+      (sk ? 'Skipped: ' + ds.skipped.join(', ') + '\n' : '') + (cr ? 'Created folders: ' + ds.created.join(', ') : '');
+    if (ds.ok) {
+      var label = up ? up + ' uploaded' : (sk ? 'already filed' : 'OK');
+      var b = _poBadge('r-badge-ok', label, tip);
+      return ds.folder_url ? '<a href="' + esc(ds.folder_url) + '" target="_blank" rel="noopener" style="text-decoration:none">' + b + '</a>' : b;
+    }
+    return _poBadge('r-badge-err', 'FAILED', ds.error || tip) + '<div style="font-size:10px;color:#f87171;max-width:220px;white-space:normal">' + esc(ds.error || '') + '</div>';
+  }
+
+  function _poOrderHasIssue(o) {
+    return !!(o.last_error || (o.fail_count || 0) > 0 || (o.docushare && !o.docushare.ok) ||
+      (o.completeness && ['complete', 'ok', 'full'].indexOf(String(o.completeness).toLowerCase()) < 0));
+  }
+
+  function _poOrders(body) {
+    body.innerHTML =
+      '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-file-invoice"></i> Orders &amp; DocuShare</h3>' +
+      '<div class="r-filter-bar">' +
+      '<input id="po-o-q" class="r-filter-input" placeholder="Search PO / LPO / branch / supplier" oninput="rPoOrdersRender()" style="width:230px">' +
+      '<select id="po-o-type" class="r-filter-input" onchange="rPoOrdersRender()"><option value="">All types</option><option value="BRANCH">Branch (FV)</option><option value="TENDER">Tender (TNB)</option></select>' +
+      '<select id="po-o-ds" class="r-filter-input" onchange="rPoOrdersRender()"><option value="">DocuShare: all</option><option value="ok">Filed OK</option><option value="failed">Failed</option><option value="none">Not filed</option></select>' +
+      '<select id="po-o-iss" class="r-filter-input" onchange="rPoOrdersRender()"><option value="">All orders</option><option value="issues">Issues only</option></select>' +
+      '<button class="r-btn-sm" onclick="rPoTab(\'orders\')">Refresh</button></div></div>' +
+      '<div id="po-o-count" style="font-size:11px;color:#6B7A8F;margin-bottom:8px"></div>' +
+      '<div id="po-o-tbl">' + _poLoading() + '</div></div>';
+    RS.supa.rpc('po_admin_orders', { p_search: null, p_type: null, p_limit: 1000 }).then(function (res) {
+      if (res.error) return _poErr($r('po-o-tbl'), res.error);
+      _poOrdersCache = res.data || [];
+      window.rPoOrdersRender();
+    }).catch(function (e) { _poErr($r('po-o-tbl'), e); });
+  }
+
+  window.rPoOrdersRender = function () {
+    var box = $r('po-o-tbl'); if (!box) return;
+    var q = (($r('po-o-q') || {}).value || '').toLowerCase().trim();
+    var ty = ($r('po-o-type') || {}).value || '';
+    var ds = ($r('po-o-ds') || {}).value || '';
+    var iss = ($r('po-o-iss') || {}).value || '';
+    var rows = _poOrdersCache.filter(function (o) {
+      if (ty && o.order_type !== ty) return false;
+      if (q && [o.po_no, o.lpo_no, o.branch_name, o.main_supplier, o.brand, o.hospital_name].join(' ').toLowerCase().indexOf(q) < 0) return false;
+      if (ds === 'ok' && !(o.docushare && o.docushare.ok)) return false;
+      if (ds === 'failed' && !(o.docushare && !o.docushare.ok)) return false;
+      if (ds === 'none' && o.docushare) return false;
+      if (iss === 'issues' && !_poOrderHasIssue(o)) return false;
+      return true;
+    });
+    var cnt = $r('po-o-count'); if (cnt) cnt.textContent = rows.length + ' of ' + _poOrdersCache.length + ' orders';
+    if (!rows.length) { box.innerHTML = '<div class="r-empty">No orders match</div>'; return; }
+    var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Type</th><th>PO No</th><th>Branch</th><th>Supplier / Brand</th><th>PO Date</th><th>Total</th><th>Status</th><th>DocuShare</th><th>Drafts</th><th>Last Error</th><th>By</th><th>Updated</th></tr></thead><tbody>';
+    rows.forEach(function (o) {
+      var warn = (o.warnings && o.warnings.length) ? ' <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b" title="' + esc(o.warnings.join(' | ')) + '"></i>' : '';
+      var st = (o.status || '').toUpperCase();
+      var stCls = /FAIL|ERR/.test(st) ? 'r-badge-err' : (/DRAFT|OK|DONE|SENT/.test(st) ? 'r-badge-ok' : 'r-badge-muted');
+      h += '<tr>' +
+        '<td>' + _poBadge(o.order_type === 'TENDER' ? 'r-badge-blue' : 'r-badge-info', o.order_type === 'TENDER' ? 'TNB' : 'FV') + '</td>' +
+        '<td>' + esc(o.po_no || '—') + (o.lpo_no ? '<div style="font-size:10px;color:#6B7A8F">LPO ' + esc(o.lpo_no) + '</div>' : '') + warn + '</td>' +
+        '<td>' + esc(o.branch_name || '—') + '</td>' +
+        '<td>' + esc(o.main_supplier || '—') + (o.brand ? '<div style="font-size:10px;color:#6B7A8F">' + esc(o.brand) + '</div>' : '') + '</td>' +
+        '<td>' + esc(o.po_date || '—') + '</td>' +
+        '<td style="text-align:right">' + (o.po_total != null ? esc(Number(o.po_total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : '—') + '</td>' +
+        '<td>' + _poBadge(stCls, o.status || '—', o.completeness || '') + '</td>' +
+        '<td>' + _poDsCell(o.docushare) + '</td>' +
+        '<td>' + (o.draft_count || 0) + (o.fail_count ? ' <span style="color:#f87171">/ ' + o.fail_count + ' fail</span>' : '') + '</td>' +
+        '<td style="max-width:220px;white-space:normal;color:#f87171;font-size:11px">' + esc(o.last_error || '') + '</td>' +
+        '<td>' + esc(_branchName(o.drafted_by)) + '<div style="font-size:10px;color:#6B7A8F">' + esc(_canonHost(o.machine || '') || '') + '</div></td>' +
+        '<td>' + _poDt(o.updated_at) + '</td></tr>';
+    });
+    box.innerHTML = h + '</tbody></table></div>';
+  };
+
+  // ── Delivery / DO ─────────────────────────────────────────
+  function _poDelivery(body) {
+    body.innerHTML =
+      '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-truck"></i> Delivery Status &amp; DO Tracking</h3>' +
+      '<div class="r-filter-bar">' +
+      '<input id="po-d-q" class="r-filter-input" placeholder="Search PO / branch / item" oninput="rPoDeliveryRender()" style="width:220px">' +
+      '<select id="po-d-kind" class="r-filter-input" onchange="rPoDeliveryRender()"><option value="">All</option><option value="open">Open only</option><option value="do_pending">DO requested, not sent</option><option value="no_do">TNB delivered, no DO requested</option></select>' +
+      '<button class="r-btn-sm" onclick="rPoTab(\'delivery\')">Refresh</button></div></div>' +
+      '<div id="po-d-count" style="font-size:11px;color:#6B7A8F;margin-bottom:8px"></div><div id="po-d-tbl">' + _poLoading() + '</div></div>';
+    RS.supa.rpc('po_admin_delivery', { p_limit: 2000 }).then(function (res) {
+      if (res.error) return _poErr($r('po-d-tbl'), res.error);
+      _poDeliveryCache = res.data || [];
+      window.rPoDeliveryRender();
+    }).catch(function (e) { _poErr($r('po-d-tbl'), e); });
+  }
+
+  window.rPoDeliveryRender = function () {
+    var box = $r('po-d-tbl'); if (!box) return;
+    var q = (($r('po-d-q') || {}).value || '').toLowerCase().trim();
+    var k = ($r('po-d-kind') || {}).value || '';
+    var done = function (d) { return /deliver|cancel/.test(String(d.portal_status || '').toLowerCase()); };
+    var rows = _poDeliveryCache.filter(function (d) {
+      if (q && [d.po_no, d.branch_name, d.description, d.supplier, d.invoice_no, d.rasumi_do_no].join(' ').toLowerCase().indexOf(q) < 0) return false;
+      if (k === 'open' && done(d)) return false;
+      if (k === 'do_pending' && !(d.do_requested_at && !d.do_sent_at)) return false;
+      if (k === 'no_do' && !(done(d) && !d.do_requested_at && d.order_kind === 'TENDER')) return false;
+      return true;
+    });
+    var cnt = $r('po-d-count'); if (cnt) cnt.textContent = rows.length + ' of ' + _poDeliveryCache.length + ' lines';
+    if (!rows.length) { box.innerHTML = '<div class="r-empty">No delivery lines match</div>'; return; }
+    var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Kind</th><th>PO No</th><th>Branch</th><th>Item</th><th>Qty</th><th>Portal</th><th>Status</th><th>Invoice</th><th>Delivery</th><th>DO</th><th>Checked</th></tr></thead><tbody>';
+    rows.forEach(function (d) {
+      var stCls = /deliver/i.test(d.portal_status || '') ? 'r-badge-ok' : (/cancel|reject/i.test(d.portal_status || '') ? 'r-badge-err' : 'r-badge-warn');
+      var doNo = d.rasumi_do_no ? '<div style="font-size:10px">' + esc(d.rasumi_do_no) + '</div>' : '';
+      var doCell = d.do_sent_at ? _poBadge('r-badge-ok', 'Sent', _poDtPlain(d.do_sent_at)) + doNo
+        : d.do_requested_at ? _poBadge('r-badge-warn', 'Requested', _poDtPlain(d.do_requested_at) + ' by ' + (d.do_requested_by ? _branchName(d.do_requested_by) : '')) + doNo
+          : '<span style="color:#6B7A8F">—</span>';
+      h += '<tr><td>' + _poBadge(d.order_kind === 'TENDER' ? 'r-badge-blue' : 'r-badge-info', d.order_kind === 'TENDER' ? 'TNB' : 'FV') + '</td>' +
+        '<td>' + esc(d.po_no || '—') + '</td><td>' + esc(d.branch_name || '—') + '</td>' +
+        '<td style="max-width:240px;white-space:normal">' + esc(d.description || '—') + '</td>' +
+        '<td style="text-align:right">' + (d.qty != null ? esc(d.qty) : '—') + '</td>' +
+        '<td>' + esc(d.portal_key || '—') + (d.portal_order_no ? '<div style="font-size:10px;color:#6B7A8F">' + esc(d.portal_order_no) + '</div>' : '') + '</td>' +
+        '<td>' + _poBadge(stCls, d.portal_status || 'Awaiting supplier') + '</td>' +
+        '<td>' + esc(d.invoice_no || '—') + '</td><td>' + esc(d.delivery_date || '—') + '</td>' +
+        '<td>' + doCell + '</td><td>' + _poDt(d.last_checked_at) + '</td></tr>';
+    });
+    box.innerHTML = h + '</tbody></table></div>';
+  };
+
+  // ── Gmail & 2FA ───────────────────────────────────────────
+  function _poGmail(body) {
+    body.innerHTML = '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-envelope-circle-check"></i> Gmail Connections &amp; 2FA</h3>' +
+      '<div class="r-filter-bar"><button class="r-btn-sm" onclick="rPoTab(\'gmail\')">Refresh</button></div></div>' +
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div><strong>Unlock</strong> clears an email-code lockout. <strong>Reset 2FA</strong> disables TOTP/email 2FA and deletes recovery codes so the purchaser can set it up again. <strong>Revoke</strong> removes the Gmail link; the purchaser must reconnect. Secrets and tokens are never shown here.</div></div>' +
+      '<div id="po-g-tbl">' + _poLoading() + '</div></div>';
+    RS.supa.rpc('po_admin_gmail_list', {}).then(function (res) {
+      var box = $r('po-g-tbl'); if (!box) return;
+      if (res.error) return _poErr(box, res.error);
+      var rows = res.data || [];
+      if (!rows.length) { box.innerHTML = '<div class="r-empty">No Gmail connections</div>'; return; }
+      var now = Date.now();
+      var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Machine</th><th>Gmail</th><th>Purchaser</th><th>Role</th><th>2FA</th><th>Connected</th><th>Last used</th><th></th></tr></thead><tbody>';
+      rows.forEach(function (g) {
+        var locked = g.locked_until && new Date(g.locked_until).getTime() > now;
+        var tf = (g.totp_enabled ? _poBadge('r-badge-ok', 'TOTP') + ' ' : '') + (g.email_enabled ? _poBadge('r-badge-ok', 'Email', g.fallback_email || '') + ' ' : '') +
+          (!g.totp_enabled && !g.email_enabled ? _poBadge('r-badge-warn', 'OFF') : '') +
+          (locked ? ' ' + _poBadge('r-badge-err', 'LOCKED', 'until ' + _poDtPlain(g.locked_until)) : '') +
+          (g.failed_attempts ? ' <span style="font-size:10px;color:#f59e0b">' + g.failed_attempts + ' failed</span>' : '');
+        var m = String(g.machine_id || '').replace(/[^A-Za-z0-9_.\-]/g, '');
+        h += '<tr><td>' + esc(_canonHost(g.machine_id || '') || g.machine_id) + '</td><td>' + esc(g.gmail_email || '—') + '</td><td>' + esc(_branchName(g.purchaser_name)) + '</td><td>' + esc(g.role || '—') + '</td>' +
+          '<td>' + tf + '</td><td>' + _poDt(g.connected_at) + '</td><td>' + _poDt(g.last_used_at) + '</td>' +
+          '<td style="white-space:nowrap">' +
+          (locked || g.failed_attempts ? '<button class="r-btn-sm" onclick="rPoGmailAct(\'unlock\',\'' + m + '\')">Unlock</button> ' : '') +
+          ((g.totp_enabled || g.email_enabled) ? '<button class="r-btn-sm" onclick="rPoGmailAct(\'reset\',\'' + m + '\')">Reset 2FA</button> ' : '') +
+          '<button class="r-btn-sm" style="color:#f87171" onclick="rPoGmailAct(\'revoke\',\'' + m + '\')">Revoke</button></td></tr>';
+      });
+      box.innerHTML = h + '</tbody></table></div>';
+    }).catch(function (e) { _poErr($r('po-g-tbl'), e); });
+  }
+
+  window.rPoGmailAct = function (act, machine) {
+    var map = {
+      unlock: ['po_admin_2fa_unlock', 'Clear the 2FA lockout for ' + machine + '?'],
+      reset: ['po_admin_2fa_reset', 'RESET 2FA for ' + machine + '? TOTP/email 2FA and recovery codes will be deleted; the purchaser must set it up again.'],
+      revoke: ['po_admin_gmail_revoke', 'REVOKE the Gmail connection for ' + machine + '? The purchaser must reconnect Gmail.']
+    };
+    var a = map[act]; if (!a || !confirm(a[1])) return;
+    RS.supa.rpc(a[0], { p_machine_id: machine }).then(function (res) {
+      if (res.error) { rToast('Failed: ' + res.error.message, 'error'); return; }
+      rToast('Done', 'success');
+      _poGmail($r('r-po-body'));
+    });
+  };
+
+  // ── Portal status panel (Overview) ────────────────────────
+  function _poPortalPanel() {
+    return '<div class="r-panel" style="margin-bottom:14px"><div class="r-panel-hdr"><h3><i class="fa-solid fa-plug-circle-check"></i> Supplier Portal Status</h3>' +
+      '<div class="r-filter-bar"><button class="r-btn-sm" onclick="rPoLoadPortalStatus()">Refresh</button></div></div>' +
+      '<div id="po-portal-status" style="display:flex;flex-wrap:wrap;gap:10px">' + _poLoading() + '</div></div>';
+  }
+
+  window.rPoLoadPortalStatus = function () {
+    var box = $r('po-portal-status'); if (!box) return;
+    RS.supa.rpc('po_admin_portal_status', {}).then(function (res) {
+      if (!$r('po-portal-status')) return;
+      if (res.error) return _poErr(box, res.error);
+      var rows = res.data || [];
+      if (!rows.length) { box.innerHTML = '<div class="r-empty" style="width:100%">No status reported yet — the Delivery Status poller pushes it after its next sync (admin machine, app v12.2+).</div>'; return; }
+      var now = Date.now();
+      box.innerHTML = rows.map(function (p) {
+        var ageMin = Math.round((now - new Date(p.checked_at).getTime()) / 60000);
+        var stale = ageMin > 90;
+        var col = stale ? '#f59e0b' : (p.ok ? '#2ee59d' : '#ff5c6c');
+        var txt = stale ? 'No update for ' + (ageMin >= 120 ? Math.round(ageMin / 60) + ' h' : ageMin + ' min') : (p.ok ? 'Login OK' : 'Failed');
+        return '<div style="border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 14px;min-width:220px;flex:1" title="' + esc(p.error || '') + '">' +
+          '<div style="display:flex;align-items:center;gap:8px"><span style="color:' + col + ';font-size:16px;line-height:1">●</span>' +
+          '<strong>' + esc(p.label || p.portal_key) + '</strong></div>' +
+          '<div style="font-size:11px;color:' + col + ';margin-top:4px">' + esc(txt) + '</div>' +
+          '<div style="font-size:10px;color:#6B7A8F;margin-top:2px">Checked ' + _poDt(p.checked_at) + (p.machine ? ' · ' + esc(_canonHost(p.machine) || p.machine) : '') + '</div>' +
+          (p.error ? '<div style="font-size:10px;color:#f87171;margin-top:4px;white-space:normal">' + esc(p.error) + '</div>' : '') + '</div>';
+      }).join('');
+    }).catch(function (e) { _poErr($r('po-portal-status'), e); });
+  };
+
+  // ── Reference data tab ────────────────────────────────────
+  var _poRefSec = 'branches';
+  var _poBranchCache = [];
+  var _poStaticCache = [];
+
+  function _poRef(body) {
+    var secs = [['branches', 'Branch Contacts'], ['loa', 'Tender LOA'], ['static', 'Static Attachments'], ['items', 'Item Lookup']];
+    body.innerHTML =
+      '<div class="r-filter-bar" style="margin-bottom:12px;gap:6px">' +
+      secs.map(function (s) { return '<button class="r-btn-sm" id="po-ref-b-' + s[0] + '" onclick="rPoRefSec(\'' + s[0] + '\')">' + s[1] + '</button>'; }).join('') +
+      '</div><div id="po-ref-body"></div>';
+    window.rPoRefSec(_poRefSec);
+  }
+
+  window.rPoRefSec = function (sec) {
+    _poRefSec = sec;
+    ['branches', 'loa', 'static', 'items'].forEach(function (k) {
+      var b = $r('po-ref-b-' + k); if (b) b.style.background = (k === sec) ? 'rgba(56,189,248,0.28)' : '';
+    });
+    var box = $r('po-ref-body'); if (!box) return;
+    if (sec === 'branches') return _poRefBranches(box);
+    if (sec === 'loa') return _poRefLoa(box);
+    if (sec === 'static') return _poRefStatic(box);
+    return _poRefItems(box);
+  };
+
+  // Branch contacts (editable) --------------------------------
+  function _poRefBranches(box) {
+    box.innerHTML = '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-address-book"></i> Branch Contacts</h3></div>' +
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Used when drafting emails and requesting DO. <strong>TNB PIC</strong> and <strong>Email To</strong> are the clinic recipients (several addresses: separate with comma). Supplier bill-to / ship-to codes are read-only here.</div></div>' +
+      '<div id="po-br-tbl">' + _poLoading() + '</div></div>';
+    RS.supa.rpc('po_admin_branch_list', {}).then(function (res) {
+      var t = $r('po-br-tbl'); if (!t) return;
+      if (res.error) return _poErr(t, res.error);
+      _poBranchCache = res.data || [];
+      var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Group</th><th>Branch</th><th>Attention</th><th>Phone</th><th>TNB PIC</th><th>Email To</th><th>Supplier codes</th><th></th></tr></thead><tbody>';
+      _poBranchCache.forEach(function (b) {
+        var isT = b.group_code === 'TNB';
+        var sc = b.supplier_codes || {};
+        var codes = Object.keys(sc).map(function (k) { return esc(k) + ': ' + esc((sc[k] || {}).bill_to || '—') + ' / ' + esc((sc[k] || {}).ship_to || '—'); }).join('<br>');
+        var inp = function (f, v, w) { return '<input class="r-filter-input" id="po-br-' + f + '-' + b.id + '" value="' + esc(v || '') + '" style="width:' + w + 'px">'; };
+        var emptyWarn = isT && !b.email_to ? ' <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b" title="No recipient email set"></i>' : '';
+        h += '<tr><td>' + _poBadge(isT ? 'r-badge-blue' : 'r-badge-info', b.group_code) + '</td><td>' + esc(b.branch_name) + emptyWarn + '</td>' +
+          '<td>' + inp('att', b.attention_name, 130) + '</td><td>' + inp('ph', b.attention_phone, 140) + '</td>' +
+          '<td>' + (isT ? inp('pic', b.tnb_pic, 130) : '<span style="color:#6B7A8F">—</span>') + '</td>' +
+          '<td>' + (isT ? inp('em', b.email_to, 230) : '<span style="color:#6B7A8F">—</span>') + '</td>' +
+          '<td style="font-size:10px;color:#6B7A8F;white-space:nowrap">' + codes + '</td>' +
+          '<td><button class="r-btn-sm" onclick="rPoBranchSave(' + b.id + ')">Save</button></td></tr>';
+      });
+      t.innerHTML = h + '</tbody></table></div>';
+    }).catch(function (e) { _poErr($r('po-br-tbl'), e); });
+  }
+
+  window.rPoBranchSave = function (id) {
+    var v = function (f) { var e = $r('po-br-' + f + '-' + id); return e ? e.value : null; };
+    var b = _poBranchCache.filter(function (x) { return x.id === id; })[0] || {};
+    var isT = b.group_code === 'TNB';
+    RS.supa.rpc('po_admin_branch_update', {
+      p_id: id, p_attention_name: v('att'), p_attention_phone: v('ph'),
+      p_tnb_pic: isT ? v('pic') : b.tnb_pic, p_email_to: isT ? v('em') : b.email_to
+    }).then(function (res) {
+      if (res.error) { rToast('Save failed: ' + res.error.message, 'error'); return; }
+      rToast('Saved ' + (b.branch_name || ''), 'success');
+      _poRefBranches($r('po-ref-body'));
+    });
+  };
+
+  // Tender LOA -------------------------------------------------
+  function _poRefLoa(box) {
+    box.innerHTML = '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-file-contract"></i> Tender LOA Validity</h3></div>' +
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Read-only. To renew, upload the new LOA in the desktop app (PO Mailer); it sets valid-from / valid-to automatically.</div></div>' +
+      '<div id="po-loa-tbl">' + _poLoading() + '</div></div>';
+    RS.supa.rpc('po_admin_loa_list', {}).then(function (res) {
+      var t = $r('po-loa-tbl'); if (!t) return;
+      if (res.error) return _poErr(t, res.error);
+      var rows = res.data || [];
+      if (!rows.length) { t.innerHTML = '<div class="r-empty">No LOA registered</div>'; return; }
+      var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Tender</th><th>Supplier</th><th>LOA Ref</th><th>LOA Date</th><th>Valid From</th><th>Valid To</th><th>Extension</th><th>Remaining</th><th>Active</th><th>File</th></tr></thead><tbody>';
+      rows.forEach(function (l) {
+        var d = l.days_left;
+        var cls = d == null ? 'r-badge-muted' : (d < 0 ? 'r-badge-err' : (d <= 90 ? 'r-badge-warn' : 'r-badge-ok'));
+        var txt = d == null ? '—' : (d < 0 ? 'Expired ' + (-d) + ' d ago' : d + ' days');
+        h += '<tr><td>' + esc(l.display_name || l.tender_code || '—') + '</td><td>' + esc(l.supplier || '—') + '</td><td>' + esc(l.loa_ref || '—') + '</td>' +
+          '<td>' + esc(l.loa_date || '—') + '</td><td>' + esc(l.valid_from || '—') + '</td><td>' + esc(l.valid_to || '—') + '</td>' +
+          '<td>' + (l.extension_to ? esc(l.extension_to) : '—') + '</td><td>' + (l.active ? _poBadge(cls, txt) : '<span style="color:#6B7A8F">—</span>') + '</td>' +
+          '<td>' + (l.active ? _poBadge('r-badge-ok', 'Active') : _poBadge('r-badge-muted', 'Superseded')) + '</td>' +
+          '<td style="font-size:11px;color:#6B7A8F;max-width:240px;white-space:normal">' + esc(l.file_name || '') + '</td></tr>';
+      });
+      t.innerHTML = h + '</tbody></table></div>';
+    }).catch(function (e) { _poErr($r('po-loa-tbl'), e); });
+  }
+
+  // Static attachments ----------------------------------------
+  function _poRefStatic(box) {
+    box.innerHTML = '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-paperclip"></i> Static Attachments</h3></div>' +
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Supporting documents (LOA etc.) auto-attached to drafts by group and match key. <strong>Item keyword</strong> limits an attachment to POs containing that item. <strong>Remove</strong> only detaches it from drafts; the stored file is kept. New files are added from the desktop app / script.</div></div>' +
+      '<div id="po-st-tbl">' + _poLoading() + '</div></div>';
+    RS.supa.rpc('po_admin_static_list', {}).then(function (res) {
+      var t = $r('po-st-tbl'); if (!t) return;
+      if (res.error) return _poErr(t, res.error);
+      _poStaticCache = res.data || [];
+      if (!_poStaticCache.length) { t.innerHTML = '<div class="r-empty">No static attachments</div>'; return; }
+      var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Group</th><th>Match key</th><th>File</th><th>Short label</th><th>Item keyword</th><th>Order</th><th>Uploaded</th><th></th></tr></thead><tbody>';
+      _poStaticCache.forEach(function (a) {
+        h += '<tr><td>' + esc(a.group_code || '—') + '</td><td>' + esc(a.match_key || '—') + '</td>' +
+          '<td style="max-width:260px;white-space:normal;font-size:11px">' + esc(a.file_name) + '</td>' +
+          '<td><input class="r-filter-input" id="po-st-l-' + a.id + '" value="' + esc(a.short_label || '') + '" style="width:130px"></td>' +
+          '<td><input class="r-filter-input" id="po-st-k-' + a.id + '" value="' + esc(a.item_keyword || '') + '" style="width:130px"></td>' +
+          '<td><input class="r-filter-input" id="po-st-o-' + a.id + '" type="number" value="' + (a.sort_order == null ? 0 : a.sort_order) + '" style="width:60px"></td>' +
+          '<td style="font-size:11px">' + _poDt(a.uploaded_at) + '<div style="color:#6B7A8F">' + esc(_branchName(a.uploaded_by)) + '</div></td>' +
+          '<td style="white-space:nowrap"><button class="r-btn-sm" onclick="rPoStaticSave(' + a.id + ')">Save</button> ' +
+          '<button class="r-btn-sm" style="color:#f87171" onclick="rPoStaticDel(' + a.id + ')">Remove</button></td></tr>';
+      });
+      t.innerHTML = h + '</tbody></table></div>';
+    }).catch(function (e) { _poErr($r('po-st-tbl'), e); });
+  }
+
+  window.rPoStaticSave = function (id) {
+    var v = function (f) { var e = $r('po-st-' + f + '-' + id); return e ? e.value : null; };
+    var o = parseInt(v('o'), 10);
+    RS.supa.rpc('po_admin_static_update', { p_id: id, p_short_label: v('l'), p_item_keyword: v('k'), p_sort_order: isNaN(o) ? null : o })
+      .then(function (res) {
+        if (res.error) { rToast('Save failed: ' + res.error.message, 'error'); return; }
+        rToast('Saved', 'success');
+      });
+  };
+
+  window.rPoStaticDel = function (id) {
+    var a = _poStaticCache.filter(function (x) { return x.id === id; })[0] || {};
+    if (!confirm('Remove "' + (a.file_name || id) + '" from automatic attachments? Drafts will no longer include it.')) return;
+    RS.supa.rpc('po_admin_static_delete', { p_id: id }).then(function (res) {
+      if (res.error) { rToast('Remove failed: ' + res.error.message, 'error'); return; }
+      rToast('Removed', 'success');
+      _poRefStatic($r('po-ref-body'));
+    });
+  };
+
+  // Item lookup (read-only) -----------------------------------
+  function _poRefItems(box) {
+    box.innerHTML = '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-pills"></i> Item Lookup</h3>' +
+      '<div class="r-filter-bar"><input id="po-it-q" class="r-filter-input" placeholder="Search code / description / brand / supplier" style="width:300px" onkeydown="if(event.key===\'Enter\')rPoItemSearch()">' +
+      '<button class="r-btn-sm" onclick="rPoItemSearch()">Search</button></div></div>' +
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Read-only view of the item → supplier / recipient mapping used to build draft emails (up to 500 rows per search).</div></div>' +
+      '<div id="po-it-tbl"></div></div>';
+    window.rPoItemSearch();
+  }
+
+  window.rPoItemSearch = function () {
+    var t = $r('po-it-tbl'); if (!t) return;
+    t.innerHTML = _poLoading();
+    var q = (($r('po-it-q') || {}).value || '').trim();
+    RS.supa.rpc('po_admin_item_lookup', { p_search: q || null, p_limit: 500 }).then(function (res) {
+      if (!$r('po-it-tbl')) return;
+      if (res.error) return _poErr(t, res.error);
+      var rows = res.data || [];
+      if (!rows.length) { t.innerHTML = '<div class="r-empty">No items</div>'; return; }
+      var h = '<div style="font-size:11px;color:#6B7A8F;margin-bottom:8px">' + rows.length + ' row(s)</div><div class="r-table-wrap"><table class="r-table"><thead><tr><th>Group</th><th>Code</th><th>Description</th><th>Brand</th><th>Main supplier</th><th>Email To</th><th>CC</th></tr></thead><tbody>';
+      rows.forEach(function (i) {
+        h += '<tr><td>' + esc(i.group_code || '—') + '</td><td>' + esc(i.item_code || '—') + '</td>' +
+          '<td style="max-width:300px;white-space:normal">' + esc(i.description || '') + (i.description2 ? '<div style="font-size:10px;color:#6B7A8F">' + esc(i.description2) + '</div>' : '') + '</td>' +
+          '<td>' + esc(i.brand || '—') + '</td><td>' + esc(i.main_supplier || '—') + '</td>' +
+          '<td style="font-size:11px">' + esc(i.email_to || '—') + '</td><td style="font-size:11px">' + esc(i.email_cc || '') + '</td></tr>';
+      });
+      t.innerHTML = h + '</tbody></table></div>';
+    }).catch(function (e) { _poErr($r('po-it-tbl'), e); });
+  };
+
+  // ── Activity (original panel) ─────────────────────────────
+  function _poActivity(body) {
+    body.innerHTML =
       '<div class="r-panel" style="margin-bottom:16px">' +
       '<div class="r-panel-hdr"><h3><i class="fa-solid fa-user-lock"></i> Access Control</h3></div>' +
-      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Who can open PO Auto Email is managed the same way as every other app — go to <strong>Devices → App Users</strong> and check "PO Auto Email" for that login, same place you toggle Scanify/Renamer/etc.</div></div>' +
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Who can open PO Auto Email is managed the same way as every other app — go to <strong>Devices → App Users</strong> and check "PO Auto Email" for that login.</div></div>' +
       '</div>' +
       '<div class="r-panel" style="margin-bottom:16px">' +
       '<div class="r-panel-hdr"><h3><i class="fa-solid fa-chart-column"></i> POs Processed — Last 14 Days</h3></div>' +
@@ -6285,9 +6735,65 @@
       '<div class="r-filter-bar"><button class="r-btn-sm" onclick="rLoadPoAutoEmailActivity()">Refresh</button></div></div>' +
       '<div id="r-po-activity"><div class="r-loading"><span class="r-spin"></span> Loading…</div></div>' +
       '</div>';
-
     window.rLoadPoAutoEmailActivity();
   }
+
+  // ── Supplier portal credentials (sql/supplier_portal_credentials_v1.sql) ──
+  window.rLoadSupplierPortals = function () {
+    var box = $r('r-supplier-portals');
+    if (!box || !RS.supa) return;
+    RS.supa.rpc('supplier_portal_list', {}).then(function (res) {
+      if (res.error) { box.innerHTML = '<div class="r-empty">' + esc(res.error.message) + '</div>'; return; }
+      var canWrite = RS.userRole === 'superadmin';
+      // One card per supplier; each card holds one row per login. A row is either the
+      // TNB Tender login or the Farmasi Veteran login (portal_key suffix _fv).
+      var GROUPS = [
+        { id: 'ezrx', title: 'Zuellig Pharma (EZ Rx)' },
+        { id: 'dksh', title: 'DKSH' },
+        { id: 'docushare', title: 'DocuShare' }
+      ];
+      var rows = res.data || [];
+      function rowHtml(p, showRole) {
+        var k = esc(p.portal_key);
+        var role = /_fv$/.test(p.portal_key) ? 'Farmasi Veteran (FV branches)' : 'TNB Tender';
+        var st = p.last_login_at
+          ? '<span style="color:' + (p.last_login_ok ? '#34d399' : '#f87171') + '">' + (p.last_login_ok ? 'Last login OK' : 'Last login FAILED') +
+            '</span> <span style="color:#6B7A8F">' + esc(new Date(p.last_login_at).toLocaleString()) + ' — ' + esc(p.last_login_msg || '') + '</span>'
+          : '<span style="color:#6B7A8F">Never logged in</span>';
+        return '<div style="padding:10px 0;border-top:1px solid rgba(255,255,255,0.06)">' +
+          (showRole ? '<div style="font-size:11px;letter-spacing:0.6px;text-transform:uppercase;color:#38bdf8;margin-bottom:6px"><i class="fa-solid fa-user-lock"></i> ' + role + ' login <span style="color:#6B7A8F;text-transform:none">— shows ' + (/_fv$/.test(p.portal_key) ? 'Farmasi Veteran branch orders' : 'TNB tender orders') + '</span></div>' : '') +
+          '<div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:center">' +
+          '<input class="r-filter-input" id="sp-url-' + k + '" placeholder="Portal URL" value="' + esc(p.url || '') + '"' + (canWrite ? '' : ' disabled') + '>' +
+          '<input class="r-filter-input" id="sp-user-' + k + '" placeholder="ID / username" autocomplete="off" value="' + esc(p.username || '') + '"' + (canWrite ? '' : ' disabled') + '>' +
+          '<input class="r-filter-input" id="sp-pass-' + k + '" type="password" autocomplete="new-password" placeholder="' + (p.has_password ? '•••••••• (saved)' : 'Password') + '"' + (canWrite ? '' : ' disabled') + '>' +
+          (canWrite ? '<button class="r-btn-sm" onclick="rSaveSupplierPortal(\'' + k + '\')">Save</button>' : '') +
+          '</div><div style="margin-top:6px;font-size:12px">' + st + '</div></div>';
+      }
+      box.innerHTML = GROUPS.map(function (g) {
+        var members = rows.filter(function (p) { return p.portal_key === g.id || p.portal_key === g.id + '_fv'; })
+          .sort(function (a, b) { return /_fv$/.test(a.portal_key) - /_fv$/.test(b.portal_key); });
+        if (!members.length) return '';
+        var multi = members.length > 1;
+        return '<div style="border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:12px 14px;margin-bottom:10px">' +
+          '<div style="font-weight:600;margin-bottom:2px">' + esc(g.title) + '</div>' +
+          members.map(function (p) { return rowHtml(p, multi); }).join('') + '</div>';
+      }).join('') || '<div class="r-empty">No portals configured.</div>';
+    });
+  };
+
+  window.rSaveSupplierPortal = function (key) {
+    if (RS.userRole !== 'superadmin') return;
+    var g = function (id) { var e = document.getElementById(id); return e ? e.value : ''; };
+    var pass = g('sp-pass-' + key);
+    RS.supa.rpc('supplier_portal_set', {
+      p_portal_key: key, p_url: g('sp-url-' + key), p_username: g('sp-user-' + key), p_password: pass || null
+    }).then(function (res) {
+      if (res.error) { rToast('Save failed: ' + res.error.message, 'error'); return; }
+      rToast('Saved ' + key + (pass ? ' (password updated)' : ''), 'success');
+      var e = document.getElementById('sp-pass-' + key); if (e) e.value = '';
+      window.rLoadSupplierPortals();
+    });
+  };
 
   window.rLoadPoAutoEmailActivity = function () {
     if (!RS.supa) return;
@@ -8903,11 +9409,26 @@
       '<button class="r-btn-primary" id="r-btn-announce" disabled onclick="rSendAnnouncement()" style="flex-shrink:0"><i class="fa-solid fa-paper-plane"></i> Announce</button>' +
       '</div>' +
       '</div>' +
+      '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--rc-border)">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">' +
+      '<h4 style="font-size:11px;font-weight:700;color:var(--rc-text-dim);letter-spacing:0.1em;margin:0;text-transform:uppercase">💡 Auto Tips (login screen)</h4>' +
+      '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="r-tips-enabled" onchange="rTipsToggle(this.checked)"> Auto tips ON</label>' +
+      '<span id="r-tips-meta" style="font-size:10px;color:var(--rc-text-dim)"></span>' +
+      '</div>' +
+      '<div style="font-size:10px;color:var(--rc-text-dim);margin-bottom:8px"><i class="fa-solid fa-circle-info" style="margin-right:4px;opacity:0.5"></i>Every hour a tip from this list is posted automatically to the login screen of every PC (random order, no repeat until all tips have been shown, then reshuffled). A manual announcement above always takes priority while it is active. Only tips set to &quot;All users&quot; are auto-posted.</div>' +
+      '<div id="r-tips-list"><div class="r-loading"><span class="r-spin"></span> Loading…</div></div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px">' +
+      '<select id="r-tip-new-app" class="r-filter-input" style="width:150px" title="Who sees this tip">' + _rTipAppOpts(null) + '</select>' +
+      '<input class="r-filter-input" id="r-tip-new" maxlength="240" placeholder="New tip (max 240 characters)…" style="flex:1">' +
+      '<button class="r-btn-primary" onclick="rTipAdd()"><i class="fa-solid fa-plus"></i> Add tip</button>' +
+      '</div>' +
+      '</div>' +
       '</div>' +
       '<div class="r-panel-hdr" style="margin-top:20px"><h3>Command History (Last 50)</h3></div>' +
       '<div id="r-cmd-hist-main" class="r-cmd-hist-scroll"><div class="r-loading"><span class="r-spin"></span> Loading…</div></div>' +
       '</div>';
 
+    if (window.rTipsLoad) window.rTipsLoad();
     // [Fasa 6] Command history — read from Supabase
     if (RS.supa) {
       Promise.all([
@@ -9220,6 +9741,77 @@
       rToast('📢 Announcement sent — active for ' + hours + ' hour(s)', 'success');
       if (ed) ed.innerHTML = '';
     }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
+  };
+
+  // ── AUTO TIPS (rotating login-screen tips) ──────────────────
+  var _R_TIP_APPS = ['PO Mailer', 'Vibes Automation', 'Store Mngmnt', 'Scanify', 'Renamer HQ', 'FV Branch', 'PDF Splitter', 'PDF Studio', 'Quick Rename'];
+  function _rTipAppOpts(sel) {
+    return '<option value=""' + (!sel ? ' selected' : '') + '>All users</option>' + _R_TIP_APPS.map(function (a) {
+      return '<option value="' + esc(a) + '"' + (sel === a ? ' selected' : '') + '>' + esc(a) + ' only</option>';
+    }).join('');
+  }
+  window.rTipsLoad = function () {
+    var box = $r('r-tips-list'); if (!box || !RS.supa) return;
+    RS.supa.rpc('app_tips_admin_list', {}).then(function (res) {
+      box = $r('r-tips-list'); if (!box) return;
+      if (res.error) { box.innerHTML = '<div class="r-empty" style="color:#f87171">' + esc(res.error.message || 'Not authorized') + '</div>'; return; }
+      var d = res.data || {}, tips = d.tips || [];
+      var en = $r('r-tips-enabled'); if (en) { en.checked = !!d.enabled; en.disabled = !_canWrite(); }
+      var meta = $r('r-tips-meta');
+      if (meta) meta.textContent = tips.filter(function (t) { return t.active; }).length + ' active of ' + tips.length + ' · last posted ' + (d.last_posted_at ? new Date(d.last_posted_at).toLocaleString('en-GB', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) : 'never');
+      if (!tips.length) { box.innerHTML = '<div class="r-empty">No tips yet</div>'; return; }
+      var w = _canWrite();
+      box.innerHTML = '<div style="max-height:260px;overflow:auto;border:1px solid var(--rc-border);border-radius:8px">' + tips.map(function (t, i) {
+        return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-top:' + (i ? '1px solid var(--rc-border)' : 'none') + ';opacity:' + (t.active ? 1 : 0.45) + '">' +
+          '<span style="width:22px;color:var(--rc-text-dim);font-size:11px;text-align:right">' + (i + 1) + '</span>' +
+          '<span style="flex:1;font-size:12px;line-height:1.4">' + esc(t.message) + '</span>' +
+          (w ? '<select class="r-filter-input" style="width:140px;font-size:11px;padding:3px 6px" title="Who sees this tip" onchange="rTipApp(' + t.id + ',this.value)">' + _rTipAppOpts(t.app) + '</select>' :
+               '<span style="font-size:10px;color:var(--rc-text-dim)">' + esc(t.app || 'All users') + '</span>') +
+          (w ? '<button class="r-btn-sm" title="Move up" onclick="rTipMove(' + t.id + ',-1)">▲</button>' +
+               '<button class="r-btn-sm" title="Move down" onclick="rTipMove(' + t.id + ',1)">▼</button>' +
+               '<button class="r-btn-sm" title="' + (t.active ? 'Disable' : 'Enable') + '" onclick="rTipActive(' + t.id + ',' + (t.active ? 'false' : 'true') + ')">' + (t.active ? 'On' : 'Off') + '</button>' +
+               '<button class="r-btn-sm" title="Edit" onclick="rTipEdit(' + t.id + ')">Edit</button>' +
+               '<button class="r-btn-sm" title="Delete" onclick="rTipDel(' + t.id + ')">✕</button>' : '') +
+          '</div>';
+      }).join('') + '</div>';
+      window._rTips = tips;
+    });
+  };
+  function _rTipCall(fn, args, okMsg) {
+    if (!_canWrite()) { rToast('Read-only — request write access from Super Admin', 'warn'); return; }
+    RS.supa.rpc(fn, args).then(function (res) {
+      if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
+      if (okMsg) rToast(okMsg, 'success');
+      window.rTipsLoad();
+    });
+  }
+  window.rTipsToggle = function (on) { _rTipCall('app_tips_admin_set_enabled', { p_enabled: !!on }, on ? 'Auto tips ON' : 'Auto tips OFF'); };
+  window.rTipAdd = function () {
+    var el = $r('r-tip-new'), v = el ? el.value.trim() : '';
+    if (!v) { rToast('Type a tip first', 'warn'); return; }
+    var ap = $r('r-tip-new-app');
+    _rTipCall('app_tips_admin_save', { p_id: null, p_message: v, p_active: true, p_app: ap && ap.value ? ap.value : null }, 'Tip added');
+    if (el) el.value = '';
+  };
+  window.rTipMove = function (id, dir) { _rTipCall('app_tips_admin_move', { p_id: id, p_dir: dir }); };
+  window.rTipActive = function (id, on) {
+    var t = (window._rTips || []).filter(function (x) { return x.id === id; })[0]; if (!t) return;
+    _rTipCall('app_tips_admin_save', { p_id: id, p_message: t.message, p_active: !!on, p_app: t.app || null });
+  };
+  window.rTipApp = function (id, app) {
+    var t = (window._rTips || []).filter(function (x) { return x.id === id; })[0]; if (!t) return;
+    _rTipCall('app_tips_admin_save', { p_id: id, p_message: t.message, p_active: t.active, p_app: app || null }, 'Tip audience updated');
+  };
+  window.rTipEdit = function (id) {
+    var t = (window._rTips || []).filter(function (x) { return x.id === id; })[0]; if (!t) return;
+    var v = window.prompt('Edit tip (max 240 characters):', t.message);
+    if (v == null) return; v = v.trim();
+    if (!v) { rToast('Tip cannot be empty', 'warn'); return; }
+    _rTipCall('app_tips_admin_save', { p_id: id, p_message: v.slice(0, 240), p_active: t.active, p_app: t.app || null }, 'Tip updated');
+  };
+  window.rTipDel = function (id) {
+    if (!window.confirm('Delete this tip?')) return;
+    _rTipCall('app_tips_admin_delete', { p_id: id }, 'Tip deleted');
   };
 
   // ── ALERTS ─────────────────────────────────────────────────
@@ -11467,6 +12059,14 @@
   }
   var _sstaffBranchOptionsCache = [];
 
+  window.rOpenPortalsFromSettings = function () {
+    if (RS.userRole !== 'superadmin') return;
+    var sm = document.getElementById('r-settings-modal');
+    if (sm) sm.classList.add('hidden');
+    var modal = document.getElementById('r-portals-modal');
+    if (modal) { modal.classList.remove('hidden'); window.rLoadSupplierPortals(); }
+  };
+
   window.rOpenStoreStaffFromSettings = function () {
     var sm = document.getElementById('r-settings-modal');
     if (sm) sm.classList.add('hidden');
@@ -11771,6 +12371,10 @@
     var btnCloseHusers = document.getElementById('btn-close-husers');
     var husersModal = document.getElementById('r-husers-modal');
     if (btnCloseHusers && husersModal) btnCloseHusers.addEventListener('click', function () { husersModal.classList.add('hidden'); });
+
+    var btnClosePortals = document.getElementById('btn-close-portals');
+    var portalsModal = document.getElementById('r-portals-modal');
+    if (btnClosePortals && portalsModal) btnClosePortals.addEventListener('click', function () { portalsModal.classList.add('hidden'); });
 
     var btnCloseStoreStaff = document.getElementById('btn-close-store-staff');
     var storeStaffModal = document.getElementById('r-store-staff-modal');
