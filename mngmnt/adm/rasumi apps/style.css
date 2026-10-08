@@ -1514,3 +1514,15 @@
 #rasumi-container .r-health-expandable .r-health-expanded-view { display: none; }
 #rasumi-container .r-health-expandable.expanded .r-health-collapsed-view { display: none; }
 #rasumi-container .r-health-expandable.expanded .r-health-expanded-view { display: block; }
+/* Item Lookup: email capsules + icon buttons */
+#rasumi-container .r-mails { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+#rasumi-container .r-mail {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 11px; line-height: 1;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.18); border-radius: 14px;
+  padding: 4px 8px; color: var(--rc-text); white-space: nowrap;
+}
+#rasumi-container .r-mail-x { background: none; border: 0; color: var(--rc-text-dim); font-size: 14px; line-height: 1; padding: 0 0 0 2px; cursor: pointer; }
+#rasumi-container .r-mail-x:hover { color: #f87171; }
+#rasumi-container .r-mail-in { background: transparent; border: 0; outline: none; color: var(--rc-text); font-size: 11px; min-width: 120px; flex: 1; padding: 4px 2px; }
+#rasumi-container .r-ico-btn { background: none; border: 0; color: var(--rc-text-dim); cursor: pointer; font-size: 13px; padding: 6px 8px; border-radius: 5px; }
+#rasumi-container .r-ico-btn:hover { color: var(--rc-cyan); background: rgba(255,255,255,0.06); }

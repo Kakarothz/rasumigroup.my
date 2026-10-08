@@ -6420,7 +6420,7 @@
         '<td style="text-align:right">' + (o.po_total != null ? esc(Number(o.po_total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : '—') + '</td>' +
         '<td>' + _poBadge(stCls, o.status || '—', o.completeness || '') + '</td>' +
         '<td>' + _poDsCell(o.docushare) + '</td>' +
-        '<td>' + (o.draft_count || 0) + (o.fail_count ? ' <span style="color:#f87171">/ ' + o.fail_count + ' fail</span>' : '') + '</td>' +
+        '<td>' + (o.draft_count || 0) + (o.fail_count && !o.draft_count ? ' <span style="color:#f87171">' + o.fail_count + ' fail</span>' : '') + '</td>' +
         '<td style="max-width:220px;white-space:normal;color:#f87171;font-size:11px">' + esc(o.last_error || '') + '</td>' +
         '<td>' + esc(_branchName(o.drafted_by)) + '<div style="font-size:10px;color:#6B7A8F">' + esc(_canonHost(o.machine || '') || '') + '</div></td>' +
         '<td>' + _poDt(o.updated_at) + '</td></tr>';
@@ -6522,34 +6522,82 @@
     });
   };
 
-  // ── Portal status panel (Overview) ────────────────────────
+  // ── Supplier portals panel (Overview): edit URL / ID / password + test connection ──
+  var _ppRows = {};
+  var _ppMachine = '';
   function _poPortalPanel() {
-    return '<div class="r-panel" style="margin-bottom:14px"><div class="r-panel-hdr"><h3><i class="fa-solid fa-plug-circle-check"></i> Supplier Portal Status</h3>' +
+    return '<div class="r-panel" style="margin-bottom:14px"><div class="r-panel-hdr"><h3><i class="fa-solid fa-plug-circle-check"></i> Supplier Portals</h3>' +
       '<div class="r-filter-bar"><button class="r-btn-sm" onclick="rPoLoadPortalStatus()">Refresh</button></div></div>' +
-      '<div id="po-portal-status" style="display:flex;flex-wrap:wrap;gap:10px">' + _poLoading() + '</div></div>';
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Connection overview. Use the plug icon to test a login on the admin PC (app must be open). To add a portal or change URL / ID / password, go to Settings → Supplier Portals.</div></div>' +
+      '<div id="po-portal-status" style="margin-top:10px">' + _poLoading() + '</div></div>';
   }
+
+  var _PP_TITLES = {
+    ezrx: ['Zuellig Pharma (EZ Rx)', 'TNB Tender'], ezrx_fv: ['Zuellig Pharma (EZ Rx)', 'Farmasi Veteran'],
+    dksh: ['DKSH', 'TNB Tender (public tracking)'], dksh_fv: ['DKSH', 'Farmasi Veteran'],
+    docushare: ['DocuShare', 'Document filing']
+  };
 
   window.rPoLoadPortalStatus = function () {
     var box = $r('po-portal-status'); if (!box) return;
-    RS.supa.rpc('po_admin_portal_status', {}).then(function (res) {
+    Promise.all([RS.supa.rpc('supplier_portal_list', {}), RS.supa.rpc('po_admin_portal_status', {})]).then(function (rs) {
       if (!$r('po-portal-status')) return;
-      if (res.error) return _poErr(box, res.error);
-      var rows = res.data || [];
-      if (!rows.length) { box.innerHTML = '<div class="r-empty" style="width:100%">No status reported yet — the Delivery Status poller pushes it after its next sync (admin machine, app v12.2+).</div>'; return; }
-      var now = Date.now();
-      box.innerHTML = rows.map(function (p) {
-        var ageMin = Math.round((now - new Date(p.checked_at).getTime()) / 60000);
-        var stale = ageMin > 90;
-        var col = stale ? '#f59e0b' : (p.ok ? '#2ee59d' : '#ff5c6c');
-        var txt = stale ? 'No update for ' + (ageMin >= 120 ? Math.round(ageMin / 60) + ' h' : ageMin + ' min') : (p.ok ? 'Login OK' : 'Failed');
-        return '<div style="border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 14px;min-width:220px;flex:1" title="' + esc(p.error || '') + '">' +
-          '<div style="display:flex;align-items:center;gap:8px"><span style="color:' + col + ';font-size:16px;line-height:1">●</span>' +
-          '<strong>' + esc(p.label || p.portal_key) + '</strong></div>' +
-          '<div style="font-size:11px;color:' + col + ';margin-top:4px">' + esc(txt) + '</div>' +
-          '<div style="font-size:10px;color:#6B7A8F;margin-top:2px">Checked ' + _poDt(p.checked_at) + (p.machine ? ' · ' + esc(_canonHost(p.machine) || p.machine) : '') + '</div>' +
-          (p.error ? '<div style="font-size:10px;color:#f87171;margin-top:4px;white-space:normal">' + esc(p.error) + '</div>' : '') + '</div>';
-      }).join('');
+      if (rs[0].error) return _poErr(box, rs[0].error);
+      var poll = {}; ((rs[1] && rs[1].data) || []).forEach(function (p) { poll[p.portal_key] = p; if (p.machine) _ppMachine = p.machine; });
+      var rows = rs[0].data || [];
+      if (!rows.length) { box.innerHTML = '<div class="r-empty" style="width:100%">No portals configured.</div>'; return; }
+      var order = ['ezrx_fv', 'ezrx', 'dksh_fv', 'dksh', 'docushare'];
+      rows.sort(function (a, b) { var x = order.indexOf(a.portal_key), y = order.indexOf(b.portal_key); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y); });
+      var canTest = RS.userRole === 'superadmin';
+      var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Portal</th><th>URL</th><th>Last sync</th><th>Latency</th><th>Connection</th><th></th></tr></thead><tbody>';
+      rows.forEach(function (p) {
+        var k = esc(p.portal_key), t = _PP_TITLES[p.portal_key] || [p.label || p.portal_key, ''];
+        var pl = poll[p.portal_key];
+        var bad = (p.last_login_ok === false) || (pl && !pl.ok);
+        var good = !bad && (p.last_login_ok === true || (pl && pl.ok));
+        var badge = bad ? _poBadge('r-badge-err', 'FAILED') : (good ? _poBadge('r-badge-ok', 'OK') : _poBadge('r-badge-muted', 'NOT TESTED'));
+        var when = pl ? pl.checked_at : p.last_login_at;
+        var msg = (pl && !pl.ok && pl.error) ? pl.error : (p.last_login_ok === false ? p.last_login_msg : '');
+        h += '<tr><td><strong>' + esc(t[0]) + '</strong>' + (t[1] ? '<div style="font-size:10px;color:#6B7A8F">' + esc(t[1]) + '</div>' : '') + '</td>' +
+          '<td style="font-size:11px;word-break:break-all">' + esc(p.url || '—') + '</td>' +
+          '<td style="white-space:nowrap">' + _poDt(when) + '</td>' +
+          '<td style="white-space:nowrap">' + (p.latency_ms != null
+              ? '<span style="color:' + (p.latency_ms < 800 ? '#2ee59d' : (p.latency_ms < 2500 ? '#f59e0b' : '#ff5c6c')) + '">' + p.latency_ms + ' ms</span>'
+              : (p.latency_err ? '<span style="color:#ff5c6c" title="' + esc(p.latency_err) + '">unreachable</span>' : '<span style="color:#6B7A8F">—</span>')) +
+            (p.latency_at ? '<div style="font-size:10px;color:#6B7A8F">' + _poDt(p.latency_at) + '</div>' : '') + '</td>' +
+          '<td>' + badge + (msg ? '<div style="font-size:10px;color:#f87171;white-space:normal;max-width:260px">' + esc(msg) + '</div>' : '') + '<div id="pp-res-' + k + '" style="font-size:11px;white-space:normal;max-width:260px"></div></td>' +
+          '<td>' + (canTest ? '<button class="r-ico-btn" id="pp-test-' + k + '" title="Test connection" onclick="rPpTest(\'' + k + '\')"><i class="fa-solid fa-plug-circle-bolt"></i></button>' : '') + '</td></tr>';
+      });
+      box.innerHTML = h + '</tbody></table></div>';
     }).catch(function (e) { _poErr($r('po-portal-status'), e); });
+  };
+
+  window.rPpTest = function (k) {
+    if (RS.userRole !== 'superadmin') return;
+    var btn = $r('pp-test-' + k), res = $r('pp-res-' + k);
+    if (!_ppMachine) { rToast('No admin PC reported yet — open the desktop app on the admin PC first', 'error'); return; }
+    var busy = function (m, c) { if (res) { res.style.color = c || '#6B7A8F'; res.textContent = m; } };
+    if (btn) btn.disabled = true;
+    Promise.resolve().then(function () {
+      busy('Waiting for ' + (_canonHost(_ppMachine) || _ppMachine) + '…');
+      return RS.supa.from('commands').insert({
+        target_machine: _ppMachine, type: 'PORTAL_TEST', payload: { portal_key: k }, status: 'PENDING',
+        created_at: new Date().toISOString(), created_by: RS.currentUser ? RS.currentUser.email : 'admin'
+      }).select('id');
+    }).then(function (r) {
+      if (!r || r.error || !r.data || !r.data[0]) throw new Error((r && r.error && r.error.message) || 'could not send command');
+      var id = r.data[0].id, n = 0;
+      var iv = setInterval(function () {
+        n++;
+        if (n > 30) { clearInterval(iv); if (btn) btn.disabled = false; busy('Timeout — admin PC did not answer (is the app open?)', '#f59e0b'); return; }
+        RS.supa.from('commands').select('status,result').eq('id', id).single().then(function (q) {
+          if (!q.data || (q.data.status !== 'EXECUTED' && q.data.status !== 'COMPLETED' && q.data.status !== 'FAILED')) return;
+          clearInterval(iv); if (btn) btn.disabled = false;
+          var ok = q.data.status !== 'FAILED';
+          busy((ok ? '✔ ' : '✖ ') + (q.data.result || (ok ? 'OK' : 'Failed')), ok ? '#2ee59d' : '#ff5c6c');
+        });
+      }, 2000);
+    }).catch(function (e) { if (btn) btn.disabled = false; busy('Failed: ' + e.message, '#ff5c6c'); });
   };
 
   // ── Reference data tab ────────────────────────────────────
@@ -6587,19 +6635,19 @@
       var t = $r('po-br-tbl'); if (!t) return;
       if (res.error) return _poErr(t, res.error);
       _poBranchCache = res.data || [];
-      var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Group</th><th>Branch</th><th>Attention</th><th>Phone</th><th>TNB PIC</th><th>Email To</th><th>Supplier codes</th><th></th></tr></thead><tbody>';
+      var h = '<div class="r-table-wrap"><table class="r-table" style="table-layout:fixed;width:100%"><thead><tr><th style="width:6%">Group</th><th style="width:12%">Branch</th><th style="width:14%">Attention</th><th style="width:13%">Phone</th><th style="width:14%">TNB PIC</th><th style="width:19%">Email To</th><th style="width:17%">Supplier codes</th><th style="width:5%"></th></tr></thead><tbody>';
       _poBranchCache.forEach(function (b) {
         var isT = b.group_code === 'TNB';
         var sc = b.supplier_codes || {};
         var codes = Object.keys(sc).map(function (k) { return esc(k) + ': ' + esc((sc[k] || {}).bill_to || '—') + ' / ' + esc((sc[k] || {}).ship_to || '—'); }).join('<br>');
-        var inp = function (f, v, w) { return '<input class="r-filter-input" id="po-br-' + f + '-' + b.id + '" value="' + esc(v || '') + '" style="width:' + w + 'px">'; };
+        var inp = function (f, v, w) { return '<input class="r-filter-input" id="po-br-' + f + '-' + b.id + '" value="' + esc(v || '') + '" style="width:100%;min-width:0;box-sizing:border-box">'; };
         var emptyWarn = isT && !b.email_to ? ' <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b" title="No recipient email set"></i>' : '';
         h += '<tr><td>' + _poBadge(isT ? 'r-badge-blue' : 'r-badge-info', b.group_code) + '</td><td>' + esc(b.branch_name) + emptyWarn + '</td>' +
           '<td>' + inp('att', b.attention_name, 130) + '</td><td>' + inp('ph', b.attention_phone, 140) + '</td>' +
           '<td>' + (isT ? inp('pic', b.tnb_pic, 130) : '<span style="color:#6B7A8F">—</span>') + '</td>' +
           '<td>' + (isT ? inp('em', b.email_to, 230) : '<span style="color:#6B7A8F">—</span>') + '</td>' +
-          '<td style="font-size:10px;color:#6B7A8F;white-space:nowrap">' + codes + '</td>' +
-          '<td><button class="r-btn-sm" onclick="rPoBranchSave(' + b.id + ')">Save</button></td></tr>';
+          '<td style="font-size:10px;color:#6B7A8F;word-break:break-word">' + codes + '</td>' +
+          '<td style="text-align:center"><button class="r-ico-btn" title="Save" style="color:#34d399" onclick="rPoBranchSave(' + b.id + ')"><i class="fa-solid fa-floppy-disk"></i></button></td></tr>';
       });
       t.innerHTML = h + '</tbody></table></div>';
     }).catch(function (e) { _poErr($r('po-br-tbl'), e); });
@@ -6691,13 +6739,158 @@
 
   // Item lookup (read-only) -----------------------------------
   function _poRefItems(box) {
-    box.innerHTML = '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-pills"></i> Item Lookup</h3>' +
+    box.innerHTML = '<div class="r-panel" style="margin-bottom:16px"><div class="r-panel-hdr"><h3><i class="fa-solid fa-user-tag"></i> Zuellig Sales-Rep CC</h3></div>' +
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Current Zuellig sales rep CC. Saving replaces the old rep email on all Zuellig items that use it; other CCs stay as they are. Leave empty for no rep CC.</div></div>' +
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">' +
+      '<input id="po-repcc-in" class="r-filter-input" placeholder="rep1@zuelligpharma.com, rep2@zuelligpharma.com" style="flex:1;min-width:320px">' +
+      '<button class="r-btn-sm" onclick="rPoRepCcSave()">Save &amp; apply</button></div>' +
+      '<div id="po-repcc-st" style="font-size:11px;color:#6B7A8F;margin-top:6px">Loading…</div></div>' +
+      '<div class="r-panel" style="margin-bottom:16px"><div class="r-panel-hdr"><h3><i class="fa-solid fa-envelopes-bulk"></i> Bulk CC by Supplier / Brand</h3></div>' +
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Add or remove CC emails on many items at once. Pick at least one filter (Group / Supplier / Brand). Existing CCs not listed here stay as they are.</div></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' +
+      '<select id="po-bk-grp" class="r-filter-sel" style="min-width:120px;padding:6px 10px;font-size:12px"></select>' +
+      '<select id="po-bk-sup" class="r-filter-sel" style="min-width:200px;padding:6px 10px;font-size:12px"></select>' +
+      '<select id="po-bk-brd" class="r-filter-sel" style="min-width:200px;padding:6px 10px;font-size:12px"></select></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' +
+      '<input id="po-bk-add" class="r-filter-input" placeholder="Add CC: a@x.com, b@x.com" style="flex:1;min-width:260px">' +
+      '<input id="po-bk-rm" class="r-filter-input" placeholder="Remove CC: old@x.com" style="flex:1;min-width:260px">' +
+      '<button class="r-btn-sm" onclick="rPoBulkApply()">Apply</button></div></div>' +
+      '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-pills"></i> Item Lookup</h3>' +
       '<div class="r-filter-bar"><input id="po-it-q" class="r-filter-input" placeholder="Search code / description / brand / supplier" style="width:300px" onkeydown="if(event.key===\'Enter\')rPoItemSearch()">' +
       '<button class="r-btn-sm" onclick="rPoItemSearch()">Search</button></div></div>' +
-      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Read-only view of the item → supplier / recipient mapping used to build draft emails (up to 500 rows per search).</div></div>' +
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Item → supplier / recipient mapping used to build draft emails (up to 500 rows per search). Use <strong>Edit</strong> to change Email To / CC of one item.</div></div>' +
       '<div id="po-it-tbl"></div></div>';
     window.rPoItemSearch();
+    window.rPoRepCcLoad();
+    window.rPoBulkInit();
   }
+
+  var _poItemRows = {};
+  function _poEmails(s) { return String(s || '').split(/[,;\s]+/).map(function (x) { return x.trim(); }).filter(Boolean); }
+  function _poBadEmails(l) { return l.filter(function (x) { return !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x); }); }
+
+  window.rPoBulkInit = function () {
+    RS.supa.rpc('po_admin_item_lookup', { p_search: null, p_limit: 1000 }).then(function (res) {
+      if (res.error || !$r('po-bk-grp')) return;
+      var g = {}, s = {}, b = {};
+      (res.data || []).forEach(function (i) { if (i.group_code) g[i.group_code] = 1; if (i.main_supplier) s[i.main_supplier] = 1; if (i.brand) b[i.brand] = 1; });
+      function fill(id, label, o) {
+        $r(id).innerHTML = '<option value="">' + label + '</option>' + Object.keys(o).sort().map(function (k) { return '<option value="' + esc(k) + '">' + esc(k) + '</option>'; }).join('');
+      }
+      fill('po-bk-grp', 'Group: any', g); fill('po-bk-sup', 'Supplier: any', s); fill('po-bk-brd', 'Brand: any', b);
+    });
+  };
+
+  window.rPoBulkApply = function () {
+    var grp = $r('po-bk-grp').value, sup = $r('po-bk-sup').value, brd = $r('po-bk-brd').value;
+    var add = _poEmails($r('po-bk-add').value), rm = _poEmails($r('po-bk-rm').value);
+    if (!grp && !sup && !brd) { rToast('Pick at least one filter', 'error'); return; }
+    if (!add.length && !rm.length) { rToast('Enter emails to add and/or remove', 'error'); return; }
+    var bad = _poBadEmails(add.concat(rm));
+    if (bad.length) { rToast('Invalid email: ' + bad.join(', '), 'error'); return; }
+    var args = { p_group: grp || null, p_supplier: sup || null, p_brand: brd || null, p_add: add, p_remove: rm };
+    RS.supa.rpc('po_admin_item_bulk_cc', Object.assign({ p_dry_run: true }, args)).then(function (r1) {
+      if (r1.error) { rToast(r1.error.message, 'error'); return; }
+      var msg = 'Matches ' + r1.data + ' item(s) [' + [grp, sup, brd].filter(Boolean).join(' / ') + ']\n' +
+        (add.length ? '\nADD CC: ' + add.join(', ') : '') + (rm.length ? '\nREMOVE CC: ' + rm.join(', ') : '') + '\n\nApply?';
+      if (!r1.data || !confirm(msg)) return;
+      RS.supa.rpc('po_admin_item_bulk_cc', Object.assign({ p_dry_run: false }, args)).then(function (r2) {
+        if (r2.error) { rToast('Failed: ' + r2.error.message, 'error'); return; }
+        rToast('Updated ' + r2.data + ' item(s)', 'success');
+        $r('po-bk-add').value = ''; $r('po-bk-rm').value = '';
+        window.rPoItemSearch();
+      });
+    });
+  };
+
+  var _poEd = {};   // id -> { to, cc[] } while a row is being edited
+  function _poChip(e, id, idx) {
+    return '<span class="r-mail">' + esc(e) + (id != null ? '<button type="button" class="r-mail-x" title="Remove" onclick="rPoChipDel(' + id + ',' + idx + ')">&times;</button>' : '') + '</span>';
+  }
+  function _poItemTr(i, editing) {
+    var id = Number(i.id), h = '<tr id="po-it-r-' + id + '"><td>' + esc(i.group_code || '—') + '</td><td>' + esc(i.item_code || '—') + '</td>' +
+      '<td style="max-width:300px;white-space:normal">' + esc(i.description || '') + (i.description2 ? '<div style="font-size:10px;color:#6B7A8F">' + esc(i.description2) + '</div>' : '') + '</td>' +
+      '<td>' + esc(i.brand || '—') + '</td><td>' + esc(i.main_supplier || '—') + '</td>';
+    if (editing) {
+      var st = _poEd[id];
+      h += '<td><input id="po-ed-to-' + id + '" class="r-filter-input" style="min-width:200px;width:100%" value="' + esc(st.to) + '" placeholder="email to"></td>' +
+        '<td><div class="r-mails">' + st.cc.map(function (e, k) { return _poChip(e, id, k); }).join('') +
+        '<input id="po-ed-add-' + id + '" class="r-mail-in" placeholder="add email" onkeydown="rPoChipKey(event,' + id + ')" onblur="rPoChipAdd(' + id + ')"></div></td>' +
+        '<td style="white-space:nowrap"><button class="r-ico-btn" title="Save" style="color:#34d399" onmousedown="event.preventDefault()" onclick="rPoItemSave(' + id + ')"><i class="fa-solid fa-check"></i></button>' +
+        '<button class="r-ico-btn" title="Cancel" onmousedown="event.preventDefault()" onclick="rPoItemCancel(' + id + ')"><i class="fa-solid fa-xmark"></i></button></td></tr>';
+    } else {
+      h += '<td style="font-size:11px">' + esc(i.email_to || '—') + '</td><td><div class="r-mails">' +
+        _poEmails(i.email_cc).map(function (e) { return _poChip(e, null); }).join('') + '</div></td>' +
+        '<td><button class="r-ico-btn" title="Edit" onclick="rPoItemEdit(' + id + ')"><i class="fa-solid fa-pen"></i></button></td></tr>';
+    }
+    return h;
+  }
+  function _poRowRedraw(id, editing) {
+    var tr = $r('po-it-r-' + id); if (!tr) return;
+    var t = document.createElement('tbody'); t.innerHTML = _poItemTr(_poItemRows[id], editing);
+    tr.replaceWith(t.firstChild);
+    if (editing) { var a = $r('po-ed-add-' + id); if (a) a.focus(); }
+  }
+  window.rPoItemEdit = function (id) {
+    var i = _poItemRows[id]; if (!i) return;
+    _poEd[id] = { to: i.email_to || '', cc: _poEmails(i.email_cc) };
+    _poRowRedraw(id, true);
+  };
+  window.rPoItemCancel = function (id) { delete _poEd[id]; _poRowRedraw(id, false); };
+  window.rPoChipDel = function (id, idx) {
+    var st = _poEd[id]; if (!st) return;
+    st.to = ($r('po-ed-to-' + id) || {}).value || st.to;
+    st.cc.splice(idx, 1); _poRowRedraw(id, true);
+  };
+  window.rPoChipAdd = function (id) {
+    var st = _poEd[id], inp = $r('po-ed-add-' + id); if (!st || !inp) return;
+    var v = _poEmails(inp.value); if (!v.length) return;
+    var bad = _poBadEmails(v);
+    if (bad.length) { rToast('Invalid email: ' + bad.join(', '), 'error'); return; }
+    st.to = ($r('po-ed-to-' + id) || {}).value || st.to;
+    v.forEach(function (e) { if (st.cc.map(function (x) { return x.toLowerCase(); }).indexOf(e.toLowerCase()) < 0) st.cc.push(e); });
+    _poRowRedraw(id, true);
+  };
+  window.rPoChipKey = function (ev, id) {
+    if (ev.key === 'Enter' || ev.key === ',' || ev.key === ' ' || ev.key === ';') { ev.preventDefault(); window.rPoChipAdd(id); }
+    else if (ev.key === 'Backspace' && !ev.target.value && _poEd[id] && _poEd[id].cc.length) { _poEd[id].cc.pop(); _poRowRedraw(id, true); }
+  };
+  window.rPoItemSave = function (id) {
+    var st = _poEd[id]; if (!st) return;
+    var inp = $r('po-ed-add-' + id);
+    if (inp && inp.value.trim()) { var v = _poEmails(inp.value); if (_poBadEmails(v).length) { rToast('Invalid email: ' + _poBadEmails(v).join(', '), 'error'); return; } st.cc = st.cc.concat(v); }
+    var to = (($r('po-ed-to-' + id) || {}).value || '').trim();
+    if (to && _poBadEmails(_poEmails(to)).length) { rToast('Invalid Email To', 'error'); return; }
+    RS.supa.rpc('po_admin_item_update', { p_id: id, p_email_to: to, p_email_cc: st.cc }).then(function (res) {
+      if (res.error) { rToast('Save failed: ' + res.error.message, 'error'); return; }
+      var r = _poItemRows[id]; r.email_to = to || null; r.email_cc = st.cc.join(', ');
+      delete _poEd[id]; _poRowRedraw(id, false); rToast('Saved', 'success');
+    });
+  };
+
+  window.rPoRepCcLoad = function () {
+    RS.supa.rpc('po_admin_rep_cc_get').then(function (res) {
+      var st = $r('po-repcc-st'), inp = $r('po-repcc-in'); if (!st) return;
+      if (res.error) { st.textContent = 'Failed to load: ' + res.error.message; return; }
+      var d = (res.data && res.data[0]) || { emails: [], item_count: 0 };
+      if (inp) inp.value = (d.emails || []).join(', ');
+      st.textContent = (d.emails && d.emails.length ? d.emails.length + ' email(s) active' : 'No rep CC set') +
+        ' · applies to ' + d.item_count + ' item(s)' + (d.updated_at ? ' · last saved ' + new Date(d.updated_at).toLocaleString() : '');
+    });
+  };
+
+  window.rPoRepCcSave = function () {
+    var inp = $r('po-repcc-in'); if (!inp) return;
+    var list = inp.value.split(/[,;\s]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+    var bad = list.filter(function (x) { return !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x); });
+    if (bad.length) { rToast('Invalid email: ' + bad.join(', '), 'error'); return; }
+    if (!confirm((list.length ? 'Set rep CC to:\n' + list.join('\n') : 'Clear rep CC (no rep CC)') + '\n\nApply to all marked items now?')) return;
+    RS.supa.rpc('po_admin_rep_cc_set', { p_emails: list }).then(function (res) {
+      if (res.error) { rToast('Save failed: ' + res.error.message, 'error'); return; }
+      rToast('Applied to ' + res.data + ' item(s)', 'success');
+      window.rPoRepCcLoad(); window.rPoItemSearch();
+    });
+  };
 
   window.rPoItemSearch = function () {
     var t = $r('po-it-tbl'); if (!t) return;
@@ -6708,13 +6901,8 @@
       if (res.error) return _poErr(t, res.error);
       var rows = res.data || [];
       if (!rows.length) { t.innerHTML = '<div class="r-empty">No items</div>'; return; }
-      var h = '<div style="font-size:11px;color:#6B7A8F;margin-bottom:8px">' + rows.length + ' row(s)</div><div class="r-table-wrap"><table class="r-table"><thead><tr><th>Group</th><th>Code</th><th>Description</th><th>Brand</th><th>Main supplier</th><th>Email To</th><th>CC</th></tr></thead><tbody>';
-      rows.forEach(function (i) {
-        h += '<tr><td>' + esc(i.group_code || '—') + '</td><td>' + esc(i.item_code || '—') + '</td>' +
-          '<td style="max-width:300px;white-space:normal">' + esc(i.description || '') + (i.description2 ? '<div style="font-size:10px;color:#6B7A8F">' + esc(i.description2) + '</div>' : '') + '</td>' +
-          '<td>' + esc(i.brand || '—') + '</td><td>' + esc(i.main_supplier || '—') + '</td>' +
-          '<td style="font-size:11px">' + esc(i.email_to || '—') + '</td><td style="font-size:11px">' + esc(i.email_cc || '') + '</td></tr>';
-      });
+      var h = '<div style="font-size:11px;color:#6B7A8F;margin-bottom:8px">' + rows.length + ' row(s)</div><div class="r-table-wrap"><table class="r-table"><thead><tr><th>Group</th><th>Code</th><th>Description</th><th>Brand</th><th>Main supplier</th><th>Email To</th><th>CC</th><th></th></tr></thead><tbody>';
+      rows.forEach(function (i) { _poItemRows[i.id] = i; h += _poItemTr(i, false); });
       t.innerHTML = h + '</tbody></table></div>';
     }).catch(function (e) { _poErr($r('po-it-tbl'), e); });
   };
