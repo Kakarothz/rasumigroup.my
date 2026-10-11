@@ -992,7 +992,14 @@
       '          <button id="btn-close-admins" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
       '        </div>',
       '        <div style="padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
-      '          <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">ADD NEW ADMIN</div>',
+      '          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">',
+      '            <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;">ADD NEW ADMIN</div>',
+      '            <div style="display:flex;gap:8px;">',
+      '              <button id="r-admin-cancel-btn" onclick="rAddPanelClose(\'admin\')" style="display:none;padding:7px 14px;background:transparent;color:var(--rc-text-dim,#9ca3af);font-weight:700;border:1px solid var(--rc-border,#374151);border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">CANCEL</button>',
+      '              <button id="r-admin-add-btn" onclick="rAddPanelClick(\'admin\')" style="padding:7px 16px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">ADD</button>',
+      '            </div>',
+      '          </div>',
+      '          <div id="r-admin-form" style="display:none;margin-top:10px;">',
       '          <div style="display:flex;gap:8px;margin-bottom:8px;">',
       '            <input id="r-admin-new-email" type="email" placeholder="admin@email.com" style="flex:1;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:12px;font-family:inherit;">',
       '            <input id="r-admin-new-nick" type="text" placeholder="Nickname" style="width:110px;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:12px;font-family:inherit;">',
@@ -1004,7 +1011,7 @@
       '              <option value="write">Read &amp; Write</option>',
       '            </select>',
       '            <span id="r-admin-perm-tick" style="font-size:13px;color:#22c55e;display:inline;flex-shrink:0;">✓</span>',
-      '            <button onclick="rAddAdmin()" style="padding:9px 16px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">ADD</button>',
+      '          </div>',
       '          </div>',
       '        </div>',
       '        <div id="r-admins-list" style="overflow-y:auto;padding:0 20px;flex:1;"></div>',
@@ -1023,17 +1030,28 @@
       '          <button id="btn-close-husers" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
       '        </div>',
       '        <div style="padding:12px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
-      '          <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">ADD NEW USER</div>',
-      '          <div style="display:flex;gap:8px;align-items:center;">',
-      '            <input id="r-huser-new-username" type="text" placeholder="Username / User ID" style="flex:1;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:12px;font-family:inherit;">',
-      '            <select id="r-huser-new-role" style="padding:9px 10px;background:#1f2937;border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:11px;font-family:inherit;cursor:pointer;">',
-      '              <option value="BRANCH_USER">BRANCH_USER</option>',
-      '              <option value="ADMIN">ADMIN</option>',
-      '              <option value="VIEWER">VIEWER</option>',
-      '            </select>',
-      '            <button onclick="rAddHospitalUser()" style="padding:9px 16px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">ADD</button>',
+      '          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">',
+      '            <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;">ADD NEW USER</div>',
+      '            <div style="display:flex;gap:8px;">',
+      '              <button id="r-huser-cancel-btn" onclick="rHuserFormClose()" style="display:none;padding:7px 14px;background:transparent;color:var(--rc-text-dim,#9ca3af);font-weight:700;border:1px solid var(--rc-border,#374151);border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">CANCEL</button>',
+      '              <button id="r-huser-add-btn" onclick="rHuserAddClick()" style="padding:7px 16px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">ADD</button>',
+      '            </div>',
       '          </div>',
-      '          <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:6px;letter-spacing:0.3px;">Add new users ID.</div>',
+      '          <div id="r-huser-form" style="display:none;margin-top:10px;">',
+      '            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">',
+      '              <input id="r-huser-new-username" type="text" placeholder="Username / User ID" style="flex:1 1 180px;min-width:0;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:12px;font-family:inherit;">',
+      '              <select id="r-huser-new-role" style="padding:9px 10px;background:#1f2937;border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:11px;font-family:inherit;cursor:pointer;">',
+      '                <option value="BRANCH_USER">BRANCH_USER</option>',
+      '                <option value="ADMIN">ADMIN</option>',
+      '                <option value="VIEWER">VIEWER</option>',
+      '              </select>',
+      '              <select id="r-huser-new-type" style="padding:9px 10px;background:#1f2937;border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:11px;font-family:inherit;cursor:pointer;">',
+      '                <option value="team">Team (shared ID)</option>',
+      '                <option value="individual">Individual (one person)</option>',
+      '              </select>',
+      '            </div>',
+      '            <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:6px;letter-spacing:0.3px;">Team = one ID shared by a branch (greeting: "Good morning, team"). Individual = one person (greeting uses the ID as their name, e.g. farhan → "Good morning, Farhan").</div>',
+      '          </div>',
       '        </div>',
       '        <div id="r-husers-list" style="overflow-y:auto;padding:0 20px;flex:1;"></div>',
       '      </div>',
@@ -1047,7 +1065,14 @@
       '          <button id="btn-close-store-staff" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
       '        </div>',
       '        <div style="padding:12px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
-      '          <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">ADD NEW STAFF</div>',
+      '          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">',
+      '            <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;">ADD NEW STAFF</div>',
+      '            <div style="display:flex;gap:8px;">',
+      '              <button id="r-sstaff-cancel-btn" onclick="rAddPanelClose(\'sstaff\')" style="display:none;padding:7px 14px;background:transparent;color:var(--rc-text-dim,#9ca3af);font-weight:700;border:1px solid var(--rc-border,#374151);border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">CANCEL</button>',
+      '              <button id="r-sstaff-add-btn" onclick="rAddPanelClick(\'sstaff\')" style="padding:7px 16px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">ADD</button>',
+      '            </div>',
+      '          </div>',
+      '          <div id="r-sstaff-form" style="display:none;margin-top:10px;">',
       '          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">',
       '            <input id="r-sstaff-new-id" type="text" placeholder="Staff ID" style="flex:1;min-width:110px;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:12px;font-family:inherit;">',
       '            <input id="r-sstaff-new-name" type="text" placeholder="Full Name" style="flex:1;min-width:130px;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:12px;font-family:inherit;">',
@@ -1062,9 +1087,9 @@
       '          </div>',
       '          <div style="display:flex;gap:8px;align-items:center;">',
       '            <input id="r-sstaff-new-pass" type="password" placeholder="Initial password (min 6 chars)" style="flex:1;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:12px;font-family:inherit;">',
-      '            <button onclick="rAddStoreStaff()" style="padding:9px 16px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;">ADD</button>',
       '          </div>',
       '          <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:6px;letter-spacing:0.3px;">This is the actual login used on the Store Management Portal (desktop app) — separate from Admin Console access above.</div>',
+      '          </div>',
       '        </div>',
       '        <div id="r-sstaff-list" style="overflow-y:auto;padding:0 20px;flex:1;"></div>',
       '      </div>',
@@ -1338,6 +1363,42 @@
       }).catch(function (e) { list.innerHTML = '<span style="color:#ef4444">Error: ' + esc(e.message) + '</span>'; });
   }
 
+  // Collapsible "ADD NEW ..." panels (admins, store staff — same concept as APP USERS):
+  // collapsed = one ADD button; ADD opens the form (button -> SAVE, CANCEL appears);
+  // SAVE submits and collapses it again; CANCEL collapses and clears it.
+  var _ADD_PANELS = {
+    admin:  { inputs: ['r-admin-new-email', 'r-admin-new-nick', 'r-admin-new-pass'], selects: ['r-admin-new-perm'], submit: function () { rAddAdmin(); }, onClose: function () { var p = document.getElementById('r-admin-new-perm'); if (p) { p.value = 'read'; if (window.rUpdatePermIndicator) rUpdatePermIndicator(p); } } },
+    sstaff: { inputs: ['r-sstaff-new-id', 'r-sstaff-new-name', 'r-sstaff-new-pass'], selects: ['r-sstaff-new-role', 'r-sstaff-new-branch'], submit: function () { rAddStoreStaff(); } }
+  };
+  window.rAddPanelClick = function (key) {
+    var cfg = _ADD_PANELS[key], form = document.getElementById('r-' + key + '-form');
+    if (!cfg || !form) return;
+    if (form.style.display === 'none') {
+      form.style.display = 'block';
+      var btn = document.getElementById('r-' + key + '-add-btn');
+      var cancel = document.getElementById('r-' + key + '-cancel-btn');
+      if (btn) btn.textContent = 'SAVE';
+      if (cancel) cancel.style.display = 'inline-block';
+      var first = document.getElementById(cfg.inputs[0]);
+      if (first) first.focus();
+    } else {
+      cfg.submit();
+    }
+  };
+  window.rAddPanelClose = function (key) {
+    var cfg = _ADD_PANELS[key];
+    var form = document.getElementById('r-' + key + '-form');
+    if (!cfg || !form) return;
+    form.style.display = 'none';
+    var btn = document.getElementById('r-' + key + '-add-btn');
+    var cancel = document.getElementById('r-' + key + '-cancel-btn');
+    if (btn) btn.textContent = 'ADD';
+    if (cancel) cancel.style.display = 'none';
+    cfg.inputs.forEach(function (id) { var el = document.getElementById(id); if (el) el.value = ''; });
+    cfg.selects.forEach(function (id) { var el = document.getElementById(id); if (el) el.selectedIndex = 0; });
+    if (cfg.onClose) cfg.onClose();
+  };
+
   // ── Admin Management (Super Admin only) ──────────────────────
   window.rAddAdmin = function () {
     var emailInp = document.getElementById('r-admin-new-email');
@@ -1395,10 +1456,7 @@
         if (res.error) throw new Error(res.error.message);
         rToast('Admin added: ' + email, 'success');
         _logAdminAction('admin_added', email, { can_write: canWrite, nickname: nickname || null });
-        if (emailInp) emailInp.value = '';
-        if (nickInp) nickInp.value = '';
-        if (passInp) passInp.value = '';
-        if (permSel) { permSel.value = 'read'; rUpdatePermIndicator(permSel); }
+        rAddPanelClose('admin');
         _loadAdminUsers();
         _loadAdminAuditLog();
       })
@@ -6296,7 +6354,7 @@
   function renderPoAutoEmail() {
     var view = $r('r-view-area');
     if (!view) return;
-    var tabs = [['overview', 'Overview'], ['orders', 'Orders & DocuShare'], ['delivery', 'Delivery / DO'], ['gmail', 'Gmail & 2FA'], ['ref', 'Reference Data'], ['activity', 'Activity']];
+    var tabs = [['overview', 'Overview'], ['orders', 'Orders & DocuShare'], ['delivery', 'Delivery / DO'], ['gmail', 'Gmail & 2FA'], ['ref', 'Reference Data'], ['tpl', 'Email Templates'], ['activity', 'Activity']];
     view.innerHTML =
       '<div class="r-tab-bar" id="r-po-tabs">' +
       tabs.map(function (t) { return '<div class="r-tab" id="rpotab-' + t[0] + '" onclick="rPoTab(\'' + t[0] + '\')">' + t[1] + '</div>'; }).join('') +
@@ -6306,7 +6364,7 @@
 
   window.rPoTab = function (t) {
     _poTab = t;
-    ['overview', 'orders', 'delivery', 'gmail', 'ref', 'activity'].forEach(function (k) {
+    ['overview', 'orders', 'delivery', 'gmail', 'ref', 'tpl', 'activity'].forEach(function (k) {
       var el = $r('rpotab-' + k); if (el) el.classList.toggle('active', k === t);
     });
     var body = $r('r-po-body'); if (!body) return;
@@ -6315,6 +6373,7 @@
     if (t === 'delivery') return _poDelivery(body);
     if (t === 'gmail') return _poGmail(body);
     if (t === 'ref') return _poRef(body);
+    if (t === 'tpl') return _poTemplates(body);
     return _poActivity(body);
   };
 
@@ -6489,7 +6548,7 @@
       var rows = res.data || [];
       if (!rows.length) { box.innerHTML = '<div class="r-empty">No Gmail connections</div>'; return; }
       var now = Date.now();
-      var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Machine</th><th>Gmail</th><th>Purchaser</th><th>Role</th><th>2FA</th><th>Connected</th><th>Last used</th><th></th></tr></thead><tbody>';
+      var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Machine</th><th>Gmail</th><th>Purchaser</th><th>Role</th><th>2FA</th><th>Connected</th><th>Last used</th><th title="Show SEND EMAIL button in PO Mailer for this Gmail connection">Direct send</th><th></th></tr></thead><tbody>';
       rows.forEach(function (g) {
         var locked = g.locked_until && new Date(g.locked_until).getTime() > now;
         var tf = (g.totp_enabled ? _poBadge('r-badge-ok', 'TOTP') + ' ' : '') + (g.email_enabled ? _poBadge('r-badge-ok', 'Email', g.fallback_email || '') + ' ' : '') +
@@ -6499,6 +6558,8 @@
         var m = String(g.machine_id || '').replace(/[^A-Za-z0-9_.\-]/g, '');
         h += '<tr><td>' + esc(_canonHost(g.machine_id || '') || g.machine_id) + '</td><td>' + esc(g.gmail_email || '—') + '</td><td>' + esc(_branchName(g.purchaser_name)) + '</td><td>' + esc(g.role || '—') + '</td>' +
           '<td>' + tf + '</td><td>' + _poDt(g.connected_at) + '</td><td>' + _poDt(g.last_used_at) + '</td>' +
+          '<td><button type="button" role="switch" aria-checked="' + (g.can_send ? 'true' : 'false') + '" title="Direct send" onclick="rPoGmailSend(\'' + m + '\',this)" style="' + _poSwitchStyle(!!g.can_send) + '">' +
+          '<span style="' + _poKnobStyle(!!g.can_send) + '"></span></button></td>' +
           '<td style="white-space:nowrap">' +
           (locked || g.failed_attempts ? '<button class="r-btn-sm" onclick="rPoGmailAct(\'unlock\',\'' + m + '\')">Unlock</button> ' : '') +
           ((g.totp_enabled || g.email_enabled) ? '<button class="r-btn-sm" onclick="rPoGmailAct(\'reset\',\'' + m + '\')">Reset 2FA</button> ' : '') +
@@ -6507,6 +6568,27 @@
       box.innerHTML = h + '</tbody></table></div>';
     }).catch(function (e) { _poErr($r('po-g-tbl'), e); });
   }
+
+  function _poSwitchStyle(on) {
+    return 'position:relative;width:42px;height:22px;border-radius:11px;border:1px solid ' + (on ? '#2fbf7a' : '#3a4558') +
+      ';background:' + (on ? '#1f7a4d' : '#1b2433') + ';cursor:pointer;padding:0;transition:background .2s,border-color .2s;vertical-align:middle';
+  }
+  function _poKnobStyle(on) {
+    return 'position:absolute;top:2px;left:' + (on ? '22px' : '2px') + ';width:16px;height:16px;border-radius:50%;background:' +
+      (on ? '#fff' : '#8794a8') + ';transition:left .2s,background .2s';
+  }
+  window.rPoGmailSend = function (machine, el) {
+    var on = el.getAttribute('aria-checked') !== 'true';
+    el.disabled = true;
+    RS.supa.rpc('po_admin_gmail_set_send', { p_machine_id: machine, p_can_send: on }).then(function (res) {
+      el.disabled = false;
+      if (res.error) { rToast('Failed: ' + res.error.message, 'error'); return; }
+      el.setAttribute('aria-checked', on ? 'true' : 'false');
+      el.style.cssText = _poSwitchStyle(on);
+      if (el.firstChild) el.firstChild.style.cssText = _poKnobStyle(on);
+      rToast('Direct send ' + (on ? 'enabled' : 'disabled') + ' for ' + machine, 'success');
+    });
+  };
 
   window.rPoGmailAct = function (act, machine) {
     var map = {
@@ -6905,6 +6987,230 @@
       rows.forEach(function (i) { _poItemRows[i.id] = i; h += _poItemTr(i, false); });
       t.innerHTML = h + '</tbody></table></div>';
     }).catch(function (e) { _poErr($r('po-it-tbl'), e); });
+  };
+
+  // ── Email Templates (sql: po_email_templates_v1) ───────────
+  // Editable subject/body for PO Mailer drafts. Desktop app reads these via
+  // po_email_templates_get (cached ~10 min) and falls back to built-in text
+  // if missing/invalid. UI: read-only view of the current template; Edit
+  // unlocks the text; {placeholders} are locked chips that cannot be edited;
+  // Preview appears only once something changed.
+  var _poTplRows = {};
+  var _poTplKey = 'generic_fv';
+  var _poTplEdit = false;
+  var _poTplOrig = { s: '', b: '' };
+  var _poTplSample = {
+    po_no: 'PO-111378', items: 'FORXIGA 10MG TAB', supplier: 'Zuellig Pharma', hospital: 'Farmasi Veteran',
+    po_nos: 'PO-111378, PO-111402', count: '2', po_word: 'POs', recipient: 'Nik', department: 'Hospital Sample', address: 'Jalan 1, KL', phone: '03-1234 5678', pic: 'Puan Nik,', branch: 'Sri Petaling', lpo: '12345'
+  };
+
+  function _poTplBlockHtml(name) {
+    var tbl = function (head, rows) {
+      return '<table style="border-collapse:collapse;margin:4px 0"><tr>' + head.map(function (h) { return '<th style="border:1px solid #bbb;padding:2px 8px;background:#eee">' + h + '</th>'; }).join('') + '</tr>' +
+        rows.map(function (r) { return '<tr>' + r.map(function (c) { return '<td style="border:1px solid #bbb;padding:2px 8px">' + c + '</td>'; }).join('') + '</tr>'; }).join('') + '</table>';
+    };
+    if (name === 'po_header') return 'Sold to : 70012345, RASUMI MEDIPHARMA<br>Ship to : Farmasi Veteran (AC No: 70012345)<br>Ship To No : 70048530<br>Attn to : Nik 03-1234 5678';
+    if (name === 'item_table') return tbl(['NO', 'ITEM', 'QTY'], [['1', 'FORXIGA 10MG TAB', '20']]);
+    if (name === 'supporting_docs') return 'We have provided supporting document:<br>1) TNB LPO<br>2) Rasumi PO';
+    if (name === 'tnb_trailing') return '<br>Please send DO only to TNB without any price revealed<br>Please send the original INVOICE copy to Rasumi Medipharma';
+    if (name === 'items_block') return 'LENS A (RM10)<br>description line';
+    if (name === 'patient_block') return 'Pt: Ali<br>Hospital Sample';
+    if (name === 'order_list') return '1. PO 111378 – Order No.: #123456<br>2. PO 111402 – Order No.: #123789';
+    if (name === 'do_sections') return 'Berikut adalah salinan Delivery Order (DO) bagi ubat-ubatan daripada Sanofi untuk rujukan pihak Puan.<br><br>' + tbl(['NO', 'DO NO. (RASUMI)', 'INVOICE NO. (SUPPLIER)', 'ITEM NAME'], [['1', 'DO1', 'INV1', 'ITEM X']]);
+    if (name === 'do_table') return tbl(['NO', 'DO NO. (RASUMI)', 'INVOICE NO. (SUPPLIER)', 'ITEM NAME'], [['1', 'DO1', 'INV1', 'ITEM X']]);
+    if (name === 'po_sections') return '===== PO 1 of 2 =====<br>PO No: PO-111378<br>Sold to : 70012345, RASUMI MEDIPHARMA<br>' + tbl(['NO', 'ITEM', 'QTY'], [['1', 'FORXIGA 10MG TAB', '20']]) + '<br>===== PO 2 of 2 =====<br>…';
+    return null;
+  }
+
+  function _poTplValidate(t, text) {
+    var allowed = (t.scalars || []).concat(t.blocks || []);
+    var bad = [];
+    (String(text).match(/\{[^{}]*\}/g) || []).forEach(function (m) {
+      var n = m.slice(1, -1); if (allowed.indexOf(n) < 0 && bad.indexOf(m) < 0) bad.push(m);
+    });
+    return bad;
+  }
+
+  function _poTplRender(t, text) {
+    var h = esc(text).replace(/\{([a-z_]+)\}/g, function (m, n) {
+      var b = _poTplBlockHtml(n);
+      if (b != null && (t.blocks || []).indexOf(n) >= 0) return b;
+      if (_poTplSample[n] != null && (t.scalars || []).indexOf(n) >= 0) return esc(_poTplSample[n]);
+      return '<span style="color:#dc2626">' + m + '</span>';
+    });
+    return h.replace(/\n/g, '<br>');
+  }
+
+  // text <-> contenteditable (placeholders become locked chips)
+  function _poTplChip(n, isBlock) {
+    return '<span class="po-tpl-chip" contenteditable="false" data-ph="' + esc(n) + '" style="display:inline-block;padding:0 7px;margin:0 1px;border-radius:5px;font-size:12px;cursor:default;user-select:none;' +
+      (isBlock ? 'background:rgba(56,189,248,.18);color:#38bdf8;border:1px solid rgba(56,189,248,.45)' : 'background:rgba(255,255,255,.1);color:#cbd5e1;border:1px solid rgba(255,255,255,.25)') + '">{' + esc(n) + '}</span>';
+  }
+  function _poTplToHtml(t, text) {
+    return esc(text).replace(/\{([a-z_]+)\}/g, function (m, n) {
+      var isBlock = (t.blocks || []).indexOf(n) >= 0, ok = isBlock || (t.scalars || []).indexOf(n) >= 0;
+      return ok ? _poTplChip(n, isBlock) : m;
+    });
+  }
+  function _poTplFromEl(el) {
+    var out = '';
+    (function walk(n, first) {
+      for (var c = n.firstChild, i = 0; c; c = c.nextSibling, i++) {
+        if (c.nodeType === 3) out += c.nodeValue;
+        else if (c.nodeType === 1) {
+          if (c.getAttribute && c.getAttribute('data-ph')) out += '{' + c.getAttribute('data-ph') + '}';
+          else if (c.tagName === 'BR') out += '\n';
+          else { if (out && out.slice(-1) !== '\n' && (c.tagName === 'DIV' || c.tagName === 'P')) out += '\n'; walk(c); }
+        }
+      }
+    })(el);
+    return out.replace(/ /g, ' ');
+  }
+  function _poTplCur() { return { s: _poTplFromEl($r('po-tpl-subj')).replace(/\n/g, ' ').trim(), b: _poTplFromEl($r('po-tpl-body')).replace(/\s+$/, '') }; }
+
+  function _poTemplates(body) {
+    body.innerHTML = _poLoading();
+    RS.supa.rpc('po_email_templates_get', {}).then(function (res) {
+      if (res.error) return _poErr(body, res.error);
+      _poTplRows = {}; (res.data || []).forEach(function (r) { _poTplRows[r.template_key] = r; });
+      if (!_poTplRows[_poTplKey]) _poTplKey = Object.keys(_poTplRows)[0];
+      var canWrite = RS.userRole === 'superadmin';
+      var opts = Object.keys(_poTplRows).map(function (k) { return '<option value="' + esc(k) + '"' + (k === _poTplKey ? ' selected' : '') + '>' + esc(_poTplRows[k].label) + '</option>'; }).join('');
+      var boxCss = 'width:100%;box-sizing:border-box;font-family:monospace;font-size:13px;white-space:pre-wrap;word-break:break-word;outline:none;border-radius:8px;padding:10px 12px;';
+      body.innerHTML =
+        '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-envelope-open-text"></i> Email Templates</h3>' +
+        '<div class="r-filter-bar"><select id="po-tpl-sel" class="r-filter-sel" onchange="rPoTplPick(this.value)">' + opts + '</select>' +
+        (canWrite ? '<button id="po-tpl-editbtn" onclick="rPoTplEdit(true)" title="Edit template" aria-label="Edit template" style="flex:0 0 auto;background:none;border:none;color:var(--rc-cyan);cursor:pointer;padding:4px 8px;font-size:15px"><i class="fa-solid fa-pen"></i></button>' : '') + '</div></div>' +
+        '<div class="r-info-box"><i class="fa-solid fa-info-circle"></i><div>Changes reach the desktop app within ~10 minutes (or next login). No rebuild needed. Placeholders in <span style="color:#38bdf8">{blue}</span> / grey boxes are filled in by the app and are locked; edit only the wording around them. Octopus, Req DO and DO→TNB (email and per-supplier paragraph) are included.</div></div>' +
+        '<div id="po-tpl-meta" style="font-size:11px;color:#6B7A8F;margin:8px 0"></div>' +
+        '<div id="po-tpl-subjlbl" style="font-size:11px;color:#6B7A8F;margin-bottom:3px">Subject</div>' +
+        '<div id="po-tpl-subj" class="r-filter-input" style="' + boxCss + '" oninput="rPoTplChanged()" onkeydown="if(event.key===\'Enter\')event.preventDefault()"></div>' +
+        '<div style="font-size:11px;color:#6B7A8F;margin:10px 0 3px">Body</div>' +
+        '<div id="po-tpl-body" class="r-filter-input" style="' + boxCss + 'min-height:280px;line-height:1.6" oninput="rPoTplChanged()"></div>' +
+        '<div id="po-tpl-chipbar" style="display:none;margin-top:8px"><div style="font-size:11px;color:#6B7A8F;margin-bottom:4px">Add a placeholder at the cursor</div><div id="po-tpl-chips"></div></div>' +
+        '<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap">' +
+        '<div style="display:flex;gap:8px"><button class="r-btn-sm" onclick="rPoTplHistory()"><i class="fa-solid fa-clock-rotate-left"></i> Version history</button>' +
+        '<button class="r-btn-sm" id="po-tpl-restore" style="display:none" onclick="rPoTplRestore()"><i class="fa-solid fa-rotate-left"></i> Restore default</button></div>' +
+        '<div style="display:flex;gap:8px;align-items:center"><span id="po-tpl-status" style="font-size:12px"></span>' +
+        '<button class="r-btn-sm" id="po-tpl-prevbtn" style="display:none" onclick="rPoTplPreview()"><i class="fa-solid fa-eye"></i> Preview</button>' +
+        '<button class="r-btn-sm" id="po-tpl-cancel" style="display:none" onclick="rPoTplEdit(false)">Cancel</button>' +
+        '<button class="r-btn-sm" id="po-tpl-save" style="display:none" onclick="rPoTplSave()">Save</button></div></div>' +
+        '<div id="po-tpl-prev" style="display:none;background:#fff;color:#222;border-radius:8px;padding:12px;margin-top:12px;font:12px/1.6 Arial,sans-serif"></div>' +
+        '<div id="po-tpl-hist"></div></div>';
+      window.rPoTplPick(_poTplKey);
+    }).catch(function (e) { _poErr(body, e); });
+  }
+
+  window.rPoTplPick = function (k) {
+    var t = _poTplRows[k]; if (!t) return; _poTplKey = k;
+    var sel = $r('po-tpl-sel'); if (sel) sel.value = k;
+    $r('po-tpl-subj').innerHTML = _poTplToHtml(t, t.subject_tpl);
+    $r('po-tpl-body').innerHTML = _poTplToHtml(t, t.body_tpl);
+    var _su = t.uses_subject !== false;
+    $r('po-tpl-subj').style.display = _su ? '' : 'none'; $r('po-tpl-subjlbl').style.display = _su ? '' : 'none';
+    _poTplOrig = _poTplCur();
+    $r('po-tpl-meta').textContent = 'Current template · version ' + t.version + (t.updated_by ? ' · edited by ' + t.updated_by : ' · built-in default') + (t.updated_at ? ' · ' + _poDtPlain(t.updated_at) : '');
+    $r('po-tpl-chips').innerHTML =
+      (t.scalars || []).map(function (n) { return '<span style="cursor:pointer" onclick="rPoTplInsert(\'' + n + '\')">' + _poTplChip(n, false).replace('contenteditable="false"', '').replace('cursor:default', 'cursor:pointer') + '</span>'; }).join(' ') + ' ' +
+      (t.blocks || []).map(function (n) { return '<span style="cursor:pointer" onclick="rPoTplInsert(\'' + n + '\')">' + _poTplChip(n, true).replace('contenteditable="false"', '').replace('cursor:default', 'cursor:pointer') + '</span>'; }).join(' ');
+    $r('po-tpl-hist').innerHTML = '';
+    window.rPoTplEdit(false);
+  };
+
+  window.rPoTplEdit = function (on) {
+    _poTplEdit = !!on;
+    var t = _poTplRows[_poTplKey];
+    if (!on && t) { $r('po-tpl-subj').innerHTML = _poTplToHtml(t, t.subject_tpl); $r('po-tpl-body').innerHTML = _poTplToHtml(t, t.body_tpl); _poTplOrig = _poTplCur(); }
+    ['po-tpl-subj', 'po-tpl-body'].forEach(function (id) {
+      var el = $r(id); el.setAttribute('contenteditable', on ? 'true' : 'false');
+      el.style.opacity = on ? '1' : '.85'; el.style.cursor = on ? 'text' : 'default';
+      el.style.borderColor = on ? '#38bdf8' : '';
+    });
+    var show = function (id, v) { var e = $r(id); if (e) e.style.display = v ? '' : 'none'; };
+    show('po-tpl-editbtn', !on); show('po-tpl-cancel', on); show('po-tpl-chipbar', on); show('po-tpl-restore', on);
+    show('po-tpl-save', false); show('po-tpl-prevbtn', false); show('po-tpl-prev', false);
+    $r('po-tpl-status').textContent = '';
+    if (on) $r('po-tpl-body').focus();
+  };
+
+  window.rPoTplInsert = function (n) {
+    if (!_poTplEdit) return;
+    var t = _poTplRows[_poTplKey], el = $r('po-tpl-body');
+    var sel = window.getSelection(), inSubj = sel.rangeCount && $r('po-tpl-subj').contains(sel.anchorNode);
+    el = inSubj ? $r('po-tpl-subj') : $r('po-tpl-body');
+    if (!(sel.rangeCount && el.contains(sel.anchorNode))) { el.focus(); var r0 = document.createRange(); r0.selectNodeContents(el); r0.collapse(false); sel.removeAllRanges(); sel.addRange(r0); }
+    var isBlock = (t.blocks || []).indexOf(n) >= 0;
+    document.execCommand('insertHTML', false, _poTplChip(n, isBlock) + '&nbsp;');
+    window.rPoTplChanged();
+  };
+
+  window.rPoTplChanged = function () {
+    if (!_poTplEdit) return;
+    var t = _poTplRows[_poTplKey]; if (!t) return;
+    var c = _poTplCur();
+    var dirty = c.s !== _poTplOrig.s || c.b !== _poTplOrig.b;
+    var bad = _poTplValidate(t, c.s + '\n' + c.b);
+    var st = $r('po-tpl-status');
+    if (bad.length) { st.style.color = '#ef4444'; st.textContent = 'Unknown placeholder: ' + bad.join(', '); }
+    else if (dirty) { st.style.color = '#f59e0b'; st.textContent = 'Unsaved changes'; }
+    else st.textContent = '';
+    $r('po-tpl-prevbtn').style.display = dirty ? '' : 'none';
+    $r('po-tpl-save').style.display = dirty && !bad.length ? '' : 'none';
+    if (!dirty) $r('po-tpl-prev').style.display = 'none';
+    else if ($r('po-tpl-prev').style.display !== 'none') window.rPoTplPreview();
+  };
+
+  window.rPoTplPreview = function () {
+    var t = _poTplRows[_poTplKey]; if (!t) return;
+    var c = _poTplCur(), box = $r('po-tpl-prev');
+    box.style.display = '';
+    box.innerHTML = (t.uses_subject === false ? '' : '<div style="color:#666;margin-bottom:6px"><b>Subject:</b> ' + _poTplRender(t, c.s).replace(/<br>/g, ' ') + '</div>') + _poTplRender(t, c.b) +
+      '<div style="margin-top:8px;color:#888;font-size:11px">Sample data. Real emails use the actual PO.</div>';
+  };
+
+  window.rPoTplSave = function () {
+    var t = _poTplRows[_poTplKey]; if (!t) return;
+    var c = _poTplCur();
+    var bad = _poTplValidate(t, c.s + '\n' + c.b);
+    if (bad.length) { rToast('Unknown placeholder: ' + bad.join(', '), 'error'); return; }
+    if (!c.s || !c.b.trim()) { rToast('Subject and body are required', 'error'); return; }
+    RS.supa.rpc('rpc_save_po_email_template', { p_key: _poTplKey, p_subject: c.s, p_body: c.b }).then(function (res) {
+      if (res.error) { rToast(res.error.message, 'error'); return; }
+      rToast('Template saved (v' + res.data + ')', 'success');
+      window.rPoTab('tpl');
+    });
+  };
+
+  window.rPoTplRestore = function () {
+    if (!confirm('Restore the built-in default for this template? Current text stays in version history.')) return;
+    RS.supa.rpc('rpc_restore_po_email_default', { p_key: _poTplKey }).then(function (res) {
+      if (res.error) { rToast(res.error.message, 'error'); return; }
+      rToast('Default restored (v' + res.data + ')', 'success');
+      window.rPoTab('tpl');
+    });
+  };
+
+  window.rPoTplHistory = function () {
+    var box = $r('po-tpl-hist'); box.innerHTML = _poLoading();
+    RS.supa.rpc('rpc_po_email_template_history', { p_key: _poTplKey }).then(function (res) {
+      if (res.error) return _poErr(box, res.error);
+      var rows = res.data || [];
+      if (!rows.length) { box.innerHTML = '<div class="r-empty">No earlier versions</div>'; return; }
+      window._poTplHist = rows;
+      var canWrite = RS.userRole === 'superadmin';
+      box.innerHTML = '<div class="r-table-wrap" style="margin-top:12px"><table class="r-table"><thead><tr><th>Version</th><th>Saved</th><th>By</th><th></th></tr></thead><tbody>' +
+        rows.map(function (r, i) { return '<tr><td>v' + r.version + '</td><td>' + _poDt(r.saved_at) + '</td><td>' + esc(r.saved_by || '—') + '</td><td>' + (canWrite ? '<button class="r-btn-sm" onclick="rPoTplLoadHist(' + i + ')">Load into editor</button>' : '') + '</td></tr>'; }).join('') +
+        '</tbody></table></div>';
+    });
+  };
+
+  window.rPoTplLoadHist = function (i) {
+    var r = (window._poTplHist || [])[i], t = _poTplRows[_poTplKey]; if (!r || !t) return;
+    window.rPoTplEdit(true);
+    $r('po-tpl-subj').innerHTML = _poTplToHtml(t, r.subject_tpl);
+    $r('po-tpl-body').innerHTML = _poTplToHtml(t, r.body_tpl);
+    window.rPoTplChanged();
+    rToast('Loaded v' + r.version + ' into editor. Press Save to apply.', 'info');
   };
 
   // ── Activity (original panel) ─────────────────────────────
@@ -12026,13 +12332,19 @@
     var list = document.getElementById('r-husers-list');
     if (!list || !RS.supa) return;
     list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;"><span class="r-spin"></span> Loading…</div>';
-    RS.supa.from('users').select('username,role,status,allowed_apps,store_branch').order('username').then(function (res) {
+    RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type').order('username').then(function (res) {
       if (res.error) throw new Error(res.error.message);
       if (!res.data || !res.data.length) {
         list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;">No users found</div>';
         return;
       }
       var rows = [];
+      // Super Admin accounts always on top, everyone else stays alphabetical.
+      res.data.sort(function (a, b) {
+        var sa = (a.role === 'SUPER_ADMIN' || a.username === 'mustaqim') ? 0 : 1;
+        var sb = (b.role === 'SUPER_ADMIN' || b.username === 'mustaqim') ? 0 : 1;
+        return sa - sb || String(a.username).localeCompare(String(b.username));
+      });
       res.data.forEach(function (u) {
         var uname = u.username;
         var role = u.role || 'VIEWER';
@@ -12090,6 +12402,16 @@
         // (mirrors #admin-store-branch-group in the desktop app's own
         // Admin Settings modal, same store_branch column).
         if (!isMaster) {
+          var acctType = (u.account_type === 'individual') ? 'individual' : 'team';
+          row += '<div style="margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
+          row += '<span style="font-size:10px;color:var(--rc-text-dim,#9ca3af);">Account type:</span>';
+          row += '<select id="utype_' + safeId + '" style="background:var(--rc-bg-2,#1f2937);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);font-size:10px;border-radius:4px;padding:3px 6px;font-family:inherit;">';
+          row += '<option value="team"' + (acctType === 'team' ? ' selected' : '') + '>Team (shared ID)</option>';
+          row += '<option value="individual"' + (acctType === 'individual' ? ' selected' : '') + '>Individual (one person)</option>';
+          row += '</select>';
+          row += '</div>';
+        }
+        if (!isMaster) {
           var storeAppChecked = apps.indexOf('Store Mngmnt') !== -1;
           row += '<div id="ubranch_' + safeId + '" style="' + (storeAppChecked ? '' : 'display:none;') + 'margin-bottom:10px;display:flex;align-items:center;gap:6px;">';
           row += '<span style="font-size:10px;color:var(--rc-text-dim,#9ca3af);">Store branch:</span>';
@@ -12103,6 +12425,8 @@
         if (!isMaster) {
           row += '<button onclick="rSaveUserApps(\'' + uname.replace(/'/g, "\\'") + '\')" ';
           row += 'style="padding:4px 14px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;">SAVE APPS</button>';
+          row += '<button onclick="rDeleteHospitalUser(\'' + uname.replace(/'/g, "\\'") + '\')" title="Remove this ID" ';
+          row += 'style="margin-left:8px;padding:4px 12px;background:transparent;color:#ef4444;font-weight:700;border:1px solid rgba(239,68,68,0.45);border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;">REMOVE ID</button>';
         }
         row += '</div>';
         rows.push(row);
@@ -12113,6 +12437,40 @@
     });
   }
 
+  // ADD NEW USER panel: collapsed = a single ADD button. ADD opens the form
+  // (button becomes SAVE, CANCEL appears); SAVE or CANCEL collapses it again.
+  window.rHuserAddClick = function () {
+    var form = document.getElementById('r-huser-form');
+    if (!form) return;
+    if (form.style.display === 'none') {
+      form.style.display = 'block';
+      var btn = document.getElementById('r-huser-add-btn');
+      var cancel = document.getElementById('r-huser-cancel-btn');
+      if (btn) btn.textContent = 'SAVE';
+      if (cancel) cancel.style.display = 'inline-block';
+      var u = document.getElementById('r-huser-new-username');
+      if (u) u.focus();
+    } else {
+      rAddHospitalUser();
+    }
+  };
+
+  window.rHuserFormClose = function () {
+    var form = document.getElementById('r-huser-form');
+    if (form) form.style.display = 'none';
+    var btn = document.getElementById('r-huser-add-btn');
+    var cancel = document.getElementById('r-huser-cancel-btn');
+    if (btn) btn.textContent = 'ADD';
+    if (cancel) cancel.style.display = 'none';
+    ['r-huser-new-username'].forEach(function (id) {
+      var el = document.getElementById(id); if (el) el.value = '';
+    });
+    var t = document.getElementById('r-huser-new-type');
+    if (t) t.value = 'team';
+    var r = document.getElementById('r-huser-new-role');
+    if (r) r.value = 'BRANCH_USER';
+  };
+
   window.rAddHospitalUser = function () {
     if (RS.userRole !== 'superadmin') return;
     if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
@@ -12120,6 +12478,8 @@
     var roleInp = document.getElementById('r-huser-new-role');
     var username = unameInp ? unameInp.value.trim().toLowerCase() : '';
     var role = roleInp ? roleInp.value : 'BRANCH_USER';
+    var typeInp = document.getElementById('r-huser-new-type');
+    var acctType = typeInp ? typeInp.value : 'team';
     if (!username) { rToast('Username is required', 'error'); return; }
     if (!/^[a-z0-9_]+$/.test(username)) { rToast('Username: huruf kecil, angka, underscore sahaja', 'error'); return; }
     // Insert new user — password defaults to username (plain text, same as legacy seed pattern)
@@ -12128,6 +12488,7 @@
       role: role,
       status: 'ACTIVE',
       allowed_apps: [],
+      account_type: acctType,
       failed_login_count: 0,
       created_at_utc: new Date().toISOString()
     }).then(function (res) {
@@ -12137,7 +12498,7 @@
         return;
       }
       rToast('User added: ' + username + ' (' + role + ')', 'success');
-      if (unameInp) unameInp.value = '';
+      rHuserFormClose();
       _loadHospitalUsers();
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
@@ -12167,6 +12528,20 @@
     if (div) div.style.display = checked ? 'flex' : 'none';
   };
 
+  // Permanently removes an ID that is no longer in use. Gated server-side by
+  // rpc_delete_hospital_user (super admin only; mustaqim / SUPER_ADMIN protected).
+  window.rDeleteHospitalUser = function (username) {
+    if (RS.userRole !== 'superadmin') return;
+    if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
+    if (!window.confirm('Remove ID "' + username + '" permanently?\n\nThis user will no longer be able to log in. This cannot be undone.')) return;
+    RS.supa.rpc('rpc_delete_hospital_user', { p_username: username }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      if (res.data === false) { rToast('Could not remove ' + username, 'error'); return; }
+      rToast('Removed ID: ' + username, 'success');
+      _loadHospitalUsers();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
+
   window.rSaveUserApps = function (username) {
     if (RS.userRole !== 'superadmin') return;
     if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
@@ -12186,11 +12561,13 @@
       var sel = document.getElementById('ubranchsel_' + safeId);
       storeBranch = (sel && sel.value) ? sel.value : null;
     }
+    var typeSel = document.getElementById('utype_' + safeId);
+    var acctType = typeSel ? typeSel.value : null;
     // BUG FIX (security): same as rToggleHospitalUserStatus above — was a
     // direct table write gated only client-side; now goes through a
     // SECURITY DEFINER RPC that checks admin_users.role = 'superadmin'
     // server-side. See sql/users_hospital_admin_rpc_gate_v9.sql.
-    RS.supa.rpc('rpc_save_user_apps', { p_username: username, p_allowed_apps: apps, p_store_branch: storeBranch }).then(function (res) {
+    RS.supa.rpc('rpc_save_user_apps', { p_username: username, p_allowed_apps: apps, p_store_branch: storeBranch, p_account_type: acctType }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
       rToast(username + ' — ' + apps.length + '/' + _HOSPITAL_APPS.length + ' apps saved', 'success');
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
@@ -12480,7 +12857,7 @@
         return;
       }
       rToast('Staff added: ' + userId + ' (' + role + ')', 'success');
-      if (idInp) idInp.value = ''; if (nameInp) nameInp.value = ''; if (passInp) passInp.value = '';
+      rAddPanelClose('sstaff');
       _loadStoreStaff();
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
