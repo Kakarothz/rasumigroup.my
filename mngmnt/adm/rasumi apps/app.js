@@ -11366,8 +11366,8 @@
       rShowFieldWarn('rel-version-warn', '⚠ field cannot be empty — drop a version number');
       return;
     }
-    if (!/^\d+\.\d+$/.test(version.trim())) {
-      rShowFieldWarn('rel-version-warn', '⚠ invalid format — numeric only: 9.7, 10.0, 2.1');
+    if (!/^\d+\.\d+(\.\d+)?$/.test(version.trim())) {
+      rShowFieldWarn('rel-version-warn', '⚠ invalid format — numeric only: 9.7, 10.0, 12.5.1');
       return;
     }
 
@@ -11780,7 +11780,7 @@
     var notes = (($r('tr-notes') || {}).value || '').trim();
 
     if (!version) { rToast('Enter target version (e.g. 10.5)', 'warn'); return; }
-    if (!/^\d+\.\d+$/.test(version)) { rToast('Version format must be numeric: 10.5, 9.8 …', 'warn'); return; }
+    if (!/^\d+\.\d+(\.\d+)?$/.test(version)) { rToast('Version format must be numeric: 10.5, 12.5.1 …', 'warn'); return; }
 
     var checked = Object.keys(window._trSelected || {});
     if (!checked.length) { rToast('Select at least one device', 'warn'); return; }
