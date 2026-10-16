@@ -11924,7 +11924,7 @@
       }
 
       var canCancel = ov && ov.status === 'pending' && _canWrite();
-      var canClear  = ov && ov.status === 'installed' && !isLatest && _canWrite();
+      var canClear  = ov && ov.status === 'installed' && _canWrite();   // always allow: an installed pin blocks future global updates even when the device is already on the latest
       var actionCell = canCancel
         ? '<button class="r-btn-sm" style="padding:2px 8px;font-size:10px" onclick="rCancelDeviceOverride(\'' + esc(hostname) + '\')">Cancel</button>'
         : canClear
