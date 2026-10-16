@@ -6609,7 +6609,7 @@
       var rows = res.data || [];
       if (!rows.length) { box.innerHTML = '<div class="r-empty">No Gmail connections</div>'; return; }
       var now = Date.now();
-      var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Machine</th><th>Gmail</th><th>Purchaser</th><th>Role</th><th>2FA</th><th>Connected</th><th>Last used</th><th title="Show SEND EMAIL button in PO Mailer for this Gmail connection">Direct send</th><th></th></tr></thead><tbody>';
+      var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Machine</th><th>Gmail</th><th>Purchaser</th><th>Role</th><th>2FA</th><th>Connected</th><th>Last used</th><th title="Show the Draft all button in PO Mailer for this Gmail connection">Draft</th><th title="Show the Send All button and Send tab in PO Mailer for this Gmail connection">Direct send</th><th></th></tr></thead><tbody>';
       rows.forEach(function (g) {
         var locked = g.locked_until && new Date(g.locked_until).getTime() > now;
         var tf = (g.totp_enabled ? _poBadge('r-badge-ok', 'TOTP') + ' ' : '') + (g.email_enabled ? _poBadge('r-badge-ok', 'Email', g.fallback_email || '') + ' ' : '') +
@@ -6619,6 +6619,8 @@
         var m = String(g.machine_id || '').replace(/[^A-Za-z0-9_.\-]/g, '');
         h += '<tr><td>' + esc(_canonHost(g.machine_id || '') || g.machine_id) + '</td><td>' + esc(g.gmail_email || '—') + '</td><td>' + esc(_branchName(g.purchaser_name)) + '</td><td>' + esc(g.role || '—') + '</td>' +
           '<td>' + tf + '</td><td>' + _poDt(g.connected_at) + '</td><td>' + _poDt(g.last_used_at) + '</td>' +
+          '<td><button type="button" role="switch" aria-checked="' + (g.can_draft !== false ? 'true' : 'false') + '" title="Draft" onclick="rPoGmailDraft(\'' + m + '\',this)" style="' + _poSwitchStyle(g.can_draft !== false) + '">' +
+          '<span style="' + _poKnobStyle(g.can_draft !== false) + '"></span></button></td>' +
           '<td><button type="button" role="switch" aria-checked="' + (g.can_send ? 'true' : 'false') + '" title="Direct send" onclick="rPoGmailSend(\'' + m + '\',this)" style="' + _poSwitchStyle(!!g.can_send) + '">' +
           '<span style="' + _poKnobStyle(!!g.can_send) + '"></span></button></td>' +
           '<td style="white-space:nowrap">' +
@@ -6648,6 +6650,19 @@
       el.style.cssText = _poSwitchStyle(on);
       if (el.firstChild) el.firstChild.style.cssText = _poKnobStyle(on);
       rToast('Direct send ' + (on ? 'enabled' : 'disabled') + ' for ' + machine, 'success');
+    });
+  };
+
+  window.rPoGmailDraft = function (machine, el) {
+    var on = el.getAttribute('aria-checked') !== 'true';
+    el.disabled = true;
+    RS.supa.rpc('po_admin_gmail_set_draft', { p_machine_id: machine, p_can_draft: on }).then(function (res) {
+      el.disabled = false;
+      if (res.error) { rToast('Failed: ' + res.error.message, 'error'); return; }
+      el.setAttribute('aria-checked', on ? 'true' : 'false');
+      el.style.cssText = _poSwitchStyle(on);
+      if (el.firstChild) el.firstChild.style.cssText = _poKnobStyle(on);
+      rToast('Draft ' + (on ? 'enabled' : 'disabled') + ' for ' + machine, 'success');
     });
   };
 
@@ -7159,8 +7174,45 @@
         '<div id="po-tpl-prev" style="display:none;background:#fff;color:#222;border-radius:8px;padding:12px;margin-top:12px;font:12px/1.6 Arial,sans-serif"></div>' +
         '<div id="po-tpl-hist"></div></div>';
       window.rPoTplPick(_poTplKey);
+      _poRcpLoad(body);
     }).catch(function (e) { _poErr(body, e); });
   }
+
+  // ── Default recipients (sql: po_default_recipients_v1) ─────
+  function _poRcpLoad(body) {
+    var box = document.createElement('div'); box.id = 'po-rcp-box'; body.appendChild(box);
+    RS.supa.rpc('po_default_recipients_get', {}).then(function (res) {
+      if (res.error) { box.innerHTML = ''; return; }
+      var canWrite = RS.userRole === 'superadmin', h = '';
+      (res.data || []).forEach(function (r) {
+        var k = esc(r.key), ro = canWrite ? '' : ' disabled';
+        var fcss = 'width:100%;box-sizing:border-box;font-family:monospace;font-size:13px;border-radius:8px;padding:8px 10px;';
+        h += '<div class="r-panel" style="margin-top:14px"><div class="r-panel-hdr"><h3><i class="fa-solid fa-address-book"></i> Default recipients - ' + esc(r.label) + '</h3></div>' +
+          '<div class="r-info-box"><i class="fa-solid fa-info-circle"></i><div>Used when a PO is a lens order with no supplier match. Changes reach the desktop app within ~10 minutes (or next login). Users can still edit To/Cc on each card before Draft or Send.</div></div>' +
+          '<div style="font-size:11px;color:#6B7A8F;margin:10px 0 3px">To</div>' +
+          '<input id="po-rcp-to-' + k + '" class="r-filter-input" style="' + fcss + '" value="' + esc(r.to_addr || '') + '"' + ro + '>' +
+          '<div style="font-size:11px;color:#6B7A8F;margin:10px 0 3px">Cc (one address per line)</div>' +
+          '<textarea id="po-rcp-cc-' + k + '" class="r-filter-input" rows="9" style="' + fcss + 'resize:vertical"' + ro + '>' + esc((r.cc_addrs || []).join('\n')) + '</textarea>' +
+          '<div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:10px"><span id="po-rcp-st-' + k + '" style="font-size:12px"></span>' +
+          (canWrite ? '<button class="r-btn-sm" onclick="rPoRcpSave(\'' + k + '\')">Save</button>' : '') + '</div>' +
+          '<div style="font-size:11px;color:#6B7A8F;margin-top:6px">Last edit: ' + esc(r.updated_by || 'built-in default') + (r.updated_at ? ' · ' + esc(String(r.updated_at).replace('T', ' ').slice(0, 16)) : '') + '</div></div>';
+      });
+      box.innerHTML = h;
+    }).catch(function () { box.innerHTML = ''; });
+  }
+
+  window.rPoRcpSave = function (k) {
+    var to = ($r('po-rcp-to-' + k).value || '').trim();
+    var cc = ($r('po-rcp-cc-' + k).value || '').split(/[\s,;]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+    var st = $r('po-rcp-st-' + k);
+    if (!to) { st.style.color = '#f87171'; st.textContent = 'To is required'; return; }
+    st.style.color = ''; st.textContent = 'Saving...';
+    RS.supa.rpc('po_default_recipients_set', { p_key: k, p_to: to, p_cc: cc }).then(function (res) {
+      if (res.error) { st.style.color = '#f87171'; st.textContent = res.error.message; return; }
+      st.style.color = '#2fbf7a'; st.textContent = 'Saved';
+      rToast('Default recipients saved', 'success');
+    });
+  };
 
   window.rPoTplPick = function (k) {
     var t = _poTplRows[k]; if (!t) return; _poTplKey = k;
