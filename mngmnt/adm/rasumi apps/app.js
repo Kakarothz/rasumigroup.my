@@ -7479,11 +7479,15 @@
       var ji = l.job_info || {};
       var act = ji.action || '';
       var st = (l.status || '').toUpperCase();
-      var okBadge = act === 'extract' ? (ji.extraction_ok ? 'r-badge-ok' : 'r-badge-warn') : (st === 'FAILED' || st === 'ERROR' ? 'r-badge-err' : 'r-badge-ok');
-      var okText = act === 'extract' ? (ji.extraction_ok ? 'OK' : 'NEEDS REVIEW') : (st === 'FAILED' || st === 'ERROR' ? 'FAILED' : 'OK');
+      // status is free text ("Failed: Could not create the Gmail draft: ..."), so match by prefix, not equality
+      var isFail = /^(FAILED|ERROR)\b/.test(st) || !!ji.error_msg;
+      var okBadge = act === 'extract' ? (ji.extraction_ok ? 'r-badge-ok' : 'r-badge-warn') : (isFail ? 'r-badge-err' : 'r-badge-ok');
+      var okText = act === 'extract' ? (ji.extraction_ok ? 'OK' : 'NEEDS REVIEW') : (isFail ? 'FAILED' : 'OK');
+      var actLabel = (act === 'draft' && isFail) ? 'Draft Failed' : (_PO_ACTION_LABEL[act] || act);
+      var actBadge = (act === 'draft' && isFail) ? 'r-badge-err' : (_PO_ACTION_BADGE[act] || 'r-badge-muted');
       html += '<tr>' +
         '<td>' + esc(_fmtDate(l.timestamp)) + ' ' + esc(_fmtTime(l.timestamp)) + '</td>' +
-        '<td><span class="r-badge ' + (_PO_ACTION_BADGE[act] || 'r-badge-muted') + '">' + esc(_PO_ACTION_LABEL[act] || act) + '</span></td>' +
+        '<td><span class="r-badge ' + actBadge + '">' + esc(actLabel) + '</span></td>' +
         '<td>' + esc(ji.po_no || '—') + '</td>' +
         '<td>' + esc(ji.patient || '—') + '</td>' +
         '<td>' + esc(ji.hospital_name || '—') + '</td>' +
