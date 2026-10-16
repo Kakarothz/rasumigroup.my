@@ -6354,7 +6354,7 @@
   function renderPoAutoEmail() {
     var view = $r('r-view-area');
     if (!view) return;
-    var tabs = [['overview', 'Overview'], ['orders', 'Orders & DocuShare'], ['delivery', 'Delivery / DO'], ['gmail', 'Gmail & 2FA'], ['ref', 'Reference Data'], ['tpl', 'Email Templates'], ['activity', 'Activity']];
+    var tabs = [['overview', 'Overview'], ['orders', 'Orders & DocuShare'], ['delivery', 'Delivery / DO'], ['gmail', 'Gmail & 2FA'], ['ref', 'Reference Data'], ['tpl', 'Email Templates'], ['send', 'Email Status'], ['activity', 'Activity']];
     view.innerHTML =
       '<div class="r-tab-bar" id="r-po-tabs">' +
       tabs.map(function (t) { return '<div class="r-tab" id="rpotab-' + t[0] + '" onclick="rPoTab(\'' + t[0] + '\')">' + t[1] + '</div>'; }).join('') +
@@ -6364,7 +6364,7 @@
 
   window.rPoTab = function (t) {
     _poTab = t;
-    ['overview', 'orders', 'delivery', 'gmail', 'ref', 'tpl', 'activity'].forEach(function (k) {
+    ['overview', 'orders', 'delivery', 'gmail', 'ref', 'tpl', 'send', 'activity'].forEach(function (k) {
       var el = $r('rpotab-' + k); if (el) el.classList.toggle('active', k === t);
     });
     var body = $r('r-po-body'); if (!body) return;
@@ -6374,6 +6374,7 @@
     if (t === 'gmail') return _poGmail(body);
     if (t === 'ref') return _poRef(body);
     if (t === 'tpl') return _poTemplates(body);
+    if (t === 'send') return _poSendStatus(body);
     return _poActivity(body);
   };
 
@@ -6534,6 +6535,66 @@
         '<td>' + doCell + '</td><td>' + _poDt(d.last_checked_at) + '</td></tr>';
     });
     box.innerHTML = h + '</tbody></table></div>';
+  };
+
+  // ── Email Status (PO Mailer Send All queue, sql/po_send_queue_v1.sql) ─────────
+  var _poSendMeta = { overridden: false };
+  function _poSendStatus(body) {
+    body.innerHTML = _poLoading();
+    Promise.all([
+      RS.supa.from('po_send_batches').select('*, po_send_items(id,seq,po_label,supplier,status,attempts,last_error,sent_at,to_addr)').order('created_at', { ascending: false }).limit(80),
+      RS.supa.from('po_send_settings').select('*').eq('id', 1).limit(1)
+    ]).then(function (rs) {
+      if (rs[0].error) return _poErr(body, rs[0].error);
+      var batches = rs[0].data || [], st = (rs[1].data || [])[0] || { min_delay_s: 60, max_delay_s: 90, hourly_cap: 25, max_retries: 3, block_pause_min: 30, retention_days: 365 };
+      var bad = function (i) { return ['failed', 'blocked', 'needs_attention'].indexOf(i.status) >= 0; };
+      var statusBadge = function (b) {
+        var it = b.po_send_items || [], sent = it.filter(function (i) { return i.status === 'sent'; }).length, total = it.length || b.total;
+        if (b.status === 'verified') return _poBadge('r-badge-ok', sent + '/' + total + ' Sent · Verified');
+        if (b.status === 'running') return _poBadge('r-badge-info', 'Sending ' + sent + '/' + total);
+        if (b.status === 'paused') return _poBadge('r-badge-warn', 'Paused ' + sent + '/' + total);
+        if (b.status === 'blocked') return _poBadge('r-badge-err', 'Blocked ' + sent + '/' + total);
+        if (b.status === 'cancelled') return _poBadge('r-badge-muted', 'Cancelled ' + sent + '/' + total);
+        return _poBadge('r-badge-err', sent + '/' + total + ' · Needs attention');
+      };
+      var needs = batches.filter(function (b) { return b.status !== 'cancelled' && (b.po_send_items || []).some(bad); }).length;
+      var active = batches.filter(function (b) { return ['running', 'paused', 'blocked'].indexOf(b.status) >= 0; }).length;
+      var rows = batches.map(function (b) {
+        var it = (b.po_send_items || []).slice().sort(function (a, c) { return a.seq - c.seq; });
+        var problems = it.filter(bad).map(function (i) { return esc(i.po_label || '') + ' — ' + esc(i.last_error || i.status); }).join('<br>');
+        return '<tr><td>' + _poDt(b.created_at) + '</td><td>' + esc(b.hostname || '—') + '</td><td>' + esc(b.created_by || '—') + '</td><td>' + statusBadge(b) +
+          (b.auto_resent ? ' <span class="r-muted-sm">' + b.auto_resent + ' auto re-sent</span>' : '') + '</td><td>' +
+          (b.note ? '<div class="r-muted-sm">' + esc(b.note) + '</div>' : '') + (problems ? '<div style="color:#ff8a8a;font-size:11px">' + problems + '</div>' : '') + '</td></tr>';
+      }).join('');
+      var num = function (id, label, v, min, max) {
+        return '<label class="r-muted-sm" style="display:flex;flex-direction:column;gap:3px">' + label + '<input id="' + id + '" type="number" min="' + min + '" max="' + max + '" value="' + v + '" style="width:110px" class="r-input"></label>';
+      };
+      body.innerHTML =
+        '<div class="r-metric-row">' +
+        metricCard('', active, 'Active Batches', 'fa-paper-plane', 'across all devices', null, null) +
+        metricCard('', needs, 'Need Attention', 'fa-triangle-exclamation', 'failed or blocked emails', null, null) +
+        metricCard('', batches.length, 'Batches Shown', 'fa-clock-rotate-left', 'history kept ' + st.retention_days + ' days', null, null) + '</div>' +
+        '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-sliders"></i> Send settings (apply to every device)</h3></div>' +
+        '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;padding:6px 2px 10px">' +
+        num('r-sd-min', 'Min pause between emails (s)', st.min_delay_s, 0, 3600) + num('r-sd-max', 'Max pause (s)', st.max_delay_s, 0, 3600) +
+        num('r-sd-cap', 'Max emails per hour', st.hourly_cap, 1, 500) + num('r-sd-try', 'Auto-retry attempts', st.max_retries, 1, 10) +
+        num('r-sd-blk', 'Wait after Gmail block (min)', st.block_pause_min, 1, 240) + num('r-sd-ret', 'Keep history (days)', st.retention_days, 30, 3650) +
+        (_canWrite() ? '<button class="r-btn-sm" onclick="rPoSaveSendSettings()">Save</button>' : '') + '</div></div>' +
+        '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-envelope-circle-check"></i> Send All batches</h3>' +
+        '<button class="r-btn-sm" onclick="rPoTab(\'send\')"><i class="fa-solid fa-rotate"></i> Refresh</button></div>' +
+        (rows ? '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Started</th><th>Device</th><th>User</th><th>Status</th><th>Details</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+              : '<div class="r-empty">No Send All batch yet.</div>') + '</div>';
+    }).catch(function (e) { _poErr(body, e); });
+  }
+  window.rPoSaveSendSettings = function () {
+    var g = function (id) { return parseInt(($r(id) || {}).value, 10); };
+    var v = { id: 1, min_delay_s: g('r-sd-min'), max_delay_s: g('r-sd-max'), hourly_cap: g('r-sd-cap'), max_retries: g('r-sd-try'), block_pause_min: g('r-sd-blk'), retention_days: g('r-sd-ret'), updated_at: new Date().toISOString() };
+    for (var k in v) { if (typeof v[k] === 'number' && isNaN(v[k])) { rToast('Enter a number in every field', 'error'); return; } }
+    if (v.max_delay_s < v.min_delay_s) { rToast('Max pause must be at least the min pause', 'error'); return; }
+    RS.supa.from('po_send_settings').upsert(v).then(function (res) {
+      if (res.error) return rToast('Error: ' + res.error.message, 'error');
+      rToast('Send settings saved (devices pick them up within a minute)', 'success');
+    });
   };
 
   // ── Gmail & 2FA ───────────────────────────────────────────
