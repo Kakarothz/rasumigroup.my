@@ -6511,11 +6511,33 @@
     var since = new Date(Date.now() - days * 86400000).toISOString();
     Promise.all([
       RS.supa.rpc('po_admin_docushare_log', { p_since: since, p_limit: 2000 }),
-      RS.supa.rpc('po_admin_docushare_ping', { p_limit: 100 })
+      RS.supa.rpc('po_admin_docushare_ping', { p_limit: 100 }),
+      RS.supa.rpc('po_admin_orders', { p_search: null, p_type: null, p_limit: 1000 })
     ]).then(function (arr) {
       if (arr[0].error) return _poErr($r('po-ds-kpi'), arr[0].error);
-      _poDsLogCache = arr[0].data || [];
+      var audit = arr[0].data || [];
       _poDsPingCache = (arr[1] && arr[1].data) || [];
+      // History from before audit logging existed: rebuild one row per filed document from the order record
+      // (orders.docushare = {at, ok, uploaded[], skipped[], error, folder_url}). Audit rows win when both exist.
+      var seen = {};
+      audit.forEach(function (x) { seen[String(x.po_no || '').toUpperCase() + '|' + (x.file_name || '')] = 1; });
+      var sinceMs = Date.parse(since), hist = [];
+      ((arr[2] && arr[2].data) || []).forEach(function (o) {
+        var ds = o.docushare; if (!ds || !ds.at) return;
+        var t = Date.parse(ds.at); if (isNaN(t) || t < sinceMs) return;
+        var br = o.order_type === 'TENDER' ? 'TNB' : (/^(FVKL|FVT|FVL|FVG)$/i.test(o.branch_name || '') ? String(o.branch_name).toUpperCase() : (o.branch_name || null));
+        var base = { id: 'ord-' + o.id, at: ds.at, po_no: o.po_no, lpo_no: o.lpo_no, branch_code: br,
+          supplier: o.main_supplier || o.brand, kind: 'PO', folder_url: ds.folder_url, folder_path: null,
+          machine: o.machine, by_user: o.drafted_by, app_version: null, attempt_id: 'order-record', ping_ok: null, ping_ms: null, duration_ms: null };
+        var push = function (name, res, reason) {
+          if (seen[String(o.po_no || '').toUpperCase() + '|' + (name || '')]) return;
+          hist.push(Object.assign({}, base, { file_name: name, result: res, reason: reason }));
+        };
+        (ds.uploaded || []).forEach(function (n) { push(n, 'UPLOADED', null); });
+        (ds.skipped || []).forEach(function (n) { push(n, 'ALREADY_EXISTS', null); });
+        if (ds.ok === false || ds.error) push(null, 'FAILED', ds.error || 'Filing failed');
+      });
+      _poDsLogCache = audit.concat(hist).sort(function (a, b) { return Date.parse(b.at) - Date.parse(a.at); });
       window.rPoDsRender();
     }).catch(function (e) { _poErr($r('po-ds-kpi'), e); });
   }
@@ -7507,7 +7529,13 @@
     var ordP = RS.supa.rpc('po_admin_orders', { p_search: null, p_type: null, p_limit: 1000 })
       .then(function (r) {
         var m = {};
-        ((r && r.data) || []).forEach(function (o) { if (o.po_no) m[String(o.po_no).toUpperCase()] = o; });
+        // A PO can have several order rows (e.g. an old mis-parsed one) — prefer the one with a valid branch.
+        var good = function (o) { return o.order_type === 'TENDER' || /^(FVKL|FVT|FVL|FVG)$/i.test(String(o.branch_name || '')); };
+        ((r && r.data) || []).forEach(function (o) {
+          if (!o.po_no) return;
+          var k = String(o.po_no).toUpperCase();
+          if (!m[k] || (good(o) && !good(m[k]))) m[k] = o;
+        });
         return m;
       }).catch(function () { return {}; });
     var logP = RS.supa.from('logs').select('id,machine,branch_id,status,timestamp,job_info,error_msg')
@@ -7600,10 +7628,55 @@
     var detailRows = rows.filter(function (l) { return l.job_info && (l.job_info.action === 'extract' || l.job_info.action === 'draft'); });
     if (!detailRows.length) { box.innerHTML = '<div class="r-empty">No PO activity in the last 14 days</div>'; return; }
 
-    var html = '<table class="r-table"><thead><tr>' +
-      '<th>ID</th><th>Time</th><th>Action</th><th>PO No</th><th>Patient</th><th>Hospital</th><th>Branch</th><th>Machine</th><th>Status</th>' +
-      '</tr></thead><tbody>';
+    // Group repeated processing of the same PO + action; newest entry is the group header.
+    var groups = [], gmap = {};
     detailRows.forEach(function (l) {
+      var ji = l.job_info || {};
+      var key = ji.po_no ? (String(ji.po_no).toUpperCase() + '|' + ji.action) : ('_' + (l.id || Math.random()));
+      if (!gmap[key]) { gmap[key] = { key: key, items: [] }; groups.push(gmap[key]); }
+      gmap[key].items.push(l);
+    });
+    window._poActGroups = {};
+    var html = '<table class="r-table"><thead><tr>' +
+      '<th style="width:22px"></th><th>ID</th><th>Time</th><th>Action</th><th>PO No</th><th>Patient</th><th>Hospital</th><th>Branch</th><th>Machine</th><th>Status</th>' +
+      '</tr></thead><tbody>';
+    groups.forEach(function (g, gi) {
+      var items = g.items;           // already newest-first
+      var multi = items.length > 1;
+      window._poActGroups[gi] = true;
+      html += _poActRow(items[0], { multi: multi, gi: gi, n: items.length });
+      if (multi) {
+        html += '<tr class="po-act-sub po-act-sub-' + gi + '" style="display:none"><td colspan="10" style="padding:0 0 0 28px;background:rgba(255,255,255,.03)">' +
+          '<div style="font-size:11px;color:#6B7A8F;padding:6px 0">Processed ' + items.length + '× — each attempt:</div>' +
+          '<table class="r-table" style="margin:0"><thead><tr><th>Log ID</th><th>Time</th><th>Machine</th><th>User</th><th>Status</th><th>Error</th></tr></thead><tbody>' +
+          items.map(function (l) {
+            var ji = l.job_info || {};
+            var st = (l.status || '').toUpperCase();
+            var fail = /^(FAILED|ERROR)\b/.test(st) || !!ji.error_msg;
+            return '<tr><td style="font-family:monospace;font-size:11px;cursor:copy" title="Click to copy full ID" onclick="navigator.clipboard&&navigator.clipboard.writeText(\'' + esc(l.id || '') + '\');rToast(\'Log ID copied\',\'success\')">' + esc(l.id || '—') + '</td>' +
+              '<td>' + esc(_fmtDate(l.timestamp)) + ' ' + esc(_fmtTime(l.timestamp)) + '</td>' +
+              '<td>' + esc(_canonHost(l.machine || '') || '—') + '</td>' +
+              '<td>' + esc(_branchName(l.branch_id) || l.branch_id || '—') + '</td>' +
+              '<td><span class="r-badge ' + (fail ? 'r-badge-err' : 'r-badge-ok') + '">' + (fail ? 'FAILED' : 'OK') + '</span></td>' +
+              '<td style="color:#f87171;font-size:11px;white-space:normal">' + esc(l.error_msg || ji.error_msg || '') + '</td></tr>';
+          }).join('') + '</tbody></table></td></tr>';
+      }
+    });
+    html += '</tbody></table>';
+    box.innerHTML = html;
+  }
+
+  window.rPoActToggle = function (gi) {
+    var tr = document.querySelector('.po-act-sub-' + gi); if (!tr) return;
+    var open = tr.style.display === 'none';
+    tr.style.display = open ? '' : 'none';
+    var ic = document.getElementById('po-act-ic-' + gi);
+    if (ic) ic.className = 'fa-solid fa-chevron-' + (open ? 'down' : 'right');
+  };
+
+  function _poActRow(l, opt) {
+    var html = '';
+    [l].forEach(function (l) {
       var ji = l.job_info || {};
       var act = ji.action || '';
       var st = (l.status || '').toUpperCase();
@@ -7615,13 +7688,15 @@
       var actBadge = (act === 'draft' && isFail) ? 'r-badge-err' : (_PO_ACTION_BADGE[act] || 'r-badge-muted');
       var br = _poBranchOf(l);
       var brBadge = br === 'TNB' ? 'r-badge-blue' : (br === '—' ? 'r-badge-muted' : 'r-badge-info');
-      html += '<tr>' +
+      var cntBadge = opt.multi ? ' <span class="r-badge r-badge-warn" title="Processed ' + opt.n + ' times — click row to expand">×' + opt.n + '</span>' : '';
+      html += '<tr' + (opt.multi ? ' style="cursor:pointer" onclick="rPoActToggle(' + opt.gi + ')"' : '') + '>' +
+        '<td>' + (opt.multi ? '<i id="po-act-ic-' + opt.gi + '" class="fa-solid fa-chevron-right" style="font-size:10px;color:#6B7A8F"></i>' : '') + '</td>' +
         '<td title="' + esc(l.id || '') + '" style="font-family:monospace;font-size:11px;color:#6B7A8F;cursor:copy" ' +
         'onclick="navigator.clipboard&&navigator.clipboard.writeText(\'' + esc(l.id || '') + '\');rToast(\'Log ID copied\',\'success\')">' +
         esc(String(l.id || '').substring(0, 8) || '—') + '</td>' +
         '<td>' + esc(_fmtDate(l.timestamp)) + ' ' + esc(_fmtTime(l.timestamp)) + '</td>' +
         '<td><span class="r-badge ' + actBadge + '">' + esc(actLabel) + '</span></td>' +
-        '<td>' + esc(ji.po_no || '—') + '</td>' +
+        '<td>' + esc(ji.po_no || '—') + cntBadge + '</td>' +
         '<td>' + esc(ji.patient || '—') + '</td>' +
         '<td>' + esc(ji.hospital_name || '—') + '</td>' +
         '<td><span class="r-badge ' + brBadge + '">' + esc(br) + '</span></td>' +
@@ -7629,8 +7704,7 @@
         '<td><span class="r-badge ' + okBadge + '">' + okText + '</span></td>' +
         '</tr>';
     });
-    html += '</tbody></table>';
-    box.innerHTML = html;
+    return html;
   }
 
   // ── APP LOG VIEWS (shared renderer for FV Branch / Splitter / Studio / Quick / Scanify) ──
