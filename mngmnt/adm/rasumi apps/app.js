@@ -138,7 +138,7 @@
     if (type === 'warn' || type === 'error') _rBeep(type);
     var wrap = document.getElementById('r-cmd-fb');
     if (!wrap) return;
-    var colors = { success: '#22c55e', error: '#ef4444', warn: '#f59e0b', info: '#38bdf8' };
+    var colors = { success: '#22c55e', error: '#ef4444', warn: '#f59e0b', info: '#D97757' };
     var color = colors[type] || colors.info;
     var el = document.createElement('div');
     el.textContent = '› ' + msg;
@@ -509,9 +509,9 @@
     var darkBtn = $r('r-mode-dark-btn');
     var lightBtn = $r('r-mode-light-btn');
     if (darkBtn) {
-      darkBtn.style.background = theme === 'dark' ? 'rgba(56,189,248,0.1)' : 'none';
-      darkBtn.style.color = theme === 'dark' ? '#38bdf8' : '#6b7a8f';
-      darkBtn.style.borderColor = theme === 'dark' ? 'rgba(56,189,248,0.35)' : 'rgba(255,255,255,0.1)';
+      darkBtn.style.background = theme === 'dark' ? 'rgba(217,119,87,0.1)' : 'none';
+      darkBtn.style.color = theme === 'dark' ? '#D97757' : '#6b7a8f';
+      darkBtn.style.borderColor = theme === 'dark' ? 'rgba(217,119,87,0.35)' : 'rgba(255,255,255,0.1)';
     }
     if (lightBtn) {
       lightBtn.style.background = theme === 'light' ? 'rgba(255,255,255,0.1)' : 'none';
@@ -539,7 +539,7 @@
     var opts = document.querySelectorAll('.r-bg-opt');
     for (var i = 0; i < opts.length; i++) {
       opts[i].style.border = opts[i].getAttribute('data-bg') === bg
-        ? '2px solid rgba(56,189,248,0.5)' : '2px solid transparent';
+        ? '2px solid rgba(217,119,87,0.5)' : '2px solid transparent';
     }
     try { localStorage.setItem('rs_bg', bg); } catch (e) { }
     if (RS.supa && bg !== 'custom') {
@@ -583,7 +583,7 @@
           var opts = document.querySelectorAll('.r-bg-opt');
           for (var i = 0; i < opts.length; i++) {
             opts[i].style.border = opts[i].getAttribute('data-bg') === 'custom'
-              ? '2px solid rgba(56,189,248,0.5)' : '2px solid transparent';
+              ? '2px solid rgba(217,119,87,0.5)' : '2px solid transparent';
           }
           var customEl = document.querySelector('.r-bg-opt[data-bg="custom"]');
           if (customEl) customEl.style.backgroundImage = 'url(' + url + ')';
@@ -686,7 +686,7 @@
           var opts = document.querySelectorAll('.r-bg-opt');
           for (var i = 0; i < opts.length; i++) {
             opts[i].style.border = opts[i].getAttribute('data-bg') === 'custom'
-              ? '2px solid rgba(56,189,248,0.5)' : '2px solid transparent';
+              ? '2px solid rgba(217,119,87,0.5)' : '2px solid transparent';
           }
         } else if (d.ui_background && d.ui_background !== 'custom') {
           window.rSetBackground(d.ui_background);
@@ -823,19 +823,19 @@
 
       // ── CUSTOM PROMPT DIALOG ──
       '<div id="r-prompt-overlay" style="display:none;position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);align-items:center;justify-content:center;">',
-      '  <div id="r-prompt-box" style="background:rgba(8,12,19,0.98);border:1px solid rgba(56,189,248,0.25);border-radius:12px;width:420px;max-width:94vw;box-shadow:0 0 40px rgba(56,189,248,0.08),0 24px 60px rgba(0,0,0,0.7);font-family:var(--rc-font);">',
+      '  <div id="r-prompt-box" style="background:rgba(8,12,19,0.98);border:1px solid rgba(217,119,87,0.25);border-radius:12px;width:420px;max-width:94vw;box-shadow:0 0 40px rgba(217,119,87,0.08),0 24px 60px rgba(0,0,0,0.7);font-family:var(--rc-font);">',
       '    <div style="padding:14px 18px 12px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:10px;">',
-      '      <span id="r-prompt-icon" style="color:var(--rc-cyan,#38bdf8);font-size:14px"></span>',
+      '      <span id="r-prompt-icon" style="color:var(--rc-cyan,#D97757);font-size:14px"></span>',
       '      <span id="r-prompt-title" style="font-size:13px;font-weight:700;color:var(--rc-text,#e2e8f0);letter-spacing:0.05em;flex:1"></span>',
       '      <button onclick="window._rPromptCancel()" style="background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:15px;padding:2px 4px;line-height:1;transition:color 0.12s" onmouseover="this.style.color=\'#ef4444\'" onmouseout="this.style.color=\'rgba(255,255,255,0.3)\'"><i class="fa-solid fa-xmark"></i></button>',
       '    </div>',
       '    <div style="padding:16px 18px 14px;">',
       '      <label id="r-prompt-label" style="display:block;font-size:11px;color:rgba(255,255,255,0.45);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px"></label>',
-      '      <input id="r-prompt-input" type="text" autocomplete="off" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.04);border:1px solid rgba(56,189,248,0.18);border-radius:6px;color:#e2e8f0;padding:9px 12px;font-size:13px;font-family:var(--rc-font);outline:none;transition:border-color 0.15s,box-shadow 0.15s" onfocus="this.style.borderColor=\'rgba(56,189,248,0.5)\';this.style.boxShadow=\'0 0 0 3px rgba(56,189,248,0.08)\'" onblur="this.style.borderColor=\'rgba(56,189,248,0.18)\';this.style.boxShadow=\'none\'" onkeydown="if(event.key===\'Enter\')window._rPromptConfirm();if(event.key===\'Escape\')window._rPromptCancel()" placeholder="" />',
+      '      <input id="r-prompt-input" type="text" autocomplete="off" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.04);border:1px solid rgba(217,119,87,0.18);border-radius:6px;color:#e2e8f0;padding:9px 12px;font-size:13px;font-family:var(--rc-font);outline:none;transition:border-color 0.15s,box-shadow 0.15s" onfocus="this.style.borderColor=\'rgba(217,119,87,0.5)\';this.style.boxShadow=\'0 0 0 3px rgba(217,119,87,0.08)\'" onblur="this.style.borderColor=\'rgba(217,119,87,0.18)\';this.style.boxShadow=\'none\'" onkeydown="if(event.key===\'Enter\')window._rPromptConfirm();if(event.key===\'Escape\')window._rPromptCancel()" placeholder="" />',
       '    </div>',
       '    <div style="padding:10px 18px 16px;display:flex;gap:8px;justify-content:flex-end;">',
       '      <button onclick="window._rPromptCancel()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:6px;padding:7px 18px;font-size:12px;font-family:var(--rc-font);cursor:pointer;transition:background 0.12s" onmouseover="this.style.background=\'rgba(255,255,255,0.08)\'" onmouseout="this.style.background=\'rgba(255,255,255,0.04)\'">Cancel</button>',
-      '      <button id="r-prompt-confirm-btn" onclick="window._rPromptConfirm()" style="background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.35);color:var(--rc-cyan,#38bdf8);border-radius:6px;padding:7px 20px;font-size:12px;font-weight:700;font-family:var(--rc-font);cursor:pointer;letter-spacing:0.04em;transition:background 0.12s,box-shadow 0.12s" onmouseover="this.style.background=\'rgba(56,189,248,0.2)\';this.style.boxShadow=\'0 0 12px rgba(56,189,248,0.15)\'" onmouseout="this.style.background=\'rgba(56,189,248,0.1)\';this.style.boxShadow=\'none\'">Confirm</button>',
+      '      <button id="r-prompt-confirm-btn" onclick="window._rPromptConfirm()" style="background:rgba(217,119,87,0.1);border:1px solid rgba(217,119,87,0.35);color:var(--rc-cyan,#D97757);border-radius:6px;padding:7px 20px;font-size:12px;font-weight:700;font-family:var(--rc-font);cursor:pointer;letter-spacing:0.04em;transition:background 0.12s,box-shadow 0.12s" onmouseover="this.style.background=\'rgba(217,119,87,0.2)\';this.style.boxShadow=\'0 0 12px rgba(217,119,87,0.15)\'" onmouseout="this.style.background=\'rgba(217,119,87,0.1)\';this.style.boxShadow=\'none\'">Confirm</button>',
       '    </div>',
       '  </div>',
       '</div>',
@@ -856,49 +856,49 @@
       '    <div id="r-profile-modal" class="hidden" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:10000; display:flex; align-items:center; justify-content:center;">',
       '        <div style="background:var(--rc-bg, #111827); border:1px solid var(--rc-border, #374151); border-radius:8px; width:400px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.5); max-height:90vh; overflow-y:auto;">',
       '            <div style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid var(--rc-border, #374151); padding-bottom:10px;">',
-      '                <h3 style="margin:0; font-size:14px; color:var(--rc-cyan, #38bdf8);"><i class="fa-solid fa-user-shield"></i> PROFILE COMMAND</h3>',
+      '                <h3 style="margin:0; font-size:14px; color:var(--rc-cyan, #D97757);"><i class="fa-solid fa-user-shield"></i> PROFILE COMMAND</h3>',
       '                <button id="btn-close-r-profile" style="background:none; border:none; color:var(--rc-text-dim, #9ca3af); cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>',
       '            </div>',
       '            <div style="text-align:center;position:relative;">',
-      '                <button onclick="rToggleProfileEdit()" title="Edit profile" style="position:absolute;top:0;right:0;background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:13px;padding:3px 5px;line-height:1;transition:color 0.15s;" onmouseover="this.style.color=\'#38bdf8\'" onmouseout="this.style.color=\'var(--rc-text-dim,#9ca3af)\'"><i class="fa-solid fa-pen-to-square"></i></button>',
+      '                <button onclick="rToggleProfileEdit()" title="Edit profile" style="position:absolute;top:0;right:0;background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:13px;padding:3px 5px;line-height:1;transition:color 0.15s;" onmouseover="this.style.color=\'#D97757\'" onmouseout="this.style.color=\'var(--rc-text-dim,#9ca3af)\'"><i class="fa-solid fa-pen-to-square"></i></button>',
       '                <input type="file" id="r-profile-upload" class="hidden" accept="image/*">',
       '                <div style="position:relative;display:inline-block;margin-bottom:14px;">',
-      '                    <img id="r-profile-img-display" src="https://ui-avatars.com/api/?name=SA&background=0d1117&color=06b6d4" style="width:88px;height:88px;border-radius:50%;cursor:pointer;border:2px solid var(--rc-cyan,#38bdf8);display:block;object-fit:cover;" title="Click to change photo">',
+      '                    <img id="r-profile-img-display" src="https://ui-avatars.com/api/?name=SA&background=0d1117&color=06b6d4" style="width:88px;height:88px;border-radius:50%;cursor:pointer;border:2px solid var(--rc-cyan,#D97757);display:block;object-fit:cover;" title="Click to change photo">',
       '                    <div id="r-avatar-spinner" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.6);border-radius:50%;align-items:center;justify-content:center;font-size:18px;color:#fff"><i class="fa-solid fa-circle-notch fa-spin"></i></div>',
       '                </div>',
       '                <div id="r-p-displayname" style="font-weight:bold;color:var(--rc-text,#fff);letter-spacing:1px;font-size:13px;">—</div>',
       '                <div id="r-p-email" style="font-size:11px;color:var(--rc-text-dim,#9ca3af);margin-top:3px;">—</div>',
-      '                <div id="r-p-role-badge" style="display:inline-block;margin-top:6px;font-size:9px;font-weight:700;letter-spacing:1.5px;padding:2px 8px;border-radius:10px;background:rgba(56,189,248,0.1);color:var(--rc-cyan,#38bdf8);border:1px solid rgba(56,189,248,0.25);">—</div>',
+      '                <div id="r-p-role-badge" style="display:inline-block;margin-top:6px;font-size:9px;font-weight:700;letter-spacing:1.5px;padding:2px 8px;border-radius:10px;background:rgba(217,119,87,0.1);color:var(--rc-cyan,#D97757);border:1px solid rgba(217,119,87,0.25);">—</div>',
       '                <div id="r-p-edit-panel" style="display:none;text-align:left;margin-top:14px;padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--rc-border,#374151);border-radius:6px;">',
       '                    <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:6px;">NICKNAME</div>',
       '                    <input type="text" id="r-p-nickname" placeholder="Display name (e.g. Kakar0th)" style="width:100%;box-sizing:border-box;padding:9px 12px;margin-bottom:10px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;font-size:12px;">',
       '                    <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:6px;">EMAIL</div>',
       '                    <input type="email" id="r-p-edit-email" placeholder="New email address" style="width:100%;box-sizing:border-box;padding:9px 12px;margin-bottom:10px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;font-size:12px;">',
       '                    <div id="r-p-email-note" style="font-size:10px;color:var(--rc-text-dim,#9ca3af);margin-bottom:10px;display:none;">Supabase will send a verification to the new email. Login email updates after confirmation.</div>',
-      '                    <button onclick="rSaveProfile()" style="width:100%;padding:9px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);color:var(--rc-cyan,#38bdf8);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;">Save Changes</button>',
+      '                    <button onclick="rSaveProfile()" style="width:100%;padding:9px;background:rgba(217,119,87,0.12);border:1px solid rgba(217,119,87,0.35);color:var(--rc-cyan,#D97757);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;">Save Changes</button>',
       '                </div>',
       '                <div style="text-align:left;margin-top:14px;border-top:1px solid var(--rc-border,#374151);padding-top:16px;">',
       '                    <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">CHANGE PASSWORD</div>',
       '                    <input type="password" id="r-p-curr-pass" placeholder="Current password" style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;">',
       '                    <input type="password" id="r-p-new-pass" placeholder="New password (min 6 chars)" style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;">',
       '                    <input type="password" id="r-p-confirm-pass" placeholder="Confirm new password" style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;">',
-      '                    <button id="btn-update-r-profile" style="width:100%;padding:12px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:bold;border:none;border-radius:4px;cursor:pointer;letter-spacing:1px;font-family:inherit;">CHANGE PASSWORD</button>',
+      '                    <button id="btn-update-r-profile" style="width:100%;padding:12px;background:var(--rc-cyan,#D97757);color:#000;font-weight:bold;border:none;border-radius:4px;cursor:pointer;letter-spacing:1px;font-family:inherit;">CHANGE PASSWORD</button>',
       '                    <div id="r-p-pass-status" style="font-size:10px;margin-top:8px;text-align:center;min-height:14px;"></div>',
       '                </div>',
       '                <!-- 2FA SECTION -->',
       '                <div style="text-align:left;margin-top:14px;border-top:1px solid var(--rc-border,#374151);padding-top:16px;">',
       '                    <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">TWO-FACTOR AUTHENTICATION</div>',
       '                    <div id="r-2fa-status" style="font-size:11px;color:#9ca3af;margin-bottom:10px;"><i class="fa-solid fa-circle-notch fa-spin"></i> Checking…</div>',
-      '                    <button id="btn-r-setup-2fa" onclick="rSetup2FA()" style="display:none;width:100%;padding:10px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.35);color:var(--rc-cyan,#38bdf8);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;letter-spacing:0.5px;">ENABLE 2FA (TOTP)</button>',
+      '                    <button id="btn-r-setup-2fa" onclick="rSetup2FA()" style="display:none;width:100%;padding:10px;background:rgba(217,119,87,0.1);border:1px solid rgba(217,119,87,0.35);color:var(--rc-cyan,#D97757);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;letter-spacing:0.5px;">ENABLE 2FA (TOTP)</button>',
       '                    <button id="btn-r-remove-2fa" onclick="rRemove2FA()" style="display:none;width:100%;padding:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;letter-spacing:0.5px;">DISABLE 2FA</button>',
       '                    <div id="r-2fa-enroll" style="display:none;margin-top:14px;text-align:center;">',
       '                        <div style="font-size:10px;color:#9ca3af;margin-bottom:10px;line-height:1.5;">Scan with <strong style="color:#fff">Google Authenticator</strong> or <strong style="color:#fff">Authy</strong>, then enter the 6-digit code below to confirm.</div>',
       '                        <img id="r-2fa-qr" src="" style="width:156px;height:156px;background:#fff;padding:8px;border-radius:6px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;">',
       '                        <div style="font-size:9px;color:#6b7280;margin-bottom:6px;letter-spacing:0.5px;">OR ENTER KEY MANUALLY:</div>',
-      '                        <code id="r-2fa-secret" style="font-size:11px;color:var(--rc-cyan,#38bdf8);background:rgba(0,0,0,0.35);padding:6px 10px;border-radius:3px;word-break:break-all;display:block;margin-bottom:14px;text-align:left;"></code>',
+      '                        <code id="r-2fa-secret" style="font-size:11px;color:var(--rc-cyan,#D97757);background:rgba(0,0,0,0.35);padding:6px 10px;border-radius:3px;word-break:break-all;display:block;margin-bottom:14px;text-align:left;"></code>',
       '                        <input type="text" id="r-2fa-verify-code" placeholder="Enter 6-digit code" maxlength="6" inputmode="numeric"',
       '                          style="width:100%;box-sizing:border-box;padding:11px 12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-family:inherit;font-size:16px;text-align:center;letter-spacing:6px;">',
-      '                        <button onclick="rVerify2FA()" style="width:100%;padding:10px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);color:var(--rc-cyan,#38bdf8);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;margin-bottom:6px;">CONFIRM &amp; ACTIVATE</button>',
+      '                        <button onclick="rVerify2FA()" style="width:100%;padding:10px;background:rgba(217,119,87,0.12);border:1px solid rgba(217,119,87,0.35);color:var(--rc-cyan,#D97757);border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit;margin-bottom:6px;">CONFIRM &amp; ACTIVATE</button>',
       '                        <button onclick="rCancel2FA()" style="width:100%;padding:8px;background:none;border:1px solid var(--rc-border,#374151);color:#6b7280;border-radius:4px;cursor:pointer;font-size:10px;font-family:inherit;">Cancel</button>',
       '                    </div>',
       '                </div>',
@@ -910,36 +910,36 @@
       '    <div id="r-settings-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
       '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:420px;max-width:95vw;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
       '        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);">',
-      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#38bdf8);letter-spacing:1px;"><i class="fa-solid fa-sliders"></i> SETTINGS</h3>',
+      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#D97757);letter-spacing:1px;"><i class="fa-solid fa-sliders"></i> SETTINGS</h3>',
       '          <button id="btn-close-settings" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
       '        </div>',
       '        <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px;">',
-      '          <div onclick="window.rOpenAdminsFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#38bdf8\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
-      '            <i class="fa-solid fa-users-gear" style="font-size:20px;color:var(--rc-cyan,#38bdf8);flex-shrink:0;"></i>',
+      '          <div onclick="window.rOpenAdminsFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#D97757\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
+      '            <i class="fa-solid fa-users-gear" style="font-size:20px;color:var(--rc-cyan,#D97757);flex-shrink:0;"></i>',
       '            <div>',
       '              <div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;letter-spacing:0.5px;">MANAGE ADMINS</div>',
       '              <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:2px;">Manage admin console access &amp; permissions</div>',
       '            </div>',
       '            <i class="fa-solid fa-chevron-right" style="margin-left:auto;color:var(--rc-text-dim,#6b7280);font-size:11px;"></i>',
       '          </div>',
-      '          <div onclick="window.rOpenAppUsersFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#38bdf8\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
-      '            <i class="fa-solid fa-id-card-clip" style="font-size:20px;color:var(--rc-cyan,#38bdf8);flex-shrink:0;"></i>',
+      '          <div onclick="window.rOpenAppUsersFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#D97757\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
+      '            <i class="fa-solid fa-id-card-clip" style="font-size:20px;color:var(--rc-cyan,#D97757);flex-shrink:0;"></i>',
       '            <div>',
       '              <div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;letter-spacing:0.5px;">APP USERS</div>',
       '              <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:2px;">Manage access &amp; allowed apps for each Rasumi user</div>',
       '            </div>',
       '            <i class="fa-solid fa-chevron-right" style="margin-left:auto;color:var(--rc-text-dim,#6b7280);font-size:11px;"></i>',
       '          </div>',
-      '          <div onclick="window.rOpenStoreStaffFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#38bdf8\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
-      '            <i class="fa-solid fa-store" style="font-size:20px;color:var(--rc-cyan,#38bdf8);flex-shrink:0;"></i>',
+      '          <div onclick="window.rOpenStoreStaffFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#D97757\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
+      '            <i class="fa-solid fa-store" style="font-size:20px;color:var(--rc-cyan,#D97757);flex-shrink:0;"></i>',
       '            <div>',
       '              <div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;letter-spacing:0.5px;">STORE MANAGEMENT STAFF</div>',
       '              <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:2px;">Create, edit &amp; deactivate Store Portal login accounts</div>',
       '            </div>',
       '            <i class="fa-solid fa-chevron-right" style="margin-left:auto;color:var(--rc-text-dim,#6b7280);font-size:11px;"></i>',
       '          </div>',
-      '          <div onclick="window.rOpenPortalsFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#38bdf8\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
-      '            <i class="fa-solid fa-key" style="font-size:20px;color:var(--rc-cyan,#38bdf8);flex-shrink:0;"></i>',
+      '          <div onclick="window.rOpenPortalsFromSettings()" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--rc-border,#374151);border-radius:6px;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'#D97757\'" onmouseout="this.style.borderColor=\'var(--rc-border,#374151)\'">',
+      '            <i class="fa-solid fa-key" style="font-size:20px;color:var(--rc-cyan,#D97757);flex-shrink:0;"></i>',
       '            <div>',
       '              <div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;letter-spacing:0.5px;">SUPPLIER PORTALS &amp; DOCUSHARE</div>',
       '              <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:2px;">URL, ID &amp; password for Delivery Status scraping and DocuShare</div>',
@@ -954,7 +954,7 @@
       '    <div id="r-portals-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
       '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:900px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
       '        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
-      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#38bdf8);letter-spacing:1px;"><i class="fa-solid fa-key"></i> SUPPLIER PORTALS &amp; DOCUSHARE</h3>',
+      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#D97757);letter-spacing:1px;"><i class="fa-solid fa-key"></i> SUPPLIER PORTALS &amp; DOCUSHARE</h3>',
       '          <button id="btn-close-portals" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
       '        </div>',
       '        <div style="padding:14px 20px;overflow-y:auto;flex:1;">',
@@ -965,16 +965,16 @@
       '    </div>',
 
       '    <!-- DISPLAY SETTINGS PANEL (superadmin only) -->',
-      '    <div id="r-display-panel" class="hidden" style="position:fixed;top:62px;right:116px;z-index:10002;background:rgba(8,12,19,0.97);border:1px solid rgba(56,189,248,0.18);border-radius:10px;padding:18px;width:230px;backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,0.6);">',
+      '    <div id="r-display-panel" class="hidden" style="position:fixed;top:62px;right:116px;z-index:10002;background:rgba(8,12,19,0.97);border:1px solid rgba(217,119,87,0.18);border-radius:10px;padding:18px;width:230px;backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,0.6);">',
       '      <div style="font-size:10px;color:#6b7a8f;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px"><i class="fa-solid fa-display" style="margin-right:5px"></i>Display Settings</div>',
       '      <div style="font-size:11px;color:#9ca3af;margin-bottom:8px">Mode</div>',
       '      <div style="display:flex;gap:8px;margin-bottom:16px">',
-      '        <button id="r-mode-dark-btn" onclick="window.rSetTheme(\'dark\')" style="flex:1;padding:7px 0;border-radius:6px;border:1px solid rgba(56,189,248,0.35);background:rgba(56,189,248,0.1);color:#38bdf8;font-size:11px;cursor:pointer;transition:all 0.15s"><i class="fa-solid fa-moon"></i> Dark</button>',
+      '        <button id="r-mode-dark-btn" onclick="window.rSetTheme(\'dark\')" style="flex:1;padding:7px 0;border-radius:6px;border:1px solid rgba(217,119,87,0.35);background:rgba(217,119,87,0.1);color:#D97757;font-size:11px;cursor:pointer;transition:all 0.15s"><i class="fa-solid fa-moon"></i> Dark</button>',
       '        <button id="r-mode-light-btn" onclick="window.rSetTheme(\'light\')" style="flex:1;padding:7px 0;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:none;color:#6b7a8f;font-size:11px;cursor:pointer;transition:all 0.15s"><i class="fa-solid fa-sun"></i> Light</button>',
       '      </div>',
       '      <div style="font-size:11px;color:#9ca3af;margin-bottom:8px">Background</div>',
       '      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">',
-      '        <div class="r-bg-opt" data-bg="photo" onclick="window.rSetBackground(\'photo\')" title="Default Photo" style="height:40px;border-radius:6px;border:2px solid rgba(56,189,248,0.5);background:url(\'../assets/background.jpg\') center/cover;cursor:pointer"></div>',
+      '        <div class="r-bg-opt" data-bg="photo" onclick="window.rSetBackground(\'photo\')" title="Default Photo" style="height:40px;border-radius:6px;border:2px solid rgba(217,119,87,0.5);background:url(\'../assets/background.jpg\') center/cover;cursor:pointer"></div>',
       '        <div class="r-bg-opt" data-bg="dark" onclick="window.rSetBackground(\'dark\')" title="Background 2" style="height:40px;border-radius:6px;border:2px solid transparent;background:url(\'../assets/background_2.jpg\') center/cover;cursor:pointer"></div>',
       '        <div class="r-bg-opt" data-bg="navy" onclick="window.rSetBackground(\'navy\')" title="Background 3" style="height:40px;border-radius:6px;border:2px solid transparent;background:url(\'../assets/background_3.jpg\') center/cover;cursor:pointer"></div>',
       '        <div class="r-bg-opt" data-bg="purple" onclick="window.rSetBackground(\'purple\')" title="Background 4" style="height:40px;border-radius:6px;border:2px solid transparent;background:url(\'../assets/background_4.jpg\') center/cover;cursor:pointer"></div>',
@@ -988,7 +988,7 @@
       '    <div id="r-admins-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
       '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:500px;max-height:78vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
       '        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
-      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#38bdf8);letter-spacing:1px;"><i class="fa-solid fa-users-gear"></i> MANAGE ADMINS</h3>',
+      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#D97757);letter-spacing:1px;"><i class="fa-solid fa-users-gear"></i> MANAGE ADMINS</h3>',
       '          <button id="btn-close-admins" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
       '        </div>',
       '        <div style="padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
@@ -996,7 +996,7 @@
       '            <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;">ADD NEW ADMIN</div>',
       '            <div style="display:flex;gap:8px;">',
       '              <button id="r-admin-cancel-btn" onclick="rAddPanelClose(\'admin\')" style="display:none;padding:7px 14px;background:transparent;color:var(--rc-text-dim,#9ca3af);font-weight:700;border:1px solid var(--rc-border,#374151);border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">CANCEL</button>',
-      '              <button id="r-admin-add-btn" onclick="rAddPanelClick(\'admin\')" style="padding:7px 16px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">ADD</button>',
+      '              <button id="r-admin-add-btn" onclick="rAddPanelClick(\'admin\')" style="padding:7px 16px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">ADD</button>',
       '            </div>',
       '          </div>',
       '          <div id="r-admin-form" style="display:none;margin-top:10px;">',
@@ -1026,7 +1026,7 @@
       '    <div id="r-husers-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
       '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:720px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
       '        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
-      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#38bdf8);letter-spacing:1px;"><i class="fa-solid fa-id-card-clip"></i> APP USERS</h3>',
+      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#D97757);letter-spacing:1px;"><i class="fa-solid fa-id-card-clip"></i> APP USERS</h3>',
       '          <button id="btn-close-husers" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
       '        </div>',
       '        <div style="padding:12px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
@@ -1034,7 +1034,7 @@
       '            <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;">ADD NEW USER</div>',
       '            <div style="display:flex;gap:8px;">',
       '              <button id="r-huser-cancel-btn" onclick="rHuserFormClose()" style="display:none;padding:7px 14px;background:transparent;color:var(--rc-text-dim,#9ca3af);font-weight:700;border:1px solid var(--rc-border,#374151);border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">CANCEL</button>',
-      '              <button id="r-huser-add-btn" onclick="rHuserAddClick()" style="padding:7px 16px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">ADD</button>',
+      '              <button id="r-huser-add-btn" onclick="rHuserAddClick()" style="padding:7px 16px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">ADD</button>',
       '            </div>',
       '          </div>',
       '          <div id="r-huser-form" style="display:none;margin-top:10px;">',
@@ -1061,7 +1061,7 @@
       '    <div id="r-store-staff-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
       '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:760px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
       '        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
-      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#38bdf8);letter-spacing:1px;"><i class="fa-solid fa-store"></i> STORE MANAGEMENT STAFF</h3>',
+      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#D97757);letter-spacing:1px;"><i class="fa-solid fa-store"></i> STORE MANAGEMENT STAFF</h3>',
       '          <button id="btn-close-store-staff" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
       '        </div>',
       '        <div style="padding:12px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
@@ -1069,7 +1069,7 @@
       '            <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;">ADD NEW STAFF</div>',
       '            <div style="display:flex;gap:8px;">',
       '              <button id="r-sstaff-cancel-btn" onclick="rAddPanelClose(\'sstaff\')" style="display:none;padding:7px 14px;background:transparent;color:var(--rc-text-dim,#9ca3af);font-weight:700;border:1px solid var(--rc-border,#374151);border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">CANCEL</button>',
-      '              <button id="r-sstaff-add-btn" onclick="rAddPanelClick(\'sstaff\')" style="padding:7px 16px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">ADD</button>',
+      '              <button id="r-sstaff-add-btn" onclick="rAddPanelClick(\'sstaff\')" style="padding:7px 16px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">ADD</button>',
       '            </div>',
       '          </div>',
       '          <div id="r-sstaff-form" style="display:none;margin-top:10px;">',
@@ -1550,11 +1550,11 @@
         // Line 1: email + nickname + role + controls
         row += '<div style="display:flex;align-items:center;justify-content:space-between;">';
         row += '<div>';
-        row += '<div style="font-size:12px;color:var(--rc-text,#fff);">' + esc(em) + (nick ? ' <span style="font-size:10px;color:var(--rc-cyan,#38bdf8);">(' + esc(nick) + ')</span>' : '') + '</div>';
+        row += '<div style="font-size:12px;color:var(--rc-text,#fff);">' + esc(em) + (nick ? ' <span style="font-size:10px;color:var(--rc-cyan,#D97757);">(' + esc(nick) + ')</span>' : '') + '</div>';
         row += '<div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:2px;">' + (isSA ? 'SUPER ADMIN' : (canW ? 'ADMIN · Read & Write' : 'ADMIN · Read')) + '</div>';
         row += '</div>';
         if (isSA) {
-          row += '<span style="font-size:10px;color:var(--rc-cyan,#38bdf8);padding:3px 8px;border:1px solid rgba(56,189,248,0.3);border-radius:10px;">Owner</span>';
+          row += '<span style="font-size:10px;color:var(--rc-cyan,#D97757);padding:3px 8px;border:1px solid rgba(217,119,87,0.3);border-radius:10px;">Owner</span>';
         } else {
           row += '<div style="display:flex;gap:10px;align-items:center;">';
           row += '<select id="' + permId + '" onchange="rToggleAdminWrite(\'' + safeEm + '\',this.value===\'write\');rUpdateListPermIndicator(this)" style="padding:5px 8px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:11px;font-family:inherit;cursor:pointer;">';
@@ -1562,7 +1562,7 @@
           row += '<option value="write"' + (canW ? ' selected' : '') + '>Read &amp; Write</option>';
           row += '</select>';
           row += '<span style="font-size:13px;color:#22c55e;' + (canW ? 'display:none' : 'display:inline') + ';" id="tick_' + permId + '">✓</span>';
-          row += '<button onclick="rSendAdminResetEmail(\'' + safeEm + '\')" title="Send reset email" style="background:none;border:1px solid rgba(56,189,248,0.4);color:var(--rc-cyan,#38bdf8);padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;"><i class="fa-solid fa-envelope-circle-check"></i></button>';
+          row += '<button onclick="rSendAdminResetEmail(\'' + safeEm + '\')" title="Send reset email" style="background:none;border:1px solid rgba(217,119,87,0.4);color:var(--rc-cyan,#D97757);padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;"><i class="fa-solid fa-envelope-circle-check"></i></button>';
           row += '<button onclick="rRemoveAdmin(\'' + safeEm + '\')" style="background:none;border:1px solid rgba(239,68,68,0.5);color:#ef4444;padding:3px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;">Remove</button>';
           row += '</div>';
         }
@@ -2994,7 +2994,7 @@
       '<i class="fa-solid fa-chart-line"></i> USAGE ANALYTICS' +
       '<div style="margin-left:auto;display:flex;gap:4px;align-items:center">' +
       '<div style="background:rgba(0,0,0,0.3);border-radius:4px;display:flex;padding:2px;margin-right:12px">' +
-      '<button class="r-btn-sm" id="d-chart-by-app" style="background:rgba(56,189,248,0.2);border:none" onclick="window.rToggleDashChartType(\'app\')">By App</button>' +
+      '<button class="r-btn-sm" id="d-chart-by-app" style="background:rgba(217,119,87,0.2);border:none" onclick="window.rToggleDashChartType(\'app\')">By App</button>' +
       '<button class="r-btn-sm" id="d-chart-by-dev" style="background:transparent;border:none;opacity:0.6;font-weight:400" onclick="window.rToggleDashChartType(\'dev\')">By Device</button>' +
       '</div>' +
       '<button class="r-btn-sm" id="d-chart-day" style="opacity:0.45;font-weight:400" onclick="window.rToggleDashChartView(\'day\')">Day</button>' +
@@ -3009,7 +3009,7 @@
       '<div style="display:flex;align-items:center;gap:8px;margin-top:12px">' +
       '<div id="d-chart-legend" style="display:flex;gap:12px;flex-wrap:wrap;flex:1"></div>' +
       '<button class="r-btn-sm" style="background:rgba(255,255,255,0.05);color:var(--rc-text);border-color:var(--rc-border)" onclick="window.rExportDashChart()"><i class="fa-solid fa-file-excel" style="color:#22c55e"></i> Export</button>' +
-      '<button class="r-btn-sm" style="background:rgba(255,255,255,0.05);color:var(--rc-text);border-color:var(--rc-border)" onclick="window.rOpenFullReport()"><i class="fa-solid fa-file-lines" style="color:#0ea5e9"></i> Full Report</button>' +
+      '<button class="r-btn-sm" style="background:rgba(255,255,255,0.05);color:var(--rc-text);border-color:var(--rc-border)" onclick="window.rOpenFullReport()"><i class="fa-solid fa-file-lines" style="color:#C4623F"></i> Full Report</button>' +
       '</div>' +
       '</div>' +
       '</div>';
@@ -3123,7 +3123,7 @@
       return '<div class="r-tele-empty"><i class="fa-solid fa-satellite-dish"></i>Select a node from the list</div>';
     }
     var netVal = (d.net_up_bps !== undefined || d.net_down_bps !== undefined)
-      ? '<span style="color:#4ade80">↑' + _fmtNetSpeed(d.net_up_bps) + '</span> <span style="color:#38bdf8">↓' + _fmtNetSpeed(d.net_down_bps) + '</span>'
+      ? '<span style="color:#4ade80">↑' + _fmtNetSpeed(d.net_up_bps) + '</span> <span style="color:#D97757">↓' + _fmtNetSpeed(d.net_down_bps) + '</span>'
       : '—';
     var rows = [
       ['STATUS', '<span class="r-badge ' + ({ online: 'r-badge-ok', stale: 'r-badge-warn', offline: 'r-badge-err' }[d._status] || 'r-badge-muted') + '">' + d._status.toUpperCase() + '</span>'],
@@ -3152,13 +3152,13 @@
     }
     var cmds =
       '<div class="r-tele-cmds">' +
-      _tc('PING', '#0ea5e9', 'PING') +
+      _tc('PING', '#C4623F', 'PING') +
       _tc('RESTART', '#f59e0b', 'RESTART') +
       _tc('KILL', '#ef4444', 'KILL') +
       _tc('VERSION_CHECK', '#a78bfa', 'VERSION') +
       _tc('CHECK_DISK', '#fb923c', 'DISK') +
       _tc('GET_LOGS', '#4ade80', 'LOGS') +
-      _tc('CAPTURE_PUBLIC_IP', '#22d3ee', 'LOCATION') +
+      _tc('CAPTURE_PUBLIC_IP', '#E8956F', 'LOCATION') +
       '<button class="r-tele-chip r-tele-chip-nav" onclick="rNav(\'r-device:' + esc(d.id) + '\')"><i class="fa-solid fa-eye"></i> View Details</button>' +
       '</div>';
     return '<div style="flex:1;overflow-y:auto;min-height:0">' + rowsHTML + '</div>' + cmds;
@@ -3199,7 +3199,7 @@
       var bat = (data.battery !== null && data.battery !== undefined) ? 'Battery: ' + data.battery + '%' : 'Battery: N/A (Desktop)';
 
       var html = '<div class="r-health-expandable" onclick="this.classList.toggle(\'expanded\')" style="cursor:pointer;">' +
-        '  <div class="r-health-collapsed-view" style="color:var(--rc-cyan,#38bdf8);font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;">' +
+        '  <div class="r-health-collapsed-view" style="color:var(--rc-cyan,#D97757);font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;">' +
         '    <i class="fa-solid fa-chevron-right" style="margin-right:6px;"></i>Health Summary' +
         '  </div>' +
         '  <div class="r-health-expanded-view">' +
@@ -3207,11 +3207,11 @@
         '      <i class="fa-solid fa-chevron-down" style="margin-right:6px;"></i>Health Summary' +
         '    </div>' +
         '    <div style="font-size:11px;line-height:1.6;color:var(--rc-text-dim,#9ca3af)">' +
-        '      <div style="font-weight:bold;color:var(--rc-cyan,#38bdf8);margin-bottom:3px;"><i class="fa-solid fa-hard-drive"></i> Disks:</div>' +
+        '      <div style="font-weight:bold;color:var(--rc-cyan,#D97757);margin-bottom:3px;"><i class="fa-solid fa-hard-drive"></i> Disks:</div>' +
         '      <div style="margin-left:8px;margin-bottom:6px;">' + diskLines.map(function (l) { return '• ' + esc(l); }).join('<br>') + '</div>' +
-        '      <div style="font-weight:bold;color:var(--rc-cyan,#38bdf8);margin-bottom:3px;"><i class="fa-solid fa-server"></i> System Cache & Temps:</div>' +
+        '      <div style="font-weight:bold;color:var(--rc-cyan,#D97757);margin-bottom:3px;"><i class="fa-solid fa-server"></i> System Cache & Temps:</div>' +
         '      <div style="margin-left:8px;margin-bottom:6px;">' + esc(sizes.join(' | ')) + '</div>' +
-        '      <div style="font-weight:bold;color:var(--rc-cyan,#38bdf8);margin-bottom:3px;"><i class="fa-solid fa-heartpulse"></i> Disk Health & Battery:</div>' +
+        '      <div style="font-weight:bold;color:var(--rc-cyan,#D97757);margin-bottom:3px;"><i class="fa-solid fa-heartpulse"></i> Disk Health & Battery:</div>' +
         '      <div style="margin-left:8px;">' + healthLines.map(function (l) { return '• ' + esc(l); }).join('<br>') + '<br>• ' + esc(bat) + '</div>';
 
       if (data.junk_processes && data.junk_processes.length) {
@@ -3243,7 +3243,7 @@
       '<div style="background:var(--rc-surface,#0d1117);border:1px solid var(--rc-border,#1e293b);border-radius:12px;' +
       'width:100%;max-width:820px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--rc-border,#1e293b)">' +
-      '<span style="font-size:13px;font-weight:600;color:var(--rc-cyan,#38bdf8)"><i class="fa-solid fa-scroll" style="margin-right:8px"></i>Full Log Output</span>' +
+      '<span style="font-size:13px;font-weight:600;color:var(--rc-cyan,#D97757)"><i class="fa-solid fa-scroll" style="margin-right:8px"></i>Full Log Output</span>' +
       '<button onclick="document.getElementById(\'' + ovId + '\').remove()" style="background:none;border:none;color:var(--rc-muted);cursor:pointer;font-size:16px;">✕</button>' +
       '</div>' +
       '<pre id="r-fulllog-pre" style="margin:0;padding:16px;overflow:auto;font-size:11px;font-family:\'JetBrains Mono\',monospace;color:var(--rc-text);line-height:1.6;flex:1;">' +
@@ -3621,7 +3621,7 @@
     { label: 'Renamer HQ', color: '#a855f7', re: /renamer\s*hq/i },
     { label: 'Renamer FV', color: '#8b5cf6', re: /fv[\s._-]branch|renamer\s*fv/i },
     { label: 'PDF Splitter', color: '#22c55e', re: /pdf[\s._-]?split/i },
-    { label: 'Scanify', color: '#38bdf8', re: /scanify/i },
+    { label: 'Scanify', color: '#D97757', re: /scanify/i },
     { label: 'PDF Studio', color: '#eab308', re: /pdf[\s._-]?studio/i },
     { label: 'Quick Rename', color: '#f97316', re: /quick[\s._-]?rename/i },
     { label: 'Vibes Agent', color: '#ef4444', re: /vibes|vims/i },
@@ -3646,8 +3646,8 @@
     if (window.dashChartState.type === type) return;
     window.dashChartState.type = type;
     var ab = $r('d-chart-by-app'), db = $r('d-chart-by-dev');
-    if (ab) { ab.style.background = type === 'app' ? 'rgba(56,189,248,0.2)' : 'transparent'; ab.style.opacity = type === 'app' ? '1' : '0.6'; ab.style.fontWeight = type === 'app' ? '600' : '400'; }
-    if (db) { db.style.background = type === 'dev' ? 'rgba(56,189,248,0.2)' : 'transparent'; db.style.opacity = type === 'dev' ? '1' : '0.6'; db.style.fontWeight = type === 'dev' ? '600' : '400'; }
+    if (ab) { ab.style.background = type === 'app' ? 'rgba(217,119,87,0.2)' : 'transparent'; ab.style.opacity = type === 'app' ? '1' : '0.6'; ab.style.fontWeight = type === 'app' ? '600' : '400'; }
+    if (db) { db.style.background = type === 'dev' ? 'rgba(217,119,87,0.2)' : 'transparent'; db.style.opacity = type === 'dev' ? '1' : '0.6'; db.style.fontWeight = type === 'dev' ? '600' : '400'; }
     window.loadDashUsageChart();
   };
 
@@ -4309,14 +4309,14 @@
 
       if (pct > 0.5) {
         var g = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
-        g.addColorStop(0, '#38bdf8');
+        g.addColorStop(0, '#D97757');
         g.addColorStop(0.45, '#b200ff');
         g.addColorStop(1, '#ff00aa');
 
         // Effect 1 — Breathing outer glow: spread and opacity oscillate with breathe
         ctx.beginPath();
         ctx.arc(cx, cy, R, startA, endA);
-        ctx.strokeStyle = 'rgba(56,189,248,' + (0.08 + 0.14 * breathe).toFixed(2) + ')';
+        ctx.strokeStyle = 'rgba(217,119,87,' + (0.08 + 0.14 * breathe).toFixed(2) + ')';
         ctx.lineWidth = lw + 6 + 10 * breathe;
         ctx.lineCap = 'round';
         ctx.stroke();
@@ -4446,8 +4446,8 @@
         ctx.rotate(a - Math.PI / 2);  // long axis → radial direction
 
         if (i < filled) {
-          var col = t < 0.33 ? lerpC('#b200ff', '#38bdf8', t / 0.33)
-            : t < 0.66 ? lerpC('#38bdf8', '#ff00aa', (t - 0.33) / 0.33)
+          var col = t < 0.33 ? lerpC('#b200ff', '#D97757', t / 0.33)
+            : t < 0.66 ? lerpC('#D97757', '#ff00aa', (t - 0.33) / 0.33)
               : lerpC('#ff00aa', '#b200ff', (t - 0.66) / 0.34);
 
           // Effect 1 — Breathing glow on all filled capsules
@@ -5006,7 +5006,7 @@
   function _devTh(label, col, width) {
     var active = RS._devSort.col === col;
     var arrow = active ? (RS._devSort.dir === 1 ? ' ↑' : ' ↓') : ' <span style="opacity:0.25">↕</span>';
-    var style = _devThStyle() + (active ? ';color:#38bdf8' : '') + (width ? ';width:' + width : '');
+    var style = _devThStyle() + (active ? ';color:#D97757' : '') + (width ? ';width:' + width : '');
     return '<th style="' + style + '" onclick="rSortDevices(\'' + col + '\')">' + label + arrow + '</th>';
   }
 
@@ -5115,7 +5115,7 @@
 
       var jobLabel = _fmtJob(d.current_job);
       var jobCell = jobLabel
-        ? '<span style="color:#38bdf8;font-size:11px;font-weight:600;letter-spacing:.5px">' + esc(jobLabel) + '</span>'
+        ? '<span style="color:#D97757;font-size:11px;font-weight:600;letter-spacing:.5px">' + esc(jobLabel) + '</span>'
         : d._status === 'offline'
           ? '<span style="color:#334155">—</span>'
           : '<span style="color:#475569;font-size:11px">IDLE</span>';
@@ -5338,7 +5338,7 @@
   var _DD_APPS = [
     { label: 'Renamer', color: '#a855f7', re: /renamer|fv[\s._-]branch/i },
     { label: 'PDF Splitter', color: '#22c55e', re: /pdf[\s._-]?split/i },
-    { label: 'Scanify', color: '#38bdf8', re: /scanify/i },
+    { label: 'Scanify', color: '#D97757', re: /scanify/i },
     { label: 'PDF Studio', color: '#eab308', re: /pdf[\s._-]?studio/i },
     { label: 'Quick Rename', color: '#f97316', re: /quick[\s._-]?rename/i },
     { label: 'Vibes Agent', color: '#ef4444', re: /vibes/i },
@@ -5658,7 +5658,7 @@
       var batClr = bat.percent < 20 ? '#ef4444' : bat.percent < 50 ? '#f59e0b' : '#22c55e';
       html += _healthRow('BATTERY',
         '<span style="color:' + batClr + '">' + Math.round(bat.percent) + '%</span>' +
-        (bat.plugged ? ' <span style="color:#38bdf8;font-size:10px">⚡ Charging</span>' : '') +
+        (bat.plugged ? ' <span style="color:#D97757;font-size:10px">⚡ Charging</span>' : '') +
         '<div style="height:3px;background:#1e293b;border-radius:2px;margin-top:3px;width:100px">' +
         '<div style="height:100%;width:' + Math.min(100, bat.percent) + '%;background:' + batClr + ';border-radius:2px"></div></div>');
     }
@@ -5666,7 +5666,7 @@
     // Disk type
     if (data.disk_types && data.disk_types.length) {
       html += _healthRow('DISK TYPE', data.disk_types.map(function (t) {
-        var c = t.type === 'NVMe' ? '#38bdf8' : t.type === 'SSD' ? '#22c55e' : t.type === 'HDD' ? '#f59e0b' : '#64748b';
+        var c = t.type === 'NVMe' ? '#D97757' : t.type === 'SSD' ? '#22c55e' : t.type === 'HDD' ? '#f59e0b' : '#64748b';
         // Strip redundant type prefix from friendly name (e.g. "NVMe KINGSTON..." → "KINGSTON...")
         var dispName = t.name.replace(/^(NVMe|SSD|HDD)\s+/i, '');
         return '<span style="margin-right:14px"><span style="color:#94a3b8;font-size:10px">' + esc(dispName) + '</span> <span style="color:' + c + '">' + esc(t.type) + '</span></span>';
@@ -5751,9 +5751,9 @@
     ov.id = 'r-diskclean-ov';
     ov.style.cssText = 'position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;';
     ov.innerHTML =
-      '<div style="background:rgba(8,12,19,0.98);border:1px solid rgba(56,189,248,0.2);border-radius:12px;width:400px;max-width:94vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.7);font-family:inherit;">' +
+      '<div style="background:rgba(8,12,19,0.98);border:1px solid rgba(217,119,87,0.2);border-radius:12px;width:400px;max-width:94vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,0.7);font-family:inherit;">' +
         '<div style="padding:14px 18px 12px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:10px;">' +
-          '<i class="fa-solid fa-trash-can" style="color:#38bdf8;font-size:14px"></i>' +
+          '<i class="fa-solid fa-trash-can" style="color:#D97757;font-size:14px"></i>' +
           '<span style="font-size:13px;font-weight:600;color:#f9fafb">DISK CLEAN UP — ' + esc(hostname) + '</span>' +
           '<button onclick="window._rDcClose()" style="margin-left:auto;background:none;border:none;color:#6b7280;cursor:pointer;font-size:22px;line-height:1;padding:0 2px">×</button>' +
         '</div>' +
@@ -6110,7 +6110,7 @@
         'onclick="document.getElementById(\'r-cmd-inp\').value=\'' + cmd + '\'">' + cmd + '</button>';
     };
     var grp1 =
-      _chip('PING', '#0ea5e9') +
+      _chip('PING', '#C4623F') +
       _chip('KILL', 'var(--rc-red)') +
       _chip('RESTART', '#f59e0b') +
       _chip('REFRESH_STATUS', '#10b981') +
@@ -6123,7 +6123,7 @@
       _chip('CHECK_DISK', '#fb923c') +
       _chip('GET_LOGS', '#4ade80') +
       _chip('SPEED_TEST', '#e879f9') +
-      _chip('CAPTURE_PUBLIC_IP', '#22d3ee') +
+      _chip('CAPTURE_PUBLIC_IP', '#E8956F') +
       _chip('CLEAR_CACHE', '#94a3b8') +
       _chip('CLEAR_LOGS', '#64748b') +
       _chip('RUN_SCRIPT', '#f97316');
@@ -6699,7 +6699,7 @@
   window.rPoRefSec = function (sec) {
     _poRefSec = sec;
     ['branches', 'loa', 'static', 'items'].forEach(function (k) {
-      var b = $r('po-ref-b-' + k); if (b) b.style.background = (k === sec) ? 'rgba(56,189,248,0.28)' : '';
+      var b = $r('po-ref-b-' + k); if (b) b.style.background = (k === sec) ? 'rgba(217,119,87,0.28)' : '';
     });
     var box = $r('po-ref-body'); if (!box) return;
     if (sec === 'branches') return _poRefBranches(box);
@@ -7044,7 +7044,7 @@
   // text <-> contenteditable (placeholders become locked chips)
   function _poTplChip(n, isBlock) {
     return '<span class="po-tpl-chip" contenteditable="false" data-ph="' + esc(n) + '" style="display:inline-block;padding:0 7px;margin:0 1px;border-radius:5px;font-size:12px;cursor:default;user-select:none;' +
-      (isBlock ? 'background:rgba(56,189,248,.18);color:#38bdf8;border:1px solid rgba(56,189,248,.45)' : 'background:rgba(255,255,255,.1);color:#cbd5e1;border:1px solid rgba(255,255,255,.25)') + '">{' + esc(n) + '}</span>';
+      (isBlock ? 'background:rgba(217,119,87,.18);color:#D97757;border:1px solid rgba(217,119,87,.45)' : 'background:rgba(255,255,255,.1);color:#cbd5e1;border:1px solid rgba(255,255,255,.25)') + '">{' + esc(n) + '}</span>';
   }
   function _poTplToHtml(t, text) {
     return esc(text).replace(/\{([a-z_]+)\}/g, function (m, n) {
@@ -7081,7 +7081,7 @@
         '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-envelope-open-text"></i> Email Templates</h3>' +
         '<div class="r-filter-bar"><select id="po-tpl-sel" class="r-filter-sel" onchange="rPoTplPick(this.value)">' + opts + '</select>' +
         (canWrite ? '<button id="po-tpl-editbtn" onclick="rPoTplEdit(true)" title="Edit template" aria-label="Edit template" style="flex:0 0 auto;background:none;border:none;color:var(--rc-cyan);cursor:pointer;padding:4px 8px;font-size:15px"><i class="fa-solid fa-pen"></i></button>' : '') + '</div></div>' +
-        '<div class="r-info-box"><i class="fa-solid fa-info-circle"></i><div>Changes reach the desktop app within ~10 minutes (or next login). No rebuild needed. Placeholders in <span style="color:#38bdf8">{blue}</span> / grey boxes are filled in by the app and are locked; edit only the wording around them. Octopus, Req DO and DO→TNB (email and per-supplier paragraph) are included.</div></div>' +
+        '<div class="r-info-box"><i class="fa-solid fa-info-circle"></i><div>Changes reach the desktop app within ~10 minutes (or next login). No rebuild needed. Placeholders in <span style="color:#D97757">{blue}</span> / grey boxes are filled in by the app and are locked; edit only the wording around them. Octopus, Req DO and DO→TNB (email and per-supplier paragraph) are included.</div></div>' +
         '<div id="po-tpl-meta" style="font-size:11px;color:#6B7A8F;margin:8px 0"></div>' +
         '<div id="po-tpl-subjlbl" style="font-size:11px;color:#6B7A8F;margin-bottom:3px">Subject</div>' +
         '<div id="po-tpl-subj" class="r-filter-input" style="' + boxCss + '" oninput="rPoTplChanged()" onkeydown="if(event.key===\'Enter\')event.preventDefault()"></div>' +
@@ -7124,7 +7124,7 @@
     ['po-tpl-subj', 'po-tpl-body'].forEach(function (id) {
       var el = $r(id); el.setAttribute('contenteditable', on ? 'true' : 'false');
       el.style.opacity = on ? '1' : '.85'; el.style.cursor = on ? 'text' : 'default';
-      el.style.borderColor = on ? '#38bdf8' : '';
+      el.style.borderColor = on ? '#D97757' : '';
     });
     var show = function (id, v) { var e = $r(id); if (e) e.style.display = v ? '' : 'none'; };
     show('po-tpl-editbtn', !on); show('po-tpl-cancel', on); show('po-tpl-chipbar', on); show('po-tpl-restore', on);
@@ -7255,7 +7255,7 @@
             '</span> <span style="color:#6B7A8F">' + esc(new Date(p.last_login_at).toLocaleString()) + ' — ' + esc(p.last_login_msg || '') + '</span>'
           : '<span style="color:#6B7A8F">Never logged in</span>';
         return '<div style="padding:10px 0;border-top:1px solid rgba(255,255,255,0.06)">' +
-          (showRole ? '<div style="font-size:11px;letter-spacing:0.6px;text-transform:uppercase;color:#38bdf8;margin-bottom:6px"><i class="fa-solid fa-user-lock"></i> ' + role + ' login <span style="color:#6B7A8F;text-transform:none">— shows ' + (/_fv$/.test(p.portal_key) ? 'Farmasi Veteran branch orders' : 'TNB tender orders') + '</span></div>' : '') +
+          (showRole ? '<div style="font-size:11px;letter-spacing:0.6px;text-transform:uppercase;color:#D97757;margin-bottom:6px"><i class="fa-solid fa-user-lock"></i> ' + role + ' login <span style="color:#6B7A8F;text-transform:none">— shows ' + (/_fv$/.test(p.portal_key) ? 'Farmasi Veteran branch orders' : 'TNB tender orders') + '</span></div>' : '') +
           '<div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:center">' +
           '<input class="r-filter-input" id="sp-url-' + k + '" placeholder="Portal URL" value="' + esc(p.url || '') + '"' + (canWrite ? '' : ' disabled') + '>' +
           '<input class="r-filter-input" id="sp-user-' + k + '" placeholder="ID / username" autocomplete="off" value="' + esc(p.username || '') + '"' + (canWrite ? '' : ' disabled') + '>' +
@@ -7329,10 +7329,10 @@
     if (!RS._charts) RS._charts = {};
     RS._charts.poVolume = new Chart(canvas, {
       type: 'bar',
-      data: { labels: labels, datasets: [{ data: data, backgroundColor: 'rgba(56,189,248,0.55)', borderRadius: 3, maxBarThickness: 22 }] },
+      data: { labels: labels, datasets: [{ data: data, backgroundColor: 'rgba(217,119,87,0.55)', borderRadius: 3, maxBarThickness: 22 }] },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,14,26,0.9)', titleColor: '#aaa', bodyColor: '#38bdf8' } },
+        plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(10,14,26,0.9)', titleColor: '#aaa', bodyColor: '#D97757' } },
         scales: {
           x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6B7A8F', font: { size: 9 } } },
           y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6B7A8F', font: { size: 9 }, precision: 0 }, beginAtZero: true }
@@ -7860,7 +7860,7 @@
               // Left group — claim identity + shared details, free to wrap/grow.
               '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1;min-width:0">' +
               '<span style="color:var(--text-muted)">No. Tuntutan:</span>' +
-              '<span style="font-family:monospace;color:var(--neon-cyan,#22d3ee)">' + esc(cNo) + '</span>' +
+              '<span style="font-family:monospace;color:var(--neon-cyan,#E8956F)">' + esc(cNo) + '</span>' +
               '<span style="color:rgba(255,255,255,0.2)">|</span>' +
               '<span style="color:var(--text-muted)">Batch:</span>' +
               '<span style="font-family:monospace;color:var(--rc-text,#f9fafb)">' + esc(batch0Short) + '</span>' +
@@ -7909,8 +7909,8 @@
             'onclick="(function(el){var d=document.getElementById(\'vmdd-' + devKey2 + '\');var o=d.style.display!==\'none\';d.style.display=o?\'none\':\'\';var a=el.querySelector(\'.vmd-arr\');if(a)a.textContent=o?\'▼\':\'▲\';})(this)">' +
             '<div style="display:flex;align-items:center;gap:10px;font-size:11px">' +
             '<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">' +
-            '<i class="fa-solid fa-server" style="font-size:9px;color:var(--neon-cyan,#22d3ee)"></i>' +
-            '<span style="font-family:monospace;color:var(--neon-cyan,#22d3ee);font-weight:600">' + esc(host) + '</span>' +
+            '<i class="fa-solid fa-server" style="font-size:9px;color:var(--neon-cyan,#E8956F)"></i>' +
+            '<span style="font-family:monospace;color:var(--neon-cyan,#E8956F);font-weight:600">' + esc(host) + '</span>' +
             '</div>' +
             '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">' +
             '<span class="r-badge ' + (devOpen ? 'r-badge-err' : _isNoFile ? 'r-badge-muted' : 'r-badge-ok') + '" style="font-size:9px">' + (devOpen ? devOpen + ' OPEN' : _isNoFile ? 'EXPECTED' : 'ALL FIXED') + '</span>' +
@@ -8474,7 +8474,7 @@
             '<td style="font-size:11px;color:#fbbf24;vertical-align:top;padding-top:5px">' + esc(action) + '</td>' +
             '<td style="vertical-align:top;padding-top:5px;white-space:nowrap">' +
             (isAck
-              ? '<span style="font-size:11px;color:#38bdf8">Acknowledged</span>'
+              ? '<span style="font-size:11px;color:#D97757">Acknowledged</span>'
               : '<span style="font-size:11px;color:#64748b">—</span>') +
             '</td>' +
             '</tr>';
@@ -9279,7 +9279,7 @@
             var _tnoDateKey = _tnoMaxTs.substring(0, 10);
             var _tnoRunCount = _tnoDateKey ? (_vibesRunCountMap[tNo + '|' + _tnoDateKey] || 1) : 1;
             return '<div style="margin-bottom:14px">' +
-              '<div style="font-size:11px;font-weight:600;color:var(--rc-cyan,#38bdf8);padding:6px 0 4px;letter-spacing:0.04em">' +
+              '<div style="font-size:11px;font-weight:600;color:var(--rc-cyan,#D97757);padding:6px 0 4px;letter-spacing:0.04em">' +
               '<i class="fa-solid fa-id-card" style="margin-right:5px;opacity:0.7"></i>No. Tuntutan: ' + esc(tNo) +
               (_tnoMaxTs ? '<span style="font-size:10px;font-weight:400;color:#64748b;margin-left:10px;letter-spacing:0.02em">' + _fmtDate(_tnoMaxTs) + '</span>' : '') +
               (_tnoRunCount > 1 ? '<span style="font-size:10px;font-weight:400;color:#f59e0b;margin-left:8px;letter-spacing:0.02em">(Processed ' + _tnoRunCount + 'x)</span>' : '') + '</div>' +
@@ -9431,12 +9431,12 @@
           var isValidationSkip = isFail && errType && errType.type === 'validation';
           return '<tr>' +
             (isFail && !isAcked && !isFixed && !isValidationSkip
-              ? '<td style="vertical-align:top;padding-top:7px;text-align:center;width:32px"><input type="checkbox" class="r-fail-chk-' + gKey + '" data-id="' + logId + '" onchange="rUpdateFailSelection(\'' + gKey + '\')" style="cursor:pointer;accent-color:var(--rc-cyan,#38bdf8);width:14px;height:14px"></td>'
+              ? '<td style="vertical-align:top;padding-top:7px;text-align:center;width:32px"><input type="checkbox" class="r-fail-chk-' + gKey + '" data-id="' + logId + '" onchange="rUpdateFailSelection(\'' + gKey + '\')" style="cursor:pointer;accent-color:var(--rc-cyan,#D97757);width:14px;height:14px"></td>'
               : '<td></td>') +
             '<td class="r-font-mono" style="white-space:nowrap;vertical-align:top;padding-top:6px">' + _fmtTime(l.timestamp) + '</td>' +
             '<td class="r-cell-trunc" style="max-width:180px;vertical-align:top;padding-top:6px">' + esc(fname) + '</td>' +
             (isRenamer
-              ? '<td class="r-cell-trunc r-font-mono" style="max-width:180px;vertical-align:top;padding-top:6px;color:' + (resultName ? 'var(--rc-cyan,#38bdf8)' : '#475569') + '" title="' + esc(resultName) + '">' + (resultName ? esc(resultName) : '—') + '</td>'
+              ? '<td class="r-cell-trunc r-font-mono" style="max-width:180px;vertical-align:top;padding-top:6px;color:' + (resultName ? 'var(--rc-cyan,#D97757)' : '#475569') + '" title="' + esc(resultName) + '">' + (resultName ? esc(resultName) : '—') + '</td>'
               : '') +
             '<td style="vertical-align:top;padding-top:6px">' +
             (function () {
@@ -9498,7 +9498,7 @@
               '<i class="fa-solid fa-circle-check"></i> Mark All Fixed (' + pendingBugCount + ')</button>'
               : '') +
             '<button id="r-ack-sel-' + gKey + '" class="r-btn-sm" onclick="rAcknowledgeSelected(\'' + gKey + '\')" ' +
-            'style="display:none;font-size:11px;color:var(--rc-cyan,#38bdf8);border-color:rgba(56,189,248,0.35)">' +
+            'style="display:none;font-size:11px;color:var(--rc-cyan,#D97757);border-color:rgba(217,119,87,0.35)">' +
             '<i class="fa-solid fa-eye"></i> Acknowledge Selected</button>' +
             '<button class="r-btn-sm" onclick="rExportFailCsv(\'' + gKey + '\')" ' +
             'title="Download failed file list as CSV" style="font-size:11px">' +
@@ -9512,7 +9512,7 @@
           : '';
 
         var chkHeader = pendingSysCount > 0 || pendingBugCount > 0
-          ? '<input type="checkbox" id="chk-all-' + gKey + '" onchange="rSelectAllFailed(\'' + gKey + '\',this.checked)" style="cursor:pointer;accent-color:var(--rc-cyan,#38bdf8);width:14px;height:14px" title="Select all pending">'
+          ? '<input type="checkbox" id="chk-all-' + gKey + '" onchange="rSelectAllFailed(\'' + gKey + '\',this.checked)" style="cursor:pointer;accent-color:var(--rc-cyan,#D97757);width:14px;height:14px" title="Select all pending">'
           : '';
         var detailHeaders = isRenamer
           ? [chkHeader, 'Time', 'File', 'Result', 'Status', 'Error / Detail', 'Duration', 'Pages', 'Action']
@@ -9781,7 +9781,7 @@
       '<h4>Quick Commands <span class="r-muted-sm">— click to fill input</span></h4>' +
       '<div style="font-size:10px;color:var(--rc-muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px;margin-bottom:3px">System Control</div>' +
       '<div style="display:flex;flex-wrap:wrap;gap:5px">' +
-      _qCmd('PING', 'fa-satellite-dish', '#0ea5e9', 'Check if machine is alive — returns CPU, RAM & uptime') +
+      _qCmd('PING', 'fa-satellite-dish', '#C4623F', 'Check if machine is alive — returns CPU, RAM & uptime') +
       _qCmd('KILL', 'fa-skull', 'var(--rc-red)', 'Force close Rasumi Apps immediately') +
       _qCmd('RESTART', 'fa-rotate-right', '#f59e0b', 'Relaunch Rasumi Apps on target machine') +
       _qCmd('REFRESH', 'fa-arrows-rotate', '#10b981', 'Force push machine status to Supabase now') +
@@ -9797,7 +9797,7 @@
       _qCmd('CHECK_DISK', 'fa-hard-drive', '#fb923c', 'Show free/used space on all drives with health status') +
       _qCmd('GET_LOGS', 'fa-scroll', '#4ade80', 'Fetch latest error logs from the machine') +
       _qCmd('SPEED_TEST', 'fa-gauge-high', '#e879f9', 'Measure internet ping, download and upload speed') +
-      _qCmd('CAPTURE_PUBLIC_IP', 'fa-location-dot', '#22d3ee', 'Fetch public IP and geolocation, update device map pin', 'GET_LOCATION') +
+      _qCmd('CAPTURE_PUBLIC_IP', 'fa-location-dot', '#E8956F', 'Fetch public IP and geolocation, update device map pin', 'GET_LOCATION') +
       _qCmd('CLEAR_CACHE', 'fa-broom', '#94a3b8', 'Delete temp files and free up disk space') +
       _qCmd('CLEAR_LOGS', 'fa-trash-can', '#64748b', 'Clear old local log files on machine') +
       _qCmd('RUN_SCRIPT', 'fa-terminal', '#f97316', 'Execute custom PowerShell script silently (SUPER ADMIN)') +
@@ -9835,7 +9835,7 @@
       '</select>' +
       '<div class="r-ann-sep"></div>' +
       '<button class="r-ann-clr" title="White"  style="background:#ffffff" onmousedown="event.preventDefault();rAnnColor(\'#ffffff\')"></button>' +
-      '<button class="r-ann-clr" title="Cyan"   style="background:#38bdf8" onmousedown="event.preventDefault();rAnnColor(\'#38bdf8\')"></button>' +
+      '<button class="r-ann-clr" title="Cyan"   style="background:#D97757" onmousedown="event.preventDefault();rAnnColor(\'#D97757\')"></button>' +
       '<button class="r-ann-clr" title="Green"  style="background:#39ff14" onmousedown="event.preventDefault();rAnnColor(\'#39ff14\')"></button>' +
       '<button class="r-ann-clr" title="Red"    style="background:#ff003c" onmousedown="event.preventDefault();rAnnColor(\'#ff003c\')"></button>' +
       '<button class="r-ann-clr" title="Amber"  style="background:#f59e0b" onmousedown="event.preventDefault();rAnnColor(\'#f59e0b\')"></button>' +
@@ -9942,7 +9942,7 @@
           var u = adminMap[c.created_by];
           if (u && u.nickname) {
             var isSA = (u.role === 'superadmin');
-            var colorStr = '#38bdf8', bgStr = 'rgba(56,189,248,0.1)', borderStr = 'rgba(56,189,248,0.25)';
+            var colorStr = '#D97757', bgStr = 'rgba(217,119,87,0.1)', borderStr = 'rgba(217,119,87,0.25)';
             if (!isSA) {
               var hash = 0, em = c.created_by || '';
               for (var i = 0; i < em.length; i++) hash = em.charCodeAt(i) + ((hash << 5) - hash);
@@ -9966,7 +9966,7 @@
           if (cmdTxt === 'STATUS' || cmdTxt === 'REFRESH_STATUS') cmdTxt = 'REFRESH';
 
           var cmdColor = 'var(--rc-text)';
-          if (cmdTxt === 'PING') cmdColor = '#0ea5e9';
+          if (cmdTxt === 'PING') cmdColor = '#C4623F';
           else if (cmdTxt === 'KILL') cmdColor = 'var(--rc-red)';
           else if (cmdTxt === 'RESTART') cmdColor = '#f59e0b';
           else if (cmdTxt === 'REFRESH') cmdColor = '#10b981';
@@ -9978,7 +9978,7 @@
           else if (cmdTxt === 'CHECK_DISK') cmdColor = '#fb923c';
           else if (cmdTxt === 'GET_LOGS') cmdColor = '#34d399';
           else if (cmdTxt === 'SPEED_TEST') cmdColor = '#f472b6';
-          else if (cmdTxt === 'CAPTURE_PUBLIC_IP') cmdColor = '#38bdf8';
+          else if (cmdTxt === 'CAPTURE_PUBLIC_IP') cmdColor = '#D97757';
           else if (cmdTxt === 'UPDATE_AGENT') cmdColor = '#facc15';
           else if (cmdTxt === 'RUN_SCRIPT') cmdColor = '#f97316';
 
@@ -10500,8 +10500,8 @@
           html +=
             '<div style="display:flex;align-items:center;gap:8px;padding:5px 14px 5px;' +
             'background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(255,255,255,0.05)">' +
-            '<i class="fa-solid fa-server" style="font-size:10px;color:var(--neon-cyan,#22d3ee)"></i>' +
-            '<span style="font-size:12px;font-weight:600;color:var(--neon-cyan,#22d3ee)">' + esc(host) + '</span>' +
+            '<i class="fa-solid fa-server" style="font-size:10px;color:var(--neon-cyan,#E8956F)"></i>' +
+            '<span style="font-size:12px;font-weight:600;color:var(--neon-cyan,#E8956F)">' + esc(host) + '</span>' +
             '<span style="font-size:11px;color:var(--text-muted)">' + totalDev + ' item(s)</span>' +
             '<select id="vdsel-' + devKey + '" style="margin-left:auto;font-size:11px;' +
             'background:rgba(15,15,25,0.95);border:1px solid rgba(255,255,255,0.18);border-radius:4px;' +
@@ -10550,7 +10550,7 @@
                   'onclick="(function(el){var d=document.getElementById(\'vtd-' + tKey + '\');var o=d.style.display!==\'none\';d.style.display=o?\'none\':\'\';var a=el.querySelector(\'.vt-arr\');if(a)a.textContent=o?\'▼\':\'▲\';})(this)">' +
                   '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px">' +
                   '<span style="color:var(--text-muted)">No. Tuntutan:</span>' +
-                  '<span style="font-family:monospace;color:var(--neon-cyan,#22d3ee)">' + esc(tuntutan) + '</span>' +
+                  '<span style="font-family:monospace;color:var(--neon-cyan,#E8956F)">' + esc(tuntutan) + '</span>' +
                   '<span style="color:rgba(255,255,255,0.2)">|</span>' +
                   '<span style="color:var(--text-muted)">Batch:</span>' +
                   '<span style="font-family:monospace;color:var(--rc-text,#f9fafb)">' + esc(String(batchDisplay).length > 30 ? String(batchDisplay).substring(0, 30) + '…' : batchDisplay) + '</span>' +
@@ -10639,7 +10639,7 @@
                   'onclick="(function(el){var d=document.getElementById(\'vtd-' + tKey2 + '\');var o=d.style.display!==\'none\';d.style.display=o?\'none\':\'\';var a=el.querySelector(\'.vt-arr\');if(a)a.textContent=o?\'▼\':\'▲\';})(this)">' +
                   '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px">' +
                   '<span style="color:var(--text-muted)">No. Tuntutan:</span>' +
-                  '<span style="font-family:monospace;color:var(--neon-cyan,#22d3ee)">' + esc(tuntutan) + '</span>' +
+                  '<span style="font-family:monospace;color:var(--neon-cyan,#E8956F)">' + esc(tuntutan) + '</span>' +
                   '<span style="color:rgba(255,255,255,0.2)">|</span>' +
                   infoSnippet2 +
                   '<span style="color:' + meta.faultColor + '">Issues:</span>' +
@@ -10894,7 +10894,7 @@
       statusBadge +
       '<strong style="font-size:13px;color:var(--rc-text,#f9fafb)">' + esc(e.app_name || '?') + '</strong>' +
       '<span style="color:var(--rc-text-dim,#9ca3af);font-size:11px">on</span>' +
-      '<code style="background:rgba(56,189,248,0.08);padding:2px 7px;border-radius:3px;color:var(--rc-cyan,#38bdf8);font-size:12px">' + esc(e.hostname || '?') + '</code>' +
+      '<code style="background:rgba(217,119,87,0.08);padding:2px 7px;border-radius:3px;color:var(--rc-cyan,#D97757);font-size:12px">' + esc(e.hostname || '?') + '</code>' +
       '<span style="color:var(--rc-text-dim,#9ca3af);font-size:11px">×' + (e.recur_count || 1) + ' occurrence(s)</span>' +
       '</div>' +
 
@@ -10998,7 +10998,7 @@
           '</div>';
 
         // Action buttons
-        var detailBtn = '<button onclick="rOpenAppDetails(\'' + esc(e._id) + '\')" style="background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.3);color:var(--rc-cyan,#38bdf8);border-radius:4px;padding:5px 11px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background=\'rgba(56,189,248,0.16)\'" onmouseout="this.style.background=\'rgba(56,189,248,0.08)\'"><i class="fa-solid fa-magnifying-glass"></i> Details</button>';
+        var detailBtn = '<button onclick="rOpenAppDetails(\'' + esc(e._id) + '\')" style="background:rgba(217,119,87,0.08);border:1px solid rgba(217,119,87,0.3);color:var(--rc-cyan,#D97757);border-radius:4px;padding:5px 11px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background=\'rgba(217,119,87,0.16)\'" onmouseout="this.style.background=\'rgba(217,119,87,0.08)\'"><i class="fa-solid fa-magnifying-glass"></i> Details</button>';
         var fixBtn = !isFixed
           ? '<button onclick="rOpenAppFix(\'' + esc(e._id) + '\',\'' + esc(e._host) + '\')" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.5);color:#fca5a5;border-radius:4px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background=\'rgba(239,68,68,0.28)\'" onmouseout="this.style.background=\'rgba(239,68,68,0.15)\'"><i class="fa-solid fa-circle-check"></i> Mark Fixed</button>'
           : '<span style="font-size:11px;color:var(--rc-green,#10b981)"><i class="fa-solid fa-circle-check"></i> Fixed by ' + esc(e.fixed_by || '?') + '</span>';
@@ -11009,7 +11009,7 @@
           badge +
           '<strong style="font-size:13px">' + esc(e.app_name || '?') + '</strong>' +
           '<span class="r-muted-sm">on</span>' +
-          '<code style="background:rgba(56,189,248,0.08);padding:2px 7px;border-radius:3px;color:var(--rc-cyan,#38bdf8);font-size:12px">' + esc(e._host) + '</code>' +
+          '<code style="background:rgba(217,119,87,0.08);padding:2px 7px;border-radius:3px;color:var(--rc-cyan,#D97757);font-size:12px">' + esc(e._host) + '</code>' +
           '<span class="r-muted-sm">×' + (e.recur_count || 1) + '</span>' +
           lifecycle +
           '<div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0">' + detailBtn + fixBtn + '</div>' +
@@ -12364,7 +12364,7 @@
         var isActive = (status === 'ACTIVE');
         var safeId = uname.replace(/[^a-z0-9]/gi, '_');
 
-        var roleColor = role === 'SUPER_ADMIN' ? '#38bdf8' : role === 'ADMIN' ? '#8b5cf6' : role === 'BRANCH_USER' ? '#10b981' : '#9ca3af';
+        var roleColor = role === 'SUPER_ADMIN' ? '#D97757' : role === 'ADMIN' ? '#8b5cf6' : role === 'BRANCH_USER' ? '#10b981' : '#9ca3af';
 
         var row = '<div style="padding:14px 0;border-bottom:1px solid var(--rc-border,#1f2937);">';
         // Username + role badge + status toggle
@@ -12374,7 +12374,7 @@
         row += '<span style="font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid ' + roleColor + ';color:' + roleColor + ';letter-spacing:0.5px;">' + esc(role) + '</span>';
         row += '</div>';
         if (isMaster) {
-          row += '<span style="font-size:10px;color:var(--rc-cyan,#38bdf8);padding:3px 8px;border:1px solid rgba(56,189,248,0.3);border-radius:10px;">Owner</span>';
+          row += '<span style="font-size:10px;color:var(--rc-cyan,#D97757);padding:3px 8px;border:1px solid rgba(217,119,87,0.3);border-radius:10px;">Owner</span>';
         } else {
           var statusStyle = isActive
             ? 'background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.5);color:#10b981;'
@@ -12394,13 +12394,13 @@
           var isStoreApp = (app === 'Store Mngmnt');
           if (isMaster) {
             row += '<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--rc-text-dim,#9ca3af);opacity:0.55;cursor:not-allowed;">';
-            row += '<input type="checkbox"' + (checked ? ' checked' : '') + ' disabled style="cursor:not-allowed;accent-color:var(--rc-cyan,#38bdf8);"> ' + esc(app);
+            row += '<input type="checkbox"' + (checked ? ' checked' : '') + ' disabled style="cursor:not-allowed;accent-color:var(--rc-cyan,#D97757);"> ' + esc(app);
             row += '</label>';
           } else {
             row += '<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--rc-text-dim,#d1d5db);cursor:pointer;">';
             row += '<input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') +
               (isStoreApp ? ' onchange="_toggleHospitalStoreBranch(\'' + safeId + '\', this.checked)"' : '') +
-              ' style="cursor:pointer;accent-color:var(--rc-cyan,#38bdf8);"> ' + esc(app);
+              ' style="cursor:pointer;accent-color:var(--rc-cyan,#D97757);"> ' + esc(app);
             row += '</label>';
           }
         });
@@ -12433,7 +12433,7 @@
         }
         if (!isMaster) {
           row += '<button onclick="rSaveUserApps(\'' + uname.replace(/'/g, "\\'") + '\')" ';
-          row += 'style="padding:4px 14px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;">SAVE APPS</button>';
+          row += 'style="padding:4px 14px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;">SAVE APPS</button>';
           row += '<button onclick="rDeleteHospitalUser(\'' + uname.replace(/'/g, "\\'") + '\')" title="Remove this ID" ';
           row += 'style="margin-left:8px;padding:4px 12px;background:transparent;color:#ef4444;font-weight:700;border:1px solid rgba(239,68,68,0.45);border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;">REMOVE ID</button>';
         }
@@ -12779,7 +12779,7 @@
           var safeId = u.id.replace(/[^a-z0-9]/gi, '_');
           var isActive = (u.is_active !== false);
           var isSuperAdmin = (u.role === 'SUPER_ADMIN');
-          var roleColor = isSuperAdmin ? '#f59e0b' : u.role === 'ADMIN' ? '#38bdf8' : u.role === 'STORE_ADMIN' ? '#8b5cf6' : '#9ca3af';
+          var roleColor = isSuperAdmin ? '#f59e0b' : u.role === 'ADMIN' ? '#D97757' : u.role === 'STORE_ADMIN' ? '#8b5cf6' : '#9ca3af';
 
           var row = '<div style="padding:14px 0;border-bottom:1px solid var(--rc-border,#1f2937);">';
           row += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
@@ -12791,7 +12791,7 @@
           }
           row += '</div>';
           if (isSuperAdmin) {
-            row += '<span style="font-size:10px;color:var(--rc-cyan,#38bdf8);padding:3px 8px;border:1px solid rgba(56,189,248,0.3);border-radius:10px;">Owner — protected</span>';
+            row += '<span style="font-size:10px;color:var(--rc-cyan,#D97757);padding:3px 8px;border:1px solid rgba(217,119,87,0.3);border-radius:10px;">Owner — protected</span>';
           } else {
             var statusStyle = isActive
               ? 'background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.5);color:#10b981;'
@@ -12814,7 +12814,7 @@
             });
             row += '</select>';
             row += _sstaffBranchSelectHtml('sbranch_' + safeId, u.home_branch_code || 'ALL');
-            row += '<button onclick="rSaveStoreStaffProfile(\'' + u.id.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:var(--rc-cyan,#38bdf8);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;">SAVE</button>';
+            row += '<button onclick="rSaveStoreStaffProfile(\'' + u.id.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;">SAVE</button>';
             row += '<button onclick="rDeleteStoreStaff(\'' + u.id.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);color:#ef4444;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;margin-left:auto;">DELETE</button>';
             row += '</div>';
 
@@ -12824,7 +12824,7 @@
 
             row += '<div style="display:flex;gap:6px;align-items:center;">';
             row += '<input type="password" id="spass_' + safeId + '" placeholder="New password (min 6 chars)" style="flex:1;max-width:220px;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:10px;font-family:inherit;">';
-            row += '<button onclick="rResetStoreStaffPassword(\'' + u.id.replace(/'/g, "\\'") + '\')" style="padding:5px 12px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);color:var(--rc-cyan,#38bdf8);border-radius:4px;cursor:pointer;font-size:10px;font-weight:700;font-family:inherit;">RESET PASSWORD</button>';
+            row += '<button onclick="rResetStoreStaffPassword(\'' + u.id.replace(/'/g, "\\'") + '\')" style="padding:5px 12px;background:rgba(217,119,87,0.12);border:1px solid rgba(217,119,87,0.35);color:var(--rc-cyan,#D97757);border-radius:4px;cursor:pointer;font-size:10px;font-weight:700;font-family:inherit;">RESET PASSWORD</button>';
             row += '</div>';
           }
 
