@@ -11898,8 +11898,8 @@
         (isLatest ? '<i class="fa-solid fa-check" style="font-size:9px;margin-right:3px"></i>' : '') +
         esc(curVer) + '</span>';
 
-      var targetCell = ov
-        ? '<span class="r-muted-sm">v' + esc(ov.target_version) + '</span>'
+      var targetCell = (ov && ov.status !== 'cancelled')
+        ?'<span class="r-muted-sm">v' + esc(ov.target_version) + '</span>'
         : '<span class="r-muted-sm" style="opacity:0.4">global</span>';
 
       var statusCell;
