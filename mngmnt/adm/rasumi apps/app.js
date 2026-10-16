@@ -11291,6 +11291,7 @@
       // Re-render with real data
       view.innerHTML = _buildUI(curVer, curUrl, curNotes, curSched, curBy, curTime, smtpEmail, smtpPass, statusBadge, false);
       if (window.rCheckReleaseForm) rCheckReleaseForm();
+      window.rLoadSmtp();
       rRenderTargetDeviceTable();
       rRefreshFleetStatus();
 
@@ -11432,6 +11433,17 @@
       }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
   };
 
+  // SMTP credentials live in a private table: read them through an admin-only RPC
+  window.rLoadSmtp = function () {
+    if (!RS.supa) return;
+    RS.supa.rpc('admin_get_smtp').then(function (res) {
+      if (res.error || !res.data) return;
+      var emailEl = $r('smtp-email'), passEl = $r('smtp-pass');
+      if (emailEl && res.data.smtp_email) emailEl.value = res.data.smtp_email;
+      if (passEl && res.data.smtp_app_password) passEl.value = res.data.smtp_app_password;
+    });
+  };
+
   window.smtpTimer = null;
   window.smtpOrigEmail = '';
   window.smtpOrigPass = '';
@@ -11510,10 +11522,7 @@
     window.smtpOrigEmail = email;
     window.smtpOrigPass = pass;
 
-    RS.supa.from('app_settings').update({
-      smtp_email: email.trim(),
-      smtp_app_password: pass.trim()
-    }).eq('id', 1).then(function (res) {
+    RS.supa.rpc('admin_set_smtp', { p_email: email.trim(), p_pass: pass.trim() }).then(function (res) {
       if (res.error) { rToast('Error: ' + res.error.message, 'error'); return; }
       rToast('SMTP credentials saved — all machines will use this on next request', 'success');
     }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
