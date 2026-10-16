@@ -6354,7 +6354,7 @@
   function renderPoAutoEmail() {
     var view = $r('r-view-area');
     if (!view) return;
-    var tabs = [['overview', 'Overview'], ['orders', 'Orders & DocuShare'], ['docushare', 'DocuShare'], ['delivery', 'Delivery / DO'], ['gmail', 'Gmail & 2FA'], ['ref', 'Reference Data'], ['tpl', 'Email Templates'], ['send', 'Email Status'], ['activity', 'Activity']];
+    var tabs = [['overview', 'Overview'], ['orders', 'Orders'], ['delivery', 'Delivery / DO'], ['gmail', 'Gmail & 2FA'], ['ref', 'Reference Data'], ['tpl', 'Email Templates'], ['send', 'Email Status'], ['activity', 'Activity']];
     view.innerHTML =
       '<div class="r-tab-bar" id="r-po-tabs">' +
       tabs.map(function (t) { return '<div class="r-tab" id="rpotab-' + t[0] + '" onclick="rPoTab(\'' + t[0] + '\')">' + t[1] + '</div>'; }).join('') +
@@ -6364,13 +6364,12 @@
 
   window.rPoTab = function (t) {
     _poTab = t;
-    ['overview', 'orders', 'docushare', 'delivery', 'gmail', 'ref', 'tpl', 'send', 'activity'].forEach(function (k) {
+    ['overview', 'orders', 'delivery', 'gmail', 'ref', 'tpl', 'send', 'activity'].forEach(function (k) {
       var el = $r('rpotab-' + k); if (el) el.classList.toggle('active', k === t);
     });
     var body = $r('r-po-body'); if (!body) return;
     if (t === 'overview') return _poOverview(body);
     if (t === 'orders') return _poOrders(body);
-    if (t === 'docushare') return _poDocushare(body);
     if (t === 'delivery') return _poDelivery(body);
     if (t === 'gmail') return _poGmail(body);
     if (t === 'ref') return _poRef(body);
@@ -6413,7 +6412,7 @@
     }).catch(function (e) { _poErr(body, e); });
   }
 
-  // ── Orders & DocuShare ────────────────────────────────────
+  // ── Orders (incl. DocuShare filing trace) ────────────────────────────────────
   function _poDsCell(ds) {
     if (!ds) return '<span style="color:#6B7A8F">—</span>';
     var up = (ds.uploaded || []).length, sk = (ds.skipped || []).length, cr = (ds.created || []).length;
@@ -6432,163 +6431,160 @@
       (o.completeness && ['complete', 'ok', 'full'].indexOf(String(o.completeness).toLowerCase()) < 0));
   }
 
+  // One order = one row. Click a row for the full trace: draft attempts (logs), DocuShare filing per document, ping.
+  var _poDsLogCache = [];
+  var _poDsPingCache = [];
+  var _poDraftLogCache = {};
+
   function _poOrders(body) {
     body.innerHTML =
-      '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-file-invoice"></i> Orders &amp; DocuShare</h3>' +
+      '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-file-invoice"></i> Orders</h3>' +
       '<div class="r-filter-bar">' +
-      '<input id="po-o-q" class="r-filter-input" placeholder="Search PO / LPO / branch / supplier" oninput="rPoOrdersRender()" style="width:230px">' +
-      '<select id="po-o-type" class="r-filter-input" onchange="rPoOrdersRender()"><option value="">All types</option><option value="BRANCH">Branch (FV)</option><option value="TENDER">Tender (TNB)</option></select>' +
+      '<input id="po-o-q" class="r-filter-input" placeholder="Search PO / LPO / supplier / machine" oninput="rPoOrdersRender()" style="width:220px">' +
+      '<select id="po-o-br" class="r-filter-input" onchange="rPoOrdersRender()"><option value="">All branches</option><option>TNB</option><option>FVKL</option><option>FVT</option><option>FVL</option><option>FVG</option></select>' +
       '<select id="po-o-ds" class="r-filter-input" onchange="rPoOrdersRender()"><option value="">DocuShare: all</option><option value="ok">Filed OK</option><option value="failed">Failed</option><option value="none">Not filed</option></select>' +
       '<select id="po-o-iss" class="r-filter-input" onchange="rPoOrdersRender()"><option value="">All orders</option><option value="issues">Issues only</option></select>' +
       '<button class="r-btn-sm" onclick="rPoTab(\'orders\')">Refresh</button></div></div>' +
-      '<div id="po-o-count" style="font-size:11px;color:#6B7A8F;margin-bottom:8px"></div>' +
-      '<div id="po-o-tbl">' + _poLoading() + '</div></div>';
-    RS.supa.rpc('po_admin_orders', { p_search: null, p_type: null, p_limit: 1000 }).then(function (res) {
-      if (res.error) return _poErr($r('po-o-tbl'), res.error);
-      _poOrdersCache = res.data || [];
+      '<div id="po-o-kpi"></div>' +
+      '<div id="po-o-count" style="font-size:11px;color:#6B7A8F;margin:6px 0 8px"></div>' +
+      '<div id="po-o-tbl">' + _poLoading() + '</div>' +
+      '<details style="margin-top:16px"><summary style="cursor:pointer;font-size:12px;color:#9fb0c6"><i class="fa-solid fa-network-wired"></i> DocuShare connection pings (reported by app machines)</summary>' +
+      '<div id="po-ds-ping" style="margin-top:8px"></div></details></div>';
+    var since = new Date(Date.now() - 90 * 86400000).toISOString();
+    var logsQ = RS.supa.from('logs').select('id,machine,branch_id,status,timestamp,error_msg,job_info')
+      .eq('app_name', 'PO Auto Email').eq('job_info->>action', 'draft').gte('timestamp', since)
+      .order('timestamp', { ascending: false }).limit(1500);
+    Promise.all([
+      RS.supa.rpc('po_admin_orders', { p_search: null, p_type: null, p_limit: 1000 }),
+      RS.supa.rpc('po_admin_docushare_log', { p_since: since, p_limit: 3000 }),
+      RS.supa.rpc('po_admin_docushare_ping', { p_limit: 100 }),
+      logsQ
+    ]).then(function (arr) {
+      if (arr[0].error) return _poErr($r('po-o-tbl'), arr[0].error);
+      _poOrdersCache = arr[0].data || [];
+      _poDsLogCache = (arr[1] && arr[1].data) || [];
+      _poDsPingCache = (arr[2] && arr[2].data) || [];
+      _poDraftLogCache = {};
+      ((arr[3] && arr[3].data) || []).forEach(function (l) {
+        var k = String((l.job_info || {}).po_no || '').toUpperCase(); if (!k) return;
+        (_poDraftLogCache[k] = _poDraftLogCache[k] || []).push(l);
+      });
       window.rPoOrdersRender();
     }).catch(function (e) { _poErr($r('po-o-tbl'), e); });
+  }
+
+  function _poOrdBranch(o) {
+    if (o.order_type === 'TENDER') return 'TNB';
+    var b = String(o.branch_name || '').toUpperCase();
+    return /^(FVKL|FVT|FVL|FVG)$/.test(b) ? b : (o.branch_name || '—');
+  }
+
+  function _poOrdDs(o) {
+    // Audit rows for this order (newest attempt wins); fall back to the docushare record kept on the order.
+    var po = String(o.po_no || '').toUpperCase();
+    var docs = _poDsLogCache.filter(function (x) { return String(x.po_no || '').toUpperCase() === po && (o.order_type !== 'TENDER' || !x.lpo_no || x.lpo_no === o.lpo_no); });
+    if (docs.length) {
+      var att = docs[0].attempt_id;
+      var last = docs.filter(function (x) { return x.attempt_id === att; });
+      return { audit: true, docs: last, all: docs, latest: last[0] };
+    }
+    var ds = o.docushare; if (!ds) return null;
+    var h = [];
+    (ds.uploaded || []).forEach(function (n) { h.push({ id: 'ord-' + o.id, result: 'UPLOADED', kind: 'PO', file_name: n }); });
+    (ds.skipped || []).forEach(function (n) { h.push({ id: 'ord-' + o.id, result: 'ALREADY_EXISTS', kind: 'PO', file_name: n }); });
+    if (ds.ok === false || ds.error) h.push({ id: 'ord-' + o.id, result: 'FAILED', kind: 'ORDER', reason: ds.error || 'Filing failed' });
+    if (!h.length) h.push({ id: 'ord-' + o.id, result: 'ALREADY_EXISTS', kind: 'PO', file_name: null });
+    return { audit: false, docs: h, all: h, latest: { at: ds.at, folder_url: ds.folder_url, machine: o.machine, by_user: o.drafted_by } };
+  }
+
+  function _poOrdDsBadge(d) {
+    if (!d) return _poBadge('r-badge-muted', 'NOT FILED');
+    var failN = d.docs.filter(function (x) { return x.result === 'FAILED'; }).length;
+    var upN = d.docs.filter(function (x) { return x.result === 'UPLOADED'; }).length;
+    var skN = d.docs.filter(function (x) { return x.result === 'SKIPPED'; }).length;
+    var n = d.docs.length, cnt = n > 1 ? ' ' + (n - failN) + '/' + n : '';
+    if (failN) return _poBadge('r-badge-err', 'FAILED' + cnt, (d.docs.filter(function (x) { return x.reason; })[0] || {}).reason || '');
+    if (skN && !upN) return _poBadge('r-badge-muted', 'SKIPPED', (d.docs[0] || {}).reason || '');
+    return _poBadge(upN ? 'r-badge-ok' : 'r-badge-info', (upN ? 'UPLOADED' : 'EXISTS') + (n > 1 ? cnt : ''));
   }
 
   window.rPoOrdersRender = function () {
     var box = $r('po-o-tbl'); if (!box) return;
     var q = (($r('po-o-q') || {}).value || '').toLowerCase().trim();
-    var ty = ($r('po-o-type') || {}).value || '';
-    var ds = ($r('po-o-ds') || {}).value || '';
+    var br = ($r('po-o-br') || {}).value || '';
+    var dsf = ($r('po-o-ds') || {}).value || '';
     var iss = ($r('po-o-iss') || {}).value || '';
-    var rows = _poOrdersCache.filter(function (o) {
-      if (ty && o.order_type !== ty) return false;
-      if (q && [o.po_no, o.lpo_no, o.branch_name, o.main_supplier, o.brand, o.hospital_name].join(' ').toLowerCase().indexOf(q) < 0) return false;
-      if (ds === 'ok' && !(o.docushare && o.docushare.ok)) return false;
-      if (ds === 'failed' && !(o.docushare && !o.docushare.ok)) return false;
-      if (ds === 'none' && o.docushare) return false;
-      if (iss === 'issues' && !_poOrderHasIssue(o)) return false;
+    var cache = _poOrdersCache.map(function (o) { return { o: o, d: _poOrdDs(o), br: _poOrdBranch(o) }; });
+    var failedOf = function (r) { return !!(r.d && r.d.docs.some(function (x) { return x.result === 'FAILED'; })); };
+    var rows = cache.filter(function (r) {
+      var o = r.o;
+      if (br && r.br !== br) return false;
+      if (q && [o.po_no, o.lpo_no, o.branch_name, o.main_supplier, o.brand, o.hospital_name, o.machine, o.drafted_by].join(' ').toLowerCase().indexOf(q) < 0) return false;
+      if (dsf === 'ok' && !(r.d && !failedOf(r))) return false;
+      if (dsf === 'failed' && !failedOf(r)) return false;
+      if (dsf === 'none' && r.d) return false;
+      if (iss === 'issues' && !(_poOrderHasIssue(o) || failedOf(r))) return false;
       return true;
     });
-    var cnt = $r('po-o-count'); if (cnt) cnt.textContent = rows.length + ' of ' + _poOrdersCache.length + ' orders';
-    if (!rows.length) { box.innerHTML = '<div class="r-empty">No orders match</div>'; return; }
-    var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Type</th><th>PO No</th><th>Branch</th><th>Supplier / Brand</th><th>PO Date</th><th>Total</th><th>Status</th><th>DocuShare</th><th>Drafts</th><th>Last Error</th><th>By</th><th>Updated</th></tr></thead><tbody>';
-    rows.forEach(function (o) {
-      var warn = (o.warnings && o.warnings.length) ? ' <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b" title="' + esc(o.warnings.join(' | ')) + '"></i>' : '';
-      var st = (o.status || '').toUpperCase();
-      var stCls = /FAIL|ERR/.test(st) ? 'r-badge-err' : (/DRAFT|OK|DONE|SENT/.test(st) ? 'r-badge-ok' : 'r-badge-muted');
-      h += '<tr>' +
-        '<td>' + _poBadge(o.order_type === 'TENDER' ? 'r-badge-blue' : 'r-badge-info', o.order_type === 'TENDER' ? 'TNB' : 'FV') + '</td>' +
-        '<td>' + esc(o.po_no || '—') + (o.lpo_no ? '<div style="font-size:10px;color:#6B7A8F">LPO ' + esc(o.lpo_no) + '</div>' : '') + warn + '</td>' +
-        '<td>' + esc(o.branch_name || '—') + '</td>' +
-        '<td>' + esc(o.main_supplier || '—') + (o.brand ? '<div style="font-size:10px;color:#6B7A8F">' + esc(o.brand) + '</div>' : '') + '</td>' +
-        '<td>' + esc(o.po_date || '—') + '</td>' +
-        '<td style="text-align:right">' + (o.po_total != null ? esc(Number(o.po_total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : '—') + '</td>' +
-        '<td>' + _poBadge(stCls, o.status || '—', o.completeness || '') + '</td>' +
-        '<td>' + _poDsCell(o.docushare) + '</td>' +
-        '<td>' + (o.draft_count || 0) + (o.fail_count && !o.draft_count ? ' <span style="color:#f87171">' + o.fail_count + ' fail</span>' : '') + '</td>' +
-        '<td style="max-width:220px;white-space:normal;color:#f87171;font-size:11px">' + esc(o.last_error || '') + '</td>' +
-        '<td>' + esc(_branchName(o.drafted_by)) + '<div style="font-size:10px;color:#6B7A8F">' + esc(_canonHost(o.machine || '') || '') + '</div></td>' +
-        '<td>' + _poDt(o.updated_at) + '</td></tr>';
-    });
-    box.innerHTML = h + '</tbody></table></div>';
-  };
-
-  // ── DocuShare audit (per-document upload trace + connection ping) ──
-  var _poDsLogCache = [];
-  var _poDsPingCache = [];
-
-  function _poDocushare(body) {
-    body.innerHTML =
-      '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-folder-closed"></i> DocuShare Filing Audit</h3>' +
-      '<div class="r-filter-bar">' +
-      '<input id="po-ds-q" class="r-filter-input" placeholder="Search PO / LPO / file / supplier / reason / machine" oninput="rPoDsRender()" style="width:270px">' +
-      '<select id="po-ds-res" class="r-filter-input" onchange="rPoDsRender()"><option value="">All results</option><option value="UPLOADED">Uploaded</option><option value="ALREADY_EXISTS">Already exists</option><option value="FAILED">Failed</option><option value="SKIPPED">Skipped</option></select>' +
-      '<select id="po-ds-br" class="r-filter-input" onchange="rPoDsRender()"><option value="">All branches</option><option>TNB</option><option>FVKL</option><option>FVT</option><option>FVL</option><option>FVG</option></select>' +
-      '<select id="po-ds-days" class="r-filter-input" onchange="rPoTab(\'docushare\')"><option value="1">Today</option><option value="7" selected>7 days</option><option value="30">30 days</option><option value="90">90 days</option></select>' +
-      '<button class="r-btn-sm" onclick="rPoTab(\'docushare\')">Refresh</button></div></div>' +
-      '<div id="po-ds-kpi">' + _poLoading() + '</div>' +
-      '<div id="po-ds-count" style="font-size:11px;color:#6B7A8F;margin:8px 0"></div>' +
-      '<div id="po-ds-tbl"></div>' +
-      '<h4 style="margin:18px 0 8px;font-size:13px"><i class="fa-solid fa-network-wired"></i> Connection pings (reported by app machines)</h4>' +
-      '<div id="po-ds-ping"></div></div>';
-    var days = parseInt((($r('po-ds-days') || {}).value) || '7', 10) || 7;
-    var since = new Date(Date.now() - days * 86400000).toISOString();
-    Promise.all([
-      RS.supa.rpc('po_admin_docushare_log', { p_since: since, p_limit: 2000 }),
-      RS.supa.rpc('po_admin_docushare_ping', { p_limit: 100 }),
-      RS.supa.rpc('po_admin_orders', { p_search: null, p_type: null, p_limit: 1000 })
-    ]).then(function (arr) {
-      if (arr[0].error) return _poErr($r('po-ds-kpi'), arr[0].error);
-      var audit = arr[0].data || [];
-      _poDsPingCache = (arr[1] && arr[1].data) || [];
-      // History from before audit logging existed: rebuild one row per filed document from the order record
-      // (orders.docushare = {at, ok, uploaded[], skipped[], error, folder_url}). Audit rows win when both exist.
-      var seen = {};
-      audit.forEach(function (x) { seen[String(x.po_no || '').toUpperCase() + '|' + (x.file_name || '')] = 1; });
-      var sinceMs = Date.parse(since), hist = [];
-      ((arr[2] && arr[2].data) || []).forEach(function (o) {
-        var ds = o.docushare; if (!ds || !ds.at) return;
-        var t = Date.parse(ds.at); if (isNaN(t) || t < sinceMs) return;
-        var br = o.order_type === 'TENDER' ? 'TNB' : (/^(FVKL|FVT|FVL|FVG)$/i.test(o.branch_name || '') ? String(o.branch_name).toUpperCase() : (o.branch_name || null));
-        var base = { id: 'ord-' + o.id, at: ds.at, po_no: o.po_no, lpo_no: o.lpo_no, branch_code: br,
-          supplier: o.main_supplier || o.brand, kind: 'PO', folder_url: ds.folder_url, folder_path: null,
-          machine: o.machine, by_user: o.drafted_by, app_version: null, attempt_id: 'order-record', ping_ok: null, ping_ms: null, duration_ms: null };
-        var push = function (name, res, reason) {
-          if (seen[String(o.po_no || '').toUpperCase() + '|' + (name || '')]) return;
-          hist.push(Object.assign({}, base, { file_name: name, result: res, reason: reason }));
-        };
-        (ds.uploaded || []).forEach(function (n) { push(n, 'UPLOADED', null); });
-        (ds.skipped || []).forEach(function (n) { push(n, 'ALREADY_EXISTS', null); });
-        if (ds.ok === false || ds.error) push(null, 'FAILED', ds.error || 'Filing failed');
-      });
-      _poDsLogCache = audit.concat(hist).sort(function (a, b) { return Date.parse(b.at) - Date.parse(a.at); });
-      window.rPoDsRender();
-    }).catch(function (e) { _poErr($r('po-ds-kpi'), e); });
-  }
-
-  window.rPoDsRender = function () {
-    var box = $r('po-ds-tbl'); if (!box) return;
-    var all = _poDsLogCache;
-    var q = (($r('po-ds-q') || {}).value || '').toLowerCase().trim();
-    var rs = ($r('po-ds-res') || {}).value || '';
-    var br = ($r('po-ds-br') || {}).value || '';
-    var cnt = function (r) { return all.filter(function (x) { return x.result === r; }).length; };
-    var lastPing = _poDsPingCache[0];
-    var pingTxt = lastPing ? (lastPing.ok ? 'UP · ' + (lastPing.ms != null ? lastPing.ms + ' ms' : '') : 'DOWN') : 'No data';
-    var pingSub = lastPing ? esc(_canonHost(lastPing.machine || '') || '') + ' · ' + _poDtPlain(lastPing.at) : 'no ping reported yet';
-    var kpi = $r('po-ds-kpi');
-    if (kpi) kpi.innerHTML = '<div class="r-metric-row">' +
-      metricCard('', all.length, 'Documents processed', 'fa-file-pdf', 'in selected period', null, null) +
-      metricCard('', cnt('UPLOADED'), 'Uploaded', 'fa-cloud-arrow-up', cnt('ALREADY_EXISTS') + ' already existed', null, null) +
-      metricCard('', cnt('FAILED'), 'Failed', 'fa-triangle-exclamation', cnt('SKIPPED') + ' skipped', null, null) +
-      metricCard('', pingTxt, 'DocuShare connection', 'fa-network-wired', pingSub, null, null) +
-      '</div>';
-    var rows = all.filter(function (x) {
-      if (rs && x.result !== rs) return false;
-      if (br && x.branch_code !== br) return false;
-      if (q && [x.po_no, x.lpo_no, x.file_name, x.supplier, x.reason, x.machine, x.by_user, x.attempt_id, x.folder_path].join(' ').toLowerCase().indexOf(q) < 0) return false;
-      return true;
-    });
-    var c = $r('po-ds-count'); if (c) c.textContent = rows.length + ' of ' + all.length + ' documents';
-    if (!rows.length) { box.innerHTML = '<div class="r-empty">No DocuShare records for this filter. Records appear after a build with audit logging files a document.</div>'; }
+    var kpi = $r('po-o-kpi');
+    if (kpi) {
+      var nFailDraft = cache.filter(function (r) { return r.o.status === 'FAILED' || r.o.last_error; }).length;
+      var nFailDs = cache.filter(failedOf).length;
+      var nNone = cache.filter(function (r) { return !r.d; }).length;
+      var lp = _poDsPingCache[0];
+      var pTxt = lp ? (lp.ok ? 'UP' + (lp.ms != null ? ' · ' + lp.ms + 'ms' : '') : 'DOWN') : 'No data';
+      kpi.innerHTML = '<div class="r-metric-row">' +
+        metricCard('', cache.length, 'Orders', 'fa-file-invoice', 'all branches + tender', null, null) +
+        metricCard('', nFailDraft, 'Draft issues', 'fa-triangle-exclamation', 'failed or has error', null, null) +
+        metricCard('', nFailDs, 'DocuShare failed', 'fa-folder-closed', nNone + ' not filed', null, null) +
+        metricCard('', pTxt, 'DocuShare connection', 'fa-network-wired', lp ? esc(_canonHost(lp.machine || '') || '') + ' · ' + esc(_poDtPlain(lp.at)) : 'no ping reported yet', null, null) +
+        '</div>';
+    }
+    var cnt = $r('po-o-count'); if (cnt) cnt.textContent = rows.length + ' of ' + cache.length + ' orders';
+    if (!rows.length) { box.innerHTML = '<div class="r-empty">No orders match</div>'; }
     else {
-      var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>ID</th><th>Time</th><th>Result</th><th>PO No</th><th>Kind</th><th>File</th><th>Branch</th><th>Supplier</th><th>Folder</th><th>Reason</th><th>Ping</th><th>Took</th><th>Machine / User</th><th>Ver</th><th>Attempt</th></tr></thead><tbody>';
-      rows.forEach(function (x) {
-        var cls = x.result === 'UPLOADED' ? 'r-badge-ok' : (x.result === 'FAILED' ? 'r-badge-err' : (x.result === 'ALREADY_EXISTS' ? 'r-badge-info' : 'r-badge-muted'));
-        var ping = x.ping_ok == null ? '—' : (x.ping_ok ? '<span style="color:#4ade80">UP</span> ' + (x.ping_ms != null ? x.ping_ms + 'ms' : '') : '<span style="color:#f87171">DOWN</span>');
-        var folder = x.folder_url ? '<a href="' + esc(x.folder_url) + '" target="_blank" rel="noopener" title="' + esc(x.folder_path || '') + '">open</a>' : '—';
-        h += '<tr>' +
-          '<td style="font-family:monospace;font-size:11px;color:#6B7A8F">' + esc(x.id) + '</td>' +
-          '<td>' + _poDt(x.at) + '</td>' +
-          '<td>' + _poBadge(cls, x.result || '—') + '</td>' +
-          '<td>' + esc(x.po_no || '—') + (x.lpo_no ? '<div style="font-size:10px;color:#6B7A8F">LPO ' + esc(x.lpo_no) + '</div>' : '') + '</td>' +
-          '<td>' + esc(x.kind || '—') + '</td>' +
-          '<td style="max-width:200px;word-break:break-all;font-size:11px">' + esc(x.file_name || '—') + '</td>' +
-          '<td>' + _poBadge(x.branch_code === 'TNB' ? 'r-badge-blue' : 'r-badge-info', x.branch_code || '—') + '</td>' +
-          '<td>' + esc(x.supplier || '—') + '</td>' +
-          '<td style="max-width:200px;font-size:10px;color:#6B7A8F;white-space:normal">' + folder + (x.folder_path ? '<div>' + esc(x.folder_path) + '</div>' : '') + '</td>' +
-          '<td style="max-width:240px;white-space:normal;color:#f87171;font-size:11px">' + esc(x.reason || '') + '</td>' +
+      var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th style="width:22px"></th><th>Updated</th><th>PO No</th><th>Branch</th><th>Supplier</th><th>Draft</th><th>DocuShare</th><th>Ping</th><th>By</th></tr></thead><tbody>';
+      rows.forEach(function (r, i) {
+        var o = r.o, d = r.d;
+        var st = (o.status || '').toUpperCase();
+        var stCls = /FAIL|ERR/.test(st) ? 'r-badge-err' : (/DRAFT|OK|DONE|SENT/.test(st) ? 'r-badge-ok' : 'r-badge-muted');
+        var dc = o.draft_count || 0;
+        var warn = (o.warnings && o.warnings.length) ? ' <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b" title="' + esc(o.warnings.join(' | ')) + '"></i>' : '';
+        var lat = (d && d.latest) || {};
+        var ping = lat.ping_ok == null ? '<span style="color:#6B7A8F">—</span>' : (lat.ping_ok ? '<span style="color:#4ade80">UP</span> ' + (lat.ping_ms != null ? lat.ping_ms + 'ms' : '') : '<span style="color:#f87171">DOWN</span>');
+        h += '<tr style="cursor:pointer" onclick="rPoOrdToggle(' + i + ')">' +
+          '<td><i id="po-o-ic-' + i + '" class="fa-solid fa-chevron-right" style="font-size:10px;color:#6B7A8F"></i></td>' +
+          '<td>' + _poDt(o.updated_at) + '</td>' +
+          '<td>' + esc(o.po_no || '—') + (o.lpo_no ? '<div style="font-size:10px;color:#6B7A8F">LPO ' + esc(o.lpo_no) + '</div>' : '') + warn + '</td>' +
+          '<td>' + _poBadge(r.br === 'TNB' ? 'r-badge-blue' : 'r-badge-info', r.br) + '</td>' +
+          '<td>' + esc(o.main_supplier || o.brand || '—') + '</td>' +
+          '<td>' + _poBadge(stCls, o.status || '—', o.last_error || '') + (dc > 1 ? ' <span class="r-badge r-badge-warn" title="Drafted ' + dc + ' times">×' + dc + '</span>' : '') + (o.last_error ? ' <i class="fa-solid fa-circle" style="color:#f87171;font-size:7px" title="' + esc(o.last_error) + '"></i>' : '') + '</td>' +
+          '<td>' + _poOrdDsBadge(d) + '</td>' +
           '<td>' + ping + '</td>' +
-          '<td>' + (x.duration_ms != null ? (x.duration_ms / 1000).toFixed(1) + 's' : '—') + '</td>' +
-          '<td>' + esc(_canonHost(x.machine || '') || '—') + '<div style="font-size:10px;color:#6B7A8F">' + esc(_branchName(x.by_user) || '') + '</div></td>' +
-          '<td style="font-size:11px">' + esc(x.app_version || '—') + '</td>' +
-          '<td style="font-family:monospace;font-size:10px;color:#6B7A8F">' + esc(x.attempt_id || '—') + '</td></tr>';
+          '<td>' + esc(_branchName(o.drafted_by) || '—') + '<div style="font-size:10px;color:#6B7A8F">' + esc(_canonHost(o.machine || '') || '') + '</div></td></tr>';
+        // Details: only what the main row does not already show — job id(s), the order's items (documents) and errors.
+        var po = String(o.po_no || '').toUpperCase();
+        var att = (_poDraftLogCache[po] || []);
+        var sid = function (v) { return String(v || '').substring(0, 8); };
+        var isFail = function (l) { return /^(FAILED|ERROR)\b/.test((l.status || '').toUpperCase()) || !!(l.job_info || {}).error_msg; };
+        var jobs = att.length ? att.map(function (l) {
+          return '<span title="Click to copy full ID" style="cursor:copy;font-family:monospace;font-size:11px;margin-right:10px;color:' + (isFail(l) ? '#f87171' : '#9fb0c6') + '" onclick="event.stopPropagation();navigator.clipboard&&navigator.clipboard.writeText(\'' + esc(l.id || '') + '\');rToast(\'Job ID copied\',\'success\')">' + esc(sid(l.id)) + '</span>';
+        }).join('') : '<span style="color:#6B7A8F;font-size:11px">—</span>';
+        var itemRows = d ? d.docs.filter(function (x) { return x.file_name; }) : [];
+        var items = itemRows.length ? itemRows.map(function (x) {
+          var ic = x.result === 'FAILED' ? '<i class="fa-solid fa-xmark" style="color:#f87171"></i>' : (x.result === 'SKIPPED' ? '<i class="fa-solid fa-minus" style="color:#6B7A8F"></i>' : '<i class="fa-solid fa-check" style="color:#4ade80"></i>');
+          return '<div style="font-size:12px;padding:1px 0">' + ic + ' <span style="margin-left:6px">' + esc(x.file_name) + '</span>' + (x.kind && x.kind !== 'PO' ? ' <span style="color:#6B7A8F;font-size:10px">' + esc(x.kind) + '</span>' : '') + '</div>';
+        }).join('') : '<span style="color:#6B7A8F;font-size:11px">No documents recorded</span>';
+        var errs = [];
+        if (o.last_error) errs.push('Draft: ' + o.last_error);
+        att.forEach(function (l) { var m = l.error_msg || (l.job_info || {}).error_msg; if (m && errs.indexOf('Draft: ' + m) < 0) errs.push('Draft: ' + m); });
+        if (d) d.docs.forEach(function (x) { if (x.reason && x.result !== 'ALREADY_EXISTS') errs.push('DocuShare' + (x.file_name ? ' (' + x.file_name + ')' : '') + ': ' + x.reason); });
+        var folderLnk = (lat.folder_url) ? ' <a href="' + esc(lat.folder_url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:11px;margin-left:10px"><i class="fa-solid fa-folder-open"></i> DocuShare folder</a>' : '';
+        h += '<tr class="po-o-sub po-o-sub-' + i + '" style="display:none"><td colspan="9" style="padding:8px 10px 12px 28px;background:rgba(255,255,255,.03)">' +
+          '<div style="margin-bottom:6px"><span style="font-size:11px;color:#6B7A8F;margin-right:8px">Job ID</span>' + jobs + folderLnk + '</div>' +
+          '<div style="font-size:11px;color:#6B7A8F;margin-bottom:2px">Items</div>' + items +
+          (errs.length ? '<div style="margin-top:8px;font-size:11px;color:#f87171;white-space:normal">' + errs.map(function (e) { return '<div>' + esc(e) + '</div>'; }).join('') + '</div>' : '') +
+          '</td></tr>';
       });
       box.innerHTML = h + '</tbody></table></div>';
     }
@@ -6606,6 +6602,14 @@
         pb.innerHTML = p + '</tbody></table></div>';
       }
     }
+  };
+
+  window.rPoOrdToggle = function (i) {
+    var tr = document.querySelector('.po-o-sub-' + i); if (!tr) return;
+    var open = tr.style.display === 'none';
+    tr.style.display = open ? '' : 'none';
+    var ic = document.getElementById('po-o-ic-' + i);
+    if (ic) ic.className = 'fa-solid fa-chevron-' + (open ? 'down' : 'right');
   };
 
   // ── Delivery / DO ─────────────────────────────────────────
