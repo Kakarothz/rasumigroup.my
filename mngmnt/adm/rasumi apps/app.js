@@ -9117,13 +9117,20 @@
 
     // Auto-clean: cap at 100 sessions (unfiltered full-load only) and delete older COMPLETED rows from DB
     // NEVER delete sessions with any failures — those stay until admin takes action
+    // Apps whose log rows use FREE-TEXT statuses ("Extracted PO…", "Draft created: …", "Failed: …") and never
+    // emit COMPLETED/FAILED rows. The auto-clean below would classify every such session as a "phantom"
+    // and DELETE it from the logs table just by opening this view (this wiped all PO Mailer activity logs).
+    // These apps are never auto-deleted from here (the 30-day DB cron still expires them).
+    function _noAutoClean(app) {
+      return /^(PO Auto Email|SYSTEM_ALERT|Store Mngmt)$/i.test(String(app || ''));
+    }
     var MAX_SESSIONS = 100;
     if (!statusFilter && sessions.length > MAX_SESSIONS) {
       var oldSessions = sessions.slice(MAX_SESSIONS);
       sessions = sessions.slice(0, MAX_SESSIONS);
       var idsToDelete = [];
       oldSessions.forEach(function (s) {
-        if (!s.hasFail) { // Only delete fully-completed sessions
+        if (!s.hasFail && !_noAutoClean(s.app)) { // Only delete fully-completed sessions
           s.logs.forEach(function (l) { if (l.id) idsToDelete.push(l.id); });
         }
       });
@@ -9137,6 +9144,7 @@
     var phantomIds = [];
     sessions = sessions.filter(function (s) {
       if (s.hasFail || s.hasCancelled || s.allProcessing) return true; // keep failures, cancels + still-running
+      if (_noAutoClean(s.app)) return true; // free-text-status apps (PO Mailer…) — never treat as phantom
       var cCount = s.logs.filter(function (l) { return (l.status || '').toUpperCase() === 'COMPLETED'; }).length;
       var fCount = s.logs.filter(function (l) { var st = (l.status || '').toUpperCase(); return st === 'FAILED' || st === 'ERROR'; }).length;
       // Keep sessions that have a FINISH log reporting actual work (total_files > 0)
