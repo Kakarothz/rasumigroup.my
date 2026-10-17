@@ -2892,13 +2892,13 @@
     // ── Row 1: Metric cards (first full render only) ──
     var _vd0 = _vibesCardDisplay();
     var metricRow =
-      '<div class="r-metric-row" id="r-dash-metrics">' +
-      metricCard('green', on, 'TOTAL ACTIVE NODES', 'fa-circle-check', 'Online now', null, 'rCardClick(\'mc-on\')', 'mc-on') +
-      metricCard('danger', off, 'OFFLINE NODES', 'fa-circle-xmark', off > 0 ? off + ' need attention' : 'All clear', null, 'rCardClick(\'mc-off\')', 'mc-off') +
-      metricCard('info', runsToday, 'RUNS TODAY', 'fa-play-circle', 'Across all apps', null, 'rCardClick(\'mc-runs\')', 'mc-runs') +
-      metricCard('warn', errToday, 'ISSUES TODAY', 'fa-bug', 'Failed, partial & skipped', null, 'rCardClick(\'mc-err\')', 'mc-err') +
-      metricCard('purple', _vd0.val, _vd0.label, 'fa-triangle-exclamation', 'Unresolved', null, 'rCardClick(\'mc-vibes\')', 'mc-vibes') +
-      metricCard('blue', devs.length, 'MACHINES TOTAL', 'fa-server', 'Last sync: ' + lastSync, null, 'rCardClick(\'mc-total\')', 'mc-total') +
+      '<div class="r-metric-row r-neon-row" id="r-dash-metrics">' +
+      neonCard(1, on, 'TOTAL ACTIVE NODES', 'Online now', 'rCardClick(\'mc-on\')', 'mc-on') +
+      neonCard(2, off, 'OFFLINE NODES', off > 0 ? off + ' need attention' : 'All clear', 'rCardClick(\'mc-off\')', 'mc-off') +
+      neonCard(3, runsToday, 'RUNS TODAY', 'Across all apps', 'rCardClick(\'mc-runs\')', 'mc-runs') +
+      neonCard(4, errToday, 'ISSUES TODAY', 'Failed, partial & skipped', 'rCardClick(\'mc-err\')', 'mc-err') +
+      neonCard(5, _vd0.val, _vd0.label, 'Unresolved', 'rCardClick(\'mc-vibes\')', 'mc-vibes') +
+      neonCard(6, devs.length, 'MACHINES TOTAL', 'Last sync: ' + lastSync, 'rCardClick(\'mc-total\')', 'mc-total') +
       '</div>';
 
     // ── Active Telemetry panel HTML ──
@@ -2948,7 +2948,8 @@
       '</div>' +
       '</div>' +
       '<div class="r-panel" style="margin:0;display:flex;flex-direction:column">' +
-      '<div class="r-panel-title"><i class="fa-solid fa-terminal"></i> LIVE DATA STREAM</div>' +
+      '<div class="r-panel-title"><i class="fa-solid fa-terminal"></i> LIVE DATA STREAM<span class="r-live"><i></i>LIVE</span></div>' +
+      '<div class="r-flt" id="r-term-flt"><span class="r-f on" data-f="" onclick="rTermFilter(this)">ALL</span><span class="r-f e" data-f="err" onclick="rTermFilter(this)">ERROR</span><span class="r-f w" data-f="warn" onclick="rTermFilter(this)">WARN</span><span class="r-f k" data-f="ok" onclick="rTermFilter(this)">OK</span></div>' +
       '<div class="r-terminal" id="r-terminal" style="flex:1;height:0;min-height:80px"><p class="r-term-line info">Waiting for log events…<span class="r-term-cursor"></span></p></div>' +
       '</div>' +
       '</div>' +
@@ -3049,6 +3050,86 @@
       '</div>';
   }
 
+  // ── Neon KPI cards: pure SVG (HD at any DPI, no image files), 260x112 = same height as the old cards ──
+
+  // Inline icons (viewBox 24), drawn in the ring: monitor, cross, play, bug, bolt, server
+  var NEON_ICONS = [
+    '<rect x="3" y="4" width="18" height="12" rx="1.6" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M8 20h8M12 16v4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+    '<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
+    '<path d="M8 5.5v13l11-6.5z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>',
+    '<ellipse cx="12" cy="13.5" rx="4.6" ry="6" fill="currentColor"/><circle cx="12" cy="6.2" r="2.4" fill="currentColor"/><path d="M7 11H3.5M7 15H3.5M17 11h3.5M17 15h3.5M8 19l-2 2.4M16 19l2 2.4M9.5 4.5L8 2.5M14.5 4.5L16 2.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+    '<path d="M13.5 2L5 13.5h6L9.8 22 19 10h-6z" fill="currentColor"/>',
+    '<rect x="4" y="3.5" width="16" height="5.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="9.4" width="16" height="5.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="2"/><rect x="4" y="15.3" width="16" height="5.2" rx="1.4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="7.6" cy="6.1" r=".9" fill="currentColor"/><circle cx="7.6" cy="12" r=".9" fill="currentColor"/><circle cx="7.6" cy="17.9" r=".9" fill="currentColor"/>'
+  ];
+  // Vector Neon card (viewBox 260x112 = same height as the old dashboard cards). Pure SVG: HD at any DPI, ~2 KB.
+  function neonCardSvg(id, c) {
+    var col = c.main, hi = c.hi, uid = 'nc' + id;
+    return '' +
+    '<svg class="nc-svg" viewBox="0 0 260 112" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+    '<defs>' +
+      '<radialGradient id="bg' + uid + '" cx="30%" cy="35%" r="85%"><stop offset="0" stop-color="#03060c" stop-opacity=".72"/><stop offset=".55" stop-color="' + col + '" stop-opacity=".07"/><stop offset="1" stop-color="' + col + '" stop-opacity=".34"/></radialGradient>' +
+      '<linearGradient id="gl' + uid + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + hi + '" stop-opacity=".75"/><stop offset=".6" stop-color="' + col + '" stop-opacity=".18"/><stop offset="1" stop-color="' + col + '" stop-opacity="0"/></linearGradient>' +
+      '<linearGradient id="tl' + uid + '" x1="0" x2="1"><stop offset="0" stop-color="' + hi + '" stop-opacity="0"/><stop offset=".25" stop-color="' + hi + '" stop-opacity=".95"/><stop offset=".8" stop-color="' + hi + '" stop-opacity=".9"/><stop offset="1" stop-color="' + hi + '" stop-opacity="0"/></linearGradient>' +
+      '<linearGradient id="wv' + uid + '" x1="0" x2="1"><stop offset="0" stop-color="' + hi + '"/><stop offset="1" stop-color="' + col + '"/></linearGradient>' +
+      '<clipPath id="cp' + uid + '"><rect x="4" y="4" width="252" height="104" rx="15"/></clipPath>' +
+      '<filter id="g' + uid + '" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
+      '<filter id="gs' + uid + '" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="1.3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
+      '<filter id="gb' + uid + '" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="6"/></filter>' +
+    '</defs>' +
+    // outer bloom
+    '<rect x="4" y="4" width="252" height="104" rx="15" fill="none" stroke="' + col + '" stroke-width="5" opacity=".38" filter="url(#gb' + uid + ')"/>' +
+    // body
+    '<rect x="4" y="4" width="252" height="104" rx="15" fill="url(#bg' + uid + ')"/>' +
+    '<g clip-path="url(#cp' + uid + ')">' +
+      // background swooshes
+      '<path d="M-10 72 C 40 38, 96 52, 138 76 S 214 98, 270 62" fill="none" stroke="' + col + '" stroke-opacity=".22" stroke-width="1.2"/>' +
+      '<path d="M-10 84 C 50 54, 104 66, 146 88 S 220 104, 270 78" fill="none" stroke="' + col + '" stroke-opacity=".16" stroke-width="1"/>' +
+      '<path d="M70 112 C 110 80, 150 74, 200 66 L 270 40 L 270 112 Z" fill="' + col + '" fill-opacity=".16"/>' +
+      '<path d="M120 112 C 150 92, 190 82, 270 56 L270 112 Z" fill="' + hi + '" fill-opacity=".10"/>' +
+      // glass corner top-right
+      '<path d="M196 0 H 270 V 62 Z" fill="url(#gl' + uid + ')"/>' +
+      '<path d="M196 0 L 270 62" stroke="' + hi + '" stroke-opacity=".55" stroke-width=".8" fill="none"/>' +
+      // inner top highlight line
+      '<rect x="16" y="9.2" width="190" height="1.5" rx=".75" fill="url(#tl' + uid + ')" filter="url(#gs' + uid + ')"/>' +
+      // diagonal edge lower-right
+      '<path d="M150 112 L 270 60" stroke="#fff" stroke-opacity=".55" stroke-width=".9" fill="none"/>' +
+    '</g>' +
+    // neon wave + node
+    '<g filter="url(#g' + uid + ')">' +
+      '<path d="M14 90 C 20 80, 28 80, 34 88 S 48 100, 58 90 S 76 78, 92 88 S 118 98, 140 86 S 176 74, 206 80" fill="none" stroke="url(#wv' + uid + ')" stroke-width="2.2" stroke-linecap="round"/>' +
+      '<circle cx="212" cy="80" r="3.6" fill="none" stroke="' + hi + '" stroke-width="1.8"/>' +
+    '</g>' +
+    // ring + disc
+    '<circle cx="210" cy="44" r="24" fill="none" stroke="' + col + '" stroke-width="5" opacity=".5" filter="url(#gb' + uid + ')"/>' +
+    '<circle cx="210" cy="44" r="21.5" fill="#04060b" stroke="' + col + '" stroke-width="4" filter="url(#gs' + uid + ')"/>' +
+    '<circle cx="210" cy="44" r="18.3" fill="none" stroke="' + hi + '" stroke-opacity=".55" stroke-width=".8"/>' +
+    '<svg x="198" y="32" width="24" height="24" viewBox="0 0 24 24" style="color:' + hi + '" filter="url(#gs' + uid + ')">' + NEON_ICONS[id - 1] + '</svg>' +
+    // border
+    '<rect x="4" y="4" width="252" height="104" rx="15" fill="none" stroke="' + col + '" stroke-width="2" filter="url(#gs' + uid + ')"/>' +
+    '<rect x="6.2" y="6.2" width="247.6" height="99.6" rx="13" fill="none" stroke="' + hi + '" stroke-opacity=".35" stroke-width=".8"/>' +
+    '</svg>';
+  }
+  var NEON = [
+    { main: '#14e3b4', hi: '#7dffe3' },
+    { main: '#ff2f57', hi: '#ff9fb0' },
+    { main: '#1f7bff', hi: '#8fc1ff' },
+    { main: '#ffa51a', hi: '#ffd98a' },
+    { main: '#b13cff', hi: '#e0a8ff' },
+    { main: '#c9d6e8', hi: '#ffffff' }
+  ];
+
+  // Same inner classes as metricCard so _patchMetric / rCardClick keep working. No data (0) = dim, data = lit.
+  function neonCard(n, val, lbl, sub, customOnclick, mid) {
+    var dim = (parseInt(val, 10) || 0) === 0 ? ' dim' : '';
+    return '<div class="r-neon n' + n + dim + '" onclick="' + customOnclick + '" data-mid="' + mid + '">' +
+      neonCardSvg(n, NEON[n - 1]) +
+      '<div class="r-neon-t">' +
+      '<div class="r-metric-label">' + lbl + '</div>' +
+      '<div class="r-metric-val">' + val + '</div>' +
+      '<div class="r-metric-sub">' + (sub || '') + '</div>' +
+      '</div></div>';
+  }
+
   // Patch a single metric card value/sub in-place without rebuilding the DOM
   function _patchMetric(mid, val, sub, lbl) {
     var card = document.querySelector('[data-mid="' + mid + '"]');
@@ -3060,6 +3141,11 @@
     if (lbl !== undefined) {
       var l = card.querySelector('.r-metric-label');
       if (l) l.textContent = lbl;
+    }
+    // Neon cards: no data = dim, data = lit
+    if (card.classList.contains('r-neon')) {
+      card.classList.toggle('dim', (parseInt(val, 10) || 0) === 0);
+      return;
     }
     // Sync disabled state for actionable cards
     if (card.classList.contains('r-metric-card-link')) {
@@ -3277,26 +3363,27 @@
     var ram = d.ram_pct !== undefined ? d.ram_pct : null;
     var disk = d.disk_pct !== undefined ? d.disk_pct : null;
     var lat = d.net_latency_ms !== undefined ? d.net_latency_ms : null;
-    function bar(pct, cls, label, valStr) {
-      var p = pct !== null ? Math.min(100, Math.max(0, pct)) : 0;
-      var fillCls = cls + (pct >= 90 ? ' danger' : pct >= 75 ? ' warn' : '');
-      var display = pct !== null ? (Math.round(pct) + '%') : 'N/A';
-      return '<div class="r-health-bar-row">' +
-        '<div class="r-hb-header"><span class="r-hb-label">' + label + '</span>' +
-        '<span class="r-hb-val">' + display + (valStr ? ' | ' + valStr : '') + '</span></div>' +
-        '<div class="r-hb-track"><div class="r-hb-fill ' + fillCls + '" style="width:' + p + '%"></div></div>' +
-        '</div>';
+    function gauge(label, pct, sub) {
+      var has = pct !== null && pct !== undefined;
+      var p = has ? Math.min(100, Math.max(0, pct)) : 0;
+      var col = !has ? '#475569' : p < 60 ? '#34d399' : p < 85 ? '#ffa51a' : '#ff3b5c';
+      var r = 27, circ = 2 * Math.PI * r, arc = circ * 0.75, val = Math.max(arc * p / 100, 0.1);
+      var fid = 'rgf' + label;
+      return '<div class="r-gg">' +
+        '<svg viewBox="0 0 72 72"><defs><filter id="' + fid + '" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>' +
+        '<circle cx="36" cy="36" r="' + r + '" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="5" stroke-linecap="round" stroke-dasharray="' + arc.toFixed(1) + ' ' + circ.toFixed(1) + '" transform="rotate(135 36 36)"/>' +
+        (has ? '<circle cx="36" cy="36" r="' + r + '" fill="none" stroke="' + col + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="' + val.toFixed(1) + ' ' + circ.toFixed(1) + '" transform="rotate(135 36 36)" filter="url(#' + fid + ')" style="transition:stroke-dasharray .5s ease"/>' : '') +
+        '<text x="36" y="40" text-anchor="middle" class="r-gv" fill="' + col + '">' + (has ? Math.round(p) + '%' : 'N/A') + '</text></svg>' +
+        '<div class="r-gl">' + label + '</div><div class="r-gs">' + (sub || '&nbsp;') + '</div></div>';
     }
     var ramGB = (d.ram_used_gb !== undefined && d.ram_total_gb !== undefined)
-      ? (d.ram_used_gb + '/' + d.ram_total_gb + ' GB') : '';
+      ? (d.ram_used_gb + ' / ' + d.ram_total_gb + ' GB') : '';
     var diskGB = (d.disk_used_gb !== undefined && d.disk_total_gb !== undefined)
-      ? (d.disk_used_gb + '/' + d.disk_total_gb + ' GB') : '';
-    return bar(cpu, 'cpu', 'CPU', '') +
-      bar(ram, 'ram', 'RAM', ramGB) +
-      bar(disk, 'disk', 'DISK', diskGB) +
+      ? (d.disk_used_gb + ' / ' + d.disk_total_gb + ' GB') : '';
+    return '<div class="r-gauges">' + gauge('CPU', cpu, '') + gauge('RAM', ram, ramGB) + gauge('DISK', disk, diskGB) + '</div>' +
       '<div class="r-health-stats">' +
       '<div class="r-hs-item"><div class="r-hs-lbl">LATENCY</div><div class="r-hs-val">' + (lat !== null ? lat + ' ms' : 'N/A') + '</div></div>' +
-      '<div class="r-hs-item"><div class="r-hs-lbl">UPTIME</div><div class="r-hs-val" style="font-size:10px">' + esc(d.uptime || '—') + '</div></div>' +
+      '<div class="r-hs-item"><div class="r-hs-lbl">UPTIME</div><div class="r-hs-val">' + esc(d.uptime || '—') + '</div></div>' +
       '</div>';
   }
 
@@ -3503,6 +3590,13 @@
     });
   }
 
+  window.rTermFilter = function (el) {
+    var term = $r('r-terminal'); if (!term) return;
+    term.setAttribute('data-f', el.getAttribute('data-f') || '');
+    var all = document.querySelectorAll('#r-term-flt .r-f');
+    for (var i = 0; i < all.length; i++) all[i].classList.toggle('on', all[i] === el);
+  };
+
   function appendTerminalLine(e) {
     var term = $r('r-terminal');
     if (!term) return;
@@ -3530,6 +3624,9 @@
     }
 
     var _isF = stCode === 'FINISH' || stCode === 'FINISHED';
+    var _lvl = (!isSysAlert && stCode === 'COMPLETED') ? 'COMPLETED!' : stCode;
+    var lineH = '<em class="tm">' + esc(ts) + '</em><span class="lv">' + esc(_lvl) + '</span><span class="ap">' + esc(_streamApp) + '</span>' +
+      (file ? '<span class="ms">' + esc(file) + '</span>' : '');
 
     // ── Generic app dedup — update in-place ──
     var _aMachine = e.machine || e.branch_id || '?';
@@ -3538,7 +3635,7 @@
       var _aEntry = _appLogMap[_aKey];
       if (_aEntry && _aEntry.el && term.contains(_aEntry.el)) {
         _aEntry.el.className = 'r-term-line ' + cls;
-        var lineHtml = esc(line);
+        var lineHtml = lineH;
         if (stCode === 'PROCESSING') {
           lineHtml += '<span class="r-dots"></span>';
         }
@@ -3565,7 +3662,7 @@
         // Update existing entry in-place — bump counter + refresh timestamp
         _sysEntry.count++;
         var _hadCursor = !!_sysEntry.el.querySelector('.r-term-cursor');
-        _sysEntry.el.textContent = line + ' (×' + _sysEntry.count + ')';
+        _sysEntry.el.innerHTML = lineH + '<span class="cnt">×' + _sysEntry.count + '</span>';
         if (_hadCursor) {
           var _rc = document.createElement('span');
           _rc.className = 'r-term-cursor';
@@ -3584,9 +3681,9 @@
     var p = document.createElement('p');
     p.className = 'r-term-line ' + cls;
     if (!isSysAlert && stCode === 'PROCESSING') {
-      p.innerHTML = esc(line) + '<span class="r-dots"></span>';
+      p.innerHTML = lineH + '<span class="r-dots"></span>';
     } else {
-      p.textContent = line;
+      p.innerHTML = lineH;
     }
     term.appendChild(p);
 
