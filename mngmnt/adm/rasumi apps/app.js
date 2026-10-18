@@ -3250,14 +3250,46 @@
     return '<div style="flex:1;overflow-y:auto;min-height:0">' + rowsHTML + '</div>' + cmds;
   }
 
+  // ── Signed commands (Phase 2) ───────────────────────────────
+  // Commands are no longer inserted into `commands` directly: the Edge Function `send-command` checks the
+  // caller is an admin, stamps created_by with the verified identity and signs the command (Ed25519).
+  // Returns a promise resolving to { data:[{id}], error } (same shape as insert(...).select('id')).
+  function rInsertCmd(rows) {
+    var arr = Array.isArray(rows) ? rows : [rows];
+    var body = { commands: arr.map(function (r) {
+      return { target_machine: r.target_machine, type: r.type, payload: r.payload || null,
+               is_broadcast: !!r.is_broadcast, job_id: r.job_id || null };
+    }) };
+    var p = Promise.resolve().then(function () {
+      return RS.supa.functions.invoke('send-command', { body: body });
+    }).then(function (res) {
+      if (res && res.error) {
+        var ctx = res.error.context;
+        if (ctx && typeof ctx.json === 'function') {
+          return ctx.json().then(function (j) { return { data: null, error: { message: (j && j.error) || res.error.message } }; },
+                                 function () { return { data: null, error: { message: res.error.message } }; });
+        }
+        return { data: null, error: { message: res.error.message || 'send-command failed' } };
+      }
+      var ids = (res && res.data && res.data.ids) || [];
+      return { data: ids.map(function (id) { return { id: id }; }), error: null };
+    }).catch(function (e) { return { data: null, error: { message: (e && e.message) || String(e) } }; });
+    p.select = function () { return p; };
+    return p;
+  }
+  function rCmdFail(r) {
+    if (r && r.error) { rToast('Command not sent: ' + r.error.message, 'error'); return true; }
+    return false;
+  }
+
   window.rSendTeleCmd = function (hostname, cmd) {
     if (!RS.supa) { rToast('Supabase not ready', 'error'); return; }
     var user = RS.currentUser;
-    RS.supa.from('commands').insert({
+    rInsertCmd({
       target_machine: hostname, type: cmd, status: 'PENDING',
       created_at: new Date().toISOString(),
       created_by: user ? user.email : 'admin'
-    }).then(function () { rCmdFeedback(cmd + ' sent to ' + hostname); })
+    }).then(function (r) { if (rCmdFail(r)) return; rCmdFeedback(cmd + ' sent to ' + hostname); })
       .catch(function (e) { rToast('Error: ' + e.message, 'error'); });
   };
 
@@ -5661,7 +5693,7 @@
       return;
     }
     var user = RS.currentUser;
-    RS.supa.from('commands').insert({
+    rInsertCmd({
       target_machine: hostname,
       type: 'HEALTH_CHECK',
       status: 'PENDING',
@@ -5881,7 +5913,7 @@
       if (!targets.length) { rToast('Pilih sekurang-kurangnya satu target', 'warn'); return; }
       window._rDcClose();
       var user = RS.currentUser;
-      RS.supa.from('commands').insert({
+      rInsertCmd({
         target_machine: hostname,
         type: 'DISK_CLEANUP',
         status: 'PENDING',
@@ -5889,6 +5921,7 @@
         created_at: new Date().toISOString(),
         created_by: user ? user.email : 'admin'
       }).select('id').then(function (res) {
+        if (rCmdFail(res)) return;
         rCmdFeedback('Disk Clean Up sent to ' + hostname + ' — ' + disks.join(', '));
         var menu = $r('dd-disk-menu'); if (menu) menu.style.display = 'none';
         // Auto-refresh Device Health when cleanup completes
@@ -6959,7 +6992,7 @@
     if (btn) btn.disabled = true;
     Promise.resolve().then(function () {
       busy('Waiting for ' + (_canonHost(_ppMachine) || _ppMachine) + '…');
-      return RS.supa.from('commands').insert({
+      return rInsertCmd({
         target_machine: _ppMachine, type: 'PORTAL_TEST', payload: { portal_key: k }, status: 'PENDING',
         created_at: new Date().toISOString(), created_by: RS.currentUser ? RS.currentUser.email : 'admin'
       }).select('id');
@@ -10506,13 +10539,14 @@
       rOpenScriptEditor(target, createdBy);
       return;
     }
-    RS.supa.from('commands').insert({
+    rInsertCmd({
       target_machine: target,
       type: cmdUp,
       status: 'PENDING',
       created_at: new Date().toISOString(),
       created_by: createdBy
-    }).then(function () {
+    }).then(function (r) {
+      if (rCmdFail(r)) return;
       rCmdFeedback('Command "' + cmdUp + '" sent to ' + target);
       var inp = $r('r-cmd-dev-inp') || $r('r-cmd-inp');
       if (inp) inp.value = '';
@@ -10559,14 +10593,15 @@
     var ta = $r('r-script-ta');
     var script = (ta ? ta.value : '').trim();
     if (!script) { rToast('Script cannot be empty', 'warn'); return; }
-    RS.supa.from('commands').insert({
+    rInsertCmd({
       target_machine: target,
       type: 'RUN_SCRIPT',
       status: 'PENDING',
       created_at: new Date().toISOString(),
       created_by: createdBy,
       payload: { script: script }
-    }).then(function () {
+    }).then(function (r) {
+      if (rCmdFail(r)) return;
       rCmdFeedback('Script sent to ' + target);
       var ov = $r(ovId); if (ov) ov.remove();
       if (typeof renderCommands === 'function') renderCommands();
@@ -10594,7 +10629,8 @@
         created_by: createdBy
       };
     });
-    RS.supa.from('commands').insert(supaRows).then(function () {
+    rInsertCmd(supaRows).then(function (r) {
+      if (rCmdFail(r)) return;
       rToast('Broadcast → ' + online.length + ' machine(s)', 'success');
       var inp = $r('r-broadcast-inp');
       if (inp) inp.value = '';
