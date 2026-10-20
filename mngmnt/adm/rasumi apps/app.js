@@ -2116,8 +2116,39 @@
             if (fbStatus) fbStatus.innerHTML =
               '<span style="color:var(--rc-green);font-size:10px;padding:0 21px;display:block">' +
               'Rasumi Apps <span class="r-live-blink">● LIVE</span></span>';
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.warn('[Supa] machine_status realtime ' + status + ' - polling fallback active');
+            _pollMachineStatus();
           }
         });
+
+      // Safety net: realtime can silently stall (expired token / dropped socket), which left the
+      // device list stale until a manual page refresh. Re-read machine_status every 30s and merge
+      // it in (no reset of RS.devices), so newly-online devices always appear.
+      function _pollMachineStatus() {
+        if (!RS.supa || document.hidden) return;
+        RS.supa.from('machine_status').select('*').then(function (res) {
+          if (res.error || !res.data) return;
+          var changed = false;
+          res.data.forEach(function (row) {
+            if (!row.hostname) return;
+            var prev = RS.devices[row.hostname];
+            var prevStatus = prev && prev._status;
+            var prevHb = prev && prev.last_heartbeat;
+            var merged = _normSupa(Object.assign({}, prev || {}, row));
+            RS.devices[row.hostname] = merged;
+            _trackOnlineFrom(row.hostname, merged._status, merged.last_heartbeat || merged.last_seen);
+            if (merged._status !== prevStatus || merged.last_heartbeat !== prevHb) changed = true;
+          });
+          if (!changed) return;
+          updateFleetBadges();
+          if (RS.route === 'r-dashboard') renderDashboard();
+          if (RS.route === 'r-devices') renderDevices();
+          if (RS.route === 'r-release') rRefreshFleetStatus();
+        }).catch(function () { });
+      }
+      var _msPollTimer = setInterval(_pollMachineStatus, 30000);
+      addL(function () { clearInterval(_msPollTimer); });
 
       addL(function () { if (RS.supa) RS.supa.removeChannel(supaChannel); });
 
