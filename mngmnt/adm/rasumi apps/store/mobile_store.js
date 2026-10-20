@@ -738,9 +738,16 @@ async function submitProfileSettings(e) {
 
 async function submitProfilePassword(e) {
     e.preventDefault();
+    const currentPassword = document.getElementById("ps-current-password").value;
     const newPassword = document.getElementById("ps-new-password").value;
     const confirmPassword = document.getElementById("ps-confirm-password").value;
     const feedback = document.getElementById("ps-password-feedback");
+
+    if (!currentPassword) {
+        feedback.textContent = "Enter your current password.";
+        feedback.className = "ps-feedback error";
+        return;
+    }
 
     if (newPassword.length < 6) {
         feedback.textContent = "Password must be at least 6 characters.";
@@ -756,11 +763,12 @@ async function submitProfilePassword(e) {
     feedback.textContent = "Updating...";
     feedback.className = "ps-feedback";
     try {
-        const { ok, data } = await apiFetch("/profile/password", { method: "POST", body: { new_password: newPassword } });
+        const { ok, data } = await apiFetch("/profile/password", { method: "POST", body: { current_password: currentPassword, new_password: newPassword } });
         if (!ok || !data.success) throw new Error(data.message || "Failed to change password.");
 
         feedback.textContent = "Password changed.";
         feedback.className = "ps-feedback success";
+        document.getElementById("ps-current-password").value = "";
         document.getElementById("ps-new-password").value = "";
         document.getElementById("ps-confirm-password").value = "";
     } catch (err) {

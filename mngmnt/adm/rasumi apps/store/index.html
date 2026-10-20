@@ -270,6 +270,8 @@
                 <div class="ps-section">
                     <div class="ps-section-title">Change Password</div>
                     <form onsubmit="submitProfilePassword(event)">
+                        <label class="ps-field-label" for="ps-current-password">Current Password</label>
+                        <input type="password" id="ps-current-password" class="ps-field-input" placeholder="Your current password" required autocomplete="current-password">
                         <label class="ps-field-label" for="ps-new-password">New Password</label>
                         <input type="password" id="ps-new-password" class="ps-field-input" placeholder="At least 6 characters" minlength="6" required autocomplete="new-password">
                         <label class="ps-field-label" for="ps-confirm-password">Confirm New Password</label>
