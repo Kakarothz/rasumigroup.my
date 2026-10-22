@@ -13500,8 +13500,13 @@
         setStatus('Verifying…', '#9ca3af');
         btnPwd.disabled = true;
         // Step 1: Verify current password
-        RS.supa.auth.signInWithPassword({ email: user.email, password: currPass })
+        // Verify on a THROWAWAY client: signing in on RS.supa would replace the live session with an
+        // aal1 one (no MFA step) and the server now requires aal2 for admin actions.
+        var _verifyClient = supabase.createClient(RASUMI_SUPABASE_URL, RASUMI_SUPABASE_ANON_KEY,
+          { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'rs-pw-verify-tmp' } });
+        _verifyClient.auth.signInWithPassword({ email: user.email, password: currPass })
           .then(function (r) {
+            _verifyClient.auth.signOut({ scope: 'local' }).catch(function () { });
             if (r.error) { var e = new Error(r.error.message); e.isWrongPass = true; throw e; }
             setStatus('Updating password…', '#9ca3af');
             // Step 2: Update Supabase Auth password
