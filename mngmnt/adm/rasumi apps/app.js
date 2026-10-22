@@ -6779,7 +6779,7 @@
       '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-truck"></i> Delivery Status &amp; DO Tracking</h3>' +
       '<div class="r-filter-bar">' +
       '<input id="po-d-q" class="r-filter-input" placeholder="Search PO / branch / item" oninput="rPoDeliveryRender()" style="width:220px">' +
-      '<select id="po-d-kind" class="r-filter-input" onchange="rPoDeliveryRender()"><option value="">All</option><option value="open">Open only</option><option value="do_pending">DO requested, not sent</option><option value="no_do">TNB delivered, no DO requested</option></select>' +
+      '<select id="po-d-kind" class="r-filter-input" onchange="rPoDeliveryRender()"><option value="">All</option><option value="open">Open only</option><option value="do_pending">DO requested, not sent</option><option value="no_do">TNB delivered, no DO requested</option><option value="completed">Completed (invoice downloaded)</option><option value="inv_wait">DKSH delivered, invoice not downloaded</option><option value="inv_bad">Invoice rejected / not verified</option></select>' +
       '<button class="r-btn-sm" onclick="rPoTab(\'delivery\')">Refresh</button></div></div>' +
       '<div id="po-d-count" style="font-size:11px;color:#6B7A8F;margin-bottom:8px"></div><div id="po-d-tbl">' + _poLoading() + '</div></div>';
     RS.supa.rpc('po_admin_delivery', { p_limit: 2000 }).then(function (res) {
@@ -6799,18 +6799,26 @@
       if (k === 'open' && done(d)) return false;
       if (k === 'do_pending' && !(d.do_requested_at && !d.do_sent_at)) return false;
       if (k === 'no_do' && !(done(d) && !d.do_requested_at && d.order_kind === 'TENDER')) return false;
+      if (k === 'completed' && !d.inv_dl_at) return false;
+      if (k === 'inv_wait' && !(/deliver/i.test(d.portal_status || '') && /dksh/i.test(d.supplier || '') && !d.inv_dl_at)) return false;
+      if (k === 'inv_bad' && !((d.inv_dl_log || []).some(function (e) { return e.event === 'rejected'; }) || (d.inv_dl_at && d.inv_dl_check !== 'verified'))) return false;
       return true;
     });
     var cnt = $r('po-d-count'); if (cnt) cnt.textContent = rows.length + ' of ' + _poDeliveryCache.length + ' lines';
     if (!rows.length) { box.innerHTML = '<div class="r-empty">No delivery lines match</div>'; return; }
     var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Kind</th><th>PO No</th><th>Branch</th><th>Item</th><th>Qty</th><th>Portal</th><th>Status</th><th>Invoice</th><th>Delivery</th><th>DO</th><th>Checked</th></tr></thead><tbody>';
+    var rid = 0;
     rows.forEach(function (d) {
       var stCls = /deliver/i.test(d.portal_status || '') ? 'r-badge-ok' : (/cancel|reject/i.test(d.portal_status || '') ? 'r-badge-err' : 'r-badge-warn');
       var doNo = d.rasumi_do_no ? '<div style="font-size:10px">' + esc(d.rasumi_do_no) + '</div>' : '';
-      var doCell = d.do_sent_at ? _poBadge('r-badge-ok', 'Sent', _poDtPlain(d.do_sent_at)) + doNo
+      var isDone = /deliver/i.test(d.portal_status || '') && !!d.inv_dl_at;
+      var hasInv = !!(d.inv_dl_at || (d.inv_dl_log && d.inv_dl_log.length));
+      var doCell = isDone ? _poBadge(d.inv_dl_check === 'verified' ? 'r-badge-ok' : 'r-badge-warn', 'Completed', _poDtPlain(d.inv_dl_at) + (d.inv_dl_check === 'verified' ? ' · verified' : ' · not verified'))
+        : d.do_sent_at ? _poBadge('r-badge-ok', 'Sent', _poDtPlain(d.do_sent_at)) + doNo
         : d.do_requested_at ? _poBadge('r-badge-warn', 'Requested', _poDtPlain(d.do_requested_at) + ' by ' + (d.do_requested_by ? _branchName(d.do_requested_by) : '')) + doNo
-          : '<span style="color:#6B7A8F">—</span>';
-      h += '<tr><td>' + _poBadge(d.order_kind === 'TENDER' ? 'r-badge-blue' : 'r-badge-info', d.order_kind === 'TENDER' ? 'TNB' : 'FV') + '</td>' +
+          : (hasInv ? _poBadge('r-badge-err', 'Rejected', 'Invoice download rejected - see details') : '<span style="color:#6B7A8F">—</span>');
+      var ri = 'pod-' + (rid++);
+      h += '<tr' + (hasInv ? ' style="cursor:pointer" onclick="rPoDeliveryToggle(\'' + ri + '\')"' : '') + '><td>' + _poBadge(d.order_kind === 'TENDER' ? 'r-badge-blue' : 'r-badge-info', d.order_kind === 'TENDER' ? 'TNB' : 'FV') + '</td>' +
         '<td>' + esc(d.po_no || '—') + '</td><td>' + esc(d.branch_name || '—') + '</td>' +
         '<td style="max-width:240px;white-space:normal">' + esc(d.description || '—') + '</td>' +
         '<td style="text-align:right">' + (d.qty != null ? esc(d.qty) : '—') + '</td>' +
@@ -6818,9 +6826,26 @@
         '<td>' + _poBadge(stCls, d.portal_status || 'Awaiting supplier') + '</td>' +
         '<td>' + esc(d.invoice_no || '—') + '</td><td>' + esc(d.delivery_date || '—') + '</td>' +
         '<td>' + doCell + '</td><td>' + _poDt(d.last_checked_at) + '</td></tr>';
+      if (hasInv) {
+        var kv = function (k, v) { return '<div><span style="color:#6B7A8F">' + k + '</span> ' + (v == null || v === '' ? '—' : esc(v)) + '</div>'; };
+        var log = (d.inv_dl_log || []).slice().reverse().map(function (e) {
+          var ok = e.event === 'ok';
+          return '<div style="margin-top:3px;font-size:11px"><span style="color:' + (ok ? '#34d399' : '#f87171') + '">' + (ok ? 'Downloaded' : 'Rejected') + '</span> ' +
+            esc(_poDtPlain(e.at)) + ' · ' + esc(e.by ? _branchName(e.by) : '—') + ' · ' + esc(e.device || '—') + (e.version ? ' · v' + esc(e.version) : '') +
+            (e.file ? ' · ' + esc(e.file) : '') + (e.check ? ' · ' + esc(e.check === 'verified' ? 'verified vs PO' : 'not verified') : '') +
+            (e.note ? '<div style="color:#f87171">' + esc(e.note) + '</div>' : '') + '</div>';
+        }).join('');
+        h += '<tr id="' + ri + '" style="display:none"><td colspan="11" style="background:rgba(255,255,255,.03);padding:10px 16px"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:4px 24px;font-size:12px">' +
+          kv('Invoice no', d.invoice_no) + kv('Portal order (SO)', d.portal_order_no) + kv('Invoice amount', d.inv_dl_amount) +
+          kv('Downloaded at', d.inv_dl_at ? _poDtPlain(d.inv_dl_at) : '') + kv('Downloaded by', d.inv_dl_by ? _branchName(d.inv_dl_by) : '') + kv('Device', d.inv_dl_device) +
+          kv('File', d.inv_dl_file) + kv('Check vs PO', d.inv_dl_check === 'verified' ? 'Verified (PO no. + item qty found on invoice)' : (d.inv_dl_check ? 'Not verified (PDF text unreadable)' : '')) +
+          kv('Times downloaded', d.inv_dl_count) + kv('Delivered on', d.delivery_date) + '</div>' +
+          (log ? '<div style="margin-top:8px;border-top:1px solid rgba(255,255,255,.08);padding-top:6px"><b style="font-size:11px">Activity</b>' + log + '</div>' : '') + '</td></tr>';
+      }
     });
     box.innerHTML = h + '</tbody></table></div>';
   };
+  window.rPoDeliveryToggle = function (id) { var t = document.getElementById(id); if (t) t.style.display = t.style.display === 'none' ? '' : 'none'; };
 
   // ── Email Status (PO Mailer Send All queue, sql/po_send_queue_v1.sql) ─────────
   var _poSendMeta = { overridden: false };
