@@ -1220,7 +1220,14 @@
     if (fbStatus) fbStatus.innerHTML = '<span style="color:var(--rc-green);font-size:10px;padding:0 21px;display:block">Rasumi Apps <span class="r-live-blink">● LIVE</span></span>';
 
     startGlobalListeners();
-    rNav('r-dashboard');
+    // Restore the page the user was on before a refresh (device-detail routes
+    // need live data, so those fall back to the dashboard).
+    var _startRoute = 'r-dashboard';
+    try {
+      var _saved = localStorage.getItem('rs_last_route');
+      if (_saved && _saved.indexOf('r-device:') !== 0 && $r('rni-' + _saved)) _startRoute = _saved;
+    } catch (e) { }
+    rNav(_startRoute);
   }
 
   window.exitRasumiMode = function () {
@@ -2688,6 +2695,7 @@
     // before setting up (or skipping) one for the newly-navigated route.
     if (RS._tabRefreshTimer) { clearInterval(RS._tabRefreshTimer); RS._tabRefreshTimer = null; }
     RS.route = route;
+    try { localStorage.setItem('rs_last_route', route); } catch (e) { }
     // Update horizontal nav active state
     qra('.r-hn-item').forEach(function (el) { el.classList.remove('active'); });
     var activeEl = $r('rni-' + route);
@@ -6509,6 +6517,10 @@
   // session view renderAppLogs() below uses — a purchaser cares about
   // "which PO, which patient, which hospital", not session grouping.
   var _poTab = 'overview';
+  try {
+    var _poSaved = localStorage.getItem('rs_po_tab');
+    if (['overview', 'orders', 'delivery', 'gmail', 'ref', 'tpl', 'send', 'activity'].indexOf(_poSaved) !== -1) _poTab = _poSaved;
+  } catch (e) { }
   var _poOrdersCache = [];
   var _poDeliveryCache = [];
 
@@ -6525,6 +6537,7 @@
 
   window.rPoTab = function (t) {
     _poTab = t;
+    try { localStorage.setItem('rs_po_tab', t); } catch (e) { }
     ['overview', 'orders', 'delivery', 'gmail', 'ref', 'tpl', 'send', 'activity'].forEach(function (k) {
       var el = $r('rpotab-' + k); if (el) el.classList.toggle('active', k === t);
     });
@@ -6908,6 +6921,7 @@
   };
 
   // ── Gmail & 2FA ───────────────────────────────────────────
+  var _poGOpen = {}, _poGGroups = {};
   function _poGmail(body) {
     body.innerHTML = '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-envelope-circle-check"></i> Gmail Connections &amp; 2FA</h3>' +
       '<div class="r-filter-bar"><button class="r-btn-sm" onclick="rPoTab(\'gmail\')">Refresh</button></div></div>' +
@@ -6919,28 +6933,105 @@
       var rows = res.data || [];
       if (!rows.length) { box.innerHTML = '<div class="r-empty">No Gmail connections</div>'; return; }
       var now = Date.now();
-      var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Machine</th><th>Gmail</th><th>Purchaser</th><th>Role</th><th>2FA</th><th>Connected</th><th>Last used</th><th title="Show the Draft all button in PO Mailer for this Gmail connection">Draft</th><th title="Show the Send All button and Send tab in PO Mailer for this Gmail connection">Direct send</th><th></th></tr></thead><tbody>';
+      var IDLE_MS = 7 * 86400000;
+      var groups = {}, order = [];
       rows.forEach(function (g) {
-        var locked = g.locked_until && new Date(g.locked_until).getTime() > now;
-        var tf = (g.totp_enabled ? _poBadge('r-badge-ok', 'TOTP') + ' ' : '') + (g.email_enabled ? _poBadge('r-badge-ok', 'Email', g.fallback_email || '') + ' ' : '') +
+        var k = String(g.gmail_email || '—').toLowerCase();
+        if (!groups[k]) { groups[k] = []; order.push(k); }
+        groups[k].push(g);
+      });
+      order.sort(function (a, b) {
+        var la = Math.max.apply(null, groups[a].map(function (x) { return x.last_used_at ? new Date(x.last_used_at).getTime() : 0; }));
+        var lb = Math.max.apply(null, groups[b].map(function (x) { return x.last_used_at ? new Date(x.last_used_at).getTime() : 0; }));
+        return lb - la;
+      });
+      var cleanId = function (s) { return String(s || '').replace(/[^A-Za-z0-9_.\-]/g, ''); };
+      var sw = function (on, title, click) {
+        return '<button type="button" role="switch" aria-checked="' + (on ? 'true' : 'false') + '" title="' + title + '" onclick="' + click + '" style="' + _poSwitchStyle(on) + '"><span style="' + _poKnobStyle(on) + '"></span></button>';
+      };
+      var cnt = function (n, t) { return '<div class="r-muted-sm" style="margin-top:2px">' + n + '/' + t + '</div>'; };
+      var tfOf = function (g, locked) {
+        return (g.totp_enabled ? _poBadge('r-badge-ok', 'TOTP') + ' ' : '') + (g.email_enabled ? _poBadge('r-badge-ok', 'Email', g.fallback_email || '') + ' ' : '') +
           (!g.totp_enabled && !g.email_enabled ? _poBadge('r-badge-warn', 'OFF') : '') +
           (locked ? ' ' + _poBadge('r-badge-err', 'LOCKED', 'until ' + _poDtPlain(g.locked_until)) : '') +
           (g.failed_attempts ? ' <span style="font-size:10px;color:#f59e0b">' + g.failed_attempts + ' failed</span>' : '');
-        var m = String(g.machine_id || '').replace(/[^A-Za-z0-9_.\-]/g, '');
-        h += '<tr><td>' + esc(_canonHost(g.machine_id || '') || g.machine_id) + '</td><td>' + esc(g.gmail_email || '—') + '</td><td>' + esc(_branchName(g.purchaser_name)) + '</td><td>' + esc(g.role || '—') + '</td>' +
-          '<td>' + tf + '</td><td>' + _poDt(g.connected_at) + '</td><td>' + _poDt(g.last_used_at) + '</td>' +
-          '<td><button type="button" role="switch" aria-checked="' + (g.can_draft !== false ? 'true' : 'false') + '" title="Draft" onclick="rPoGmailDraft(\'' + m + '\',this)" style="' + _poSwitchStyle(g.can_draft !== false) + '">' +
-          '<span style="' + _poKnobStyle(g.can_draft !== false) + '"></span></button></td>' +
-          '<td><button type="button" role="switch" aria-checked="' + (g.can_send ? 'true' : 'false') + '" title="Direct send" onclick="rPoGmailSend(\'' + m + '\',this)" style="' + _poSwitchStyle(!!g.can_send) + '">' +
-          '<span style="' + _poKnobStyle(!!g.can_send) + '"></span></button></td>' +
+      };
+      var deviceRow = function (g, nested) {
+        var locked = g.locked_until && new Date(g.locked_until).getTime() > now;
+        var m = cleanId(g.machine_id);
+        var idle = !g.last_used_at || (now - new Date(g.last_used_at).getTime() > IDLE_MS);
+        return '<tr' + (nested ? ' class="po-g-child" data-grp="' + esc(nested) + '" style="' + (_poGOpen[nested] ? '' : 'display:none;') + 'background:rgba(255,255,255,.025)"' : '') + '>' +
+          '<td style="' + (nested ? 'padding-left:34px' : '') + '">' + esc(_canonHost(g.machine_id || '') || g.machine_id) + (idle ? ' ' + _poBadge('r-badge-warn', 'idle', 'Not used for 7+ days') : '') + '</td>' +
+          '<td>' + (nested ? '<span class="r-muted-sm">same Gmail</span>' : esc(g.gmail_email || '—')) + '</td><td>' + esc(_branchName(g.purchaser_name)) + '</td><td>' + esc(g.role || '—') + '</td>' +
+          '<td>' + tfOf(g, locked) + '</td><td>' + _poDt(g.connected_at) + '</td><td>' + _poDt(g.last_used_at) + '</td>' +
+          '<td>' + sw(g.can_draft !== false, 'Draft', "rPoGmailDraft('" + m + "',this)") + '</td>' +
+          '<td>' + sw(!!g.can_send, 'Direct send', "rPoGmailSend('" + m + "',this)") + '</td>' +
           '<td style="white-space:nowrap">' +
           (locked || g.failed_attempts ? '<button class="r-btn-sm" onclick="rPoGmailAct(\'unlock\',\'' + m + '\')">Unlock</button> ' : '') +
           ((g.totp_enabled || g.email_enabled) ? '<button class="r-btn-sm" onclick="rPoGmailAct(\'reset\',\'' + m + '\')">Reset 2FA</button> ' : '') +
           '<button class="r-btn-sm" style="color:#f87171" onclick="rPoGmailAct(\'revoke\',\'' + m + '\')">Revoke</button></td></tr>';
+      };
+      var h = '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Machine</th><th>Gmail</th><th>Purchaser</th><th>Role</th><th>2FA</th><th>Connected</th><th>Last used</th><th title="Show the Draft all button in PO Mailer for this Gmail connection">Draft</th><th title="Show the Send All button and Send tab in PO Mailer for this Gmail connection">Direct send</th><th></th></tr></thead><tbody>';
+      _poGGroups = {};
+      order.forEach(function (k, gi) {
+        var list = groups[k];
+        if (list.length === 1) { h += deviceRow(list[0], null); return; }
+        var gid = 'g' + gi;
+        _poGGroups[gid] = list.map(function (x) { return cleanId(x.machine_id); });
+        var open = !!_poGOpen[gid];
+        var last = Math.max.apply(null, list.map(function (x) { return x.last_used_at ? new Date(x.last_used_at).getTime() : 0; }));
+        var idleN = list.filter(function (x) { return !x.last_used_at || (now - new Date(x.last_used_at).getTime() > IDLE_MS); }).length;
+        var lastConn = Math.max.apply(null, list.map(function (x) { return x.connected_at ? new Date(x.connected_at).getTime() : 0; }));
+        var nDraft = list.filter(function (x) { return x.can_draft !== false; }).length;
+        var nSend = list.filter(function (x) { return !!x.can_send; }).length;
+        var purch = {}; list.forEach(function (x) { var pk = String(x.purchaser_name || '').trim().toLowerCase(); if (!purch[pk]) purch[pk] = x.purchaser_name; });
+        var pn = Object.keys(purch);
+        var anyTf = list.some(function (x) { return x.totp_enabled; }), anyEm = list.some(function (x) { return x.email_enabled; });
+        var anyLock = list.some(function (x) { return x.locked_until && new Date(x.locked_until).getTime() > now; });
+        var tf = (anyTf ? _poBadge('r-badge-ok', 'TOTP') + ' ' : '') + (anyEm ? _poBadge('r-badge-ok', 'Email') + ' ' : '') + (!anyTf && !anyEm ? _poBadge('r-badge-warn', 'OFF') : '') + (anyLock ? ' ' + _poBadge('r-badge-err', 'LOCKED') : '');
+        h += '<tr class="po-g-head" style="cursor:pointer;background:rgba(255,255,255,.05)" onclick="rPoGmailToggleGroup(\'' + gid + '\')">' +
+          '<td><i class="fa-solid fa-chevron-' + (open ? 'down' : 'right') + '" id="po-gch-' + gid + '" style="width:12px"></i> ' + list.length + ' devices ' + _poBadge('r-badge-info', String(list.length)) + (idleN ? ' ' + _poBadge('r-badge-warn', idleN + ' idle') : '') + '</td>' +
+          '<td>' + esc(list[0].gmail_email || '—') + '</td><td>' + (pn.length > 1 ? _poBadge('r-badge-warn', 'Mixed', pn.map(function (p) { return _branchName(purch[p]); }).join(', ')) : esc(_branchName(purch[pn[0]]))) + '</td><td>' + (function () { var r = {}; list.forEach(function (x) { r[x.role || '—'] = 1; }); return esc(Object.keys(r).join(', ')); })() + '</td>' +
+          '<td>' + tf + '</td><td>' + (lastConn ? _poDt(new Date(lastConn).toISOString()) : '—') + '</td><td>' + (last ? _poDt(new Date(last).toISOString()) : '—') + '</td>' +
+          '<td onclick="event.stopPropagation()">' + sw(nDraft === list.length, 'Draft (all devices)', "rPoGmailGroupSet('draft','" + gid + "',this)") + cnt(nDraft, list.length) + '</td>' +
+          '<td onclick="event.stopPropagation()">' + sw(nSend === list.length, 'Direct send (all devices)', "rPoGmailGroupSet('send','" + gid + "',this)") + cnt(nSend, list.length) + '</td>' +
+          '<td style="white-space:nowrap" onclick="event.stopPropagation()"><button class="r-btn-sm" style="color:#f87171" onclick="rPoGmailGroupRevoke(\'' + gid + '\')">Revoke all</button></td></tr>';
+        list.slice().sort(function (a, b) { return (b.last_used_at ? new Date(b.last_used_at).getTime() : 0) - (a.last_used_at ? new Date(a.last_used_at).getTime() : 0); })
+          .forEach(function (g) { h += deviceRow(g, gid); });
       });
       box.innerHTML = h + '</tbody></table></div>';
     }).catch(function (e) { _poErr($r('po-g-tbl'), e); });
   }
+
+  window.rPoGmailToggleGroup = function (gid) {
+    _poGOpen[gid] = !_poGOpen[gid];
+    var open = _poGOpen[gid];
+    document.querySelectorAll('tr.po-g-child[data-grp="' + gid + '"]').forEach(function (tr) { tr.style.display = open ? '' : 'none'; });
+    var ch = $r('po-gch-' + gid); if (ch) ch.className = 'fa-solid fa-chevron-' + (open ? 'down' : 'right');
+  };
+  window.rPoGmailGroupSet = function (kind, gid, el) {
+    var ms = _poGGroups[gid] || []; if (!ms.length) return;
+    var on = el.getAttribute('aria-checked') !== 'true';
+    var rpc = kind === 'send' ? 'po_admin_gmail_set_send' : 'po_admin_gmail_set_draft';
+    var key = kind === 'send' ? 'p_can_send' : 'p_can_draft';
+    el.disabled = true;
+    Promise.all(ms.map(function (m) { var a = { p_machine_id: m }; a[key] = on; return RS.supa.rpc(rpc, a); })).then(function (rs) {
+      var bad = rs.filter(function (r) { return r.error; });
+      if (bad.length) rToast('Failed on ' + bad.length + ' device(s): ' + bad[0].error.message, 'error');
+      else rToast((kind === 'send' ? 'Direct send ' : 'Draft ') + (on ? 'enabled' : 'disabled') + ' for ' + ms.length + ' devices', 'success');
+      _poGmail($r('r-po-body'));
+    });
+  };
+  window.rPoGmailGroupRevoke = function (gid) {
+    var ms = _poGGroups[gid] || []; if (!ms.length) return;
+    if (!confirm('REVOKE the Gmail connection on ALL ' + ms.length + ' devices?\n\n' + ms.join('\n') + '\n\nEach purchaser must reconnect Gmail.')) return;
+    Promise.all(ms.map(function (m) { return RS.supa.rpc('po_admin_gmail_revoke', { p_machine_id: m }); })).then(function (rs) {
+      var bad = rs.filter(function (r) { return r.error; });
+      if (bad.length) rToast('Failed on ' + bad.length + ' device(s): ' + bad[0].error.message, 'error');
+      else rToast('Revoked ' + ms.length + ' devices', 'success');
+      _poGmail($r('r-po-body'));
+    });
+  };
 
   function _poSwitchStyle(on) {
     return 'position:relative;width:42px;height:22px;border-radius:11px;border:1px solid ' + (on ? '#2fbf7a' : '#3a4558') +
@@ -7667,6 +7758,7 @@
       var GROUPS = [
         { id: 'ezrx', title: 'Zuellig Pharma (EZ Rx)' },
         { id: 'dksh', title: 'DKSH' },
+        { id: 'zuellig_mail', title: 'Zuellig invoice mailbox (company e-mail, read-only)' },
         { id: 'docushare', title: 'DocuShare' }
       ];
       var rows = res.data || [];
