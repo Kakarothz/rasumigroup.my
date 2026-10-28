@@ -1,126 +1,278 @@
 <!DOCTYPE html>
-<html lang="ms">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
-<meta name="theme-color" content="#14061f">
-<title>Rasumi DO Scanner</title>
+<meta name="theme-color" content="#07121c">
+<link rel="icon" href="logo.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Rasumi Apps · Wireless DO Scanner</title>
 <style>
-:root{--bg:#14061f;--card:#22103a;--line:#3a2257;--tx:#f4eefc;--mut:#a995c4;--ok:#33d17a;--warn:#f5c211;--bad:#ff5d6c;--pri:#b05cff}
+:root{--bg:#07121c;--bg2:#0b1b2a;--card:#0e1f2f;--card2:#12283b;--line:#1d364b;--tx:#f2f7fb;--mut:#8aa3b8;--teal:#2de2d0;--ok:#22c55e;--warn:#f5b301;--bad:#ff5d6c;--m1:#a21caf;--m2:#d946ef}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-body{display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
-header{padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
-header b{font-size:16px}
-#cnt{margin-left:auto;font-weight:700;font-size:20px}
-#cnt small{color:var(--mut);font-weight:500;font-size:13px}
-#bar{height:5px;background:var(--line)}#barf{height:100%;width:0;background:var(--pri);transition:width .25s}
-#cam{position:relative;background:#000;flex:0 0 38vh;max-height:340px;overflow:hidden}
-#cam video{width:100%;height:100%;object-fit:cover}
-#frame{position:absolute;inset:18% 8%;border:2px solid rgba(255,255,255,.75);border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
-#flash{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .35s}
-#msg{position:absolute;left:0;right:0;bottom:0;padding:8px 12px;font-weight:600;text-align:center;background:rgba(0,0,0,.65)}
-#camerr{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:20px;color:var(--mut)}
-.row{display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}
-#man{flex:1;background:var(--card);border:1px solid var(--line);color:var(--tx);border-radius:10px;padding:10px 12px;font-size:16px}
-button{background:var(--pri);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-weight:700;font-size:15px}
-button.sec{background:var(--card);border:1px solid var(--line);color:var(--tx)}
-#list{flex:1;overflow:auto;padding:4px 12px 16px}
-.it{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line)}
+html,body{margin:0;height:100%;background:radial-gradient(120% 60% at 50% 0%,#0d2438 0%,var(--bg) 60%);color:var(--tx);font:15px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
+#app{max-width:480px;margin:0 auto;height:100%;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 0;position:relative}
+.scroll{flex:1;overflow-y:auto;padding:0 14px 10px;-webkit-overflow-scrolling:touch}
+/* header */
+.top{display:flex;align-items:center;gap:10px;padding:12px 16px 8px}
+.logo{display:flex;align-items:center;gap:8px}
+.logo img{height:38px;width:auto;display:block}
+.logo b{display:block;font-size:21px;letter-spacing:1.5px;line-height:1}
+.logo i{display:block;font-style:normal;font-size:10px;letter-spacing:5px;color:var(--teal);margin-top:2px}
+.ib{margin-left:auto;display:flex;gap:10px}
+.ib button{width:46px;height:46px;border-radius:50%;background:var(--card);border:1px solid var(--line);color:var(--tx);display:flex;align-items:center;justify-content:center;padding:0}
+.ib button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ib button.on{background:#0f3b3a;border-color:var(--teal);color:var(--teal)}
+/* hero */
+.hero{display:flex;gap:10px;align-items:flex-start;padding:6px 4px 12px}
+.hero .t{flex:1}
+.eyebrow{color:var(--m2);font-weight:700;letter-spacing:.5px;font-size:13px}
+.hero h1{margin:3px 0 4px;font-size:25px;line-height:1.15}
+.hero p{margin:0;color:var(--mut);font-size:13px}
+.conn{min-width:128px;border:1px solid #14543a;background:#0a2a22;border-radius:14px;padding:9px 11px}
+.conn .l1{display:flex;align-items:center;gap:7px;font-weight:700;font-size:13px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.conn .l2{display:flex;align-items:center;gap:7px;color:var(--mut);font-size:12px;margin-top:5px}
+.conn.off{border-color:#6b4d05;background:#2a2108}.conn.off .dot{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+.conn.closed{border-color:#34414d;background:#14202a}.conn.closed .dot{background:#74828f;box-shadow:none}
+/* camera */
+.cam{position:relative;border-radius:20px;overflow:hidden;background:#000;height:31vh;min-height:215px;max-height:340px;border:1px solid var(--line)}
+.cam video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .2s}
+.frame{position:absolute;inset:11% 7%;pointer-events:none}
+.frame i{position:absolute;width:44px;height:44px;border:4px solid var(--teal);filter:drop-shadow(0 0 6px rgba(45,226,208,.7))}
+.frame i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0;border-radius:14px 0 0 0}
+.frame i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0;border-radius:0 14px 0 0}
+.frame i:nth-child(3){left:0;bottom:0;border-right:0;border-top:0;border-radius:0 0 0 14px}
+.frame i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0;border-radius:0 0 14px 0}
+.laser{position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#f0f,#fff 50%,#f0f,transparent);box-shadow:0 0 14px 3px rgba(217,70,239,.8);animation:sweep 2.4s ease-in-out infinite}
+@keyframes sweep{0%,100%{top:8%}50%{top:90%}}
+.flash{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .35s}
+.camerr{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:22px;color:var(--mut);background:#050b11;font-size:14px}
+.zoom{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:flex;background:rgba(5,12,20,.72);border-radius:99px;padding:4px;backdrop-filter:blur(6px)}
+.zoom button{border:0;background:transparent;color:#cfe0ee;padding:9px 17px;border-radius:99px;font-weight:700;font-size:15px}
+.zoom button.on{background:linear-gradient(180deg,var(--m2),var(--m1));color:#fff}
+.zoom button:disabled{opacity:.3}
+/* detected */
+.det{margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:8px}
+.det .m{flex:1;min-width:0}
+.det small{display:block;color:var(--mut);letter-spacing:.5px;font-size:12px;font-weight:600}
+.det .raw{font-size:23px;font-weight:700;margin:3px 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.det .rawsub{font-size:12px;color:var(--mut);margin:-2px 0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.det .st{font-size:14px;display:flex;align-items:center;gap:7px;color:var(--mut)}
+.det .st svg{width:20px;height:20px}
+.st.ok{color:var(--ok)}.st.bad{color:var(--bad)}.st.warn{color:var(--warn)}
+.det .chev{color:var(--mut);font-size:28px;line-height:1}
+.btn{width:100%;margin-top:11px;border:0;border-radius:16px;padding:16px;font-size:17px;font-weight:700;color:#fff;background:linear-gradient(180deg,var(--m2),var(--m1));box-shadow:0 6px 18px rgba(162,28,175,.45);display:flex;align-items:center;justify-content:center;gap:10px}
+.btn:disabled{opacity:.45;box-shadow:none}
+.btn svg{width:24px;height:24px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.two{display:flex;gap:10px;margin-top:10px}
+.sec{flex:1;border:1px solid var(--line);background:var(--card);color:var(--tx);border-radius:16px;padding:14px 8px;font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px}
+.sec svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sec .bd{background:var(--m1);border-radius:99px;padding:1px 8px;font-size:12px}
+.prog{height:5px;background:var(--line);border-radius:3px;margin:12px 2px 0}.prog div{height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--m2));border-radius:3px;transition:width .25s}
+/* nav */
+.nav{display:flex;border-top:1px solid var(--line);background:rgba(7,18,28,.96);padding:8px 0 calc(8px + env(safe-area-inset-bottom))}
+.nav button{flex:1;background:none;border:0;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:3px;font-size:12px;font-weight:600;padding:4px}
+.nav button svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav button.on{color:var(--m2)}
+.nav button.on::after{content:"";width:46px;height:3px;border-radius:2px;background:var(--m2);margin-top:3px}
+/* views / sheets */
+.view{position:absolute;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:20;padding-top:env(safe-area-inset-top)}
+.view.show{display:flex}
+.vh{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.vh b{font-size:18px}.vh button{margin-left:auto;background:var(--card);border:1px solid var(--line);color:var(--tx);border-radius:12px;padding:8px 14px;font-weight:600}
+.vb{flex:1;overflow:auto;padding:12px 16px}
+.row2{display:flex;justify-content:space-between;gap:10px;padding:12px 2px;border-bottom:1px solid var(--line)}
+.row2 span:first-child{color:var(--mut)}
+.it{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .it .n{color:var(--mut);width:30px;text-align:right;font-variant-numeric:tabular-nums}
-.it .d{font-weight:700;font-size:17px;letter-spacing:.5px}
-.it .s{margin-left:auto;font-size:12px;border-radius:99px;padding:3px 9px;background:var(--card);border:1px solid var(--line);color:var(--mut)}
+.it .d{font-weight:700;font-size:18px;letter-spacing:.5px}
+.it .s{margin-left:auto;font-size:12px;border-radius:99px;padding:3px 10px;background:var(--card);border:1px solid var(--line);color:var(--mut)}
 .it .s.verified{color:var(--ok);border-color:var(--ok)}.it .s.rejected{color:var(--bad);border-color:var(--bad)}
 .it .r{flex-basis:100%;color:var(--bad);font-size:12px;margin-left:40px}
-.it.w{flex-wrap:wrap}
-#fatal{display:none;padding:30px 20px;text-align:center}
-#fatal h2{margin:0 0 8px}
-#ver{color:var(--mut);font-size:11px;text-align:center;padding:4px}
+.sw{display:flex;align-items:center;justify-content:space-between;padding:14px 2px;border-bottom:1px solid var(--line)}
+.sw small{display:block;color:var(--mut);font-size:12px}
+.tg{width:50px;height:30px;border-radius:99px;background:#26394a;position:relative;border:0;padding:0}
+.tg::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .15s}
+.tg.on{background:var(--m2)}.tg.on::after{left:23px}
+.field{width:100%;background:var(--card);border:1px solid var(--line);color:var(--tx);border-radius:14px;padding:15px;font-size:20px;letter-spacing:1px}
+.hint{color:var(--mut);font-size:13px;margin:10px 2px}
+#toast{position:absolute;left:50%;bottom:92px;transform:translateX(-50%) translateY(20px);background:#0c1a27;border:1px solid var(--line);padding:10px 16px;border-radius:12px;opacity:0;transition:.25s;z-index:60;pointer-events:none;max-width:90%;text-align:center;font-weight:600}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#fatal{display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px}
+#fatal h2{margin:12px 0 6px}#fatal p{color:var(--mut);margin:0}
+.demo .cam{background:linear-gradient(135deg,#6a4b2f,#2b2118 55%,#8a6a45)}
+.demo .cam .paper{position:absolute;left:12%;right:10%;top:16%;bottom:14%;background:#d9dde0;transform:rotate(-2deg);border-radius:4px;box-shadow:0 8px 30px rgba(0,0,0,.5);color:#111;padding:14px;font-weight:800;text-align:center}
+.demo .paper .bars{height:40%;margin:10px 4px;background:repeating-linear-gradient(90deg,#111 0 3px,transparent 3px 5px,#111 5px 6px,transparent 6px 9px,#111 9px 13px,transparent 13px 15px)}
+.demo .paper small{display:block;text-align:left;font-weight:600;margin-top:6px}
 </style>
 </head>
 <body>
-<header><b>Rasumi DO Scanner</b><div id="cnt">0<small> / 100</small></div></header>
-<div id="bar"><div id="barf"></div></div>
-<div id="fatal"><h2 id="fatalT">Pautan tidak sah</h2><div id="fatalM" style="color:var(--mut)"></div></div>
-<div id="main" style="display:flex;flex-direction:column;flex:1;min-height:0">
-  <div id="cam"><video id="v" playsinline muted autoplay></video><div id="frame"></div><div id="flash"></div><div id="camerr"></div><div id="msg">Mengaktifkan kamera…</div></div>
-  <div class="row"><input id="man" inputmode="numeric" autocomplete="off" placeholder="Taip no. DO jika barcode tidak terbaca"><button id="add">Tambah</button></div>
-  <div id="list"></div>
-  <div id="ver">Sesi disimpan di pelayan. Jika skrin ditutup, buka pautan/QR yang sama untuk sambung.</div>
+<div id="app">
+  <div class="top">
+    <div class="logo"><img src="rasumi_logo.webp" alt="Rasumi" height="38"></div>
+    <div class="ib">
+      <button id="bTorch" aria-label="Torch"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></button>
+      <button id="bGear" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    </div>
+  </div>
+
+  <div id="fatal"><svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="#ff5d6c" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 7v6M12 17h.01"/></svg><h2 id="fatalT">Invalid link</h2><p id="fatalM"></p></div>
+
+  <div class="scroll" id="main">
+    <div class="hero">
+      <div class="t"><div class="eyebrow">WIRELESS DO SCANNER</div><h1>Scan Delivery Order</h1>
+        <p>Align the barcode within the frame. The DO will automatically appear on your PC.</p></div>
+      <div class="conn" id="conn"><div class="l1"><span class="dot"></span><span id="connT">Connected</span></div>
+        <div class="l2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span id="connS">PC Session</span></div></div>
+    </div>
+
+    <div class="cam" id="cam">
+      <video id="v" playsinline muted autoplay></video>
+      <div class="frame"><i></i><i></i><i></i><i></i><div class="laser"></div></div>
+      <div class="flash" id="flash"></div>
+      <div class="camerr" id="camerr"></div>
+      <div class="zoom" id="zoom"><button data-z="0.5">0.5</button><button data-z="1" class="on">1×</button><button data-z="2">2</button></div>
+    </div>
+    <div class="prog"><div id="barf"></div></div>
+
+    <div class="det" id="det"><div class="m"><small>BARCODE DETECTED</small><div class="raw" id="raw">—</div><div class="rawsub" id="rawsub"></div>
+      <div class="st" id="dst">Point the camera at a DO barcode</div></div><div class="chev" id="detGo">›</div></div>
+
+    <button class="btn" id="send" disabled><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Send to Rasumi Apps (PC)</button>
+
+    <div class="two">
+      <button class="sec" id="bMan"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Enter DO Manually</button>
+      <button class="sec" id="bHis"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Scan History <span class="bd" id="hisN">0</span></button>
+    </div>
+  </div>
+
+  <div class="nav">
+    <button id="nScan" class="on"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>Scanner</button>
+    <button id="nConn"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>Connection</button>
+    <button id="nMore"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>More</button>
+  </div>
+
+  <!-- Manual -->
+  <div class="view" id="vMan"><div class="vh"><b>Enter DO manually</b><button data-close>Close</button></div>
+    <div class="vb"><input class="field" id="man" inputmode="numeric" autocomplete="off" placeholder="DO number">
+      <div class="hint">8 digits (e.g. 31008248) or a letter code such as V138491. The number is locked in your session as soon as you send it.</div>
+      <button class="btn" id="manSend">Send to Rasumi Apps (PC)</button></div></div>
+  <!-- History -->
+  <div class="view" id="vHis"><div class="vh"><b>Scan history</b><span id="hisC" style="color:var(--mut)"></span><button data-close>Close</button></div><div class="vb" id="hisL"></div></div>
+  <!-- Connection -->
+  <div class="view" id="vConn"><div class="vh"><b>Connection</b><button data-close>Close</button></div><div class="vb">
+    <div class="row2"><span>Status</span><span id="cStatus">–</span></div>
+    <div class="row2"><span>Environment</span><span id="cEnv">–</span></div>
+    <div class="row2"><span>Session</span><span id="cSid">–</span></div>
+    <div class="row2"><span>Scanned</span><span id="cCnt">–</span></div>
+    <div class="row2"><span>Category</span><span id="cCat">–</span></div>
+    <div class="row2"><span>Last sync</span><span id="cSync">–</span></div>
+    <div class="hint">The session is kept on the server. If this page is closed, open the same link or scan the QR in Rasumi Apps again and continue where you stopped.</div>
+    <button class="btn" id="reconn">Reconnect now</button></div></div>
+  <!-- More -->
+  <div class="view" id="vMore"><div class="vh"><b>More</b><button data-close>Close</button></div><div class="vb">
+    <div class="sw"><div>Auto-send<small>Send a valid DO to the PC as soon as it is detected</small></div><button class="tg" id="tAuto"></button></div>
+    <div class="sw"><div>Sound<small>Beep on every scan</small></div><button class="tg" id="tSnd"></button></div>
+    <div class="sw"><div>Vibration<small>Short vibration on every scan</small></div><button class="tg" id="tVib"></button></div>
+    <div class="hint" id="about">Rasumi Apps · Wireless DO Scanner</div></div></div>
+  <div id="toast"></div>
 </div>
 
 <script>
 const SB="https://seqlkwdghibmsfkbuwqq.supabase.co/rest/v1/rpc/", KEY="sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp";
-const DO_RE=/(?<![A-Za-z0-9])([A-Za-z]{1,2}\d{6}|\d{8})(?![A-Za-z0-9])/;
-const q=new URLSearchParams(location.search), SID=q.get('s')||'', TOK=(location.hash||'').replace(/^#/,'');
+const DO_FULL=/^([A-Za-z]{1,2}\d{6}|\d{8})$/;
+const q=new URLSearchParams(location.search), SID=q.get('s')||'', TOK=(location.hash||'').replace(/^#/,''), DEMO=q.has('demo');
 const $=id=>document.getElementById(id);
-const DEV=/iPhone|iPad/.test(navigator.userAgent)?'iPhone':/Android/.test(navigator.userAgent)?'Android':'Peranti';
-let S={count:0,target:100,items:[],state:'open'}, lastCode='', lastAt=0, busy=false, queue=[];
-const QK='da_scan_q_'+SID;
+const DEV=/iPhone|iPad/.test(navigator.userAgent)?'iPhone':/Android/.test(navigator.userAgent)?'Android':'Phone';
+let S={count:0,target:100,items:[],state:'open',category:null,env:''}, online=true, lastSync=0, pending=null, lastCode='', lastAt=0, track=null, torchOn=false, queue=[];
+const QK='da_scan_q_'+SID, PK='da_scan_prefs';
+let P={auto:true,snd:true,vib:true};try{P=Object.assign(P,JSON.parse(localStorage.getItem(PK)||'{}'))}catch(e){}
 try{queue=JSON.parse(localStorage.getItem(QK)||'[]')}catch(e){queue=[]}
+const savePrefs=()=>{try{localStorage.setItem(PK,JSON.stringify(P))}catch(e){}};
+
+/* ---------- helpers ---------- */
+let tt;function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('show'),2200)}
+let ac;function beep(f,d){if(!P.snd)return;try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;g.gain.value=.15;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+function flash(c){const f=$('flash');f.style.background=c;f.style.opacity=.5;setTimeout(()=>f.style.opacity=0,180)}
+function fb(kind){const m={ok:['#22c55e',880,.07],dup:['#f5b301',440,.13],bad:['#ff5d6c',200,.26]}[kind];flash(m[0]);beep(m[1],m[2]);if(P.vib&&navigator.vibrate)navigator.vibrate(kind==='ok'?40:[80,60,80])}
+const ICO={ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l3 3 5-6"/></svg>',
+ bad:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>',
+ warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 7v6M12 17h.01"/></svg>'};
+function setDet(raw,kind,text){const d=parseDO(raw);$('raw').textContent=d||raw||'—';$('rawsub').textContent=(d&&raw&&String(raw).trim()!==d)?'Barcode: '+raw:'';const s=$('dst');s.className='st '+(kind||'');s.innerHTML=(kind&&ICO[kind]?ICO[kind]:'')+'<span></span>';s.querySelector('span').textContent=text}
+function parseDO(text){const parts=String(text||'').split(/[^A-Za-z0-9]+/).map(x=>x.trim()).filter(Boolean);for(const p of parts)if(DO_FULL.test(p))return p.toUpperCase();return null}
+function fatal(t,m){$('main').style.display='none';document.querySelector('.nav').style.display='none';$('fatal').style.display='flex';$('fatalT').textContent=t;$('fatalM').textContent=m||''}
 
 async function rpc(fn,body){
   const r=await fetch(SB+fn,{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const t=await r.text(); let j; try{j=JSON.parse(t)}catch(e){j=null}
-  if(!r.ok){const m=(j&&(j.message||j.hint))||('HTTP '+r.status);const e=new Error(m);e.http=r.status;throw e}
+  const t=await r.text();let j;try{j=JSON.parse(t)}catch(e){j=null}
+  if(!r.ok){const e=new Error((j&&(j.message||j.hint))||('HTTP '+r.status));e.http=r.status;throw e}
   return j;
 }
-function fatal(t,m){$('main').style.display='none';$('fatal').style.display='block';$('fatalT').textContent=t;$('fatalM').textContent=m||''}
-let ac;function beep(f,d){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;g.gain.value=.15;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
-function say(t,c){$('msg').textContent=t;$('msg').style.color=c||'#fff'}
-function flash(c){const f=$('flash');f.style.background=c;f.style.opacity=.55;setTimeout(()=>f.style.opacity=0,180)}
-function fb(kind,t){
-  const m={ok:['#33d17a',880,60],dup:['#f5c211',440,120],bad:['#ff5d6c',200,260]}[kind];
-  flash(m[0]);beep(m[1],m[2]/1000);if(navigator.vibrate)navigator.vibrate(kind==='ok'?40:[80,60,80]);say(t,m[0]);
-}
+
+/* ---------- render ---------- */
 function render(){
   const c=S.count||0,t=S.target||100;
-  $('cnt').innerHTML=c+'<small> / '+t+'</small>';$('barf').style.width=Math.min(100,c/t*100)+'%';
-  const L=$('list');L.innerHTML='';
+  $('barf').style.width=Math.min(100,c/t*100)+'%';$('hisN').textContent=c;$('hisC').textContent=c+' / '+t;
+  const cn=$('conn');cn.className='conn'+(S.state==='closed'?' closed':(!online?' off':''));
+  $('connT').textContent=S.state==='closed'?'Session closed':(online?'Connected':'Offline');
+  $('connS').textContent=c+' / '+t+' DO';
+  const L=$('hisL');L.innerHTML='';
+  if(!S.items.length)L.innerHTML='<div class="hint">Nothing scanned yet.</div>';
   [...S.items].reverse().forEach((it,i)=>{
-    const d=document.createElement('div');d.className='it'+(it.reason?' w':'');
-    const lab={locked:'dikunci',verified:'sah',rejected:'ditolak'}[it.state]||it.state;
+    const d=document.createElement('div');d.className='it';
+    const lab={locked:'locked',verified:'verified',rejected:'rejected'}[it.state]||it.state;
     d.innerHTML='<span class="n">'+(S.items.length-i)+'</span><span class="d"></span><span class="s '+it.state+'">'+lab+'</span>'+(it.reason?'<span class="r"></span>':'');
     d.querySelector('.d').textContent=it.do;if(it.reason)d.querySelector('.r').textContent=it.reason;L.appendChild(d);
   });
-  if(S.state==='closed')say('Sesi telah ditutup oleh aplikasi','#f5c211');
+  $('cStatus').textContent=S.state==='closed'?'Session closed':(online?'Connected to PC session':'Offline - scans are kept and sent later');
+  $('cEnv').textContent=S.env||'–';$('cSid').textContent=SID?SID.slice(0,8)+'…':'–';$('cCnt').textContent=c+' / '+t;$('cCat').textContent=S.category||'not set yet';
+  $('cSync').textContent=lastSync?new Date(lastSync).toLocaleTimeString():'–';
+  $('send').disabled=!(pending&&S.state!=='closed');
 }
 async function refresh(){
-  try{const j=await rpc('da_scan_state',{p_session:SID,p_token:TOK});S=j;render();return true}
-  catch(e){if(/bad_session|expired/.test(e.message))fatal('Sesi tidak sah atau tamat','Minta QR baharu daripada Rasumi Apps (sesi lama disimpan 7 hari).');return false}
+  if(DEMO)return true;
+  try{const j=await rpc('da_scan_state',{p_session:SID,p_token:TOK});S=j;online=true;lastSync=Date.now();render();return true}
+  catch(e){
+    if(/bad_session|expired/.test(e.message)){fatal('Session invalid or expired','Ask for a new QR in Rasumi Apps (Doc Assembler → Scan DO).');return false}
+    online=false;render();return true}
 }
-const MSG={added:['ok','Ditambah'],duplicate:['dup','Sudah discan'],invalid:['bad','Bukan no. DO'],full:['bad','Penuh – had dicapai'],locked_elsewhere:['bad','DO dikunci oleh sesi lain'],closed:['bad','Sesi ditutup']};
-async function send(d){
+const MSG={added:['ok','ok','Sent to PC'],duplicate:['dup','warn','Already scanned'],invalid:['bad','bad','Not a DO number'],full:['bad','bad','List is full (limit reached)'],locked_elsewhere:['bad','bad','DO is locked by another session'],closed:['bad','bad','Session closed']};
+async function send(d,raw){
+  if(DEMO){fb('ok');setDet(raw||d,'ok','Sent to PC (demo)');return}
   try{
     const j=await rpc('da_scan_add',{p_session:SID,p_token:TOK,p_do:d,p_device:DEV});
-    const m=MSG[j.status]||['bad',j.status];fb(m[0],m[1]+' · '+d);
-    queue=queue.filter(x=>x!==d);localStorage.setItem(QK,JSON.stringify(queue));
-    await refresh();
+    const m=MSG[j.status]||['bad','bad',j.status];fb(m[0]);setDet(raw||d,m[1],m[2]);
+    pending=null;queue=queue.filter(x=>x!==d);try{localStorage.setItem(QK,JSON.stringify(queue))}catch(e){}
+    online=true;await refresh();
   }catch(e){
-    if(/bad_session|expired/.test(e.message)){fatal('Sesi tidak sah atau tamat','');return}
-    if(!queue.includes(d)){queue.push(d);localStorage.setItem(QK,JSON.stringify(queue))}   // offline: retry later, nothing is lost
-    fb('dup','Tiada rangkaian – '+d+' disimpan, akan dihantar semula');
+    if(/bad_session|expired/.test(e.message)){fatal('Session invalid or expired','');return}
+    online=false;if(!queue.includes(d)){queue.push(d);try{localStorage.setItem(QK,JSON.stringify(queue))}catch(x){}}
+    fb('dup');setDet(raw||d,'warn','No network - saved, will be sent automatically');pending=null;render();
   }
 }
-async function flushQueue(){for(const d of [...queue]){await send(d)}}
-function onCode(text){
-  const m=DO_RE.exec(String(text||''));const now=Date.now();
-  if(!m){if(now-lastAt>1500){lastAt=now;fb('bad','Bukan no. DO: '+String(text).slice(0,18))}return}
-  const d=m[1].toUpperCase();
-  if(d===lastCode&&now-lastAt<2500)return;           // same barcode still in view
-  lastCode=d;lastAt=now;send(d);
-}
-$('add').onclick=()=>{const m=DO_RE.exec($('man').value.trim());if(!m){fb('bad','No. DO tidak sah');return}$('man').value='';send(m[1].toUpperCase())};
-$('man').addEventListener('keydown',e=>{if(e.key==='Enter')$('add').click()});
+async function flushQueue(){for(const d of [...queue])await send(d,d)}
 
-/* camera: native BarcodeDetector (Chrome/Android), ZXing fallback (iPhone Safari etc.) */
+/* ---------- detection ---------- */
+function onCode(text){
+  const now=Date.now(),d=parseDO(text);
+  if(!d){if(now-lastAt>1500){lastAt=now;fb('bad');setDet(String(text).slice(0,40),'bad','Not a DO barcode');pending=null;render()}return}
+  if(d===lastCode&&now-lastAt<2500)return;                 // same barcode still in front of the camera
+  lastCode=d;lastAt=now;
+  if(S.items.some(x=>x.do===d)){fb('dup');setDet(text,'warn','Already scanned');pending=null;render();return}
+  if(P.auto){send(d,text)}else{pending={d,raw:text};fb('ok');setDet(text,'ok','Valid DO barcode');render()}
+}
+$('send').onclick=()=>{if(pending)send(pending.d,pending.raw)};
+$('manSend').onclick=()=>{const v=($('man').value||'').trim();const d=parseDO(v);if(!d){toast('Not a valid DO number');return}$('man').value='';closeViews();send(d,v)};
+$('man').addEventListener('keydown',e=>{if(e.key==='Enter')$('manSend').click()});
+
+/* ---------- camera ---------- */
 async function startCam(){
   try{
     const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
-    const v=$('v');v.srcObject=stream;await v.play();say('Halakan kamera ke barcode DO');
-    try{const tr=stream.getVideoTracks()[0];const cap=tr.getCapabilities&&tr.getCapabilities();if(cap&&cap.focusMode&&cap.focusMode.includes('continuous'))await tr.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(e){}
+    const v=$('v');v.srcObject=stream;await v.play();track=stream.getVideoTracks()[0];setupTrack();
     if('BarcodeDetector' in window){
       let fm=['code_128','code_39','ean_13','ean_8','itf','codabar','qr_code','upc_a','data_matrix'];
       try{const sup=await BarcodeDetector.getSupportedFormats();fm=fm.filter(f=>sup.includes(f))}catch(e){}
@@ -129,19 +281,56 @@ async function startCam(){
     }else{
       await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s)});
       const Z=window.ZXing,hints=new Map();hints.set(Z.DecodeHintType.TRY_HARDER,true);
-      const rd=new Z.BrowserMultiFormatReader(hints,150);
-      rd.decodeFromVideoElement(v,(r,err)=>{if(r)onCode(r.getText())});
+      new Z.BrowserMultiFormatReader(hints,150).decodeFromVideoElement(v,(r)=>{if(r)onCode(r.getText())});
     }
   }catch(e){
     const ce=$('camerr');ce.style.display='flex';
-    ce.textContent=(e&&e.name==='NotAllowedError')?'Kamera disekat. Benarkan akses kamera untuk laman ini dalam tetapan pelayar, kemudian muat semula. Anda masih boleh menaip no. DO.':'Kamera tidak dapat dibuka ('+(e&&e.message||e)+'). Anda masih boleh menaip no. DO.';
-    say('Tiada kamera – taip no. DO');
+    ce.textContent=(e&&e.name==='NotAllowedError')?'Camera is blocked. Allow camera access for this site in your browser settings, then reload. You can still enter the DO manually.':'The camera could not be opened ('+((e&&e.message)||e)+'). You can still enter the DO manually.';
   }
 }
+function setupTrack(){
+  let cap={};try{cap=(track.getCapabilities&&track.getCapabilities())||{}}catch(e){}
+  try{if(cap.focusMode&&cap.focusMode.includes('continuous'))track.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(e){}
+  const zb=[...document.querySelectorAll('#zoom button')];
+  zb.forEach(b=>{const z=+b.dataset.z;const ok=cap.zoom?(z>=cap.zoom.min-1e-6&&z<=cap.zoom.max+1e-6):(z===1);b.disabled=!ok&&z!==2;if(z===2&&!cap.zoom)b.disabled=false});   // 2x falls back to a digital crop
+  $('bTorch').style.opacity=cap.torch?1:.4;
+  window.__cap=cap;
+}
+document.getElementById('zoom').addEventListener('click',async e=>{
+  const b=e.target.closest('button');if(!b||b.disabled)return;const z=+b.dataset.z;
+  document.querySelectorAll('#zoom button').forEach(x=>x.classList.toggle('on',x===b));
+  const cap=window.__cap||{};
+  if(track&&cap.zoom){try{await track.applyConstraints({advanced:[{zoom:z}]});$('v').style.transform='';return}catch(e){}}
+  $('v').style.transform=z===2?'scale(1.8)':'';
+});
+$('bTorch').onclick=async()=>{
+  const cap=window.__cap||{};if(!track||!cap.torch){toast('Torch is not available on this device/browser');return}
+  try{torchOn=!torchOn;await track.applyConstraints({advanced:[{torch:torchOn}]});$('bTorch').classList.toggle('on',torchOn)}catch(e){torchOn=false;toast('Could not switch the torch')}
+};
+
+/* ---------- views ---------- */
+function closeViews(){document.querySelectorAll('.view').forEach(v=>v.classList.remove('show'));setNav('nScan')}
+function setNav(id){['nScan','nConn','nMore'].forEach(k=>$(k).classList.toggle('on',k===id))}
+function openView(id,nav){closeViews();$(id).classList.add('show');if(nav)setNav(nav)}
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeViews);
+$('bMan').onclick=()=>{openView('vMan');setTimeout(()=>$('man').focus(),60)};
+$('bHis').onclick=$('detGo').onclick=()=>openView('vHis');
+$('nScan').onclick=closeViews;$('nConn').onclick=()=>openView('vConn','nConn');$('nMore').onclick=()=>openView('vMore','nMore');
+$('bGear').onclick=()=>openView('vMore','nMore');
+$('reconn').onclick=async()=>{toast('Reconnecting…');await flushQueue();await refresh();toast(online?'Connected':'Still offline')};
+function syncToggles(){$('tAuto').classList.toggle('on',P.auto);$('tSnd').classList.toggle('on',P.snd);$('tVib').classList.toggle('on',P.vib)}
+[['tAuto','auto'],['tSnd','snd'],['tVib','vib']].forEach(([id,k])=>$(id).onclick=()=>{P[k]=!P[k];savePrefs();syncToggles()});
+syncToggles();
+
+/* ---------- boot ---------- */
 (async()=>{
-  if(!/^[0-9a-f-]{36}$/i.test(SID)||!TOK)return fatal('Pautan tidak sah','Imbas QR yang dipaparkan dalam Rasumi Apps (Doc Assembler).');
+  if(DEMO){
+    document.body.classList.add('demo');$('cam').insertAdjacentHTML('afterbegin','<div class="paper">DELIVERY ORDER<div class="bars"></div><small>Do No. : 31008248</small><small>Date : 5/10/2026</small></div>');
+    S={count:37,target:100,state:'open',env:'staging',category:'Veteran Berpencen',items:[{do:'31008248',state:'locked'},{do:'31008250',state:'verified'},{do:'V138491',state:'rejected',reason:'Status is not SELESAI BQ-BP'}]};
+    setDet('31008248,149924,V13849120','ok','Valid DO barcode');render();return}
+  if(!/^[0-9a-f-]{36}$/i.test(SID)||!TOK)return fatal('Invalid link','Scan the QR shown in Rasumi Apps (Doc Assembler → Scan DO).');
   if(!(await refresh()))return;
-  if(S.state==='closed')return;
+  if(S.state==='closed'){setDet('—','warn','Session closed by the app');return}
   flushQueue();startCam();
   try{if(navigator.wakeLock){let wl=await navigator.wakeLock.request('screen');document.addEventListener('visibilitychange',async()=>{if(document.visibilityState==='visible'){try{wl=await navigator.wakeLock.request('screen')}catch(e){}refresh();flushQueue()}})}}catch(e){}
   setInterval(()=>{refresh();if(queue.length)flushQueue()},3000);
