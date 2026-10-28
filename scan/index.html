@@ -274,9 +274,9 @@ async function startCam(){
   try{
     const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160}},audio:false});
     const v=$('v');v.srcObject=stream;await v.play();track=stream.getVideoTracks()[0];setupTrack();
-    let det=null,W=null,OST='ocr waiting',OSUB='',ocrN=0,ST='loading engine',ERR='',frames=0,tries=0,busy=false,wi=0;
-    const dbg=()=>{const e=$('rawsub');if(e&&!pending)e.textContent='v7 \u00b7 '+ST+' \u00b7 '+(v.videoWidth||0)+'x'+(v.videoHeight||0)+' \u00b7 '+tries+' scans \u00b7 '+OST+' '+ocrN+(OSUB?' \u00b7 '+OSUB:'')+(ERR?' \u00b7 '+ERR:'')};
-    dbg();setInterval(dbg,500);
+    let W=null,ow=null,OST='ocr waiting',OSUB='',ocrN=0,ST='loading engine',ERR='',tries=0,busy=false,wi=0,LOC=null,BARS='no',frames=0;
+    const dbg=()=>{const e=$('rawsub');if(e&&!pending)e.textContent='v8 \u00b7 '+ST+' \u00b7 '+(v.videoWidth||0)+'x'+(v.videoHeight||0)+' \u00b7 bars:'+BARS+' \u00b7 '+tries+' reads \u00b7 '+OST+' '+ocrN+(OSUB?' \u00b7 '+OSUB:'')+(ERR?' \u00b7 '+ERR:'')};
+    dbg();setInterval(dbg,400);
     const load=u=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=u;s.onload=res;s.onerror=()=>rej(new Error('script load failed'));document.head.appendChild(s)});
     // engines load in the background so the scan loop and status are live immediately
     (async()=>{
@@ -287,79 +287,90 @@ async function startCam(){
         await Promise.race([Z.prepareZXingModule({fireImmediately:true}),new Promise((_,j)=>setTimeout(()=>j(new Error('wasm timeout')),15000))]);
         W=Z;ST='wasm ready';
       }catch(e){ST='wasm failed';ERR=String((e&&e.message)||e).slice(0,50)}
+      try{
+        await load('ocr/tesseract.min.js');
+        const mk=async core=>{const w=await window.Tesseract.createWorker('eng',1,{workerPath:'ocr/worker.min.js',corePath:'ocr/'+core,langPath:'ocr/',gzip:true,workerBlobURL:false});
+          await w.setParameters({tessedit_pageseg_mode:'6',tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:./ '});return w};
+        try{ow=await mk('tesseract-core-simd-lstm.wasm.js')}catch(e){ow=await mk('tesseract-core-lstm.wasm.js')}
+        OST='ocr ready';
+      }catch(e){OST='ocr failed';ERR=String((e&&e.message)||e).slice(0,40)}
     })();
-    if('BarcodeDetector' in window){
-      try{const sup=await BarcodeDetector.getSupportedFormats();const fm=['code_128','itf'].filter(f=>sup.includes(f));if(fm.length)det=new BarcodeDetector({formats:fm})}catch(e){det=null}
-    }
     const OPT={formats:['Linear-Codes'],tryHarder:true,tryRotate:true,tryInvert:true,tryDownscale:true,maxNumberOfSymbols:4,minLineCount:1};
-    const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
-    const WIN=[[.1,.3,.8,.4],[0,0,1,1],[0,.2,1,.6],[.2,.38,.6,.24]];
+    // returns {x0,y0,x1,y1,score} in pixel coords of the analysed image, or null
+    function locateBarcode(data,W,H){
+      const C=Math.max(6,Math.round(W/80)),cols=Math.floor((W-2)/C),rows=Math.floor((H-2)/C);
+      const g=(x,y)=>data[(y*W+x)*4];
+      const fl=new Uint8Array(cols*rows);
+      for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+        let gx=0,gy=0,n=0;const x0=c*C+1,y0=r*C+1;
+        for(let y=y0;y<y0+C-1;y+=2)for(let x=x0;x<x0+C-1;x+=2){gx+=Math.abs(g(x+1,y)-g(x-1,y));gy+=Math.abs(g(x,y+1)-g(x,y-1));n++}
+        fl[r*cols+c]=(n>0&&gx/n>8&&gx>2.2*gy)?1:0}
+      // dilate horizontally by 1 so thin gaps between bar groups do not split the block
+      const d=new Uint8Array(cols*rows);
+      for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)if(fl[r*cols+c]){d[r*cols+c]=1;if(c>0)d[r*cols+c-1]=1;if(c<cols-1)d[r*cols+c+1]=1}
+      const seen=new Uint8Array(cols*rows);let best=null;
+      for(let i=0;i<cols*rows;i++){if(!d[i]||seen[i])continue;
+        const st=[i];seen[i]=1;let n=0,minc=cols,maxc=0,minr=rows,maxr=0,raw=0;
+        while(st.length){const k=st.pop(),r=(k/cols)|0,c=k%cols;n++;if(fl[k])raw++;
+          if(c<minc)minc=c;if(c>maxc)maxc=c;if(r<minr)minr=r;if(r>maxr)maxr=r;
+          for(const [dr,dc] of [[1,0],[-1,0],[0,1],[0,-1]]){const rr=r+dr,cc=c+dc;if(rr<0||cc<0||rr>=rows||cc>=cols)continue;const j=rr*cols+cc;if(d[j]&&!seen[j]){seen[j]=1;st.push(j)}}}
+        const bw=maxc-minc+1,bh=maxr-minr+1;
+        if(raw<20||bw<7||bh<2||bw/bh<1.3)continue;
+        if(!best||raw>best.raw)best={raw,minc,maxc,minr,maxr}}
+      if(!best)return null;
+      return {x0:Math.max(0,best.minc*C),y0:Math.max(0,best.minr*C),x1:Math.min(W,(best.maxc+1)*C),y1:Math.min(H,(best.maxr+1)*C),score:best.raw};
+    }
+    const ac=document.createElement('canvas'),ax=ac.getContext('2d',{willReadFrequently:true});     // low-res frame for locating the barcode block
+    const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});     // native-res crops for decoding / OCR
+    function crop(x0,y0,x1,y1,tw,filt){            // crop from the live video at native resolution, scaled to width tw
+      x0=Math.max(0,Math.round(x0));y0=Math.max(0,Math.round(y0));x1=Math.min(v.videoWidth,Math.round(x1));y1=Math.min(v.videoHeight,Math.round(y1));
+      const sw=x1-x0,sh=y1-y0;if(sw<20||sh<10)return null;const sc=tw/sw;
+      cv.width=Math.round(sw*sc);cv.height=Math.round(sh*sc);cx.filter=filt||'grayscale(1) contrast(1.5)';cx.drawImage(v,x0,y0,sw,sh,0,0,cv.width,cv.height);cx.filter='none';return cv}
+    const WIN=[[.1,.3,.8,.4],[0,0,1,1],[0,.2,1,.6]];
     (async function loop(){
       try{
         if(v.readyState>=2&&v.videoWidth&&!busy){
           busy=true;frames++;
-          if(det){try{const r=await det.detect(v);if(r.length){FMT=r[0].format;onCode(r[0].rawValue);busy=false;setTimeout(loop,150);return}}catch(e){}}
-          if(W){
-            const w=WIN[wi++%WIN.length],sw=Math.round(v.videoWidth*w[2]),sh=Math.round(v.videoHeight*w[3]);
-            cv.width=sw;cv.height=sh;
-            cx.drawImage(v,Math.round(v.videoWidth*w[0]),Math.round(v.videoHeight*w[1]),sw,sh,0,0,sw,sh);
-            tries++;
-            try{const rs=await W.readBarcodesFromImageData(cx.getImageData(0,0,sw,sh),OPT);
-              if(rs.length){const ok=rs.find(x=>parseDO(x.text))||rs[0];FMT=ok.format||'';onCode(ok.text)}}catch(e){ERR='decode: '+String((e&&e.message)||e).slice(0,40)}
+          const vw=v.videoWidth,vh=v.videoHeight,s=Math.min(1,960/vw);
+          ac.width=Math.round(vw*s);ac.height=Math.round(vh*s);ax.filter='grayscale(1) contrast(1.4)';ax.drawImage(v,0,0,ac.width,ac.height);ax.filter='none';
+          const bx=locateBarcode(ax.getImageData(0,0,ac.width,ac.height).data,ac.width,ac.height);
+          if(bx){
+            const pw=(bx.x1-bx.x0)/s,ph=(bx.y1-bx.y0)/s;
+            LOC={x0:bx.x0/s,y0:bx.y0/s,x1:bx.x1/s,y1:bx.y1/s,t:Date.now()};BARS='yes';
+            if(W){
+              const c=crop(LOC.x0-.04*pw,LOC.y0-.15*ph,LOC.x1+.04*pw,LOC.y1+.15*ph,Math.min(1800,Math.max(1000,pw*1.2)));
+              if(c){tries++;try{const rs=await W.readBarcodesFromImageData(cx.getImageData(0,0,c.width,c.height),OPT);
+                if(rs.length){const ok=rs.find(x=>parseDO(x.text))||rs[0];FMT=ok.format||'';onCode(ok.text)}}catch(e){ERR='decode: '+String((e&&e.message)||e).slice(0,40)}}
+            }
+          }else{BARS='no';
+            if(W&&frames%4===0){const w=WIN[wi++%WIN.length],sw=Math.round(vw*w[2]),sh=Math.round(vh*w[3]);
+              const c=crop(vw*w[0],vh*w[1],vw*w[0]+sw,vh*w[1]+sh,Math.min(1600,sw));
+              if(c){tries++;try{const rs=await W.readBarcodesFromImageData(cx.getImageData(0,0,c.width,c.height),OPT);
+                if(rs.length){const ok=rs.find(x=>parseDO(x.text))||rs[0];FMT=ok.format||'';onCode(ok.text)}}catch(e){}}}
           }
           busy=false;
         }
-      }catch(e){busy=false}
-      setTimeout(loop,60);
+      }catch(e){busy=false;ERR='loop: '+String((e&&e.message)||e).slice(0,40)}
+      setTimeout(loop,50);
     })();
-
-    // true when a barcode-like block (dense vertical bars: strong horizontal gradient, weak vertical gradient) sits above the given text box
-    function hasBarcodeAbove(data,W,H,box){
-      const h=Math.max(8,box.y1-box.y0);
-      const top=Math.max(1,Math.round(box.y0-8*h)),bot=Math.min(H-2,Math.round(box.y0-0.2*h));
-      if(bot-top<h)return false;
-      const C=Math.max(8,Math.round(h*0.6)),cols=Math.floor(W/C),rows=Math.floor((bot-top)/C);
-      const g=(x,y)=>data[(y*W+x)*4];const fl=[];
-      for(let r=0;r<rows;r++){fl.push([]);for(let c=0;c<cols;c++){
-        let gx=0,gy=0,n=0;const x0=c*C+1,y0=top+r*C+1;
-        for(let y=y0;y<y0+C-2;y+=2)for(let x=x0;x<x0+C-2;x+=2){gx+=Math.abs(g(x+1,y)-g(x-1,y));gy+=Math.abs(g(x,y+1)-g(x,y-1));n++}
-        fl[r].push(n>0&&gx/n>10&&gx>2.5*gy)}}
-      let best=0;
-      for(let r=0;r+1<rows;r++){let k=0;for(let c=0;c<cols;c++)if(fl[r][c]&&fl[r+1][c])k++;best=Math.max(best,k)}
-      return best>=8;
-    }
-    // ---- OCR: reads the printed "Do No. : 31008248" line; whichever (barcode / printed number) is caught first wins ----
+    // ---- OCR of the printed "Do No." line, only in the strip right under a detected barcode block ----
     (async()=>{
-      let ow=null,last='',lastBar=0;const t0=Date.now();
-      const mk=async core=>{const T=window.Tesseract;
-        const w=await T.createWorker('eng',1,{workerPath:'ocr/worker.min.js',corePath:'ocr/'+core,langPath:'ocr/',gzip:true,workerBlobURL:false});
-        await w.setParameters({tessedit_pageseg_mode:'11',tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:.'});return w};
-      try{
-        while(!W&&Date.now()-t0<20000)await new Promise(r=>setTimeout(r,300));   // let the barcode engine finish first
-        await load('ocr/tesseract.min.js');
-        try{ow=await mk('tesseract-core-simd-lstm.wasm.js')}catch(e){ow=await mk('tesseract-core-lstm.wasm.js')}
-        OST='ocr ready';
-      }catch(e){OST='ocr failed';ERR=String((e&&e.message)||e).slice(0,40);return}
-      const oc=document.createElement('canvas'),ox=oc.getContext('2d',{willReadFrequently:true});
-      const RX=/D[oO0]N[oO0][.:;,]*([A-Za-z]{1,2}\d{6}|\d{8})(?!\d)/i;
+      const RX=/D[oO0]N[oO0][.:;,]*([A-Za-z]{1,2}\d{6}|\d{8})(?!\d)/i,votes={};
       while(true){
         try{
-          if(v.readyState>=2&&v.videoWidth&&Date.now()-lastAt>1200&&!pending){
-            const sc=Math.min(1,1400/v.videoWidth);oc.width=Math.round(v.videoWidth*sc);oc.height=Math.round(v.videoHeight*sc);
-            ox.filter='grayscale(1) contrast(1.4)';ox.drawImage(v,0,0,oc.width,oc.height);ox.filter='none';
-            ocrN++;
-            const r=await ow.recognize(oc,{},{blocks:true});let hit='',box=null;
-            const ws=[];for(const b of r.data.blocks||[])for(const p of b.paragraphs)for(const l of p.lines)for(const x of l.words)ws.push({t:String(x.text).replace(/\s+/g,''),b:x.bbox});
-            const ID=/^[:;.,]*([A-Za-z]{1,2}\d{6}|\d{8})$/;
-            for(const x of ws){if(hit)break;let m=RX.exec(x.t),ok=!!m;       // label and number in one word
-              if(!m){m=ID.exec(x.t);if(m){const hh=x.b.y1-x.b.y0;ok=ws.some(y=>y!==x&&/^D[oO0]N[oO0]/i.test(y.t)&&Math.abs(y.b.y0-x.b.y0)<hh*.7&&y.b.x1<=x.b.x0+6)}}   // or "Do No." word on the same row, to its left
-              if(ok&&m){hit=m[1].toUpperCase();box=x.b}}
-            if(!hit){last='';OSUB=''}
-            else if(!hasBarcodeAbove(ox.getImageData(0,0,oc.width,oc.height).data,oc.width,oc.height,box)){last='';OSUB='no barcode above the number - ignored'}
-            else{OSUB='';if(hit===last){FMT='OCR+bars';onCode(hit);last=''}else last=hit}   // number + barcode above it, same on two consecutive reads
-          }
+          if(ow&&LOC&&Date.now()-LOC.t<800&&v.readyState>=2&&Date.now()-lastAt>1200&&!pending){
+            const L=LOC,bw=L.x1-L.x0,bh=L.y1-L.y0;
+            const c=crop(L.x0-.25*bw,L.y1,L.x1+.1*bw,L.y1+Math.max(2.6*bh,.12*v.videoHeight),Math.min(1400,Math.max(900,bw*1.6)));
+            if(c){ocrN++;
+              const r=await ow.recognize(c);let hit='';
+              for(const ln of String(r.data.text||'').split('\n')){const m=RX.exec(ln.replace(/\s+/g,''));if(m){hit=m[1].toUpperCase();break}}
+              const now=Date.now();for(const k in votes)if(now-votes[k].t>5000)delete votes[k];
+              if(hit){const q=votes[hit]||(votes[hit]={n:0,t:now});q.n++;OSUB='Do No. '+hit+' ('+q.n+'/2)';
+                if(q.n>=2){delete votes[hit];FMT='OCR+bars';onCode(hit);OSUB=''}}   // seen twice within 5 s, with a barcode block right above
+              else OSUB=''}
+          }else if(!LOC||Date.now()-LOC.t>=800)OSUB=ow?'aim at barcode + Do No.':'';
         }catch(e){ERR='ocr: '+String((e&&e.message)||e).slice(0,30)}
-        await new Promise(r=>setTimeout(r,250));
+        await new Promise(r=>setTimeout(r,120));
       }
     })();
   }catch(e){
