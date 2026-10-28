@@ -281,30 +281,32 @@ async function startCam(){
     }
     const load=u=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=u;s.onload=res;s.onerror=()=>rej(new Error('script load failed'));document.head.appendChild(s)});
     try{await load('zxing.min.js')}catch(e1){try{await load('https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js')}catch(e2){if(!det)throw new Error('the barcode reader could not be loaded - check the connection and reload')}}
-    const Z=window.ZXing;let zr=null;
-    if(Z){const h=new Map(),F=Z.BarcodeFormat;
-      h.set(Z.DecodeHintType.POSSIBLE_FORMATS,[F.CODE_128,F.ITF]);
-      h.set(Z.DecodeHintType.TRY_HARDER,true);zr=new Z.MultiFormatReader();zr.setHints(h)}
+    let W=null;
+    try{await load('zxing-wasm.js');
+      W=window.ZXingWASM;
+      W.setZXingModuleOverrides({locateFile:(p,pre)=>p.endsWith('.wasm')?new URL('zxing_reader.wasm',location.href).href:pre+p});
+      await W.prepareZXingModule({fireImmediately:true})}catch(e){W=null}
+    const OPT={formats:['Code128','Code39','Code93','ITF','Codabar'],tryHarder:true,tryRotate:true,tryInvert:true,tryDownscale:true,maxNumberOfSymbols:4,minLineCount:2};
     const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
-    // crop windows (fractions of the frame): full, wide centre band, tight centre band
-    const WIN=[[0,0,1,1],[0,.25,1,.5],[.1,.35,.8,.3],[0,.1,1,.8]];let wi=0,frames=0,tries=0;
-    const dbg=()=>{const e=$('rawsub');if(e&&!pending)e.textContent=(det?'native+':'')+(zr?'zxing':'')+' · '+(v.videoWidth||0)+'x'+(v.videoHeight||0)+' · '+tries+' scans'};
+    const WIN=[[0,0,1,1],[0,.2,1,.6],[.05,.3,.9,.4]];let wi=0,frames=0,tries=0,busy=false;
+    const dbg=()=>{const e=$('rawsub');if(e&&!pending)e.textContent=(W?'wasm':(det?'native':'none'))+' \u00b7 '+(v.videoWidth||0)+'x'+(v.videoHeight||0)+' \u00b7 '+tries+' scans'};
     (async function loop(){
       try{
-        if(v.readyState>=2&&v.videoWidth){
-          frames++;
-          if(det){try{const r=await det.detect(v);if(r.length){FMT=r[0].format;onCode(r[0].rawValue);setTimeout(loop,150);return}}catch(e){}}
-          if(zr){
+        if(v.readyState>=2&&v.videoWidth&&!busy){
+          busy=true;frames++;
+          if(det){try{const r=await det.detect(v);if(r.length){FMT=r[0].format;onCode(r[0].rawValue);busy=false;setTimeout(loop,150);return}}catch(e){}}
+          if(W){
             const w=WIN[wi++%WIN.length],sw=Math.round(v.videoWidth*w[2]),sh=Math.round(v.videoHeight*w[3]);
-            // upscale narrow crops so thin bars span enough pixels
-            const sc=sw<900?Math.min(2,1280/sw):1;cv.width=Math.round(sw*sc);cv.height=Math.round(sh*sc);
-            cx.drawImage(v,Math.round(v.videoWidth*w[0]),Math.round(v.videoHeight*w[1]),sw,sh,0,0,cv.width,cv.height);
+            cv.width=sw;cv.height=sh;
+            cx.drawImage(v,Math.round(v.videoWidth*w[0]),Math.round(v.videoHeight*w[1]),sw,sh,0,0,sw,sh);
             tries++;
-            try{const bb=new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(cv)));const r=zr.decodeWithState(bb);if(r){FMT=Z.BarcodeFormat[r.getBarcodeFormat()]||'';onCode(r.getText())}}catch(e){/* NotFoundException = nothing in this window */}
+            try{const rs=await W.readBarcodesFromImageData(cx.getImageData(0,0,sw,sh),OPT);
+              if(rs.length){const ok=rs.find(x=>parseDO(x.text))||rs[0];FMT=ok.format||'';onCode(ok.text)}}catch(e){}
           }
-          if(frames%8===0)dbg();
+          if(frames%4===0)dbg();
+          busy=false;
         }
-      }catch(e){}
+      }catch(e){busy=false}
       setTimeout(loop,60);
     })();
   }catch(e){
