@@ -275,14 +275,14 @@ async function startCam(){
     const v=$('v');v.srcObject=stream;await v.play();track=stream.getVideoTracks()[0];setupTrack();
     let det=null;
     if('BarcodeDetector' in window){
-      try{let fm=['code_128','code_39','ean_13','ean_8','itf','codabar','qr_code','upc_a','data_matrix'];
+      try{let fm=['code_128','code_39','code_93'];
         const sup=await BarcodeDetector.getSupportedFormats();fm=fm.filter(f=>sup.includes(f));if(fm.length)det=new BarcodeDetector({formats:fm})}catch(e){det=null}
     }
     const load=u=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=u;s.onload=res;s.onerror=()=>rej(new Error('script load failed'));document.head.appendChild(s)});
     try{await load('zxing.min.js')}catch(e1){try{await load('https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js')}catch(e2){if(!det)throw new Error('the barcode reader could not be loaded - check the connection and reload')}}
     const Z=window.ZXing;let zr=null;
     if(Z){const h=new Map(),F=Z.BarcodeFormat;
-      h.set(Z.DecodeHintType.POSSIBLE_FORMATS,[F.CODE_128,F.CODE_39,F.CODE_93,F.ITF,F.EAN_13,F.EAN_8,F.UPC_A,F.CODABAR,F.QR_CODE,F.DATA_MATRIX]);
+      h.set(Z.DecodeHintType.POSSIBLE_FORMATS,[F.CODE_128,F.CODE_39,F.CODE_93]);
       h.set(Z.DecodeHintType.TRY_HARDER,true);zr=new Z.MultiFormatReader();zr.setHints(h)}
     const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
     // crop windows (fractions of the frame): full, wide centre band, tight centre band
