@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rasumi Scan">
 <meta name="theme-color" content="#07121c">
 <link rel="icon" href="logo.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -107,6 +111,16 @@ html,body{margin:0;height:100%;background:radial-gradient(120% 60% at 50% 0%,#0d
 .demo .cam .paper{position:absolute;left:12%;right:10%;top:16%;bottom:14%;background:#d9dde0;transform:rotate(-2deg);border-radius:4px;box-shadow:0 8px 30px rgba(0,0,0,.5);color:#111;padding:14px;font-weight:800;text-align:center}
 .demo .paper .bars{height:40%;margin:10px 4px;background:repeating-linear-gradient(90deg,#111 0 3px,transparent 3px 5px,#111 5px 6px,transparent 6px 9px,#111 9px 13px,transparent 13px 15px)}
 .demo .paper small{display:block;text-align:left;font-weight:600;margin-top:6px}
+/* ---- full-screen layout: the PAGE scrolls (so Safari shrinks its address bar to the small capsule), dark everywhere incl. the safe areas ---- */
+html{background:var(--bg);color-scheme:dark;-webkit-text-size-adjust:100%}
+html,body{height:auto;min-height:100%;background-color:var(--bg)}
+body{background-image:none;min-height:100vh;min-height:100dvh}
+body::before{content:"";position:fixed;inset:0;z-index:-1;background:radial-gradient(120% 60% at 50% 0%,#0d2438 0%,var(--bg) 60%),var(--bg)}
+#app{height:auto;min-height:100vh;min-height:100dvh;display:block;padding:env(safe-area-inset-top) 0 0}
+.scroll{overflow:visible;flex:none;padding-bottom:calc(86px + env(safe-area-inset-bottom))}
+.nav{position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;z-index:15;background:rgba(7,18,28,.94);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.view{position:fixed;inset:0;max-width:480px;margin:0 auto;height:100vh;height:100dvh}
+#toast{position:fixed;bottom:calc(92px + env(safe-area-inset-bottom))}
 </style>
 </head>
 <body>
