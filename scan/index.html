@@ -256,9 +256,10 @@ async function send(d,raw){
 async function flushQueue(){for(const d of [...queue])await send(d,d)}
 
 /* ---------- detection ---------- */
+let FMT='';
 function onCode(text){
   const now=Date.now(),d=parseDO(text);
-  if(!d){if(now-lastAt>1500){lastAt=now;fb('bad');setDet(String(text).slice(0,40),'bad','Not a DO barcode');pending=null;render()}return}
+  if(!d){if(now-lastAt>1500){lastAt=now;fb('bad');setDet(String(text).slice(0,40),'bad','Not a DO barcode ['+FMT+' len '+String(text).length+']');pending=null;render()}return}
   if(d===lastCode&&now-lastAt<2500)return;                 // same barcode still in front of the camera
   lastCode=d;lastAt=now;
   if(S.items.some(x=>x.do===d)){fb('dup');setDet(text,'warn','Already scanned');pending=null;render();return}
@@ -275,14 +276,14 @@ async function startCam(){
     const v=$('v');v.srcObject=stream;await v.play();track=stream.getVideoTracks()[0];setupTrack();
     let det=null;
     if('BarcodeDetector' in window){
-      try{let fm=['code_128','code_39','code_93'];
+      try{let fm=['code_128','itf'];
         const sup=await BarcodeDetector.getSupportedFormats();fm=fm.filter(f=>sup.includes(f));if(fm.length)det=new BarcodeDetector({formats:fm})}catch(e){det=null}
     }
     const load=u=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=u;s.onload=res;s.onerror=()=>rej(new Error('script load failed'));document.head.appendChild(s)});
     try{await load('zxing.min.js')}catch(e1){try{await load('https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js')}catch(e2){if(!det)throw new Error('the barcode reader could not be loaded - check the connection and reload')}}
     const Z=window.ZXing;let zr=null;
     if(Z){const h=new Map(),F=Z.BarcodeFormat;
-      h.set(Z.DecodeHintType.POSSIBLE_FORMATS,[F.CODE_128,F.CODE_39,F.CODE_93]);
+      h.set(Z.DecodeHintType.POSSIBLE_FORMATS,[F.CODE_128,F.ITF]);
       h.set(Z.DecodeHintType.TRY_HARDER,true);zr=new Z.MultiFormatReader();zr.setHints(h)}
     const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
     // crop windows (fractions of the frame): full, wide centre band, tight centre band
@@ -292,14 +293,14 @@ async function startCam(){
       try{
         if(v.readyState>=2&&v.videoWidth){
           frames++;
-          if(det){try{const r=await det.detect(v);if(r.length){onCode(r[0].rawValue);setTimeout(loop,150);return}}catch(e){}}
+          if(det){try{const r=await det.detect(v);if(r.length){FMT=r[0].format;onCode(r[0].rawValue);setTimeout(loop,150);return}}catch(e){}}
           if(zr){
             const w=WIN[wi++%WIN.length],sw=Math.round(v.videoWidth*w[2]),sh=Math.round(v.videoHeight*w[3]);
             // upscale narrow crops so thin bars span enough pixels
             const sc=sw<900?Math.min(2,1280/sw):1;cv.width=Math.round(sw*sc);cv.height=Math.round(sh*sc);
             cx.drawImage(v,Math.round(v.videoWidth*w[0]),Math.round(v.videoHeight*w[1]),sw,sh,0,0,cv.width,cv.height);
             tries++;
-            try{const bb=new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(cv)));const r=zr.decodeWithState(bb);if(r)onCode(r.getText())}catch(e){/* NotFoundException = nothing in this window */}
+            try{const bb=new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(cv)));const r=zr.decodeWithState(bb);if(r){FMT=Z.BarcodeFormat[r.getBarcodeFormat()]||'';onCode(r.getText())}}catch(e){/* NotFoundException = nothing in this window */}
           }
           if(frames%8===0)dbg();
         }
