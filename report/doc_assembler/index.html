@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Doc Assembler — Architecture Flow Map</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap');
+
+:root{
+  --bg:#08050e;
+  --bg2:#0f0a1c;
+  --panel:#140f24;
+  --panel2:#1a1330;
+  --line:#2a2247;
+  --text:#eae6f7;
+  --muted:#8b81ab;
+  --pink:#ff2fb0;
+  --purple:#a855f7;
+  --cyan:#22d3ee;
+  --amber:#fbbf24;
+  --green:#34d399;
+  --red:#f87171;
+  --neutral:#9aa3b2;
+  --glow-pink: 0 0 14px rgba(255,47,176,.65);
+  --glow-purple: 0 0 14px rgba(168,85,247,.65);
+  --glow-cyan: 0 0 14px rgba(34,211,238,.65);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;overflow:hidden;height:100%;}
+body{padding-top:50px;}
+#app{display:flex;flex-direction:column;height:calc(100vh - 50px);}
+
+/* ---------- top bar ---------- */
+#topbar{
+  padding:10px 20px;
+  background:linear-gradient(180deg, var(--bg2), var(--bg));
+  border-bottom:1px solid var(--line);
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+#hamburgerBtn{
+  flex-shrink:0;
+  width:34px;height:34px;border-radius:9px;
+  border:1px solid var(--line);background:var(--panel);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  gap:3px;flex-direction:column;
+  transition:border-color .15s ease, box-shadow .15s ease, background .2s ease;
+}
+#hamburgerBtn:hover{border-color:var(--muted);}
+#hamburgerBtn span{display:block;width:16px;height:2px;background:var(--text);border-radius:2px;transition:transform .25s ease, opacity .2s ease;}
+#hamburgerBtn.open{border-color:var(--purple);box-shadow:0 0 10px rgba(168,85,247,.35);}
+#hamburgerBtn.open span:nth-child(1){transform:translateY(5px) rotate(45deg);}
+#hamburgerBtn.open span:nth-child(2){opacity:0;}
+#hamburgerBtn.open span:nth-child(3){transform:translateY(-5px) rotate(-45deg);}
+#titleBlock{min-width:0;flex:0 1 auto;}
+#titleBlock h1{
+  font-family:'Orbitron',sans-serif;
+  font-weight:900;
+  font-size:16px;
+  letter-spacing:1.3px;
+  margin:0;
+  background:linear-gradient(90deg, var(--pink), var(--purple), var(--cyan));
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+#titleBlock .sub{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#navStatus{
+  margin-left:auto;flex-shrink:0;font-size:10.5px;color:var(--muted);
+  display:flex;align-items:center;gap:8px;
+}
+/* single merged header: logo | menu | title | LIVE | status | Switch Report */
+.report-switcher-inner{max-width:none;justify-content:flex-start;padding:0.1rem 1rem;gap:14px;}
+.report-switcher-inner .live-btn{margin-left:0;}
+.report-switcher-inner .rs-dropdown{flex-shrink:0;}
+#navStatus .live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);display:none;}
+#navStatus.playing .live-dot{display:inline-block;animation:pulse 1.1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+/* ---------- collapsible nav panel ---------- */
+#navPanel{
+  flex-shrink:0;
+  overflow:hidden;
+  max-height:260px;
+  background:var(--bg2);
+  border-bottom:1px solid var(--line);
+  transition:max-height .32s ease, padding .32s ease, opacity .25s ease;
+  padding:12px 20px;
+}
+#navPanel.collapsed{max-height:0;padding-top:0;padding-bottom:0;opacity:0;border-bottom-color:transparent;}
+#controls{display:flex;flex-direction:column;gap:10px;}
+#flowRow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.flow-btn{
+  font-family:'Inter',sans-serif;
+  font-size:12px;font-weight:600;
+  padding:7px 13px;border-radius:20px;
+  border:1px solid var(--line);
+  background:var(--panel);
+  color:var(--text);
+  cursor:pointer;
+  display:flex;align-items:center;gap:7px;
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  white-space:nowrap;
+}
+.flow-btn:hover{transform:translateY(-1px);border-color:var(--muted);}
+.flow-btn.active{border-color:currentColor;box-shadow:0 0 12px currentColor;}
+.flow-dot{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor;}
+#rightControls{display:flex;gap:10px;align-items:center;padding-top:8px;border-top:1px solid var(--line);}
+#autoplayBtn{
+  font-size:12px;font-weight:600;padding:7px 14px;border-radius:20px;
+  border:1px solid var(--purple);background:rgba(168,85,247,.12);color:var(--text);cursor:pointer;
+  display:flex;align-items:center;gap:6px;
+}
+#autoplayBtn.on{background:var(--purple);box-shadow:var(--glow-purple);}
+#resetBtn{
+  font-size:12px;font-weight:600;padding:7px 14px;border-radius:20px;
+  border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer;
+}
+
+/* ---------- main layout ---------- */
+#main{flex:1;display:flex;min-height:0;}
+#graphWrap{flex:1;overflow:auto;position:relative;padding:18px 24px 34px 24px;}
+#graphInner{position:relative;min-width:1180px;}
+svg#edges{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;}
+
+.lane{display:flex;align-items:stretch;margin-bottom:6px;position:relative;}
+.lane-label{
+  width:230px;flex-shrink:0;display:flex;align-items:center;
+  font-family:'Orbitron',sans-serif;font-size:10.5px;font-weight:700;
+  letter-spacing:.5px;color:var(--muted);text-transform:uppercase;
+  padding-right:14px;line-height:1.4;
+}
+.lane-label .chip{width:7px;height:7px;border-radius:2px;margin-right:8px;flex-shrink:0;box-shadow:0 0 6px currentColor;}
+.lane-nodes{flex:1;display:flex;flex-wrap:wrap;gap:10px;padding:10px 6px;border-radius:14px;background:rgba(255,255,255,.012);border:1px dashed rgba(255,255,255,.05);min-height:64px;align-items:center;}
+
+.node{
+  position:relative;
+  padding:8px 12px;border-radius:10px;
+  background:var(--panel);
+  border:1.4px solid var(--line);
+  font-size:11.5px;font-weight:600;
+  cursor:pointer;
+  transition:transform .18s ease, box-shadow .25s ease, border-color .25s ease, background .25s ease;
+  width:210px;
+  max-width:210px;
+  line-height:1.35;
+  overflow-wrap:break-word;
+  word-break:break-word;
+  white-space:normal;
+  hyphens:auto;
+}
+.node .ntype{display:block;font-size:8.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px;overflow-wrap:break-word;}
+.node:hover{transform:translateY(-2px);border-color:var(--muted);}
+.node.dim{opacity:.22;}
+.node.lit{opacity:1;}
+.node.selected{outline:2px solid #fff;outline-offset:1px;}
+
+.node.actor{background:radial-gradient(circle at 30% 20%, #2a2440, var(--panel));}
+
+/* node active glow per flow color, set via inline style */
+
+/* ---------- legend ---------- */
+#timeNote{margin:10px 18px 14px;padding:10px 14px;border:1px solid rgba(34,211,238,.25);border-radius:8px;background:rgba(34,211,238,.05);font-size:12px;line-height:1.55;color:#9fb3c8;}
+#timeNote b{color:#22d3ee;font-weight:600;}
+#footBar{display:flex;align-items:center;border-top:1px solid var(--line);background:var(--bg2);flex-shrink:0;}
+#legend{
+  flex:1;min-width:0;display:flex;gap:16px;flex-wrap:wrap;padding:8px 24px 6px 24px;font-size:10.5px;color:var(--muted);
+}
+#timeToggle{
+  flex-shrink:0;width:28px;height:24px;margin:0 16px 0 8px;border-radius:7px;
+  border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+#timeToggle:hover{border-color:var(--cyan);color:var(--cyan);}
+#timeToggle svg{transition:transform .3s ease;}
+#timeToggle.collapsed svg{transform:rotate(180deg);}
+#timeWrap{overflow:hidden;max-height:260px;opacity:1;transition:max-height .35s ease, opacity .25s ease;}
+#timeWrap.collapsed{max-height:0;opacity:0;}
+#legend .item{display:flex;align-items:center;gap:6px;}
+#legend .sw{width:9px;height:9px;border-radius:2px;box-shadow:0 0 5px currentColor;}
+
+/* ---------- side panel ---------- */
+#sidepanel{
+  width:340px;flex-shrink:0;background:var(--panel);border-left:1px solid var(--line);
+  padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;
+}
+#sidepanel h2{font-family:'Orbitron',sans-serif;font-size:13px;margin:0;color:var(--text);text-transform:uppercase;letter-spacing:.5px;}
+#sidepanel .placeholder{color:var(--muted);font-size:12.5px;line-height:1.6;}
+#sidepanel .field-label{font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-top:8px;}
+#sidepanel .field-val{font-size:12.5px;line-height:1.55;color:var(--text);}
+#sidepanel .mono{font-family:'Consolas','Menlo',monospace;font-size:11px;color:var(--cyan);background:rgba(34,211,238,.08);padding:6px 8px;border-radius:6px;word-break:break-word;}
+#stepList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+#stepList li{
+  font-size:11.5px;line-height:1.4;padding:8px 10px;border-radius:8px;
+  background:var(--panel2);border-left:3px solid var(--line);color:var(--muted);
+  transition:all .25s ease;
+}
+#stepList li.active{border-left-color:var(--cyan);color:var(--text);background:rgba(34,211,238,.09);box-shadow:0 0 10px rgba(34,211,238,.15);}
+#stepList li.done{color:var(--text);opacity:.6;}
+#stepList .num{font-family:'Orbitron',sans-serif;font-weight:700;color:var(--purple);margin-right:6px;}
+
+.flow-desc{font-size:12px;color:var(--muted);line-height:1.55;padding-bottom:6px;border-bottom:1px solid var(--line);}
+
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   REPORT SWITCHER (shared across all Rasumi Group technical reports)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+.report-switcher {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    z-index: 1000;
+    background: rgba(11, 16, 23, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+}
+.report-switcher-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0.1rem 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.rs-logo-img { height: 40px; width: auto; object-fit: contain; display: block; }
+.rs-dropdown { position: relative; }
+.rs-dropdown-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel); border: 1px solid var(--line); color: var(--text);
+    font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600;
+    padding: 8px 14px; border-radius: 8px; cursor: pointer; transition: all .2s ease;
+}
+.rs-dropdown-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.rs-caret { font-size: 0.7rem; transition: transform 0.2s ease; }
+.rs-dropdown.open .rs-caret { transform: rotate(180deg); }
+.rs-dropdown-menu {
+    position: absolute; top: calc(100% + 8px); right: 0; width: 300px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.5); padding: 6px;
+    display: none; flex-direction: column; gap: 2px;
+}
+.rs-dropdown.open .rs-dropdown-menu { display: flex; }
+.rs-item {
+    display: flex; flex-direction: column; gap: 2px; padding: 10px 12px;
+    border-radius: 8px; text-decoration: none; color: var(--text);
+    font-size: 0.88rem; font-weight: 600; transition: all .2s ease;
+}
+.rs-item:hover { background: rgba(34,211,238,0.08); }
+.rs-item.active { background: rgba(34,211,238,0.12); color: var(--cyan); }
+.rs-tag { font-size: 0.72rem; font-weight: 500; color: var(--muted); font-family: 'Consolas','Menlo',monospace; }
+
+
+.live-btn{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.6px;text-decoration:none;border:1px solid rgba(255,255,255,.18);color:#6b7280;opacity:.55;margin-left:12px;white-space:nowrap;transition:all .25s;}
+.live-btn .ld{width:8px;height:8px;border-radius:50%;background:currentColor;}
+.live-btn.on{color:#f87171;border-color:#f87171;background:rgba(248,113,113,.12);opacity:1;box-shadow:0 0 12px rgba(248,113,113,.45);}
+.live-btn.on .ld{animation:pulse 1.1s infinite;}
+.live-btn:hover{opacity:1;}
+</style>
+</head>
+<body>
+
+<nav class="report-switcher">
+    <div class="report-switcher-inner">
+        <img src="../assets/icon.png" alt="Rasumi Logo" class="rs-logo-img">
+        <button id="hamburgerBtn" title="Toggle navigation"><span></span><span></span><span></span></button>
+        <div id="titleBlock">
+          <h1>⟡ Doc Assembler — Architecture &amp; Flow Map</h1>
+          <div class="sub">Rasumi Apps · Scan / manual DO → SELESAI BQ-BP pool (100) → VIMS batches → doc_pack → Renamer → DocuShare → Splitter → Vibes → big batch</div>
+        </div>
+        <a id="liveBtn" style="display:none" class="live-btn" href="live.html" title="Open the live view"><span class="ld"></span><span class="lt">LIVE · idle</span></a>
+        <div id="navStatus"><span class="live-dot"></span><span id="navStatusText">Idle</span></div>
+        <div class="rs-dropdown" id="rsDropdown">
+            <button class="rs-dropdown-btn" id="rsDropdownBtn" type="button">
+                Switch Report <span class="rs-caret">▾</span>
+            </button>
+            <div class="rs-dropdown-menu">
+                <a href="../index.html" class="rs-item">Rasumi Apps <span class="rs-tag">Admin Console + Field Agents</span></a>
+                <a href="../sales_report/index.html" class="rs-item">Apps Sales Report <span class="rs-tag">VIMS Reporting Center</span></a>
+                <a href="../smart_printer_label/index.html" class="rs-item">Smart Printer Label <span class="rs-tag">Chrome Extension</span></a>
+                <a href="../vims_auto/index.html" class="rs-item">VIMS Auto Selesai <span class="rs-tag">Chrome Extension</span></a>
+                <a href="../po_mailer/index.html" class="rs-item">PO Mailer <span class="rs-tag">Architecture &amp; Flow Map</span></a>
+                <a href="index.html" class="rs-item active">Doc Assembler <span class="rs-tag">Architecture &amp; Flow Map</span></a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div id="app">
+  <div id="navPanel">
+    <div id="controls">
+      <div id="flowRow">
+        <button class="flow-btn" id="btnAll">Show full graph</button>
+        <span id="flowBtns" style="display:flex;gap:8px;flex-wrap:wrap;"></span>
+      </div>
+      <div id="rightControls">
+        <button id="autoplayBtn">▶ Autoplay</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="graphWrap">
+      <div id="graphInner">
+        <svg id="edges"></svg>
+        <div id="lanes"></div>
+      </div>
+    </div>
+    <div id="sidepanel">
+      <div id="panelDefault">
+        <h2>Details</h2>
+        <p class="placeholder">Click any node to see its file, signature and description. Pick a flow above to watch it animate step-by-step through the architecture — click a step below the description to jump straight to it.</p>
+      </div>
+      <div id="panelFlow" style="display:none;">
+        <h2 id="flowTitle"></h2>
+        <div id="flowDesc" class="flow-desc"></div>
+        <ol id="stepList"></ol>
+      </div>
+      <div id="panelNode" style="display:none;">
+        <h2 id="nodeTitle"></h2>
+        <div class="field-label">Layer</div>
+        <div class="field-val" id="nodeLayer"></div>
+        <div class="field-label" id="nodeFileLabel">File</div>
+        <div class="field-val mono" id="nodeFile"></div>
+        <div class="field-label" id="nodeSigLabel">Signature</div>
+        <div class="field-val mono" id="nodeSig"></div>
+        <div class="field-label">Description</div>
+        <div class="field-val" id="nodeDesc"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="footBar">
+    <div id="legend"></div>
+    <button id="timeToggle" type="button" title="Hide / show the estimated time saved" aria-expanded="true" aria-controls="timeWrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+  </div>
+  <div id="timeWrap"><div id="timeNote"><b>Status legend:</b> nodes tagged <b>[built]</b> already exist and were tested on VIMS staging or production, <b>[partial]</b> need wiring or a fix, and <b>[planned]</b> are not built yet. Target: <b>100 DO = 10 small batches = 1 big batch</b>, released only when the pool reaches exactly 100 DO in status SELESAI BQ-BP.</div></div>
+
+</div>
+
+<script>
+const SPEC = {"meta": {"title": "Doc Assembler — VIMS SELESAI BQ-BP to Vibes: Architecture & Flow Graph Specification", "app": "Rasumi Apps / Doc Assembler (100-DO claim pipeline)", "version": "2.1.0", "generated": "2026-10-28", "description": "Function-level architecture map of the 100-DO claim pipeline: intake (barcode scan or manual DO numbers, validated as status SELESAI BQ-BP, pooled to exactly 100 DOs of ONE patient category - Veteran Berpencen, Veteran Tidak Berpencen or Pesara Awam, never mixed in one big batch - and archived per VIMS user id when short), VIMS batching (10 small batches BAHARU -> SAH), doc_pack with a completeness gate, Renamer HQ, DocuShare upload, PDF Splitter, Vibes Agent and finally the big batch. Each node carries file + signature + description like the PO Mailer spec, and a status tag: built (exists and tested on staging/production), partial (needs wiring/fix) or planned (not built). Node ids are stable and referenced by every flow's step sequence.", "renderer_hint": "animated-swimlane-flow, see report/doc_assembler/index.html"}, "layers": [{"id": "user", "label": "User", "order": 0, "color": "neutral"}, {"id": "ui", "label": "Frontend UI (Rasumi Apps — Doc Assembler page, src/web/index.html)", "order": 1, "color": "pink"}, {"id": "bridge", "label": "Eel Bridge / Orchestration (main.py)", "order": 2, "color": "purple"}, {"id": "engine", "label": "Core Engines (scripts/doc_assembler + Renamer HQ / PDF Splitter / Vibes Agent)", "order": 3, "color": "cyan"}, {"id": "data", "label": "Data & External Services", "order": 4, "color": "amber"}], "nodes": [{"id": "U1", "layer": "user", "type": "actor [built]", "label": "Pharmacy operator (VIMS user)", "status": "built", "description": "Holds the physical DO printouts and works under ONE VIMS user id (it becomes the Batch Person of every small batch). Scans barcodes or types DO numbers, may stop and resume later, and decides how to resolve problem DOs."}, {"id": "F1", "layer": "ui", "type": "input [planned]", "label": "daScanInput()  — barcode scanner capture", "status": "planned", "description": "USB barcode scanner behaves as a keyboard. A focused, always-on field collects the digits and commits the scan on Enter (scanner suffix). Rapid keystrokes (<50 ms apart) are treated as a scan, slow typing as manual. Each commit calls eel.da_add_do(do_no,'scan') and flashes green/red with a beep so the operator can keep scanning without looking at the screen.", "file": "src/web/index.html", "signature": "function daScanInput(evt)"}, {"id": "F2", "layer": "ui", "type": "input [planned]", "label": "daManualInsert()  — type / paste DO numbers", "status": "planned", "description": "Textarea + Add button for manual entry. Accepts one or many DO numbers (newline, space, comma or semicolon separated) up to 100 in a single paste; hands the text to daParseNumbers() and sends the result to eel.da_add_many(text,'manual').", "file": "src/web/index.html", "signature": "async function daManualInsert()"}, {"id": "F3", "layer": "ui", "type": "helper [planned]", "label": "daParseNumbers(text)", "status": "planned", "description": "Client-side normalise/split/dedupe of pasted DO numbers (same 8-digit pattern as do_input.find_dos), drops anything already in the pool and caps the batch at the remaining capacity (100 - n).", "file": "src/web/index.html", "signature": "function daParseNumbers(text) -> string[]"}, {"id": "F4", "layer": "ui", "type": "renderer [planned]", "label": "daRenderPool()  — DO Pool, status SELESAI BQ-BP (n / 100)", "status": "planned", "description": "Renders the pool: a category badge (Veteran Berpencen / Veteran Tidak Berpencen / Pesara Awam - fixed by the FIRST accepted DO), counter n/100 with progress bar, one row per DO (DO no, patient, amount, source scan/manual, VIMS status badge SELESAI BQ-BP), per-row Replace/Remove, and rejection toasts (duplicate, wrong status, not found, already batched). The 'Start processing' button stays disabled until n = 100.", "file": "src/web/index.html", "signature": "function daRenderPool(state)"}, {"id": "F5", "layer": "ui", "type": "handler [planned]", "label": "daReplaceDo(oldDo)  — replace a problem DO", "status": "planned", "description": "Opens a small modal asking for the replacement DO (scan or type). Calls eel.da_replace_do(old,new); on success the pool stays at 100. Also reachable from the issue report when doc_pack flags a DO.", "file": "src/web/index.html", "signature": "async function daReplaceDo(oldDo)"}, {"id": "F6", "layer": "ui", "type": "handler [planned]", "label": "daLoadArchive()  — resume archived pool", "status": "planned", "description": "Runs when the page opens: eel.da_pool_state() restores the archived pool for the logged-in VIMS user id + environment, shows 'Resumed n/100' and continues scanning until 100. Also restores an in-flight run so the progress view can re-attach.", "file": "src/web/index.html", "signature": "async function daLoadArchive()"}, {"id": "F7", "layer": "ui", "type": "handler [planned]", "label": "daStartPipeline()  — start processing (n = 100)", "status": "planned", "description": "Enabled only when the pool holds exactly 100 valid DOs. Shows a Proceed/Cancel confirm (poShowConfirm pattern) summarising 100 DO, total RM and 10 forms of 10, then calls eel.da_run_pipeline(pool_id).", "file": "src/web/index.html", "signature": "async function daStartPipeline()"}, {"id": "F8", "layer": "ui", "type": "renderer [planned]", "label": "daRenderProgress()  — stage tracker & issue report", "status": "planned", "description": "Stage tracker for one 100-DO run: VIMS_BATCH, SAH, DOC_PACK, RENAME, DOCUSHARE_UPLOAD, SPLIT, VIBES, BIG_BATCH. Shows current stage, per-batch ticks (x/10), and an issue list (DO, what is missing). Each issue offers Replace DO, Fix source scan and Retry stage.", "file": "src/web/index.html", "signature": "function daRenderProgress(run)"}, {"id": "F9", "layer": "ui", "type": "handler [planned]", "label": "daResolveIssue(do, action)", "status": "planned", "description": "Issue actions: 'replace' (opens daReplaceDo), 'retry' (eel.da_retry_stage(run_id)), 'ignore-test' (staging/test only). Re-renders progress afterwards.", "file": "src/web/index.html", "signature": "async function daResolveIssue(do, action)"}, {"id": "F10", "layer": "ui", "type": "callback [planned]", "label": "js_da_pool_update / js_da_progress / js_da_issue / js_da_done", "status": "planned", "description": "Python-to-JS eel callbacks: pool changes, stage progress (stage, i/n), per-DO issues and run completion. Pure render triggers - no business logic.", "file": "src/web/index.html", "signature": "eel.expose(js_da_*)"}, {"id": "B0", "layer": "bridge", "type": "guard [planned]", "label": "check_permission(\"Doc Assembler\")", "status": "planned", "description": "Cross-cutting access gate applied at the top of every @eel.expose Doc Assembler function (same pattern as PO Mailer). The Admin Console app list gets a 'Doc Assembler' checkbox.", "file": "src/main.py", "signature": "check_permission(module: str) -> bool"}, {"id": "B1", "layer": "bridge", "type": "eel-endpoint [planned]", "label": "da_add_do(do_no, source)", "status": "planned", "description": "Validates ONE DO: normalise, reject if already in the pool / already batched / already replaced, look it up on VIMS and require status exactly SELESAI BQ-BP, resolve the DO's patient category (veteran Berpencen / Tidak Berpencen / Pesara Awam, a Waris follows the veteran with the same No. Tentera) and require it to equal the pool category (the first accepted DO sets it), then insert the pool row. Returns {ok, reason, row, n}.", "file": "src/main.py", "signature": "@eel.expose def da_add_do(do_no: str, source: str) -> dict"}, {"id": "B2", "layer": "bridge", "type": "eel-endpoint [planned]", "label": "da_add_many(text, source)", "status": "planned", "description": "Bulk variant of da_add_do for pasted lists: parses with do_input.find_dos, validates sequentially (VIMS session reused), stops at 100 and reports accepted vs rejected with reasons.", "file": "src/main.py", "signature": "@eel.expose def da_add_many(text: str, source: str) -> dict"}, {"id": "B3", "layer": "bridge", "type": "eel-endpoint [planned]", "label": "da_pool_state()", "status": "planned", "description": "Returns the pool (rows, n, capacity 100) and the active/last run for (vims_user_id, env). Called on page open and after every change; this is also the archive/resume read path.", "file": "src/main.py", "signature": "@eel.expose def da_pool_state() -> dict"}, {"id": "B4", "layer": "bridge", "type": "eel-endpoint [planned]", "label": "da_replace_do(old_do, new_do)", "status": "planned", "description": "Swaps a DO while keeping the pool at 100: validates new_do like da_add_do, marks old as 'replaced' (kept for audit) and, if a run is already past VIMS_BATCH, queues the replacement for its own mini-run (batch + SAH + doc_pack for that one DO).", "file": "src/main.py", "signature": "@eel.expose def da_replace_do(old_do: str, new_do: str) -> dict"}, {"id": "B5", "layer": "bridge", "type": "eel-endpoint [planned]", "label": "da_run_pipeline(pool_id)", "status": "planned", "description": "Entry point of the 100-DO run, executed in a background thread. HARD GATE: refuses unless the pool has exactly 100 valid DOs of ONE category (1 big batch = 1 category; categories are never mixed). Creates the da_pipeline_run row and drives the stage machine; after every step it persists stage + issues so da_resume_run can continue after a crash or logout.", "file": "src/main.py", "signature": "@eel.expose def da_run_pipeline(pool_id: str)"}, {"id": "B6", "layer": "bridge", "type": "eel-endpoint [planned]", "label": "da_resume_run(run_id) / da_retry_stage(run_id)", "status": "planned", "description": "Resumes a run from the last completed stage (never repeats a finished VIMS step: batches already BAHARU/SAH are re-read live before acting).", "file": "src/main.py", "signature": "@eel.expose def da_resume_run(run_id: str)"}, {"id": "B7", "layer": "bridge", "type": "helper [planned]", "label": "_da_vims_session(env)", "status": "planned", "description": "Creates the single VimsWeb session for the run using the DPAPI-stored credentials (cred_store.load), logs in and verifies the Batch Person equals the pool owner. Reused by every VIMS stage; re-logs in when the session expires.", "file": "src/main.py", "signature": "def _da_vims_session(env: str) -> VimsWeb"}, {"id": "B8", "layer": "bridge", "type": "stage [planned]", "label": "_da_stage_vims_batch(run)", "status": "planned", "description": "STAGE 1: splits the 100 DOs (all one category) into 10 forms of exactly 10, so VIMS never splits a form into two batches; then per form: submit_claim -> identify the NEW BAHARU batch -> store batch code. Marks DOs 'batched' in the pool only after VIMS confirms they left SELESAI BQ-BP.", "file": "src/main.py", "signature": "def _da_stage_vims_batch(run: dict)"}, {"id": "B9", "layer": "bridge", "type": "stage [planned]", "label": "_da_stage_sah(run)", "status": "planned", "description": "STAGE 2: for each of the 10 BAHARU batches approve to SAH (role switch if needed), update the shared batch cache, verify live status = SAH.", "file": "src/main.py", "signature": "def _da_stage_sah(run: dict)"}, {"id": "B10", "layer": "bridge", "type": "stage [planned]", "label": "_da_stage_docpack(run)", "status": "planned", "description": "STAGE 3: runs the doc_pack engine for the 10 SAH batches in assembly-only mode (--no-engines: classify, completeness check, compile) so Renamer/Splitter are NOT run yet.", "file": "src/main.py", "signature": "def _da_stage_docpack(run: dict)"}, {"id": "B11", "layer": "bridge", "type": "gate [planned]", "label": "_da_gate_complete(run)", "status": "planned", "description": "GATE: every one of the 100 DOs must be COMPLETE (DO, PS and BQBP pages present, BQBP page 3 signed + stamped). Any issue => stage = BLOCKED, issues are pushed to the UI and nothing downstream runs. Passing the gate unlocks RENAME.", "file": "src/main.py", "signature": "def _da_gate_complete(run: dict) -> bool"}, {"id": "B12", "layer": "bridge", "type": "stage [planned]", "label": "_da_stage_rename_upload(run)", "status": "planned", "description": "STAGE 4+5: Renamer HQ over all 100 compiled PDFs (engine_bridge.rename), then upload the 100 renamed documents to DocuShare; verifies the uploaded count = 100.", "file": "src/main.py", "signature": "def _da_stage_rename_upload(run: dict)"}, {"id": "B13", "layer": "bridge", "type": "stage [planned]", "label": "_da_stage_split_vibes(run)", "status": "planned", "description": "STAGE 6+7: PDF Splitter over the 100 renamed documents (engine_bridge.split into vibes/), then the Vibes Agent uploads all 100 as one Vibes claim number.", "file": "src/main.py", "signature": "def _da_stage_split_vibes(run: dict)"}, {"id": "B14", "layer": "bridge", "type": "stage [planned]", "label": "_da_stage_big_batch(run)", "status": "planned", "description": "STAGE 8: only after Vibes reports complete: combine the 10 small SAH batches into one big batch and send it from VIMS; stores big_batch_code and sets the run DONE.", "file": "src/main.py", "signature": "def _da_stage_big_batch(run: dict)"}, {"id": "B15", "layer": "bridge", "type": "helper [planned]", "label": "_da_emit_event(run, stage, state, detail)", "status": "planned", "description": "Anonymous telemetry (stage + counts only, no patient data) written per step so the report page can show a LIVE badge exactly like PO Mailer's po_live_status.", "file": "src/main.py", "signature": "def _da_emit_event(run, stage, state, detail=None)"}, {"id": "E1", "layer": "engine", "type": "parser [built]", "label": "do_input.find_dos(text) / from_text(text)", "status": "built", "description": "Extracts 8-digit DO numbers from free text (paste, scanner output) and groups them; also OCR/table/PDF readers exist for the form-based flow. Reused by da_add_many.", "file": "scripts/doc_assembler/do_input.py", "signature": "def find_dos(text: str) -> list[str]"}, {"id": "E2", "layer": "engine", "type": "session [built]", "label": "VimsWeb.login / account_name / account_role", "status": "built", "description": "Selenium VIMS client: logs in (production or staging profile), reads the Batch Person name and current role from the page header.", "file": "scripts/doc_assembler/vims_web.py", "signature": "def login(self, user, password) / account_name(self) / account_role(self)"}, {"id": "E3", "layer": "engine", "type": "lookup [built]", "label": "VimsWeb.find_do(do_no) / _do_rows(...)", "status": "built", "description": "Exact DO lookup on SELESAI BQ-BP by number (search URL, because the staging list tab does not render rows). Returns id, name, status, total; also near-matches (1 char different) for OCR typos.", "file": "scripts/doc_assembler/vims_web.py", "signature": "def find_do(self, do_no) -> (dict|None, near[])"}, {"id": "E4", "layer": "engine", "type": "vims-step [built]", "label": "VimsWeb.submit_claim(ids)", "status": "built", "description": "Posts the same form as the 'Hantar tuntutan' button with ONLY the given deliveryOrderIDs; moves those DOs from SELESAI BQ-BP into a new BAHARU batch.", "file": "scripts/doc_assembler/vims_web.py", "signature": "def submit_claim(self, ids) -> int"}, {"id": "E5", "layer": "engine", "type": "vims-step [partial]", "label": "batch_claims.run_form(w, i, r, out_root)", "status": "partial", "description": "One form end-to-end (BQ-BP -> BAHARU -> SAH -> Lampiran -> sign + split). KNOWN ISSUE: it expects exactly 1 new BAHARU batch and aborted on staging when 2 were found; fix = identify the new batch by highest batch code + DO count instead of set difference.", "file": "scripts/doc_assembler/batch_claims.py", "signature": "def run_form(w, i, r, out_root)"}, {"id": "E6", "layer": "engine", "type": "vims-step [partial]", "label": "VimsWeb.newest_baharu(person)", "status": "partial", "description": "Reads the first page of the BAHARU list filtered to the Batch Person; used before/after submit_claim to find the new batch (the weak point behind the 2-batch issue).", "file": "scripts/doc_assembler/vims_web.py", "signature": "def newest_baharu(self, person_name, n=20)"}, {"id": "E7", "layer": "engine", "type": "vims-step [built]", "label": "VimsWeb.approve_batch(href)  BAHARU -> SAH", "status": "built", "description": "Presses SAH. If the button is not shown it switches role to PENTADBIR SISTEM (switch_role/roles/current_role), presses SAH, then restores the previous role; raises a clear error if the account lacks that role.", "file": "scripts/doc_assembler/vims_web.py", "signature": "def approve_batch(self, href, restore_role='KAUNTER')"}, {"id": "E8", "layer": "engine", "type": "cache [built]", "label": "batch_cache.sync / set_status / live_status / cached_rows", "status": "built", "description": "Shared Supabase batch-list cache: one device scans VIMS, everyone reads. Status is always re-read live (live_status) before acting; set_status records SAH after approval.", "file": "scripts/doc_assembler/batch_cache.py", "signature": "def sync(sess, base, env, ...) / set_status(env, invoice_id, status)"}, {"id": "E9", "layer": "engine", "type": "orchestrator [built]", "label": "jobstore.py  (spawn / send_cmd / Job)", "status": "built", "description": "Process orchestration for doc_pack: spawns WORKER A (VIMS) and WORKER B (DocuShare) in their own console windows, command/state files, liveness checks, shutdown.", "file": "scripts/doc_assembler/jobstore.py", "signature": "def spawn(role, env) / send_cmd(role, env, **cmd) / class Job"}, {"id": "E10", "layer": "engine", "type": "worker [built]", "label": "WORKER A — VIMS (batch list, Lampiran, signed invoices)", "status": "built", "description": "Lists batches, re-reads live status, waits for Lampiran Batch, downloads it and signs/splits invoices (assemble.sign_and_split + sig_store.get_signature_png); falls back to per_do_invoices.run (generate each invoice from its DO) when no Lampiran exists (staging).", "file": "scripts/doc_assembler/vims_web.py / assemble.py / per_do_invoices.py", "signature": "download_lampiran / sign_and_split / per_do_invoices.run"}, {"id": "E11", "layer": "engine", "type": "worker [built]", "label": "WORKER B — DocuShare (pre-check, download <DO>.pdf, analyse)", "status": "built", "description": "Parallel worker: pre-checks each DO, downloads <DO>.pdf from DocuShare, then classifies pages and checks the BQBP sign-off (officer signature + stamp on page 3) via pack_check.", "file": "scripts/doc_assembler/docushare_worker.py / docushare_fetch.py / pack_check.py", "signature": "type='process' command via jobstore.send_cmd"}, {"id": "E12", "layer": "engine", "type": "assembler [built]", "label": "pack_assembler (base_plan / apply_upload / compile_pack / final_name / split_for_vibes)", "status": "built", "description": "Builds the page plan per DO (DO, PS, BQBP pages), merges an operator-uploaded replacement file, compiles the complete PDF and names it like Renamer HQ; built-in splitter is the fallback if the engines are unavailable.", "file": "scripts/doc_assembler/pack_assembler.py", "signature": "def compile_pack(inv, plan, out) / final_name(do, pensioner)"}, {"id": "E13", "layer": "engine", "type": "orchestrator [partial]", "label": "doc_pack.main()  — per-batch pack builder", "status": "partial", "description": "Interactive/automatic driver: picks person + SAH batch, starts both workers, shows per-DO table (invoice, docushare, check), handles 'P = PROCEED ANYWAY' (test mode only), compiles docushare/ and vibes/ folders. TODAY it runs Renamer HQ and the Splitter inside each batch; the target flow uses --no-engines here and runs them after the 100-DO gate.", "file": "scripts/doc_assembler/doc_pack.py", "signature": "python doc_pack.py --batch B1xxxxx [--env] [--mode live|test] [--no-engines]"}, {"id": "E14", "layer": "engine", "type": "gate [built]", "label": "Completeness check (issues[] per DO)", "status": "built", "description": "Per DO: issues = 'DO missing' / 'PS missing' / 'BQBP missing' / 'BQBP p3 sign-off' (BQBP page 3 needs officer signature + stamp, Bahagian IV/V). A DO with any issue is NOT READY and is excluded from compile.", "file": "scripts/doc_assembler/doc_pack.py / pack_check.py", "signature": "s['issues'] list in doc_pack state"}, {"id": "E15", "layer": "engine", "type": "app [built]", "label": "engine_bridge.rename(files)  — Renamer HQ", "status": "built", "description": "Runs the real Renamer HQ engine headlessly over the compiled PDFs and returns the DO -> renamed path mapping (built-in name used and flagged if the engine does not rename).", "file": "scripts/doc_assembler/engine_bridge.py", "signature": "def rename(files: list[Path]) -> (dict, list)"}, {"id": "E16", "layer": "engine", "type": "uploader [partial]", "label": "DocuShare uploader (100 renamed docs)", "status": "partial", "description": "Uploads the renamed 100-document set to DocuShare with the admin credentials. An uploader exists in the app but is not yet wired as a pipeline stage; must verify uploaded count = 100 before moving on.", "file": "src/apps/", "signature": "upload_to_docushare(files) [to be exposed]"}, {"id": "E17", "layer": "engine", "type": "app [built]", "label": "engine_bridge.split(files, vibes_dir, stage)  — PDF Splitter", "status": "built", "description": "Runs the real PDF Splitter engine over the renamed documents and writes vibes/<DO pensioner>/<..._N_TYPE.pdf> as the Vibes agent expects.", "file": "scripts/doc_assembler/engine_bridge.py", "signature": "def split(files, vibes_dir, stage) -> (dict, list)"}, {"id": "E18", "layer": "engine", "type": "agent [planned]", "label": "Vibes Agent  (upload to Vibes portal)", "status": "planned", "description": "Browser agent that logs in to the Vibes portal and uploads the 100 split documents under ONE claim number (Vibes allows max 100 patient documents per claim number). Needs its own login/session handling and per-document success tracking.", "file": "src/apps/vibes_agent/", "signature": "def upload_claim(vibes_dir, claim_meta) -> dict"}, {"id": "E19", "layer": "engine", "type": "vims-step [planned]", "label": "Big batch: 10 small SAH -> Kumpulan Besar -> Hantar", "status": "planned", "description": "Combines the 10 small SAH batches into one big batch and sends it. VIMS progress: BAHARU, SAH, Kumpulan Besar, Hantar, COMPLETE, CLAIMED SUCCESS/FAILED. Exact page/buttons still to be mapped from the portal.", "file": "scripts/doc_assembler/batch_claims.py", "signature": "def make_big_batch(w, batch_codes) [to be built]"}, {"id": "E20", "layer": "engine", "type": "store [built]", "label": "cred_store.py  (DPAPI credential store)", "status": "built", "description": "Windows DPAPI-protected VIMS credentials per environment; never leaves the device, never logged.", "file": "scripts/doc_assembler/cred_store.py", "signature": "def save / load(env) / forget(env)"}, {"id": "D1", "layer": "data", "type": "table [planned]", "label": "Supabase: da_do_pool", "status": "planned", "description": "One row per DO: vims_user_id, env, do_no, source (scan/manual), category (Veteran Berpencen / Tidak Berpencen / Pesara Awam), vims_status_at_add, patient, amount, pool_id, state (pooled/batched/replaced), added_at. UNIQUE (env, do_no). This table IS the archive."}, {"id": "D2", "layer": "data", "type": "table [planned]", "label": "Supabase: da_pipeline_run", "status": "planned", "description": "One row per 100-DO run: pool_id, vims_user_id, env, stage, stage_state, issues jsonb, batch_codes[10], big_batch_code, started_at, updated_at. Drives resume/retry."}, {"id": "D3", "layer": "data", "type": "table [planned]", "label": "Supabase: da_live_events + RPC da_live_status", "status": "planned", "description": "Anonymous stage events (ts, stage, state, counts) plus an RPC returning {processing, events[]} for the report page LIVE badge, mirroring po_live_status."}, {"id": "D4", "layer": "data", "type": "table [built]", "label": "Supabase: vims_batch_cache", "status": "built", "description": "Shared cache of the VIMS batch list (BAHARU / SAH / ...) and statuses."}, {"id": "D5", "layer": "data", "type": "table [built]", "label": "Supabase: da_signatures", "status": "built", "description": "Officer signature images (webp) used to sign invoices."}, {"id": "D6", "layer": "data", "type": "service [built]", "label": "VIMS portal (production / staging)", "status": "built", "description": "Source of truth for DO status (Pesanan Baharu, Dalam Proses, Pesanan Pemberian, Selesai, Selesai BQ-BP) and batch status (BAHARU, SAH, Kumpulan Besar, Hantar). Staging: https://vims.my/staging/dalaman/."}, {"id": "D7", "layer": "data", "type": "service [built]", "label": "DocuShare", "status": "built", "description": "Holds supplier scans/invoices read by WORKER B and receives the final 100 renamed documents."}, {"id": "D8", "layer": "data", "type": "service [planned]", "label": "Vibes portal", "status": "planned", "description": "Final claim portal; one claim number holds at most 100 patient documents."}, {"id": "D9", "layer": "data", "type": "storage [built]", "label": "Local disk: work/packs/<batch>/", "status": "built", "description": "docushare/, vibes/, debug/, upload/ and run.log per batch (work/packs_test/ in test mode)."}], "edges": [{"id": "e1", "from": "U1", "to": "F1", "kind": "action", "label": "scans barcode on the DO"}, {"id": "e2", "from": "U1", "to": "F2", "kind": "action", "label": "types / pastes DO numbers"}, {"id": "e3", "from": "F2", "to": "F3", "kind": "call", "label": "daParseNumbers(text)"}, {"id": "e4", "from": "F1", "to": "B1", "kind": "eel-call", "label": "eel.da_add_do(do,'scan')"}, {"id": "e5", "from": "F2", "to": "B2", "kind": "eel-call", "label": "eel.da_add_many(text,'manual')"}, {"id": "e6", "from": "B1", "to": "B0", "kind": "call", "label": "check_permission"}, {"id": "e7", "from": "B2", "to": "B0", "kind": "call", "label": "check_permission"}, {"id": "e8", "from": "B2", "to": "E1", "kind": "call", "label": "find_dos(text)"}, {"id": "e9", "from": "B1", "to": "E3", "kind": "call", "label": "find_do(do_no)"}, {"id": "e10", "from": "B2", "to": "E3", "kind": "call", "label": "find_do per DO (reused session)"}, {"id": "e11", "from": "E3", "to": "D6", "kind": "query", "label": "search DO — status must be SELESAI BQ-BP"}, {"id": "e12", "from": "B1", "to": "D1", "kind": "write", "label": "insert pool row (reject duplicates)"}, {"id": "e13", "from": "B2", "to": "D1", "kind": "write", "label": "insert accepted rows (stop at 100)"}, {"id": "e14", "from": "B1", "to": "F10", "kind": "eel-callback", "label": "js_da_pool_update (accepted/rejected + reason)"}, {"id": "e15", "from": "F10", "to": "F4", "kind": "call", "label": "daRenderPool()"}, {"id": "e20", "from": "F4", "to": "B3", "kind": "eel-call", "label": "eel.da_pool_state()"}, {"id": "e21", "from": "B3", "to": "D1", "kind": "query", "label": "SELECT pool rows by vims_user_id + env"}, {"id": "e22", "from": "B3", "to": "D2", "kind": "query", "label": "SELECT active/last run"}, {"id": "e23", "from": "U1", "to": "F6", "kind": "action", "label": "reopens page (same VIMS user id)"}, {"id": "e24", "from": "F6", "to": "B3", "kind": "eel-call", "label": "eel.da_pool_state() restores archive"}, {"id": "e25", "from": "F6", "to": "F4", "kind": "render", "label": "continue scan / insert until 100"}, {"id": "e30", "from": "U1", "to": "F5", "kind": "action", "label": "clicks Replace on a problem DO"}, {"id": "e31", "from": "F5", "to": "B4", "kind": "eel-call", "label": "eel.da_replace_do(old,new)"}, {"id": "e32", "from": "B4", "to": "B1", "kind": "call", "label": "validate new DO (SELESAI BQ-BP, not duplicate)"}, {"id": "e33", "from": "B4", "to": "D1", "kind": "write", "label": "old = replaced, new = pooled"}, {"id": "e34", "from": "F9", "to": "F5", "kind": "call", "label": "issue -> Replace"}, {"id": "e40", "from": "U1", "to": "F7", "kind": "action", "label": "presses Start processing (n = 100)"}, {"id": "e41", "from": "F7", "to": "B5", "kind": "eel-call", "label": "eel.da_run_pipeline(pool_id)"}, {"id": "e42", "from": "B5", "to": "B0", "kind": "call", "label": "check_permission"}, {"id": "e43", "from": "B5", "to": "D2", "kind": "write", "label": "create run, persist stage after every step"}, {"id": "e44", "from": "B5", "to": "B7", "kind": "call", "label": "open VIMS session"}, {"id": "e45", "from": "B7", "to": "E20", "kind": "call", "label": "load stored credentials"}, {"id": "e46", "from": "B7", "to": "E2", "kind": "call", "label": "login + verify Batch Person"}, {"id": "e47", "from": "B5", "to": "B8", "kind": "call", "label": "STAGE VIMS_BATCH"}, {"id": "e48", "from": "B8", "to": "E4", "kind": "call", "label": "submit_claim(10 ids) x 10 forms"}, {"id": "e49", "from": "B8", "to": "E6", "kind": "call", "label": "find the new BAHARU batch"}, {"id": "e50", "from": "E4", "to": "D6", "kind": "write", "label": "Hantar tuntutan -> batch BAHARU"}, {"id": "e51", "from": "E6", "to": "D6", "kind": "query", "label": "claim_list BAHARU (Batch Person)"}, {"id": "e52", "from": "B8", "to": "E5", "kind": "call", "label": "run_form per form (known 2-batch issue)"}, {"id": "e53", "from": "B5", "to": "B9", "kind": "call", "label": "STAGE SAH"}, {"id": "e54", "from": "B9", "to": "E7", "kind": "call", "label": "approve_batch(href) x 10"}, {"id": "e55", "from": "E7", "to": "D6", "kind": "write", "label": "press SAH (switch role to PENTADBIR SISTEM if needed)"}, {"id": "e56", "from": "B9", "to": "E8", "kind": "call", "label": "set_status SAH + live_status"}, {"id": "e57", "from": "E8", "to": "D4", "kind": "write", "label": "update batch cache"}, {"id": "e60", "from": "B5", "to": "B10", "kind": "call", "label": "STAGE DOC_PACK (assembly only)"}, {"id": "e61", "from": "B10", "to": "E13", "kind": "call", "label": "doc_pack --batch Bxxx --no-engines x 10"}, {"id": "e62", "from": "E13", "to": "E9", "kind": "call", "label": "spawn / command workers"}, {"id": "e63", "from": "E9", "to": "E10", "kind": "call", "label": "WORKER A: invoices"}, {"id": "e64", "from": "E9", "to": "E11", "kind": "call", "label": "WORKER B: DocuShare + analysis"}, {"id": "e65", "from": "E10", "to": "D6", "kind": "query", "label": "batch list, Lampiran, per-DO invoice"}, {"id": "e66", "from": "E10", "to": "D5", "kind": "query", "label": "load officer signature"}, {"id": "e67", "from": "E11", "to": "D7", "kind": "query", "label": "download <DO>.pdf"}, {"id": "e68", "from": "E13", "to": "E12", "kind": "call", "label": "plan + compile_pack"}, {"id": "e69", "from": "E12", "to": "D9", "kind": "write", "label": "docushare/ vibes/ debug/ per batch"}, {"id": "e70", "from": "E13", "to": "E14", "kind": "call", "label": "per-DO issues"}, {"id": "e71", "from": "B10", "to": "B11", "kind": "call", "label": "aggregate 10 batches"}, {"id": "e72", "from": "B11", "to": "D2", "kind": "write", "label": "stage BLOCKED + issues[]"}, {"id": "e73", "from": "B11", "to": "F10", "kind": "eel-callback", "label": "js_da_issue(DO, missing item)"}, {"id": "e74", "from": "F10", "to": "F8", "kind": "call", "label": "daRenderProgress()"}, {"id": "e75", "from": "F8", "to": "F9", "kind": "action", "label": "user chooses Replace / Retry"}, {"id": "e76", "from": "F9", "to": "B6", "kind": "eel-call", "label": "eel.da_retry_stage(run_id)"}, {"id": "e77", "from": "B6", "to": "B5", "kind": "call", "label": "resume from last completed stage"}, {"id": "e80", "from": "B11", "to": "B12", "kind": "call", "label": "gate passed (all 100 complete)"}, {"id": "e81", "from": "B12", "to": "E15", "kind": "call", "label": "rename(100 PDFs)"}, {"id": "e82", "from": "E15", "to": "D9", "kind": "write", "label": "renamed files"}, {"id": "e83", "from": "B12", "to": "E16", "kind": "call", "label": "upload 100 documents"}, {"id": "e84", "from": "E16", "to": "D7", "kind": "write", "label": "DocuShare upload (verify count = 100)"}, {"id": "e90", "from": "B5", "to": "B13", "kind": "call", "label": "STAGE SPLIT then VIBES"}, {"id": "e91", "from": "B13", "to": "E17", "kind": "call", "label": "split(renamed, vibes/)"}, {"id": "e92", "from": "E17", "to": "D9", "kind": "write", "label": "vibes/ split files"}, {"id": "e93", "from": "B13", "to": "E18", "kind": "call", "label": "upload_claim(vibes/)"}, {"id": "e94", "from": "E18", "to": "D8", "kind": "write", "label": "upload 100 docs to one Vibes claim"}, {"id": "e100", "from": "B5", "to": "B14", "kind": "call", "label": "STAGE BIG_BATCH (after Vibes complete)"}, {"id": "e101", "from": "B14", "to": "E19", "kind": "call", "label": "make_big_batch(10 SAH codes)"}, {"id": "e102", "from": "E19", "to": "D6", "kind": "write", "label": "Kumpulan Besar -> Hantar"}, {"id": "e103", "from": "B14", "to": "D2", "kind": "write", "label": "store big_batch_code, run DONE"}, {"id": "e104", "from": "B14", "to": "F10", "kind": "eel-callback", "label": "js_da_done(run)"}, {"id": "e110", "from": "B5", "to": "B15", "kind": "call", "label": "emit stage events"}, {"id": "e111", "from": "B15", "to": "D3", "kind": "write", "label": "INSERT anonymous event"}, {"id": "e112", "from": "B5", "to": "F10", "kind": "eel-callback", "label": "js_da_progress(stage, i/n)"}, {"id": "e113", "from": "F10", "to": "F8", "kind": "call", "label": "daRenderProgress()"}], "flows": [{"id": "flow_intake", "label": "1. Collect DO — scan or manual, SELESAI BQ-BP gate", "color": "cyan", "description": "Two input boxes feed one gate. The operator scans a DO barcode (USB scanner) or types/pastes DO numbers. Every DO is looked up on VIMS and accepted only when its status is exactly SELESAI BQ-BP, it is not a duplicate and its patient category matches the pool (the first DO fixes the category); accepted rows fill the pool toward 100.", "steps": ["e1", "e4", "e6", "e9", "e11", "e12", "e14", "e15", "e2", "e3", "e5", "e7", "e8", "e10", "e13"]}, {"id": "flow_archive", "label": "2. Pool < 100: archive and resume", "color": "amber", "description": "Below 100 the pool is archived in da_do_pool under the VIMS user id. When the same user reopens the page the pool is restored and collection continues until 100.", "steps": ["e20", "e21", "e22", "e23", "e24", "e25"]}, {"id": "flow_replace", "label": "3. Replace a DO (keep 100)", "color": "pink", "description": "A problem DO (invalid at entry or flagged later by the completeness gate) is replaced by another DO that passes the same SELESAI BQ-BP validation.", "steps": ["e30", "e31", "e32", "e33", "e34"]}, {"id": "flow_vims", "label": "4. VIMS: 10 small batches — BAHARU then SAH", "color": "purple", "description": "Pool = 100 unlocks processing. One VIMS session is opened with stored credentials; ten forms of ten DO are submitted (BAHARU) and each batch is approved to SAH (role switch if needed); the batch cache is updated.", "steps": ["e40", "e41", "e42", "e43", "e44", "e45", "e46", "e47", "e48", "e49", "e50", "e51", "e52", "e53", "e54", "e55", "e56", "e57"]}, {"id": "flow_docs", "label": "5. doc_pack: DocuShare + completeness gate", "color": "green", "description": "doc_pack builds the document pack for each SAH batch with WORKER A (invoices) and WORKER B (DocuShare + page analysis). The gate aggregates all 10 batches; any incomplete DO blocks the run and is reported to the user.", "steps": ["e60", "e61", "e62", "e63", "e64", "e65", "e66", "e67", "e68", "e69", "e70", "e71", "e72", "e73", "e74", "e75", "e76", "e77"]}, {"id": "flow_rename_upload", "label": "6. Renamer HQ then DocuShare upload", "color": "cyan", "description": "Only after the gate passes: Renamer HQ names the 100 compiled documents, then all 100 are uploaded to DocuShare and the count is verified.", "steps": ["e80", "e81", "e82", "e83", "e84"]}, {"id": "flow_vibes", "label": "7. PDF Splitter then Vibes Agent", "color": "pink", "description": "The Splitter separates the 100 documents into the Vibes layout and the Vibes Agent uploads them under one claim number.", "steps": ["e90", "e91", "e92", "e93", "e94"]}, {"id": "flow_bigbatch", "label": "8. Big batch (10 small = 100 DO)", "color": "amber", "description": "After Vibes completes, the 10 small SAH batches are combined into one big batch and sent from VIMS; the run is marked DONE.", "steps": ["e100", "e101", "e102", "e103", "e104"]}, {"id": "flow_live", "label": "9. Live telemetry (report page LIVE badge)", "color": "purple", "description": "Each stage step emits an anonymous event (stage + counts, no patient data). The report page polls da_live_status like PO Mailer's po_live_status.", "steps": ["e110", "e111", "e112", "e113"]}, {"id": "flow_full", "label": "Full end-to-end (1 to 8, happy path)", "color": "red", "description": "Complete path from the first scan to the big batch; archive, replace, blocked-gate and telemetry branches are in their own flows.", "steps": ["e1", "e4", "e6", "e9", "e11", "e12", "e14", "e15", "e40", "e41", "e42", "e43", "e44", "e45", "e46", "e47", "e48", "e49", "e50", "e53", "e54", "e55", "e56", "e57", "e60", "e61", "e62", "e63", "e64", "e65", "e67", "e68", "e69", "e70", "e71", "e80", "e81", "e82", "e83", "e84", "e90", "e91", "e92", "e93", "e94", "e100", "e101", "e102", "e103", "e104"]}]};
+const COLORS = {
+  pink: '#ff2fb0', purple:'#a855f7', cyan:'#22d3ee', amber:'#fbbf24',
+  green:'#34d399', red:'#f87171', neutral:'#9aa3b2'
+};
+
+const nodesById = {};
+SPEC.nodes.forEach(n => nodesById[n.id] = n);
+const edgesById = {};
+SPEC.edges.forEach(e => edgesById[e.id] = e);
+const layersById = {};
+SPEC.layers.forEach(l => layersById[l.id] = l);
+
+/* ---------------- render lanes + nodes ---------------- */
+const lanesEl = document.getElementById('lanes');
+const layersSorted = [...SPEC.layers].sort((a,b)=>a.order-b.order);
+
+layersSorted.forEach(layer => {
+  const lane = document.createElement('div');
+  lane.className = 'lane';
+  lane.dataset.layer = layer.id;
+
+  const label = document.createElement('div');
+  label.className = 'lane-label';
+  const color = COLORS[layer.color] || COLORS.neutral;
+  label.innerHTML = `<span class="chip" style="background:${color};color:${color}"></span>${layer.label}`;
+  lane.appendChild(label);
+
+  const nodesWrap = document.createElement('div');
+  nodesWrap.className = 'lane-nodes';
+  nodesWrap.style.borderColor = 'rgba(255,255,255,.05)';
+
+  SPEC.nodes.filter(n => n.layer === layer.id).forEach(n => {
+    const el = document.createElement('div');
+    el.className = 'node' + (n.type === 'actor' ? ' actor' : '');
+    el.id = 'node-' + n.id;
+    el.dataset.id = n.id;
+    el.innerHTML = `<span class="ntype">${n.type || ''}</span>${n.label}`;
+    el.style.borderColor = 'rgba(255,255,255,.09)';
+    el.addEventListener('click', () => showNode(n.id));
+    nodesWrap.appendChild(el);
+  });
+
+  lane.appendChild(nodesWrap);
+  lanesEl.appendChild(lane);
+});
+
+/* ---------------- legend ---------------- */
+const legendEl = document.getElementById('legend');
+layersSorted.forEach(layer => {
+  const color = COLORS[layer.color] || COLORS.neutral;
+  const item = document.createElement('div');
+  item.className = 'item';
+  item.innerHTML = `<span class="sw" style="background:${color};color:${color}"></span>${layer.label}`;
+  legendEl.appendChild(item);
+});
+
+/* ---------------- flow buttons ---------------- */
+const flowBtnsEl = document.getElementById('flowBtns');
+SPEC.flows.forEach(flow => {
+  const btn = document.createElement('button');
+  btn.className = 'flow-btn';
+  btn.id = 'flowbtn-' + flow.id;
+  const color = COLORS[flow.color] || COLORS.neutral;
+  btn.style.color = color;
+  btn.innerHTML = `<span class="flow-dot"></span>${flow.label}`;
+  btn.addEventListener('click', () => playFlow(flow.id));
+  flowBtnsEl.appendChild(btn);
+});
+document.getElementById('btnAll').addEventListener('click', () => { showFullGraph(); expandNav(); });
+document.getElementById('resetBtn').addEventListener('click', () => { stopAutoplay(); showFullGraph(); expandNav(); });
+
+/* ---------------- collapsible nav ---------------- */
+const navPanel = document.getElementById('navPanel');
+const hamburgerBtn = document.getElementById('hamburgerBtn');
+const navStatus = document.getElementById('navStatus');
+const navStatusText = document.getElementById('navStatusText');
+let navCollapsed = false;
+let userForcedNav = null; // null = auto behavior, true/false = user override until next flow
+
+function redrawAfterResize(){
+  // nav panel height changes affect graph area; redraw edges once the transition settles
+  setTimeout(() => { drawAllEdges(); if (activeFlow) jumpToStep(activeFlow, Math.max(flowStepIndex-1,0)); }, 340);
+}
+
+function collapseNav(){
+  if (navCollapsed) return;
+  navCollapsed = true;
+  navPanel.classList.add('collapsed');
+  hamburgerBtn.classList.remove('open');
+  redrawAfterResize();
+}
+function expandNav(){
+  if (!navCollapsed) return;
+  navCollapsed = false;
+  navPanel.classList.remove('collapsed');
+  hamburgerBtn.classList.add('open');
+  redrawAfterResize();
+}
+hamburgerBtn.classList.add('open'); // starts expanded
+hamburgerBtn.addEventListener('click', () => {
+  userForcedNav = navCollapsed; // remember the user just manually chose the opposite of current
+  if (navCollapsed) expandNav(); else collapseNav();
+});
+
+/* ---------------- collapsible footer note (estimated time saved) ---------------- */
+const timeWrap = document.getElementById('timeWrap');
+const timeToggle = document.getElementById('timeToggle');
+let timeCollapsed = false;
+let timeForcedOpen = false; // user opened it by hand while a flow was playing
+function setTimeCollapsed(c){
+  timeCollapsed = c;
+  timeWrap.classList.toggle('collapsed', c);
+  timeToggle.classList.toggle('collapsed', c);
+  timeToggle.setAttribute('aria-expanded', String(!c));
+  redrawAfterResize();
+}
+function collapseTime(){ if (!timeCollapsed) setTimeCollapsed(true); }
+timeToggle.addEventListener('click', () => {
+  const willCollapse = !timeCollapsed;
+  timeForcedOpen = !willCollapse;   // manual expand = stop auto-collapsing until next autoplay start
+  setTimeCollapsed(willCollapse);
+});
+
+function setNavStatus(text, playing){
+  navStatusText.textContent = text;
+  navStatus.classList.toggle('playing', !!playing);
+}
+
+/* ---------------- SVG edge drawing ---------------- */
+const svg = document.getElementById('edges');
+const graphInner = document.getElementById('graphInner');
+
+function ensureDefs(){
+  if (svg.querySelector('defs')) return;
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  Object.entries(COLORS).forEach(([name,color]) => {
+    const marker = document.createElementNS('http://www.w3.org/2000/svg','marker');
+    marker.setAttribute('id','arrow-'+name);
+    marker.setAttribute('viewBox','0 0 10 10');
+    marker.setAttribute('refX','8'); marker.setAttribute('refY','5');
+    marker.setAttribute('markerWidth','7'); marker.setAttribute('markerHeight','7');
+    marker.setAttribute('orient','auto-start-reverse');
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d','M 0 0 L 10 5 L 0 10 z');
+    path.setAttribute('fill', color);
+    marker.appendChild(path);
+    defs.appendChild(marker);
+  });
+  svg.appendChild(defs);
+}
+ensureDefs();
+
+function edgeColorName(edgeId){
+  // color an edge by whichever flow "owns" it first, else neutral
+  for (const flow of SPEC.flows){
+    if (flow.steps.includes(edgeId)) return flow.color;
+  }
+  return 'neutral';
+}
+
+function nodeCenter(id){
+  const el = document.getElementById('node-'+id);
+  const innerRect = graphInner.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  return {
+    x: r.left - innerRect.left + r.width/2,
+    y: r.top - innerRect.top + r.height/2,
+    w: r.width, h: r.height,
+    top: r.top - innerRect.top, bottom: r.bottom - innerRect.top,
+    left: r.left - innerRect.left, right: r.right - innerRect.left
+  };
+}
+
+function pathBetween(a, b){
+  // connect bottom of A (if B is below) to top of B, with a smooth curve
+  const goingDown = b.top >= a.top;
+  const sx = a.x, sy = goingDown ? a.bottom : a.top;
+  const ex = b.x, ey = goingDown ? b.top : b.bottom;
+  const midY = (sy + ey) / 2;
+  return `M ${sx} ${sy} C ${sx} ${midY}, ${ex} ${midY}, ${ex} ${ey}`;
+}
+
+let edgeEls = {};
+
+function drawAllEdges(){
+  svg.innerHTML = '';
+  ensureDefs();
+  edgeEls = {};
+  const wrap = document.getElementById('graphWrap');
+  svg.setAttribute('width', graphInner.scrollWidth);
+  svg.setAttribute('height', graphInner.scrollHeight);
+
+  SPEC.edges.forEach(e => {
+    const a = nodeCenter(e.from), b = nodeCenter(e.to);
+    if(!a || !b) return;
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const colorName = edgeColorName(e.id);
+    const color = COLORS[colorName] || COLORS.neutral;
+    path.setAttribute('d', pathBetween(a,b));
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width','1.1');
+    path.setAttribute('stroke-opacity','0.16');
+    path.setAttribute('marker-end', `url(#arrow-${colorName})`);
+    path.dataset.id = e.id;
+    svg.appendChild(path);
+    edgeEls[e.id] = path;
+  });
+}
+
+/* ---------------- interaction state ---------------- */
+let activeFlow = null;
+let flowTimer = null;
+let flowStepIndex = 0;
+let autoplayOn = false;
+let autoplayTimer = null;
+
+function clearHighlights(){
+  document.querySelectorAll('.node').forEach(n => { n.classList.remove('dim','lit','selected'); n.style.boxShadow=''; n.style.borderColor='rgba(255,255,255,.09)'; });
+  Object.values(edgeEls).forEach(p => { p.setAttribute('stroke-opacity','0.16'); p.setAttribute('stroke-width','1.1'); p.classList.remove('flowing'); });
+}
+
+function showFullGraph(){
+  activeFlow = null;
+  if (flowTimer) clearTimeout(flowTimer);
+  document.querySelectorAll('.flow-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btnAll').classList.add('active');
+  clearHighlights();
+  document.getElementById('panelDefault').style.display = 'block';
+  document.getElementById('panelFlow').style.display = 'none';
+  document.getElementById('panelNode').style.display = 'none';
+}
+
+function showNode(id){
+  const n = nodesById[id];
+  document.querySelectorAll('.node.selected').forEach(el=>el.classList.remove('selected'));
+  const el = document.getElementById('node-'+id);
+  if (el) el.classList.add('selected');
+
+  document.getElementById('panelDefault').style.display = 'none';
+  document.getElementById('panelFlow').style.display = 'none';
+  const p = document.getElementById('panelNode');
+  p.style.display = 'block';
+  document.getElementById('nodeTitle').textContent = n.label;
+  document.getElementById('nodeLayer').textContent = layersById[n.layer] ? layersById[n.layer].label : n.layer;
+  const hasFile = !!n.file, hasSig = !!n.signature;
+  document.getElementById('nodeFileLabel').style.display = hasFile ? 'block':'none';
+  document.getElementById('nodeFile').style.display = hasFile ? 'block':'none';
+  document.getElementById('nodeFile').textContent = n.file || '';
+  document.getElementById('nodeSigLabel').style.display = hasSig ? 'block':'none';
+  document.getElementById('nodeSig').style.display = hasSig ? 'block':'none';
+  document.getElementById('nodeSig').textContent = n.signature || '';
+  document.getElementById('nodeDesc').textContent = n.description || '';
+}
+
+function nodesTouchedUpTo(flow, idx){
+  const touched = new Set();
+  for (let i=0;i<=idx;i++){
+    const e = edgesById[flow.steps[i]];
+    touched.add(e.from); touched.add(e.to);
+  }
+  return touched;
+}
+
+function renderFlowPanel(flow){
+  document.getElementById('panelDefault').style.display = 'none';
+  document.getElementById('panelNode').style.display = 'none';
+  document.getElementById('panelFlow').style.display = 'block';
+  document.getElementById('flowTitle').textContent = flow.label;
+  document.getElementById('flowTitle').style.color = COLORS[flow.color] || '#fff';
+  document.getElementById('flowDesc').textContent = flow.description;
+  const list = document.getElementById('stepList');
+  list.innerHTML = '';
+  flow.steps.forEach((eid, i) => {
+    const e = edgesById[eid];
+    const from = nodesById[e.from], to = nodesById[e.to];
+    const li = document.createElement('li');
+    li.id = 'step-' + i;
+    li.innerHTML = `<span class="num">${String(i+1).padStart(2,'0')}</span>${from.label} → ${to.label}<br><span style="color:var(--muted);font-size:10.5px;">${e.label}</span>`;
+    li.addEventListener('click', () => { stopAutoplayInnerLoop(); jumpToStep(flow, i); });
+    list.appendChild(li);
+  });
+}
+
+function jumpToStep(flow, idx){
+  clearHighlights();
+  const color = COLORS[flow.color] || '#fff';
+  const touched = nodesTouchedUpTo(flow, idx);
+  document.querySelectorAll('.node').forEach(el => {
+    const id = el.dataset.id;
+    if (touched.has(id)) {
+      el.classList.add('lit');
+      el.style.borderColor = color;
+      el.style.boxShadow = `0 0 14px ${color}88`;
+    } else {
+      el.classList.add('dim');
+    }
+  });
+  flow.steps.forEach((eid, i) => {
+    const p = edgeEls[eid];
+    if (!p) return;
+    if (i <= idx){
+      p.setAttribute('stroke-opacity', i===idx ? '1' : '0.85');
+      p.setAttribute('stroke-width', i===idx ? '2.6' : '1.8');
+      if (i===idx){
+        p.classList.add('flowing');
+        const len = p.getTotalLength();
+        p.setAttribute('stroke-dasharray', `${len}`);
+        p.setAttribute('stroke-dashoffset', `${len}`);
+        p.getBoundingClientRect(); // force reflow
+        p.style.transition = 'stroke-dashoffset .55s ease-out';
+        requestAnimationFrame(()=>{ p.setAttribute('stroke-dashoffset','0'); });
+      } else {
+        p.removeAttribute('stroke-dasharray');
+        p.style.transition = '';
+      }
+    }
+  });
+  document.querySelectorAll('#stepList li').forEach((li,i) => {
+    li.classList.toggle('active', i===idx);
+    li.classList.toggle('done', i<idx);
+  });
+  const activeLi = document.getElementById('step-'+idx);
+  if (activeLi) activeLi.scrollIntoView({block:'nearest', behavior:'smooth'});
+
+  autoScrollToEdge(flow.steps[idx]);
+}
+
+/* keep the graph area scrolled so the node(s) touched by the current step stay in view */
+function autoScrollToEdge(edgeId){
+  const e = edgesById[edgeId];
+  if (!e) return;
+  const fromEl = document.getElementById('node-'+e.from);
+  const toEl = document.getElementById('node-'+e.to);
+  if (!fromEl || !toEl) return;
+  const wrap = document.getElementById('graphWrap');
+  const wrapRect = wrap.getBoundingClientRect();
+  const fr = fromEl.getBoundingClientRect();
+  const tr = toEl.getBoundingClientRect();
+  const left = Math.min(fr.left, tr.left), right = Math.max(fr.right, tr.right);
+  const top = Math.min(fr.top, tr.top), bottom = Math.max(fr.bottom, tr.bottom);
+  const centerX = (left + right) / 2, centerY = (top + bottom) / 2;
+  const wrapCenterX = wrapRect.left + wrapRect.width / 2;
+  const wrapCenterY = wrapRect.top + wrapRect.height / 2;
+  // only bother scrolling if the pair isn't already comfortably on-screen
+  const margin = 40;
+  const alreadyVisible = left >= wrapRect.left + margin && right <= wrapRect.right - margin
+    && top >= wrapRect.top + margin && bottom <= wrapRect.bottom - margin;
+  if (alreadyVisible) return;
+  wrap.scrollTo({
+    left: Math.max(0, wrap.scrollLeft + (centerX - wrapCenterX)),
+    top: Math.max(0, wrap.scrollTop + (centerY - wrapCenterY)),
+    behavior: 'smooth'
+  });
+}
+
+function playFlow(flowId, opts){
+  opts = opts || {};
+  const flow = SPEC.flows.find(f => f.id === flowId);
+  if (!flow) return;
+  activeFlow = flow;
+  if (flowTimer) clearTimeout(flowTimer);
+  document.querySelectorAll('.flow-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btnAll').classList.remove('active');
+  const btn = document.getElementById('flowbtn-'+flowId);
+  if (btn) btn.classList.add('active');
+  renderFlowPanel(flow);
+  flowStepIndex = 0;
+  const stepDelay = opts.stepDelay || 900;
+
+  collapseNav();
+  if (!timeForcedOpen) collapseTime();
+  setNavStatus('Playing: ' + flow.label, true);
+
+  function step(){
+    jumpToStep(flow, flowStepIndex);
+    flowStepIndex++;
+    if (flowStepIndex < flow.steps.length){
+      flowTimer = setTimeout(step, stepDelay);
+    } else if (opts.onDone){
+      flowTimer = setTimeout(opts.onDone, stepDelay + 700);
+    } else {
+      setNavStatus('Idle', false);
+    }
+  }
+  step();
+}
+
+function stopAutoplayInnerLoop(){
+  if (flowTimer) clearTimeout(flowTimer);
+}
+
+/* ---------------- autoplay across all flows ---------------- */
+function startAutoplay(){
+  autoplayOn = true;
+  document.getElementById('autoplayBtn').classList.add('on');
+  document.getElementById('autoplayBtn').textContent = '⏸ Autoplay';
+  collapseNav();
+  timeForcedOpen = false;
+  collapseTime();
+  let i = 0;
+  function next(){
+    if (!autoplayOn) return;
+    playFlow(SPEC.flows[i].id, { stepDelay: 800, onDone: () => {
+      i = (i+1) % SPEC.flows.length;
+      if (autoplayOn) autoplayTimer = setTimeout(next, 400);
+    }});
+  }
+  next();
+}
+function stopAutoplay(){
+  autoplayOn = false;
+  document.getElementById('autoplayBtn').classList.remove('on');
+  document.getElementById('autoplayBtn').textContent = '▶ Autoplay';
+  if (autoplayTimer) clearTimeout(autoplayTimer);
+  if (flowTimer) clearTimeout(flowTimer);
+  setNavStatus('Idle', false);
+}
+document.getElementById('autoplayBtn').addEventListener('click', () => {
+  if (autoplayOn) stopAutoplay(); else startAutoplay();
+});
+
+/* ---------------- init ---------------- */
+function init(){
+  drawAllEdges();
+  showFullGraph();
+}
+window.addEventListener('load', () => setTimeout(init, 50));
+window.addEventListener('resize', () => { drawAllEdges(); if(activeFlow) jumpToStep(activeFlow, Math.max(flowStepIndex-1,0)); });
+
+/* Report Switcher dropdown toggle */
+(function () {
+  const dd = document.getElementById('rsDropdown');
+  const btn = document.getElementById('rsDropdownBtn');
+  if (!dd || !btn) return;
+  btn.addEventListener('click', (e) => { e.stopPropagation(); dd.classList.toggle('open'); });
+  document.addEventListener('click', (e) => { if (!dd.contains(e.target)) dd.classList.remove('open'); });
+})();
+
+</script>
+
+<script>
+/* Live button: lit while any user is processing or a stage event arrived in the last 30 s */
+(function(){
+  const btn=document.getElementById('liveBtn'); if(!btn) return;
+  const URL_="https://seqlkwdghibmsfkbuwqq.supabase.co/rest/v1/rpc/po_live_status", KEY_="sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp";
+  async function tick(){
+    try{
+      const r=await fetch(URL_,{method:'POST',headers:{apikey:KEY_,Authorization:'Bearer '+KEY_,'Content-Type':'application/json'},body:'{}'});
+      const s=await r.json();
+      const recent=(s.events||[]).some(e=>Date.now()-new Date(e.ts).getTime()<30000);
+      const on=(s.processing>0)||recent;
+      btn.classList.toggle('on',on);
+      btn.querySelector('.lt').textContent=on?('LIVE · '+(s.processing||0)+' processing'):'LIVE · idle';
+    }catch(e){btn.classList.remove('on');btn.querySelector('.lt').textContent='LIVE · offline';}
+  }
+  tick(); setInterval(()=>{ if(!document.hidden) tick(); },8000);
+})();
+</script>
+</body>
+</html>

@@ -12935,7 +12935,10 @@
   };
 
   // ── Hospital Users Management ──────────────────────────────────
-  var _HOSPITAL_APPS = ['Scanify', 'Renamer HQ', 'FV Branch', 'PDF Splitter', 'PDF Studio', 'Quick Rename', 'Vibes Automation', 'Store Mngmnt', 'PO Auto Email'];
+  var _HOSPITAL_APPS = ['Scanify', 'Renamer HQ', 'FV Branch', 'PDF Splitter', 'PDF Studio', 'Quick Rename', 'Vibes Automation', 'Store Mngmnt', 'PO Auto Email', 'Doc Assembler'];
+  // Doc Assembler is HQ-only: the branch logins (fvkl / fvt / fvg / fvl / fvkk, with or without the rasumi prefix)
+  // can never hold it. Also enforced in the database (trigger on users) and in the desktop app.
+  var _DOC_ASSEMBLER_BLOCKED_RE = /^(rasumi)?fv(kl|kk|t|g|l)$/i;
   // Kept in sync with index.html's #admin-store-branch-group in the
   // desktop app — "" = All Branches (SUPER_ADMIN-style free pick),
   // otherwise the one branch a Store Mngmnt user is locked to.
@@ -13010,6 +13013,12 @@
           var appId = 'uapp_' + safeId + '_' + app.replace(/[^a-z0-9]/gi, '_');
           var checked = apps.indexOf(app) !== -1;
           var isStoreApp = (app === 'Store Mngmnt');
+          if (app === 'Doc Assembler' && !isMaster && _DOC_ASSEMBLER_BLOCKED_RE.test(uname)) {
+            row += '<label title="Doc Assembler is not available to branch IDs" style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--rc-text-dim,#9ca3af);opacity:0.45;cursor:not-allowed;">';
+            row += '<input type="checkbox" disabled style="cursor:not-allowed;"> ' + esc(app) + ' <span style="font-size:9px;">(HQ only)</span>';
+            row += '</label>';
+            return;
+          }
           if (isMaster) {
             row += '<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--rc-text-dim,#9ca3af);opacity:0.55;cursor:not-allowed;">';
             row += '<input type="checkbox"' + (checked ? ' checked' : '') + ' disabled style="cursor:not-allowed;accent-color:var(--rc-cyan,#D97757);"> ' + esc(app);
