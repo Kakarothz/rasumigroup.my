@@ -274,22 +274,26 @@ async function startCam(){
   try{
     const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
     const v=$('v');v.srcObject=stream;await v.play();track=stream.getVideoTracks()[0];setupTrack();
-    let det=null;
-    if('BarcodeDetector' in window){
-      try{let fm=['code_128','itf'];
-        const sup=await BarcodeDetector.getSupportedFormats();fm=fm.filter(f=>sup.includes(f));if(fm.length)det=new BarcodeDetector({formats:fm})}catch(e){det=null}
-    }
+    let det=null,W=null,ST='loading engine',ERR='',frames=0,tries=0,busy=false,wi=0;
+    const dbg=()=>{const e=$('rawsub');if(e&&!pending)e.textContent='v5 \u00b7 '+ST+' \u00b7 '+(v.videoWidth||0)+'x'+(v.videoHeight||0)+' \u00b7 '+tries+' scans'+(ERR?' \u00b7 '+ERR:'')};
+    dbg();setInterval(dbg,500);
     const load=u=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=u;s.onload=res;s.onerror=()=>rej(new Error('script load failed'));document.head.appendChild(s)});
-    try{await load('zxing.min.js')}catch(e1){try{await load('https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js')}catch(e2){if(!det)throw new Error('the barcode reader could not be loaded - check the connection and reload')}}
-    let W=null;
-    try{await load('zxing-wasm.js');
-      W=window.ZXingWASM;
-      W.setZXingModuleOverrides({locateFile:(p,pre)=>p.endsWith('.wasm')?new URL('zxing_reader.wasm',location.href).href:pre+p});
-      await W.prepareZXingModule({fireImmediately:true})}catch(e){W=null}
+    // engines load in the background so the scan loop and status are live immediately
+    (async()=>{
+      try{
+        await load('zxing-wasm.js');
+        const Z=window.ZXingWASM;
+        Z.setZXingModuleOverrides({locateFile:(p,pre)=>p.endsWith('.wasm')?new URL('zxing_reader.wasm',location.href).href:pre+p});
+        await Promise.race([Z.prepareZXingModule({fireImmediately:true}),new Promise((_,j)=>setTimeout(()=>j(new Error('wasm timeout')),15000))]);
+        W=Z;ST='wasm ready';
+      }catch(e){ST='wasm failed';ERR=String((e&&e.message)||e).slice(0,50)}
+    })();
+    if('BarcodeDetector' in window){
+      try{const sup=await BarcodeDetector.getSupportedFormats();const fm=['code_128','itf'].filter(f=>sup.includes(f));if(fm.length)det=new BarcodeDetector({formats:fm})}catch(e){det=null}
+    }
     const OPT={formats:['Code128','Code39','Code93','ITF','Codabar'],tryHarder:true,tryRotate:true,tryInvert:true,tryDownscale:true,maxNumberOfSymbols:4,minLineCount:2};
     const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
-    const WIN=[[0,0,1,1],[0,.2,1,.6],[.05,.3,.9,.4]];let wi=0,frames=0,tries=0,busy=false;
-    const dbg=()=>{const e=$('rawsub');if(e&&!pending)e.textContent=(W?'wasm':(det?'native':'none'))+' \u00b7 '+(v.videoWidth||0)+'x'+(v.videoHeight||0)+' \u00b7 '+tries+' scans'};
+    const WIN=[[0,0,1,1],[0,.2,1,.6],[.05,.3,.9,.4]];
     (async function loop(){
       try{
         if(v.readyState>=2&&v.videoWidth&&!busy){
@@ -301,9 +305,8 @@ async function startCam(){
             cx.drawImage(v,Math.round(v.videoWidth*w[0]),Math.round(v.videoHeight*w[1]),sw,sh,0,0,sw,sh);
             tries++;
             try{const rs=await W.readBarcodesFromImageData(cx.getImageData(0,0,sw,sh),OPT);
-              if(rs.length){const ok=rs.find(x=>parseDO(x.text))||rs[0];FMT=ok.format||'';onCode(ok.text)}}catch(e){}
+              if(rs.length){const ok=rs.find(x=>parseDO(x.text))||rs[0];FMT=ok.format||'';onCode(ok.text)}}catch(e){ERR='decode: '+String((e&&e.message)||e).slice(0,40)}
           }
-          if(frames%4===0)dbg();
           busy=false;
         }
       }catch(e){busy=false}
