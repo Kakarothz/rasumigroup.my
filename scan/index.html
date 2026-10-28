@@ -240,10 +240,10 @@ async function refresh(){
     online=false;lastErr=(e&&e.message?e.message:String(e))+(e&&e.http?' (HTTP '+e.http+')':'');render();return true}
 }
 const MSG={added:['ok','ok','Sent to PC'],duplicate:['dup','warn','Already scanned'],invalid:['bad','bad','Not a DO number'],full:['bad','bad','List is full (limit reached)'],locked_elsewhere:['bad','bad','DO is locked by another session'],closed:['bad','bad','Session closed']};
-async function send(d,raw){
+async function send(d,raw,src){
   if(DEMO){fb('ok');setDet(raw||d,'ok','Sent to PC (demo)');return}
   try{
-    const j=await rpc('da_scan_add',{p_session:SID,p_token:TOK,p_do:d,p_device:DEV});
+    const j=await rpc('da_scan_add',{p_session:SID,p_token:TOK,p_do:d,p_device:DEV,p_source:src||(FMT==='OCR+bars'?'ocr+bars':FMT?'barcode':'manual')});
     const m=MSG[j.status]||['bad','bad',j.status];fb(m[0]);setDet(raw||d,m[1],m[2]);
     pending=null;queue=queue.filter(x=>x!==d);try{localStorage.setItem(QK,JSON.stringify(queue))}catch(e){}
     online=true;await refresh();
@@ -253,7 +253,7 @@ async function send(d,raw){
     fb('dup');setDet(raw||d,'warn','No network - saved, will be sent automatically');pending=null;render();
   }
 }
-async function flushQueue(){for(const d of [...queue])await send(d,d)}
+async function flushQueue(){for(const d of [...queue])await send(d,d,'queued')}
 
 /* ---------- detection ---------- */
 let FMT='';
@@ -263,10 +263,11 @@ function onCode(text){
   if(d===lastCode&&now-lastAt<2500)return;                 // same barcode still in front of the camera
   lastCode=d;lastAt=now;
   if(S.items.some(x=>x.do===d)){fb('dup');setDet(text,'warn','Already scanned');pending=null;render();return}
-  if(P.auto){send(d,text)}else{pending={d,raw:text};fb('ok');setDet(text,'ok','Valid DO barcode');render()}
+  const SRC=FMT==='OCR+bars'?'ocr+bars':'barcode';
+  if(P.auto){send(d,text,SRC)}else{pending={d,raw:text,src:SRC};fb('ok');setDet(text,'ok','Valid DO barcode');render()}
 }
-$('send').onclick=()=>{if(pending)send(pending.d,pending.raw)};
-$('manSend').onclick=()=>{const v=($('man').value||'').trim();const d=parseDO(v);if(!d){toast('Not a valid DO number');return}$('man').value='';closeViews();send(d,v)};
+$('send').onclick=()=>{if(pending)send(pending.d,pending.raw,pending.src)};
+$('manSend').onclick=()=>{const v=($('man').value||'').trim();const d=parseDO(v);if(!d){toast('Not a valid DO number');return}$('man').value='';closeViews();send(d,v,'manual')};
 $('man').addEventListener('keydown',e=>{if(e.key==='Enter')$('manSend').click()});
 
 /* ---------- camera ---------- */
