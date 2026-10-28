@@ -291,7 +291,7 @@ async function startCam(){
     if('BarcodeDetector' in window){
       try{const sup=await BarcodeDetector.getSupportedFormats();const fm=['code_128','itf'].filter(f=>sup.includes(f));if(fm.length)det=new BarcodeDetector({formats:fm})}catch(e){det=null}
     }
-    const OPT={formats:['Code128','Code39','Code93','ITF','Codabar'],tryHarder:true,tryRotate:true,tryInvert:true,tryDownscale:true,maxNumberOfSymbols:4,minLineCount:2};
+    const OPT={formats:['Linear-Codes'],tryHarder:true,tryRotate:true,tryInvert:true,tryDownscale:true,maxNumberOfSymbols:4,minLineCount:1};
     const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
     const WIN=[[.1,.3,.8,.4],[0,0,1,1],[0,.2,1,.6],[.2,.38,.6,.24]];
     (async function loop(){
