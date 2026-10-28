@@ -186,7 +186,7 @@ const SB="https://seqlkwdghibmsfkbuwqq.supabase.co/rest/v1/rpc/", KEY="sb_publis
 const DO_FULL=/^([A-Za-z]{1,2}\d{6}|\d{8})$/;
 const q=new URLSearchParams(location.search), SID=q.get('s')||'', TOK=(location.hash||'').replace(/^#/,''), DEMO=q.has('demo');
 const $=id=>document.getElementById(id);
-const DEV=/iPhone|iPad/.test(navigator.userAgent)?'iPhone':/Android/.test(navigator.userAgent)?'Android':'Phone';
+const DEV=(()=>{const u=navigator.userAgent;if(/iPhone/.test(u))return'iPhone';if(/iPad/.test(u))return'iPad';const m=u.match(/Android[^;]*;\s*([^;)]+?)(?:\s+Build|\))/);if(/Android/.test(u))return m?('Android '+m[1].trim()).slice(0,40):'Android';return'Phone'})();
 let S={count:0,target:100,items:[],state:'open',category:null,env:''}, online=true, lastSync=0, pending=null, lastCode='', lastAt=0, track=null, torchOn=false, queue=[];
 const QK='da_scan_q_'+SID, PK='da_scan_prefs';
 let P={auto:true,snd:true,vib:true};try{P=Object.assign(P,JSON.parse(localStorage.getItem(PK)||'{}'))}catch(e){}
@@ -234,7 +234,7 @@ function render(){
 }
 async function refresh(){
   if(DEMO)return true;
-  try{const j=await rpc('da_scan_state',{p_session:SID,p_token:TOK});S=j;online=true;lastSync=Date.now();render();return true}
+  try{const j=await rpc('da_scan_ping',{p_session:SID,p_token:TOK,p_device:DEV});S=j;online=true;lastSync=Date.now();render();return true}
   catch(e){
     if(/bad_session|expired/.test(e.message)){fatal('Session invalid or expired','Ask for a new QR in Rasumi Apps (Doc Assembler → Scan DO).');return false}
     online=false;render();return true}
@@ -279,13 +279,14 @@ async function startCam(){
       const det=new BarcodeDetector({formats:fm});
       (async function loop(){try{if(v.readyState>=2){const r=await det.detect(v);if(r.length)onCode(r[0].rawValue)}}catch(e){}setTimeout(loop,120)})();
     }else{
-      await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s)});
+      const load=u=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=u;s.onload=res;s.onerror=()=>rej(new Error('script load failed'));document.head.appendChild(s)});
+      try{await load('zxing.min.js')}catch(e1){try{await load('https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js')}catch(e2){throw new Error('the barcode reader could not be loaded - check the connection and reload')}}
       const Z=window.ZXing,hints=new Map();hints.set(Z.DecodeHintType.TRY_HARDER,true);
       new Z.BrowserMultiFormatReader(hints,150).decodeFromVideoElement(v,(r)=>{if(r)onCode(r.getText())});
     }
   }catch(e){
     const ce=$('camerr');ce.style.display='flex';
-    ce.textContent=(e&&e.name==='NotAllowedError')?'Camera is blocked. Allow camera access for this site in your browser settings, then reload. You can still enter the DO manually.':'The camera could not be opened ('+((e&&e.message)||e)+'). You can still enter the DO manually.';
+    ce.textContent=(e&&e.name==='NotAllowedError')?'Camera is blocked. Allow camera access for this site in your browser settings, then reload. You can still enter the DO manually.':'The camera could not be opened ('+((e&&(e.message||e.name))||'unknown error')+'). You can still enter the DO manually.';
   }
 }
 function setupTrack(){
@@ -321,6 +322,11 @@ $('reconn').onclick=async()=>{toast('Reconnecting…');await flushQueue();await 
 function syncToggles(){$('tAuto').classList.toggle('on',P.auto);$('tSnd').classList.toggle('on',P.snd);$('tVib').classList.toggle('on',P.vib)}
 [['tAuto','auto'],['tSnd','snd'],['tVib','vib']].forEach(([id,k])=>$(id).onclick=()=>{P[k]=!P[k];savePrefs();syncToggles()});
 syncToggles();
+
+/* ---------- presence: tell the PC when this page is closed / hidden (it shows the QR again) ---------- */
+function bye(){if(DEMO||!SID||!TOK)return;try{fetch(SB+'da_scan_bye',{method:'POST',keepalive:true,headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify({p_session:SID,p_token:TOK})})}catch(e){}}
+window.addEventListener('pagehide',bye);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')bye();else refresh()});
 
 /* ---------- boot ---------- */
 (async()=>{
