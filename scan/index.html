@@ -274,8 +274,8 @@ async function startCam(){
   try{
     const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160}},audio:false});
     const v=$('v');v.srcObject=stream;await v.play();track=stream.getVideoTracks()[0];setupTrack();
-    let det=null,W=null,ST='loading engine',ERR='',frames=0,tries=0,busy=false,wi=0;
-    const dbg=()=>{const e=$('rawsub');if(e&&!pending)e.textContent='v5 \u00b7 '+ST+' \u00b7 '+(v.videoWidth||0)+'x'+(v.videoHeight||0)+' \u00b7 '+tries+' scans'+(ERR?' \u00b7 '+ERR:'')};
+    let det=null,W=null,OST='ocr waiting',ocrN=0,ST='loading engine',ERR='',frames=0,tries=0,busy=false,wi=0;
+    const dbg=()=>{const e=$('rawsub');if(e&&!pending)e.textContent='v6 \u00b7 '+ST+' \u00b7 '+(v.videoWidth||0)+'x'+(v.videoHeight||0)+' \u00b7 '+tries+' scans \u00b7 '+OST+' '+ocrN+(ERR?' \u00b7 '+ERR:'')};
     dbg();setInterval(dbg,500);
     const load=u=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=u;s.onload=res;s.onerror=()=>rej(new Error('script load failed'));document.head.appendChild(s)});
     // engines load in the background so the scan loop and status are live immediately
@@ -311,6 +311,34 @@ async function startCam(){
         }
       }catch(e){busy=false}
       setTimeout(loop,60);
+    })();
+    // ---- OCR: reads the printed "Do No. : 31008248" line; whichever (barcode / printed number) is caught first wins ----
+    (async()=>{
+      let ow=null,last='',lastBar=0;const t0=Date.now();
+      const mk=async core=>{const T=window.Tesseract;
+        const w=await T.createWorker('eng',1,{workerPath:'ocr/worker.min.js',corePath:'ocr/'+core,langPath:'ocr/',gzip:true,workerBlobURL:false});
+        await w.setParameters({tessedit_pageseg_mode:'11',tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789:.'});return w};
+      try{
+        while(!W&&Date.now()-t0<20000)await new Promise(r=>setTimeout(r,300));   // let the barcode engine finish first
+        await load('ocr/tesseract.min.js');
+        try{ow=await mk('tesseract-core-simd-lstm.wasm.js')}catch(e){ow=await mk('tesseract-core-lstm.wasm.js')}
+        OST='ocr ready';
+      }catch(e){OST='ocr failed';ERR=String((e&&e.message)||e).slice(0,40);return}
+      const oc=document.createElement('canvas'),ox=oc.getContext('2d',{willReadFrequently:true});
+      const RX=/D[oO0]N[oO0][.:;,]*([A-Za-z]{1,2}\d{6}|\d{8})(?!\d)/i;
+      while(true){
+        try{
+          if(v.readyState>=2&&v.videoWidth&&Date.now()-lastAt>1200&&!pending){
+            const sc=Math.min(1,1400/v.videoWidth);oc.width=Math.round(v.videoWidth*sc);oc.height=Math.round(v.videoHeight*sc);
+            ox.filter='grayscale(1) contrast(1.4)';ox.drawImage(v,0,0,oc.width,oc.height);ox.filter='none';
+            ocrN++;
+            const r=await ow.recognize(oc);let hit='';
+            for(const ln of String(r.data.text||'').split('\n')){const m=RX.exec(ln.replace(/\s+/g,''));if(m){hit=m[1].toUpperCase();break}}
+            if(hit&&hit===last){FMT='OCR';onCode(hit);last=''}else last=hit;   // same number on two consecutive reads = accepted
+          }
+        }catch(e){ERR='ocr: '+String((e&&e.message)||e).slice(0,30)}
+        await new Promise(r=>setTimeout(r,250));
+      }
     })();
   }catch(e){
     const ce=$('camerr');ce.style.display='flex';
