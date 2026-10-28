@@ -187,7 +187,7 @@ const DO_FULL=/^([A-Za-z]{1,2}\d{6}|\d{8})$/;
 const q=new URLSearchParams(location.search), SID=q.get('s')||'', TOK=(location.hash||'').replace(/^#/,''), DEMO=q.has('demo');
 const $=id=>document.getElementById(id);
 const DEV=(()=>{const u=navigator.userAgent;if(/iPhone/.test(u))return'iPhone';if(/iPad/.test(u))return'iPad';const m=u.match(/Android[^;]*;\s*([^;)]+?)(?:\s+Build|\))/);if(/Android/.test(u))return m?('Android '+m[1].trim()).slice(0,40):'Android';return'Phone'})();
-let S={count:0,target:100,items:[],state:'open',category:null,env:''}, online=true, lastSync=0, pending=null, lastCode='', lastAt=0, track=null, torchOn=false, queue=[];
+let lastErr='', S={count:0,target:100,items:[],state:'open',category:null,env:''}, online=true, lastSync=0, pending=null, lastCode='', lastAt=0, track=null, torchOn=false, queue=[];
 const QK='da_scan_q_'+SID, PK='da_scan_prefs';
 let P={auto:true,snd:true,vib:true};try{P=Object.assign(P,JSON.parse(localStorage.getItem(PK)||'{}'))}catch(e){}
 try{queue=JSON.parse(localStorage.getItem(QK)||'[]')}catch(e){queue=[]}
@@ -227,7 +227,7 @@ function render(){
     d.innerHTML='<span class="n">'+(S.items.length-i)+'</span><span class="d"></span><span class="s '+it.state+'">'+lab+'</span>'+(it.reason?'<span class="r"></span>':'');
     d.querySelector('.d').textContent=it.do;if(it.reason)d.querySelector('.r').textContent=it.reason;L.appendChild(d);
   });
-  $('cStatus').textContent=S.state==='closed'?'Session closed':(online?'Connected to PC session':'Offline - scans are kept and sent later');
+  $('cStatus').textContent=S.state==='closed'?'Session closed':(online?'Connected to PC session':'Offline'+(lastErr?' ('+lastErr+')':'')+' - scans are kept and sent later');
   $('cEnv').textContent=S.env||'–';$('cSid').textContent=SID?SID.slice(0,8)+'…':'–';$('cCnt').textContent=c+' / '+t;$('cCat').textContent=S.category||'not set yet';
   $('cSync').textContent=lastSync?new Date(lastSync).toLocaleTimeString():'–';
   $('send').disabled=!(pending&&S.state!=='closed');
@@ -237,7 +237,7 @@ async function refresh(){
   try{const j=await rpc('da_scan_ping',{p_session:SID,p_token:TOK,p_device:DEV});S=j;online=true;lastSync=Date.now();render();return true}
   catch(e){
     if(/bad_session|expired/.test(e.message)){fatal('Session invalid or expired','Ask for a new QR in Rasumi Apps (Doc Assembler → Scan DO).');return false}
-    online=false;render();return true}
+    online=false;lastErr=(e&&e.message?e.message:String(e))+(e&&e.http?' (HTTP '+e.http+')':'');render();return true}
 }
 const MSG={added:['ok','ok','Sent to PC'],duplicate:['dup','warn','Already scanned'],invalid:['bad','bad','Not a DO number'],full:['bad','bad','List is full (limit reached)'],locked_elsewhere:['bad','bad','DO is locked by another session'],closed:['bad','bad','Session closed']};
 async function send(d,raw){
@@ -249,7 +249,7 @@ async function send(d,raw){
     online=true;await refresh();
   }catch(e){
     if(/bad_session|expired/.test(e.message)){fatal('Session invalid or expired','');return}
-    online=false;if(!queue.includes(d)){queue.push(d);try{localStorage.setItem(QK,JSON.stringify(queue))}catch(x){}}
+    online=false;lastErr=(e&&e.message)||String(e);if(!queue.includes(d)){queue.push(d);try{localStorage.setItem(QK,JSON.stringify(queue))}catch(x){}}
     fb('dup');setDet(raw||d,'warn','No network - saved, will be sent automatically');pending=null;render();
   }
 }
@@ -318,7 +318,7 @@ $('bMan').onclick=()=>{openView('vMan');setTimeout(()=>$('man').focus(),60)};
 $('bHis').onclick=$('detGo').onclick=()=>openView('vHis');
 $('nScan').onclick=closeViews;$('nConn').onclick=()=>openView('vConn','nConn');$('nMore').onclick=()=>openView('vMore','nMore');
 $('bGear').onclick=()=>openView('vMore','nMore');
-$('reconn').onclick=async()=>{toast('Reconnecting…');await flushQueue();await refresh();toast(online?'Connected':'Still offline')};
+$('reconn').onclick=async()=>{toast('Reconnecting…');await flushQueue();await refresh();toast(online?'Connected':'Still offline: '+(lastErr||'no answer'))};
 function syncToggles(){$('tAuto').classList.toggle('on',P.auto);$('tSnd').classList.toggle('on',P.snd);$('tVib').classList.toggle('on',P.vib)}
 [['tAuto','auto'],['tSnd','snd'],['tVib','vib']].forEach(([id,k])=>$(id).onclick=()=>{P[k]=!P[k];savePrefs();syncToggles()});
 syncToggles();
