@@ -271,19 +271,41 @@ $('man').addEventListener('keydown',e=>{if(e.key==='Enter')$('manSend').click()}
 /* ---------- camera ---------- */
 async function startCam(){
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
     const v=$('v');v.srcObject=stream;await v.play();track=stream.getVideoTracks()[0];setupTrack();
+    let det=null;
     if('BarcodeDetector' in window){
-      let fm=['code_128','code_39','ean_13','ean_8','itf','codabar','qr_code','upc_a','data_matrix'];
-      try{const sup=await BarcodeDetector.getSupportedFormats();fm=fm.filter(f=>sup.includes(f))}catch(e){}
-      const det=new BarcodeDetector({formats:fm});
-      (async function loop(){try{if(v.readyState>=2){const r=await det.detect(v);if(r.length)onCode(r[0].rawValue)}}catch(e){}setTimeout(loop,120)})();
-    }else{
-      const load=u=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=u;s.onload=res;s.onerror=()=>rej(new Error('script load failed'));document.head.appendChild(s)});
-      try{await load('zxing.min.js')}catch(e1){try{await load('https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js')}catch(e2){throw new Error('the barcode reader could not be loaded - check the connection and reload')}}
-      const Z=window.ZXing,hints=new Map();hints.set(Z.DecodeHintType.TRY_HARDER,true);
-      new Z.BrowserMultiFormatReader(hints,150).decodeFromVideoElement(v,(r)=>{if(r)onCode(r.getText())});
+      try{let fm=['code_128','code_39','ean_13','ean_8','itf','codabar','qr_code','upc_a','data_matrix'];
+        const sup=await BarcodeDetector.getSupportedFormats();fm=fm.filter(f=>sup.includes(f));if(fm.length)det=new BarcodeDetector({formats:fm})}catch(e){det=null}
     }
+    const load=u=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=u;s.onload=res;s.onerror=()=>rej(new Error('script load failed'));document.head.appendChild(s)});
+    try{await load('zxing.min.js')}catch(e1){try{await load('https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js')}catch(e2){if(!det)throw new Error('the barcode reader could not be loaded - check the connection and reload')}}
+    const Z=window.ZXing;let zr=null;
+    if(Z){const h=new Map(),F=Z.BarcodeFormat;
+      h.set(Z.DecodeHintType.POSSIBLE_FORMATS,[F.CODE_128,F.CODE_39,F.CODE_93,F.ITF,F.EAN_13,F.EAN_8,F.UPC_A,F.CODABAR,F.QR_CODE,F.DATA_MATRIX]);
+      h.set(Z.DecodeHintType.TRY_HARDER,true);zr=new Z.MultiFormatReader();zr.setHints(h)}
+    const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
+    // crop windows (fractions of the frame): full, wide centre band, tight centre band
+    const WIN=[[0,0,1,1],[0,.25,1,.5],[.1,.35,.8,.3],[0,.1,1,.8]];let wi=0,frames=0,tries=0;
+    const dbg=()=>{const e=$('rawsub');if(e&&!pending)e.textContent=(det?'native+':'')+(zr?'zxing':'')+' · '+(v.videoWidth||0)+'x'+(v.videoHeight||0)+' · '+tries+' scans'};
+    (async function loop(){
+      try{
+        if(v.readyState>=2&&v.videoWidth){
+          frames++;
+          if(det){try{const r=await det.detect(v);if(r.length){onCode(r[0].rawValue);setTimeout(loop,150);return}}catch(e){}}
+          if(zr){
+            const w=WIN[wi++%WIN.length],sw=Math.round(v.videoWidth*w[2]),sh=Math.round(v.videoHeight*w[3]);
+            // upscale narrow crops so thin bars span enough pixels
+            const sc=sw<900?Math.min(2,1280/sw):1;cv.width=Math.round(sw*sc);cv.height=Math.round(sh*sc);
+            cx.drawImage(v,Math.round(v.videoWidth*w[0]),Math.round(v.videoHeight*w[1]),sw,sh,0,0,cv.width,cv.height);
+            tries++;
+            try{const bb=new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(cv)));const r=zr.decodeWithState(bb);if(r)onCode(r.getText())}catch(e){/* NotFoundException = nothing in this window */}
+          }
+          if(frames%8===0)dbg();
+        }
+      }catch(e){}
+      setTimeout(loop,60);
+    })();
   }catch(e){
     const ce=$('camerr');ce.style.display='flex';
     ce.textContent=(e&&e.name==='NotAllowedError')?'Camera is blocked. Allow camera access for this site in your browser settings, then reload. You can still enter the DO manually.':'The camera could not be opened ('+((e&&(e.message||e.name))||'unknown error')+'). You can still enter the DO manually.';
