@@ -1936,3 +1936,5 @@ body {
 .dl-none{color:#cbd5e1;font-weight:700}
 .dl-spin{display:inline-block;width:15px;height:15px;border-radius:50%;border:2.5px solid #dbe3ee;border-top-color:#2563eb;animation:dl-rot .8s linear infinite;vertical-align:middle}
 @keyframes dl-rot{to{transform:rotate(360deg)}}
+.dl-acts{display:inline-flex;gap:6px;align-items:center}
+.dl-btn.dl-sign{background:#fff;border:1px solid #cbd5e1;color:#475569}
