@@ -1064,7 +1064,8 @@ function renderMobDelivery() {
             const id = Number(r.item_id);
             const penIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
             btn = `<span class="dl-acts"><button class="dl-btn${hist ? " dl-got" : ""}" title="${hist ? "Download original again" : "Download original invoice"}" onclick="downloadMobDelivery(${id}, this, false)">${dlIcon}</button>` +
-                `<button class="dl-btn dl-sign" title="Download signed copy (my signature + company chop)" onclick="downloadMobDelivery(${id}, this, true)">${penIcon}</button></span>`;
+                (((mobSession && mobSession.user && mobSession.user.role === "SUPER_ADMIN") || (mobSession && mobSession.user && mobSession.user.capabilities && mobSession.user.capabilities.signed_invoice))
+                    ? `<button class="dl-btn dl-sign" title="Download signed copy (my signature + company chop)" onclick="downloadMobDelivery(${id}, this, true)">${penIcon}</button>` : "") + `</span>`;
         }
         const statusCell = hist
             ? `<span class="dl-done">Downloaded</span><div class="dl-po">${escapeHtml(_mobDeliveryWhen(r.last_dl_at))}${r.last_dl_by ? " · " + escapeHtml(r.last_dl_by) : ""}</div>`
