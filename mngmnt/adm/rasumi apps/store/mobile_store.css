@@ -1934,3 +1934,5 @@ body {
 .dl-got { background: transparent; color: var(--emerald-green); border: none; border-radius: 6px; }
 .dl-empty { text-align: center; color: var(--text-muted); padding: 22px 8px; }
 .dl-none{color:#cbd5e1;font-weight:700}
+.dl-spin{display:inline-block;width:15px;height:15px;border-radius:50%;border:2.5px solid #dbe3ee;border-top-color:#2563eb;animation:dl-rot .8s linear infinite;vertical-align:middle}
+@keyframes dl-rot{to{transform:rotate(360deg)}}

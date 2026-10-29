@@ -1057,7 +1057,9 @@ function renderMobDelivery() {
     tbody.innerHTML = rows.map((r) => {
         const hist = mobDeliveryTab === "HISTORY";
         let btn;
-        if (!r.has_file) btn = `<span class="dl-none">&mdash;</span>`;      // no button until a real PDF exists
+        if (!r.has_file) btn = (r.file_status === "FAILED")      // no button until a real PDF exists
+            ? `<span class="dl-none" title="Not found yet - retrying">&mdash;</span>`
+            : `<span class="dl-spin" title="Preparing..."></span>`;
         else if (hist) btn = `<button class="dl-btn dl-got" title="Download again" onclick="downloadMobDelivery(${Number(r.item_id)}, this)">${dlIcon}</button>`;
         else btn = `<button class="dl-btn" title="Download invoice PDF" onclick="downloadMobDelivery(${Number(r.item_id)}, this)">${dlIcon}</button>`;
         const statusCell = hist
