@@ -1933,3 +1933,4 @@ body {
 /* History: icon only, no circle / border */
 .dl-got { background: transparent; color: var(--emerald-green); border: none; border-radius: 6px; }
 .dl-empty { text-align: center; color: var(--text-muted); padding: 22px 8px; }
+.dl-none{color:#cbd5e1;font-weight:700}

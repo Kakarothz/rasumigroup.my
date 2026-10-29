@@ -1057,14 +1057,14 @@ function renderMobDelivery() {
     tbody.innerHTML = rows.map((r) => {
         const hist = mobDeliveryTab === "HISTORY";
         let btn;
-        if (!r.has_file) btn = `<button class="dl-btn dl-wait" disabled title="Invoice PDF is being prepared">${clockIcon}</button>`;
+        if (!r.has_file) btn = `<span class="dl-none">&mdash;</span>`;      // no button until a real PDF exists
         else if (hist) btn = `<button class="dl-btn dl-got" title="Download again" onclick="downloadMobDelivery(${Number(r.item_id)}, this)">${dlIcon}</button>`;
         else btn = `<button class="dl-btn" title="Download invoice PDF" onclick="downloadMobDelivery(${Number(r.item_id)}, this)">${dlIcon}</button>`;
         const statusCell = hist
             ? `<span class="dl-done">Downloaded</span><div class="dl-po">${escapeHtml(_mobDeliveryWhen(r.last_dl_at))}${r.last_dl_by ? " · " + escapeHtml(r.last_dl_by) : ""}</div>`
             : `<span class="dl-badge">Delivered</span>`;
         return `<tr>
-            <td><div class="dl-item">${escapeHtml(r.description || "")}</div><div class="dl-po">${escapeHtml(r.po_no || "")} &middot; Qty ${Number(r.qty || 0).toLocaleString()}</div></td>
+            <td><div class="dl-item">${escapeHtml(r.description || "")}</div><div class="dl-po">${escapeHtml(r.po_no || "")} &middot; Qty ${Number(r.qty || 0).toLocaleString()}</div><div class="dl-po">${escapeHtml(String(r.supplier || "").replace(/\s+pharma$/i, ""))} &middot; ${escapeHtml(String(r.delivery_date || "").slice(0, 10).split("-").reverse().join("/"))}</div></td>
             <td class="dl-inv">${escapeHtml(r.invoice_no || "")}</td>
             <td>${statusCell}</td>
             <td class="dt-tc">${btn}</td></tr>`;
