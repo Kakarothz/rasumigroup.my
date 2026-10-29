@@ -28,7 +28,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <!-- Mobile CSS -->
-    <link rel="stylesheet" href="mobile_store.css?v=3.9">
+    <link rel="stylesheet" href="mobile_store.css?v=4.0">
 </head>
 <body>
 
@@ -657,6 +657,29 @@
                 </div>
             </section>
 
+            <!-- PANEL 6: DELIVERY INVOICES — Delivered FV lines of this branch + supplier invoice PDF.
+                 Available = not yet downloaded; History = already downloaded (re-downloadable).
+                 Data: GET /delivery, GET /delivery/download (store-api). Separate from PO Mailer. -->
+            <section id="panel-delivery" class="panel">
+                <div class="card-panel">
+                    <div class="card-title"><span>Delivered Invoices</span><span class="dl-chip" id="mob-delivery-branch">&mdash;</span></div>
+                    <div class="dt-seg-control">
+                        <button type="button" class="dt-seg-tab active" data-tab="AVAILABLE" onclick="setMobDeliveryTab('AVAILABLE')">Available (<span id="mob-delivery-count-AVAILABLE">0</span>)</button>
+                        <button type="button" class="dt-seg-tab" data-tab="HISTORY" onclick="setMobDeliveryTab('HISTORY')">History (<span id="mob-delivery-count-HISTORY">0</span>)</button>
+                    </div>
+                    <div class="search-filter-bar">
+                        <input type="text" id="mob-delivery-search" class="input-sm" placeholder="Search item, PO or invoice no..." oninput="renderMobDelivery()">
+                    </div>
+                    <div class="dl-meta"><span id="mob-delivery-total"></span><span id="mob-delivery-updated"></span></div>
+                    <div class="dt-table-wrap">
+                        <table class="dt-table">
+                            <thead><tr><th>Item / PO</th><th>Invoice No</th><th>Status</th><th class="dt-tc">Invoice</th></tr></thead>
+                            <tbody id="mob-delivery-tbody"><tr><td colspan="4" class="dl-empty">Loading...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
         </main>
 
         <!-- Fixed Bottom Navigation Bar -->
@@ -681,11 +704,15 @@
                 <i class="fa-solid fa-arrow-right-from-bracket nav-icon"></i>
                 <span>Transfer</span>
             </button>
+            <button class="nav-item" onclick="switchMobTab('delivery')">
+                <i class="fa-solid fa-truck nav-icon"></i>
+                <span>Delivery</span>
+            </button>
         </nav>
 
     </div>
 
     <!-- Mobile JS Controller -->
-    <script src="mobile_store.js?v=4.3"></script>
+    <script src="mobile_store.js?v=4.4"></script>
 </body>
 </html>

@@ -953,6 +953,7 @@ async function onMobBranchChange(branchCode) {
     if (bincardSelect && bincardSelect.value) {
         loadMobBinCard(bincardSelect.value);
     }
+    if (currentMobTab === "delivery") loadMobDelivery();
 }
 
 // ── 6. Tab Navigation Switcher ───────────────────────────────────────
@@ -972,14 +973,135 @@ function switchMobTab(tabName) {
     const targetPanel = document.getElementById(`panel-${tabName}`);
     if (targetPanel) targetPanel.classList.add("active");
 
-    const tabsMap = { dash: 0, masterlist: 1, bincard: 2, receive: 3, transfer: 4 };
+    const tabsMap = { dash: 0, masterlist: 1, bincard: 2, receive: 3, transfer: 4, delivery: 5 };
     const tabIdx = tabsMap[tabName] || 0;
 
     const bottomNavBtns = document.querySelectorAll(".mobile-bottom-nav .nav-item");
     bottomNavBtns.forEach((n) => n.classList.remove("active"));
     if (bottomNavBtns[tabIdx]) bottomNavBtns[tabIdx].classList.add("active");
 
+    if (tabName === "delivery") loadMobDelivery();
+
     window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// ── 6b. Delivery Invoices (Available / History) ─────────────────────
+// Delivered FV lines of the caller's branch + the supplier invoice PDF. Separate from PO Mailer:
+// GET /delivery and GET /delivery/download on store-api (branch scope enforced there and in the DB).
+let mobDeliveryTab = "AVAILABLE";
+let mobDeliveryRows = [];
+let mobDeliveryReq = 0;
+
+function setMobDeliveryTab(tab) {
+    mobDeliveryTab = tab === "HISTORY" ? "HISTORY" : "AVAILABLE";
+    document.querySelectorAll("#panel-delivery .dt-seg-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === mobDeliveryTab));
+    const s = document.getElementById("mob-delivery-search");
+    if (s) s.value = "";
+    loadMobDelivery();
+}
+
+function _mobDeliveryWhen(iso) {
+    const d = iso ? new Date(iso) : null;
+    if (!d || isNaN(d.getTime())) return "";
+    const p = (n) => String(n).padStart(2, "0");
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function _mobDeliveryAgo(iso) {
+    const t = iso ? new Date(iso).getTime() : 0;
+    if (!t) return "";
+    const m = Math.max(0, Math.round((Date.now() - t) / 60000));
+    if (m < 1) return "just now";
+    if (m < 60) return `${m} min ago`;
+    const h = Math.round(m / 60);
+    return h < 48 ? `${h} h ago` : `${Math.round(h / 24)} d ago`;
+}
+
+async function loadMobDelivery() {
+    const tbody = document.getElementById("mob-delivery-tbody");
+    if (!tbody) return;
+    const myReq = ++mobDeliveryReq;
+    tbody.innerHTML = `<tr><td colspan="4" class="dl-empty">Loading...</td></tr>`;
+    try {
+        const { ok, data } = await apiFetch(`/delivery?branch_code=${encodeURIComponent(currentBranch)}&tab=${mobDeliveryTab}`);
+        if (myReq !== mobDeliveryReq) return;
+        if (!ok || !data.success) throw new Error((data && data.message) || "Could not load deliveries.");
+        mobDeliveryRows = data.rows || [];
+        const c = data.counts || {};
+        const a = document.getElementById("mob-delivery-count-AVAILABLE"); if (a) a.textContent = c.available || 0;
+        const h = document.getElementById("mob-delivery-count-HISTORY"); if (h) h.textContent = c.history || 0;
+        const chip = document.getElementById("mob-delivery-branch"); if (chip) chip.textContent = data.branch || currentBranch;
+        const u = document.getElementById("mob-delivery-updated");
+        if (u) u.textContent = c.last_checked_at ? `Status updated ${_mobDeliveryAgo(c.last_checked_at)}` : "";
+        renderMobDelivery();
+    } catch (e) {
+        if (myReq !== mobDeliveryReq) return;
+        tbody.innerHTML = `<tr><td colspan="4" class="dl-empty">${escapeHtml(e.message || "Could not load deliveries.")}</td></tr>`;
+    }
+}
+
+function renderMobDelivery() {
+    const tbody = document.getElementById("mob-delivery-tbody");
+    if (!tbody) return;
+    const q = ((document.getElementById("mob-delivery-search") || {}).value || "").trim().toLowerCase();
+    const rows = mobDeliveryRows.filter((r) => !q || [r.po_no, r.description, r.invoice_no].some((v) => String(v || "").toLowerCase().includes(q)));
+    const cnt = document.getElementById("mob-delivery-total");
+    if (cnt) cnt.textContent = `${rows.length} ${mobDeliveryTab === "HISTORY" ? "downloaded" : "delivered"} item${rows.length === 1 ? "" : "s"}`;
+    if (!rows.length) {
+        const msg = q ? "No matching item." : (mobDeliveryTab === "HISTORY" ? "No invoice has been downloaded yet." : "No delivered item waiting for download.");
+        tbody.innerHTML = `<tr><td colspan="4" class="dl-empty">${msg}</td></tr>`;
+        return;
+    }
+    const dlIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>`;
+    const clockIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`;
+    tbody.innerHTML = rows.map((r) => {
+        const hist = mobDeliveryTab === "HISTORY";
+        let btn;
+        if (!r.has_file) btn = `<button class="dl-btn dl-wait" disabled title="Invoice PDF is being prepared">${clockIcon}</button>`;
+        else if (hist) btn = `<button class="dl-btn dl-got" title="Download again" onclick="downloadMobDelivery(${Number(r.item_id)}, this)">${dlIcon}</button>`;
+        else btn = `<button class="dl-btn" title="Download invoice PDF" onclick="downloadMobDelivery(${Number(r.item_id)}, this)">${dlIcon}</button>`;
+        const statusCell = hist
+            ? `<span class="dl-done">Downloaded</span><div class="dl-po">${escapeHtml(_mobDeliveryWhen(r.last_dl_at))}${r.last_dl_by ? " · " + escapeHtml(r.last_dl_by) : ""}</div>`
+            : `<span class="dl-badge">Delivered</span>`;
+        return `<tr>
+            <td><div class="dl-item">${escapeHtml(r.description || "")}</div><div class="dl-po">${escapeHtml(r.po_no || "")} &middot; Qty ${Number(r.qty || 0).toLocaleString()}</div></td>
+            <td class="dl-inv">${escapeHtml(r.invoice_no || "")}</td>
+            <td>${statusCell}</td>
+            <td class="dt-tc">${btn}</td></tr>`;
+    }).join("");
+}
+
+async function downloadMobDelivery(itemId, btn) {
+    if (btn) btn.disabled = true;
+    try {
+        const headers = {};
+        if (mobSession && mobSession.token) headers.Authorization = `Bearer ${mobSession.token}`;
+        const res = await fetch(`${STORE_API_BASE_URL}/delivery/download?item_id=${encodeURIComponent(itemId)}`, { headers });
+        if (res.status === 401) {
+            clearMobSession();
+            showLoginScreen("Session expired. Please log in again.");
+            return;
+        }
+        if (!res.ok) {
+            const j = await res.json().catch(() => ({}));
+            alert(j.message || "Could not download the invoice.");
+            if (btn) btn.disabled = false;
+            return;
+        }
+        const name = res.headers.get("X-Delivery-File") || "invoice.pdf";
+        const url = URL.createObjectURL(await res.blob());
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        loadMobDelivery();                         // the line moves to History
+    } catch (e) {
+        alert("Could not download the invoice.");
+        if (btn) btn.disabled = false;
+    }
 }
 
 // ── 7. Masterlist Loader ─────────────────────────────────────────────
