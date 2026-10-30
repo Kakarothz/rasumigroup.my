@@ -1071,7 +1071,7 @@ function renderMobDelivery() {
             ? `<span class="dl-done">Downloaded</span><div class="dl-po">${escapeHtml(_mobDeliveryWhen(r.last_dl_at))}${r.last_dl_by ? " · " + escapeHtml(r.last_dl_by) : ""}</div>`
             : `<span class="dl-badge">Delivered</span>`;
         return `<tr>
-            <td><div class="dl-item">${escapeHtml(r.description || "")}</div><div class="dl-po">${escapeHtml(r.po_no || "")} &middot; Qty ${Number(r.qty || 0).toLocaleString()}</div><div class="dl-po">${escapeHtml(String(r.supplier || "").replace(/\s+pharma$/i, ""))} &middot; ${escapeHtml(String(r.delivery_date || "").slice(0, 10).split("-").reverse().join("/"))}</div></td>
+            <td><div class="dl-item">${escapeHtml(r.description || "")}${r.received ? ` <span style="display:inline-block;margin-left:4px;padding:0 6px;border-radius:999px;font-size:10px;font-weight:700;color:#15803d;background:#dcfce7;border:1px solid #86efac">Received</span>` : ""}</div><div class="dl-po">${escapeHtml(r.po_no || "")} &middot; Qty ${Number(r.qty || 0).toLocaleString()}</div><div class="dl-po">${escapeHtml(String(r.supplier || "").replace(/\s+pharma$/i, ""))} &middot; ${escapeHtml(String(r.delivery_date || "").slice(0, 10).split("-").reverse().join("/"))}</div></td>
             <td class="dl-inv">${escapeHtml(r.invoice_no || "")}</td>
             <td>${statusCell}</td>
             <td class="dt-tc">${btn}</td></tr>`;
