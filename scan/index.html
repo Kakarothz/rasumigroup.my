@@ -230,8 +230,9 @@ async function rpc(fn,body){
 function render(){
   const c=S.count||0,t=S.target||100;
   $('barf').style.width=Math.min(100,c/t*100)+'%';$('hisN').textContent=c;$('hisC').textContent=c+' / '+t;
-  const cn=$('conn');cn.className='conn'+(S.state==='closed'?' closed':(!online?' off':''));
-  $('connT').textContent=S.state==='closed'?'Session closed':(online?'Connected':'Offline');
+  const pcOn=S.pc_age!=null&&S.pc_age<20;   // Rasumi Apps beats every 5 s while it runs
+  const cn=$('conn');cn.className='conn'+(S.state==='closed'?' closed':((!online||!pcOn)?' off':''));
+  $('connT').textContent=S.state==='closed'?'Session closed':(!online?'Offline':(pcOn?'Connected':'PC offline'));
   $('connS').textContent=c+' / '+t+' DO';
   const L=$('hisL');L.innerHTML='';
   if(!S.items.length)L.innerHTML='<div class="hint">Nothing scanned yet.</div>';
@@ -241,7 +242,7 @@ function render(){
     d.innerHTML='<span class="n">'+(S.items.length-i)+'</span><span class="d"></span><span class="s '+it.state+'">'+lab+'</span>'+(it.reason?'<span class="r"></span>':'');
     d.querySelector('.d').textContent=it.do;if(it.reason)d.querySelector('.r').textContent=it.reason;L.appendChild(d);
   });
-  $('cStatus').textContent=S.state==='closed'?'Session closed':(online?'Connected to PC session':'Offline'+(lastErr?' ('+lastErr+')':'')+' - scans are kept and sent later');
+  $('cStatus').textContent=S.state==='closed'?'Session closed':(online?(pcOn?'Connected to PC session':'Rasumi Apps is offline - scans are saved and appear when it opens'):'Offline'+(lastErr?' ('+lastErr+')':'')+' - scans are kept and sent later');
   $('cEnv').textContent=S.env||'–';$('cSid').textContent=SID?SID.slice(0,8)+'…':'–';$('cCnt').textContent=c+' / '+t;$('cCat').textContent=S.category||'not set yet';
   $('cSync').textContent=lastSync?new Date(lastSync).toLocaleTimeString():'–';
   $('send').disabled=!(pending&&S.state!=='closed');
