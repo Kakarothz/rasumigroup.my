@@ -1056,6 +1056,7 @@
       '            <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:6px;letter-spacing:0.3px;">Team = one ID shared by a branch (greeting: "Good morning, team"). Individual = one person (greeting uses the ID as their name, e.g. farhan → "Good morning, Farhan").</div>',
       '          </div>',
       '        </div>',
+      '        <div id="r-rollout-card" style="display:none;padding:10px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;"></div>',
       '        <div id="r-huser-invite-form" style="display:none;padding:12px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
       '          <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">INVITE BY E-MAIL (they sign up with this exact e-mail)</div>',
       '          <div style="display:flex;flex-wrap:wrap;gap:8px;">',
@@ -12978,6 +12979,20 @@
     if (modal) { modal.classList.remove('hidden'); _loadHospitalUsers(); }
   };
 
+  // Ask the server to send queued invitation e-mails (SMTP secret stays server-side; nothing is sent until the phase has started).
+  function _flushInvites() {
+    try {
+      fetch(RASUMI_SUPABASE_URL + '/functions/v1/send-invite-emails', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: RASUMI_SUPABASE_ANON_KEY, Authorization: 'Bearer ' + RASUMI_SUPABASE_ANON_KEY }, body: '{}' }).catch(function () {});
+    } catch (e) { }
+  }
+  window.rResendInvite = function (username) {
+    if (RS.userRole !== 'superadmin' || !RS.supa) return;
+    RS.supa.rpc('rpc_resend_invite', { p_username: username }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      if (res.data && res.data.success === false) { rToast(res.data.reason || 'Could not resend', 'error'); return; }
+      rToast('Invitation e-mail queued for ' + username, 'success'); _flushInvites();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
   var _hDepts = null;
   function _loadDepts() {
     if (_hDepts || !RS.supa) return Promise.resolve(_hDepts || []);
@@ -12994,9 +13009,39 @@
     }).join('');
   }
 
+  function _loadRolloutCard() {
+    var el = document.getElementById('r-rollout-card');
+    if (!el || !RS.supa || RS.userRole !== 'superadmin') return;
+    RS.supa.rpc('login_policy', { p_hostname: 'admin-console' }).then(function (res) {
+      var p = res.data || {};
+      el.style.display = 'block';
+      var pill = function (txt, col) { return '<span style="font-size:10px;padding:3px 10px;border-radius:99px;border:1px solid ' + col + ';color:' + col + ';letter-spacing:0.5px;white-space:nowrap;">' + txt + '</span>'; };
+      var row = function (l, r) { return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">' + l + r + '</div>'; };
+      if (!p.started) {
+        el.innerHTML = row('<div><div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;">Invitation phase: not started</div><div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);margin-top:2px;">Collect e-mails first. START opens sign-up and begins the 14-day period.' + (p.ready ? '' : ' (Sign-up screen not released yet, START is locked.)') + '</div></div>',
+          '<button ' + (p.ready ? '' : 'disabled ') + 'onclick="rRolloutStart()" style="padding:7px 18px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;' + (p.ready ? '' : 'opacity:.4;cursor:not-allowed;') + '">START</button>');
+      } else {
+        var d = p.days_left || 0, col = p.expired ? '#ef4444' : d <= 3 ? '#f1c40f' : '#10b981';
+        el.innerHTML = row('<div><div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;">Invitation phase: ' + (p.expired ? 'ended' : 'day ' + Math.min(14, 15 - d) + ' of 14') + '</div><div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);margin-top:2px;">Started ' + new Date(p.started_at).toLocaleDateString('en-GB') + ' · ' + (p.expired ? 'ended ' : 'ends ') + new Date(p.legacy_until).toLocaleDateString('en-GB') + '</div></div>',
+          pill(p.expired ? 'ENDED' : d + ' DAYS LEFT', col));
+      }
+    });
+  }
+  window.rRolloutStart = function () {
+    if (RS.userRole !== 'superadmin' || !RS.supa) return;
+    if (!window.confirm('Start the invitation phase now?\n\nThe 14-day period begins immediately. Invited users can sign up and every legacy-ID login will show the sign-up banner. This cannot be undone.')) return;
+    RS.supa.rpc('rpc_rollout_start').then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      if (res.data && res.data.success === false) { rToast(res.data.reason || 'Could not start', 'error'); return; }
+      rToast('Invitation phase started — 14 days from now', 'success'); _flushInvites();
+      _loadRolloutCard();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
+
   function _loadHospitalUsers() {
     var list = document.getElementById('r-husers-list');
     if (!list || !RS.supa) return;
+    _loadRolloutCard();
     _loadDepts().then(function () { _renderHospitalUsers(list); });
   }
   function _renderHospitalUsers(list) {
@@ -13032,7 +13077,7 @@
         row += '<div style="display:flex;align-items:center;gap:8px;">';
         row += '<span style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;">' + esc(uname) + '</span>';
         row += '<span style="font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid ' + roleColor + ';color:' + roleColor + ';letter-spacing:0.5px;">' + esc(role) + '</span>';
-        if (u.invite_status === 'invited') row += '<span style="font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid #f1c40f;color:#f1c40f;letter-spacing:0.5px;">INVITED</span>';
+        if (u.invite_status === 'invited') row += '<span style="font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid #f1c40f;color:#f1c40f;letter-spacing:0.5px;">INVITED</span>' + (u.email ? '<a href="#" onclick="rResendInvite(\'' + uname.replace(/'/g, "\\'") + '\');return false;" style="font-size:9px;color:var(--rc-cyan,#D97757);text-decoration:underline;">resend e-mail</a>' : '');
         if (u.email) row += '<span style="font-size:10px;color:var(--rc-text-dim,#9ca3af);">' + esc(u.email) + (u.department_id ? ' · ' + esc(u.department_id) : '') + '</span>';
         row += '</div>';
         if (isMaster) {
@@ -13291,7 +13336,7 @@
       p_google: g('r-hinv-google').checked, p_microsoft: g('r-hinv-ms').checked
     }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
-      rToast('Invited ' + email + ' — tell them to Sign up with this e-mail', 'success');
+      rToast('Invited ' + email + ' — they get an e-mail once the invitation phase has started', 'success'); _flushInvites();
       rHuserInviteClose();
       _loadHospitalUsers();
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });

@@ -15,3 +15,8 @@
   Permissions-Policy: camera=(self), geolocation=(), microphone=()
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self' https://seqlkwdghibmsfkbuwqq.supabase.co;
   X-Robots-Tag: noindex, nofollow
+
+/auth/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://seqlkwdghibmsfkbuwqq.supabase.co;
+  X-Robots-Tag: noindex, nofollow
