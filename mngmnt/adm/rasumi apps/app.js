@@ -716,6 +716,8 @@
       } catch (e) { }
       return '#0a0f1a';
     })();
+    var _HINV_INP = 'padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:12px;font-family:inherit;';
+    var _HINV_SEL = 'padding:9px 10px;background:#1f2937;border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:11px;font-family:inherit;cursor:pointer;';
     el.innerHTML = [
       // ── BACKGROUND LAYER (controlled via JS for dynamic bg switching) ──
       '<div id="r-bg-layer" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:' + _initBgStyle + ';transition:background 0.4s ease"></div>',
@@ -1034,6 +1036,7 @@
       '            <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;">ADD NEW USER</div>',
       '            <div style="display:flex;gap:8px;">',
       '              <button id="r-huser-cancel-btn" onclick="rHuserFormClose()" style="display:none;padding:7px 14px;background:transparent;color:var(--rc-text-dim,#9ca3af);font-weight:700;border:1px solid var(--rc-border,#374151);border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">CANCEL</button>',
+      '              <button id="r-huser-invite-btn" onclick="rHuserInviteClick()" style="padding:7px 16px;background:transparent;color:var(--rc-cyan,#D97757);font-weight:700;border:1px solid var(--rc-cyan,#D97757);border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;"><i class="fa-solid fa-envelope"></i> INVITE</button>',
       '              <button id="r-huser-add-btn" onclick="rHuserAddClick()" style="padding:7px 16px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">ADD</button>',
       '            </div>',
       '          </div>',
@@ -1052,6 +1055,23 @@
       '            </div>',
       '            <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:6px;letter-spacing:0.3px;">Team = one ID shared by a branch (greeting: "Good morning, team"). Individual = one person (greeting uses the ID as their name, e.g. farhan → "Good morning, Farhan").</div>',
       '          </div>',
+      '        </div>',
+      '        <div id="r-huser-invite-form" style="display:none;padding:12px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
+      '          <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">INVITE BY E-MAIL (they sign up with this exact e-mail)</div>',
+      '          <div style="display:flex;flex-wrap:wrap;gap:8px;">',
+      '            <input id="r-hinv-name" type="text" placeholder="Full name" style="flex:1 1 200px;min-width:0;' + _HINV_INP + '">',
+      '            <input id="r-hinv-email" type="email" placeholder="E-mail" autocomplete="off" style="flex:1 1 220px;min-width:0;' + _HINV_INP + '">',
+      '            <input id="r-hinv-email2" type="email" placeholder="Confirm e-mail" autocomplete="off" style="flex:1 1 220px;min-width:0;' + _HINV_INP + '">',
+      '            <select id="r-hinv-role" style="' + _HINV_SEL + '"><option value="VIEWER">VIEWER</option><option value="OPERATOR">OPERATOR</option><option value="BRANCH_USER">BRANCH_USER</option><option value="DEPT_ADMIN">DEPT_ADMIN</option><option value="BOD">BOD (read-only overview)</option><option value="ADMIN">ADMIN</option></select>',
+      '            <select id="r-hinv-dept" style="' + _HINV_SEL + '"><option value="">- department -</option></select>',
+      '          </div>',
+      '          <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;font-size:10px;color:var(--rc-text-dim,#d1d5db);">',
+      '            <label><input id="r-hinv-store" type="checkbox"> Store access (Authenticator code)</label>',
+      '            <label><input id="r-hinv-google" type="checkbox" checked> Google sign-in</label>',
+      '            <label><input id="r-hinv-ms" type="checkbox" checked> Microsoft sign-in</label>',
+      '            <span style="color:var(--rc-text-dim,#6b7280);">Apps and Store branch: set in the list below after inviting.</span>',
+      '          </div>',
+      '          <div style="display:flex;gap:8px;margin-top:10px;"><button onclick="rHuserInviteSend()" style="padding:7px 16px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">SEND INVITE</button><button onclick="rHuserInviteClose()" style="padding:7px 14px;background:transparent;color:var(--rc-text-dim,#9ca3af);font-weight:700;border:1px solid var(--rc-border,#374151);border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">CANCEL</button></div>',
       '        </div>',
       '        <div id="r-husers-list" style="overflow-y:auto;padding:0 20px;flex:1;"></div>',
       '      </div>',
@@ -12958,11 +12978,30 @@
     if (modal) { modal.classList.remove('hidden'); _loadHospitalUsers(); }
   };
 
+  var _hDepts = null;
+  function _loadDepts() {
+    if (_hDepts || !RS.supa) return Promise.resolve(_hDepts || []);
+    return RS.supa.from('departments').select('code,name').eq('is_active', true).order('sort').then(function (r) {
+      _hDepts = (r && r.data) || [];
+      var sel = document.getElementById('r-hinv-dept');
+      if (sel) sel.innerHTML = '<option value="">- department -</option>' + _hDepts.map(function (d) { return '<option value="' + esc(d.code) + '">' + esc(d.name) + '</option>'; }).join('');
+      return _hDepts;
+    }, function () { return []; });
+  }
+  function _deptOpts(sel) {
+    return '<option value="">- none -</option>' + (_hDepts || []).map(function (d) {
+      return '<option value="' + esc(d.code) + '"' + (d.code === sel ? ' selected' : '') + '>' + esc(d.name) + '</option>';
+    }).join('');
+  }
+
   function _loadHospitalUsers() {
     var list = document.getElementById('r-husers-list');
     if (!list || !RS.supa) return;
+    _loadDepts().then(function () { _renderHospitalUsers(list); });
+  }
+  function _renderHospitalUsers(list) {
     list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;"><span class="r-spin"></span> Loading…</div>';
-    RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type').order('username').then(function (res) {
+    RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type,email,display_name,department_id,invite_status,auth_id,store_access,google_ok,microsoft_ok').order('username').then(function (res) {
       if (res.error) throw new Error(res.error.message);
       if (!res.data || !res.data.length) {
         list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;">No users found</div>';
@@ -12993,6 +13032,8 @@
         row += '<div style="display:flex;align-items:center;gap:8px;">';
         row += '<span style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;">' + esc(uname) + '</span>';
         row += '<span style="font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid ' + roleColor + ';color:' + roleColor + ';letter-spacing:0.5px;">' + esc(role) + '</span>';
+        if (u.invite_status === 'invited') row += '<span style="font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid #f1c40f;color:#f1c40f;letter-spacing:0.5px;">INVITED</span>';
+        if (u.email) row += '<span style="font-size:10px;color:var(--rc-text-dim,#9ca3af);">' + esc(u.email) + (u.department_id ? ' · ' + esc(u.department_id) : '') + '</span>';
         row += '</div>';
         if (isMaster) {
           row += '<span style="font-size:10px;color:var(--rc-cyan,#D97757);padding:3px 8px;border:1px solid rgba(217,119,87,0.3);border-radius:10px;">Owner</span>';
@@ -13057,6 +13098,21 @@
           });
           row += '</select>';
           row += '</div>';
+        }
+        if (!isMaster) {
+          var idv = function (k) { return esc(u[k] || ''); };
+          row += '<details style="margin-bottom:10px;"><summary style="cursor:pointer;font-size:10px;color:var(--rc-cyan,#D97757);letter-spacing:0.5px;">E-MAIL / DEPARTMENT / SIGN-IN</summary>';
+          row += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center;">';
+          var ist = 'padding:5px 8px;background:#1f2937;border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:10px;font-family:inherit;';
+          row += '<input id="uname_' + safeId + '" placeholder="Full name" value="' + idv('display_name') + '" style="' + ist + 'width:140px;">';
+          row += '<input id="uemail_' + safeId + '" placeholder="E-mail" value="' + idv('email') + '"' + (u.auth_id ? ' disabled title="Locked after sign up"' : '') + ' style="' + ist + 'width:190px;">';
+          row += '<select id="udept_' + safeId + '" style="' + ist + '">' + _deptOpts(u.department_id) + '</select>';
+          row += '<select id="urole_' + safeId + '" style="' + ist + '">' + ['VIEWER','OPERATOR','BRANCH_USER','DEPT_ADMIN','BOD','ADMIN'].map(function (r) { return '<option value="' + r + '"' + (r === role ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>';
+          row += '<label style="font-size:10px;color:var(--rc-text-dim,#d1d5db);"><input type="checkbox" id="ustore_' + safeId + '"' + (u.store_access ? ' checked' : '') + '> Store (TOTP)</label>';
+          row += '<label style="font-size:10px;color:var(--rc-text-dim,#d1d5db);"><input type="checkbox" id="ugoog_' + safeId + '"' + (u.google_ok !== false ? ' checked' : '') + '> Google</label>';
+          row += '<label style="font-size:10px;color:var(--rc-text-dim,#d1d5db);"><input type="checkbox" id="ums_' + safeId + '"' + (u.microsoft_ok !== false ? ' checked' : '') + '> Microsoft</label>';
+          row += '<button onclick="rSaveUserIdentity(\'' + uname.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:transparent;color:var(--rc-cyan,#D97757);font-weight:700;border:1px solid var(--rc-cyan,#D97757);border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;">SAVE IDENTITY</button>';
+          row += '</div></details>';
         }
         if (!isMaster) {
           row += '<button onclick="rSaveUserApps(\'' + uname.replace(/'/g, "\\'") + '\')" ';
@@ -13206,6 +13262,53 @@
     RS.supa.rpc('rpc_save_user_apps', { p_username: username, p_allowed_apps: apps, p_store_branch: storeBranch, p_account_type: acctType }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
       rToast(username + ' — ' + apps.length + '/' + _HOSPITAL_APPS.length + ' apps saved', 'success');
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
+
+  window.rHuserInviteClick = function () {
+    var f = document.getElementById('r-huser-invite-form');
+    if (!f) return;
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+    if (f.style.display === 'block') { _loadDepts(); var n = document.getElementById('r-hinv-name'); if (n) n.focus(); }
+  };
+  window.rHuserInviteClose = function () {
+    var f = document.getElementById('r-huser-invite-form'); if (f) f.style.display = 'none';
+    ['r-hinv-name', 'r-hinv-email', 'r-hinv-email2'].forEach(function (id) { var e = document.getElementById(id); if (e) e.value = ''; });
+  };
+  window.rHuserInviteSend = function () {
+    if (RS.userRole !== 'superadmin') return;
+    if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
+    var g = function (id) { return document.getElementById(id); };
+    var name = g('r-hinv-name').value.trim();
+    var email = g('r-hinv-email').value.trim().toLowerCase();
+    var email2 = g('r-hinv-email2').value.trim().toLowerCase();
+    if (!name) { rToast('Full name is required', 'error'); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { rToast('Enter a valid e-mail', 'error'); return; }
+    if (email !== email2) { rToast('The two e-mail addresses do not match', 'error'); return; }
+    RS.supa.rpc('rpc_invite_hospital_user', {
+      p_name: name, p_email: email, p_role: g('r-hinv-role').value, p_dept: g('r-hinv-dept').value,
+      p_branch: '', p_apps: [], p_store_access: g('r-hinv-store').checked,
+      p_google: g('r-hinv-google').checked, p_microsoft: g('r-hinv-ms').checked
+    }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      rToast('Invited ' + email + ' — tell them to Sign up with this e-mail', 'success');
+      rHuserInviteClose();
+      _loadHospitalUsers();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
+  window.rSaveUserIdentity = function (username) {
+    if (RS.userRole !== 'superadmin') return;
+    if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
+    var sid = username.replace(/[^a-z0-9]/gi, '_');
+    var v = function (p) { var e = document.getElementById(p + sid); return e ? e.value : ''; };
+    var c = function (p) { var e = document.getElementById(p + sid); return !!(e && e.checked); };
+    RS.supa.rpc('rpc_update_hospital_user_identity', {
+      p_username: username, p_name: v('uname_'), p_email: v('uemail_'), p_dept: v('udept_'), p_role: v('urole_'),
+      p_store_access: c('ustore_'), p_google: c('ugoog_'), p_microsoft: c('ums_')
+    }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      rToast(username + ' — identity saved', 'success');
+      _loadHospitalUsers();
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
 
