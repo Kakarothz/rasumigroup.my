@@ -1299,6 +1299,7 @@
     // Show "Settings" only for super admin
     var settBtn = document.getElementById('r-menu-settings');
     if (settBtn) settBtn.style.display = RS.userRole === 'superadmin' ? '' : 'none';
+    if (RS.userRole === 'superadmin' && window._rCheckProviderExpiry) window._rCheckProviderExpiry();
     // Read-only banner
     var banner = document.getElementById('r-readonly-banner');
     if (!banner && !_canWrite()) {
@@ -13030,6 +13031,7 @@
         '<label><input type="checkbox" id="r-prov-google"' + (pv.google ? ' checked' : '') + ' onchange="rSetProviders()"> Google</label>' +
         '<label><input type="checkbox" id="r-prov-ms"' + (pv.microsoft ? ' checked' : '') + ' onchange="rSetProviders()"> Microsoft</label>' +
         '<span style="color:var(--rc-text-dim,#6b7280);">Switch on only after the provider is set up in Supabase.</span></div>');
+      _loadProviderCard(el);
     });
   }
   window.rSetProviders = function () {
@@ -13038,6 +13040,83 @@
       if (res.error) throw new Error(res.error.message);
       rToast('Sign-in icons updated', 'success');
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
+  // ---- Sign-in provider secrets: expiry tracking (dates only; the secrets themselves stay in Supabase) ----
+  var _PROV_META = {
+    microsoft: { label: 'Microsoft', where: 'Entra admin center > App registrations > Rasumi Apps > Certificates & secrets', url: 'https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/Credentials/appId/0dfb2a77-73ed-4a4d-b360-d5718f5fd6c5/isMSAApp~/false', supa: 'Azure' },
+    google: { label: 'Google', where: 'Google Cloud > APIs & Services > Credentials > OAuth client', url: 'https://console.cloud.google.com/auth/clients', supa: 'Google' }
+  };
+  var SUPA_AUTH_URL = 'https://supabase.com/dashboard/project/seqlkwdghibmsfkbuwqq/auth/providers?provider=';
+  function _provStatus(p) {
+    if (p.days_left === null || p.days_left === undefined) return { txt: 'NO EXPIRY SET', col: '#6b7280', lvl: 0 };
+    if (p.days_left < 0) return { txt: 'EXPIRED ' + (-p.days_left) + 'd AGO', col: '#ef4444', lvl: 3 };
+    if (p.days_left <= 14) return { txt: p.days_left + ' DAYS LEFT', col: '#ef4444', lvl: 3 };
+    if (p.days_left <= 60) return { txt: p.days_left + ' DAYS LEFT', col: '#f1c40f', lvl: 2 };
+    return { txt: 'OK · ' + p.days_left + ' days', col: '#10b981', lvl: 1 };
+  }
+  window._rCheckProviderExpiry = function () {
+    if (RS.userRole !== 'superadmin' || !RS.supa) return;
+    RS.supa.rpc('rpc_provider_status').then(function (res) {
+      var old = document.getElementById('r-prov-expiry-banner'); if (old) old.remove();
+      var d = res && res.data; if (!d || !d.success) return;
+      var worst = null, names = [];
+      d.providers.forEach(function (p) { var s = _provStatus(p); if (s.lvl >= 2) { names.push((_PROV_META[p.provider] || {}).label + ' (' + (p.days_left < 0 ? 'expired' : p.days_left + 'd') + ')'); if (!worst || s.lvl > worst.lvl) worst = s; } });
+      if (!worst) return;
+      var b = document.createElement('div');
+      b.id = 'r-prov-expiry-banner';
+      var red = worst.lvl >= 3;
+      b.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9997;text-align:center;font-size:11px;padding:6px 12px;letter-spacing:.5px;cursor:pointer;background:' + (red ? 'rgba(239,68,68,0.14)' : 'rgba(241,196,15,0.14)') + ';border-top:1px solid ' + worst.col + ';color:' + worst.col + ';';
+      b.textContent = '⚠ Sign-in secret expiring: ' + names.join(', ') + ' — click to open Settings › App Users and rotate';
+      b.onclick = function () { b.remove(); if (window.rOpenHospitalUsers) window.rOpenHospitalUsers(); };
+      document.body.appendChild(b);
+    });
+  };
+  function _loadProviderCard(el) {
+    if (!RS.supa) return;
+    RS.supa.rpc('rpc_provider_status').then(function (res) {
+      var d = res && res.data; if (!d || !d.success) return;
+      var h = '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--rc-border,#374151);font-size:10px;color:var(--rc-text-dim,#d1d5db);">' +
+        '<div style="font-size:11px;color:var(--rc-text,#fff);font-weight:600;margin-bottom:6px;">Sign-in provider secrets</div>';
+      d.providers.forEach(function (p) {
+        var m = _PROV_META[p.provider]; if (!m) return;
+        var s = _provStatus(p);
+        h += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">' +
+          '<span style="width:70px;font-weight:600;color:var(--rc-text,#fff);">' + m.label + '</span>' +
+          '<span style="font-size:10px;padding:2px 9px;border-radius:99px;border:1px solid ' + s.col + ';color:' + s.col + ';white-space:nowrap;">' + s.txt + '</span>' +
+          '<input type="date" id="r-pexp-' + p.provider + '" value="' + (p.expires_on || '') + '" style="background:transparent;color:inherit;border:1px solid var(--rc-border,#374151);border-radius:4px;padding:2px 6px;font-size:10px;font-family:inherit;">' +
+          '<button onclick="rProviderSaveExpiry(\'' + p.provider + '\')" style="padding:3px 10px;background:transparent;color:var(--rc-cyan,#D97757);border:1px solid var(--rc-cyan,#D97757);border-radius:4px;cursor:pointer;font-size:10px;font-family:inherit;">Save date</button>' +
+          '<button onclick="rProviderRotate(\'' + p.provider + '\')" style="padding:3px 10px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:10px;font-family:inherit;">Rotate…</button></div>';
+      });
+      h += '<div style="color:var(--rc-text-dim,#6b7280);">Only the expiry date is stored here. The secret itself is entered in Supabase. Leave the date empty if the secret does not expire.</div></div>';
+      var old = document.getElementById('r-prov-card'); if (old) old.remove();
+      var w = document.createElement('div'); w.id = 'r-prov-card'; w.innerHTML = h; el.appendChild(w);
+    });
+  }
+  window.rProviderSaveExpiry = function (prov) {
+    if (RS.userRole !== 'superadmin' || !RS.supa) return;
+    var v = (document.getElementById('r-pexp-' + prov) || {}).value || null;
+    RS.supa.rpc('rpc_provider_set_expiry', { p_provider: prov, p_expires_on: v }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      if (res.data && res.data.success === false) { rToast(res.data.reason || 'Could not save', 'error'); return; }
+      rToast('Expiry date saved', 'success');
+      _loadRolloutCard(); window._rCheckProviderExpiry();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
+  window.rProviderRotate = function (prov) {
+    var m = _PROV_META[prov]; if (!m) return;
+    var md = document.getElementById('r-prov-rotate'); if (md) md.remove();
+    md = document.createElement('div'); md.id = 'r-prov-rotate';
+    md.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
+    md.innerHTML = '<div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:10px;padding:20px 24px;max-width:520px;width:92%;color:var(--rc-text,#fff);font-size:12px;line-height:1.6;">' +
+      '<div style="font-size:14px;font-weight:700;margin-bottom:10px;">Rotate ' + m.label + ' secret</div>' +
+      '<ol style="margin:0 0 12px 18px;padding:0;">' +
+      '<li>Open <b>' + m.label + '</b> and create a <b>new</b> client secret (keep the old one until step 4). <a href="' + m.url + '" target="_blank" rel="noopener" style="color:var(--rc-cyan,#D97757);">Open ' + m.label + ' ↗</a><div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);">' + m.where + '</div></li>' +
+      '<li>Copy the secret <b>Value</b> (not the Secret ID). It is shown only once.</li>' +
+      '<li>Open the Supabase provider panel, paste it in <b>Secret Value</b> and Save. <a href="' + SUPA_AUTH_URL + m.supa + '" target="_blank" rel="noopener" style="color:var(--rc-cyan,#D97757);">Open Supabase ↗</a><div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);">Browser autofill may pre-fill the field. Overwrite it.</div></li>' +
+      '<li>Test a sign-in with the ' + m.label + ' icon, then delete the old secret.</li>' +
+      '<li>Come back here and update the <b>expiry date</b> of the new secret.</li></ol>' +
+      '<div style="text-align:right;"><button onclick="document.getElementById(\'r-prov-rotate\').remove()" style="padding:6px 16px;background:transparent;color:inherit;border:1px solid var(--rc-border,#374151);border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px;">Close</button></div></div>';
+    document.body.appendChild(md);
   };
   window.rRolloutStart = function () {
     if (RS.userRole !== 'superadmin' || !RS.supa) return;
