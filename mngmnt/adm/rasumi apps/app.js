@@ -13308,7 +13308,7 @@
         var qtxt = [uname, u.display_name, u.email, u.department_id, role].concat(devs.map(function (d) { return d.hostname; })).join(' ').toLowerCase();
         var row = '<div class="rh-user' + (isMaster ? ' master' : '') + (isActive ? '' : ' off') + '" data-q="' + esc(qtxt) + '">';
         // ---- head: avatar, name, badges, e-mail line, status ----
-        var av = (u.avatar_url && /^https:\/\/[a-z0-9.-]+\.googleusercontent\.com\//i.test(u.avatar_url)) ? u.avatar_url : '';
+        var av = (u.avatar_url && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/]+=*$/.test(u.avatar_url)) ? u.avatar_url : '';
         row += '<div class="rh-uhead"><div class="rh-av">' + (av ? '<img src="' + esc(av) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '<span>' + esc(initial) + '</span></div><div class="rh-uinfo">';
         row += '<div class="rh-uname"><span>' + esc(uname) + '</span><span class="rh-role ' + roleCls + '">' + esc(role) + '</span>';
         if (u.invite_status === 'invited') row += '<span class="rh-role inv">INVITED</span>' + (u.email ? '<a href="#" class="rh-resend" onclick="rResendInvite(\'' + q(uname) + '\');return false;"><i class="fa-regular fa-envelope"></i> Resend e-mail</a>' : '');
