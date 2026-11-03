@@ -768,11 +768,11 @@
       '        <div style="padding:8px 12px;border-bottom:1px solid var(--glass-border-hi);display:flex;align-items:center;justify-content:space-between">',
       '          <span style="font-size:10px;color:var(--text-muted);font-weight:600;letter-spacing:0.5px">RECENT ALERTS</span>',
       '          <div style="display:flex;gap:4px">',
-      '            <button onclick="window._rBellClick()" style="background:none;border:1px solid var(--glass-border);border-radius:4px;padding:2px 8px;font-size:9px;color:var(--text-muted);cursor:pointer"><i class="fa-solid fa-check-double"></i> Read All</button>',
+      '            <button onclick="window._rNtReadAll();window._rBellClick()" style="background:none;border:1px solid var(--glass-border);border-radius:4px;padding:2px 8px;font-size:9px;color:var(--text-muted);cursor:pointer"><i class="fa-solid fa-check-double"></i> Read All</button>',
       '            <button onclick="window._rClearSysAlerts()" style="background:none;border:1px solid var(--glass-border);border-radius:4px;padding:2px 8px;font-size:9px;color:var(--rc-red,#ef4444);cursor:pointer"><i class="fa-solid fa-trash"></i> Clear All</button>',
       '          </div>',
       '        </div>',
-      '        <div id="notif-dropdown-list" style="min-height:155px;max-height:155px;overflow-y:auto;font-size:11px;">No new alerts</div>',
+      '        <div id="notif-dropdown-list" style="min-height:155px;max-height:min(420px,60vh);overflow-y:auto;font-size:11px;">No new alerts</div>',
       '        <div class="dropdown-sep"></div>',
       '        <div class="dropdown-item" onclick="rNav(\'r-alerts\')" style="justify-content:center;color:var(--cyan);font-size:10px;padding:5px 15px"><i class="fa-solid fa-arrow-right"></i> View All Alerts</div>',
       '    </div>',
@@ -2300,6 +2300,7 @@
         }).catch(function () { });
     }
     _pollBadgeCounts(); // immediate first load
+    _ntStart();
     RS._badgePollTimer = setInterval(_pollBadgeCounts, 5 * 60 * 1000); // every 5 min
     document.addEventListener('visibilitychange', _pollBadgeCounts);   // refresh on tab focus
     addL(function () {
@@ -2399,6 +2400,88 @@
     });
   }
 
+  // ── PERSISTENT ADMIN NOTIFICATIONS (admin_notifications table) ──────────────
+  // Server-side alerts (lockouts, secret expiry, failed invites, device offline,
+  // admin role changes…) survive refresh and are written even while the console
+  // is closed. P1 = red, P2 = amber, P3 = info.
+  var _nt = { items: [], unread: 0, p1: 0, started: false, seen: null, ch: null, timer: null };
+  var _NT_ICON = { security: 'fa-user-lock', provider: 'fa-key', system: 'fa-envelope-circle-check', device: 'fa-desktop' };
+
+  function _ntAgo(ts) {
+    var s = Math.max(0, (Date.now() - new Date(ts).getTime()) / 1000);
+    if (s < 60) return 'now';
+    if (s < 3600) return Math.floor(s / 60) + 'm';
+    if (s < 86400) return Math.floor(s / 3600) + 'h';
+    return Math.floor(s / 86400) + 'd';
+  }
+  function _ntCol(sev) { return sev === 'p1' ? 'var(--rc-red,#ef4444)' : sev === 'p2' ? 'var(--rc-warn,#f59e0b)' : 'var(--text-muted)'; }
+
+  function _ntLoad(notify) {
+    if (!RS.supa) return;
+    RS.supa.rpc('rpc_notif_list', { p_limit: 60 }).then(function (r) {
+      var d = r && r.data;
+      if (!d || !d.success) return;
+      var firstLoad = _nt.seen === null;
+      var prev = _nt.seen || {};
+      var seen = {};
+      d.items.forEach(function (it) {
+        seen[it.id] = 1;
+        if (!firstLoad && !prev[it.id] && it.severity !== 'p3') {
+          rToast((it.severity === 'p1' ? '🔴 ' : '⚠️ ') + it.title, it.severity === 'p1' ? 'error' : 'warn', it.severity === 'p1' ? 10000 : 6000);
+        }
+      });
+      _nt.seen = seen;
+      _nt.items = d.items; _nt.unread = d.unread || 0; _nt.p1 = d.open_p1 || 0;
+      updateAlertBadge();
+      if (RS.route === 'r-alerts') { var el = document.getElementById('r-nt-page'); if (el) el.innerHTML = _ntRows(30, true); }
+    }).catch(function () { });
+  }
+
+  function _ntStart() {
+    if (_nt.started || !RS.supa) return;
+    _nt.started = true;
+    _ntLoad();
+    try {
+      _nt.ch = RS.supa.channel('supa-admin-notifications')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_notifications' }, function () { _ntLoad(); })
+        .subscribe();
+    } catch (e) { }
+    _nt.timer = setInterval(_ntLoad, 60 * 1000);   // fallback if realtime drops
+  }
+
+  function _ntRows(max, big) {
+    if (!_nt.items.length) return '<div style="padding:10px;text-align:center;font-size:11px;color:var(--text-muted)">No open notifications</div>';
+    return _nt.items.slice(0, max).map(function (it) {
+      var col = _ntCol(it.severity);
+      var ic = _NT_ICON[it.category] || 'fa-bell';
+      var unread = !it.read_at;
+      return '<div style="padding:6px 10px;border-bottom:1px solid var(--glass-border);display:flex;gap:8px;align-items:flex-start;' +
+        (unread ? 'background:rgba(239,68,68,.06);border-left:3px solid ' + col : 'border-left:3px solid transparent') + '">' +
+        '<i class="fa-solid ' + ic + '" style="color:' + col + ';margin-top:2px;font-size:11px;flex-shrink:0"></i>' +
+        '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:' + (big ? 12 : 10.5) + 'px;font-weight:' + (unread ? 700 : 500) + ';color:' + col + '">' + esc(it.title) + '</div>' +
+        (it.body ? '<div style="font-size:' + (big ? 11 : 9.5) + 'px;color:var(--text-muted);margin-top:1px;' + (big ? '' : 'white-space:normal') + '">' + esc(it.body) + '</div>' : '') +
+        '<div style="display:flex;gap:6px;margin-top:4px;align-items:center">' +
+        (it.action ? '<button onclick="window._rNtAction(' + it.id + ')" style="background:' + col + ';color:#fff;border:0;border-radius:4px;padding:2px 9px;font-size:9.5px;font-weight:600;cursor:pointer"><i class="fa-solid fa-lock-open"></i> Unlock</button>' : '') +
+        '<button onclick="window._rNtResolve(' + it.id + ')" style="background:none;border:1px solid var(--glass-border);color:var(--text-muted);border-radius:4px;padding:2px 8px;font-size:9.5px;cursor:pointer">Resolve</button>' +
+        '</div></div>' +
+        '<span style="font-size:9px;color:var(--text-muted);opacity:.7;flex-shrink:0">' + _ntAgo(it.created_at) + '</span></div>';
+    }).join('');
+  }
+
+  window._rNtAction = function (id) {
+    RS.supa.rpc('rpc_notif_action', { p_id: id }).then(function (r) {
+      if (r.data && r.data.success) { rToast('Unlocked', 'ok'); } else { rToast('Action failed', 'error'); }
+      _ntLoad();
+    });
+  };
+  window._rNtResolve = function (id) { RS.supa.rpc('rpc_notif_resolve', { p_ids: [id] }).then(function () { _ntLoad(); }); };
+  window._rNtReadAll = function () { RS.supa.rpc('rpc_notif_mark_read', { p_ids: null }).then(function () { _ntLoad(); }); };
+  window._rNtResolveAll = function () {
+    if (!window.confirm('Resolve all open notifications?')) return;
+    RS.supa.rpc('rpc_notif_resolve', { p_ids: null }).then(function () { _ntLoad(); });
+  };
+
   function _updateNotifDropdown() {
     var list = document.getElementById('notif-dropdown-list');
     if (!list) return;
@@ -2423,10 +2506,12 @@
         '</div>';
     }).join('');
 
-    if (!cats.length && !_sysAlerts.length) {
+    if (!cats.length && !_sysAlerts.length && !_nt.items.length) {
       list.innerHTML = '<div style="padding:10px;text-align:center;font-size:11px;color:var(--text-muted)">No new alerts</div>';
       return;
     }
+    var ntHtml = _nt.items.length ? _ntRows(8, false) : '';
+    summaryHtml = ntHtml + (ntHtml && summaryHtml ? '<div class="dropdown-sep"></div>' : '') + summaryHtml;
     var html = summaryHtml + (summaryHtml && _sysAlerts.length ? '<div class="dropdown-sep"></div>' : '');
     var recent = _sysAlerts.slice(0, 5);
     for (var i = 0; i < recent.length; i++) {
@@ -2452,7 +2537,7 @@
   }
 
   function updateAlertBadge() {
-    var tot = RS.unresolvedVibes + RS.unresolvedRenamer + RS.unresolvedVims + RS.unresolvedAppErrors + _sysAlertUnread;
+    var tot = RS.unresolvedVibes + RS.unresolvedRenamer + RS.unresolvedVims + RS.unresolvedAppErrors + _sysAlertUnread + (_nt.unread || 0);
     var na = $r('r-nb-alerts');
     if (na) { na.textContent = tot || ''; na.style.display = tot ? '' : 'none'; }
     // Keep the dropdown's per-category summary in sync with the badge total
@@ -2466,9 +2551,11 @@
   // Expose alert helpers to global scope (needed by inline onclick attributes)
   window._rBellClick = function () {
     _sysAlertUnread = 0;
+    if (RS.supa) _ntLoad();
     updateAlertBadge();
   };
   window._rClearSysAlerts = function () {
+    if (_nt.items.length) window._rNtResolveAll();
     _sysAlerts = [];
     _sysAlertUnread = 0;
     updateAlertBadge();
@@ -10976,6 +11063,11 @@
       '<button class="r-btn-sm" onclick="rLoadAppErrors()">Refresh Errors</button>' +
       '</div>' +
       '</div>';
+
+    // ── PERSISTENT ADMIN NOTIFICATIONS ──
+    html += '<div class="r-alert-section"><div class="r-alert-section-title ' + (_nt.p1 ? 'err' : 'warn') + '">' +
+      '<i class="fa-solid fa-bell"></i> Admin Notifications (' + _nt.items.length + ' open' + (_nt.p1 ? ', ' + _nt.p1 + ' critical' : '') + ')</div>' +
+      '<div id="r-nt-page">' + _ntRows(30, true) + '</div></div>';
 
     // ── SYSTEM ALERTS (proactive monitoring) ──
     if (_sysAlerts.length > 0) {
