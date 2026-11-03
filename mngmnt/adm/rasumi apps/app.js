@@ -1026,38 +1026,27 @@
 
       '    <!-- HOSPITAL USERS MODAL -->',
       '    <div id="r-husers-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
-      '      <div style="background:var(--rc-bg,#111827);border:1px solid var(--rc-border,#374151);border-radius:8px;width:720px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,0.6);">',
-      '        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
-      '          <h3 style="margin:0;font-size:13px;color:var(--rc-cyan,#D97757);letter-spacing:1px;"><i class="fa-solid fa-id-card-clip"></i> APP USERS</h3>',
-      '          <button id="btn-close-husers" style="background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:16px;"><i class="fa-solid fa-xmark"></i></button>',
-      '        </div>',
-      '        <div style="padding:12px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
-      '          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">',
-      '            <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;">ADD NEW USER</div>',
-      '            <div style="display:flex;gap:8px;">',
-      '              <button id="r-huser-cancel-btn" onclick="rHuserFormClose()" style="display:none;padding:7px 14px;background:transparent;color:var(--rc-text-dim,#9ca3af);font-weight:700;border:1px solid var(--rc-border,#374151);border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">CANCEL</button>',
-      '              <button id="r-huser-invite-btn" onclick="rHuserInviteClick()" style="padding:7px 16px;background:transparent;color:var(--rc-cyan,#D97757);font-weight:700;border:1px solid var(--rc-cyan,#D97757);border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;"><i class="fa-solid fa-envelope"></i> INVITE</button>',
-      '              <button id="r-huser-add-btn" onclick="rHuserAddClick()" style="padding:7px 16px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap;font-family:inherit;">ADD</button>',
-      '            </div>',
-      '          </div>',
-      '          <div id="r-huser-form" style="display:none;margin-top:10px;">',
-      '            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">',
-      '              <input id="r-huser-new-username" type="text" placeholder="Username / User ID" style="flex:1 1 180px;min-width:0;padding:9px 12px;background:rgba(255,255,255,0.05);border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;outline:none;font-size:12px;font-family:inherit;">',
-      '              <select id="r-huser-new-role" style="padding:9px 10px;background:#1f2937;border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:11px;font-family:inherit;cursor:pointer;">',
-      '                <option value="BRANCH_USER">BRANCH_USER</option>',
-      '                <option value="ADMIN">ADMIN</option>',
-      '                <option value="VIEWER">VIEWER</option>',
-      '              </select>',
-      '              <select id="r-huser-new-type" style="padding:9px 10px;background:#1f2937;border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:11px;font-family:inherit;cursor:pointer;">',
-      '                <option value="team">Team (shared ID)</option>',
-      '                <option value="individual">Individual (one person)</option>',
-      '              </select>',
-      '            </div>',
-      '            <div style="font-size:10px;color:var(--rc-text-dim,#6b7280);margin-top:6px;letter-spacing:0.3px;">Team = one ID shared by a branch (greeting: "Good morning, team"). Individual = one person (greeting uses the ID as their name, e.g. farhan → "Good morning, Farhan").</div>',
+      '      <div class="rh-modal">',
+      '        <div class="rh-head">',
+      '          <div class="rh-ic"><i class="fa-solid fa-users"></i></div>',
+      '          <div class="rh-ttl"><h3>App Users</h3><p>Manage users, invitations and application access.</p></div>',
+      '          <div class="rh-head-btns">',
+      '            <button id="r-huser-cancel-btn" class="rh-btn ghost" onclick="rHuserFormClose()" style="display:none;">Cancel</button>',
+      '            <button id="r-huser-invite-btn" class="rh-btn ghost" onclick="rHuserInviteClick()"><i class="fa-solid fa-envelope"></i> Invite User</button>',
+      '            <button id="r-huser-add-btn" class="rh-btn primary" onclick="rHuserAddClick()"><i class="fa-solid fa-plus"></i> Add User</button>',
+      '            <button id="btn-close-husers" class="rh-x" title="Close"><i class="fa-solid fa-xmark"></i></button>',
       '          </div>',
       '        </div>',
-      '        <div id="r-rollout-card" style="display:none;padding:10px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;"></div>',
-      '        <div id="r-huser-invite-form" style="display:none;padding:12px 20px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;">',
+      '        <div id="r-huser-form" class="rh-form" style="display:none;">',
+      '          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">',
+      '            <input id="r-huser-new-username" type="text" placeholder="Username / User ID" class="rh-in" style="flex:1 1 180px;min-width:0;">',
+      '            <select id="r-huser-new-role" class="rh-in"><option value="BRANCH_USER">BRANCH_USER</option><option value="ADMIN">ADMIN</option><option value="VIEWER">VIEWER</option></select>',
+      '            <select id="r-huser-new-type" class="rh-in"><option value="team">Team (shared ID)</option><option value="individual">Individual (one person)</option></select>',
+      '          </div>',
+      '          <div class="rh-hint">Team = one ID shared by a branch (greeting: "Good morning, team"). Individual = one person (greeting uses the ID as their name, e.g. farhan → "Good morning, Farhan").</div>',
+      '        </div>',
+      '        <div id="r-rollout-card" style="display:none;"></div>',
+      '        <div id="r-huser-invite-form" class="rh-form" style="display:none;">',
       '          <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">INVITE BY E-MAIL (they sign up with this exact e-mail)</div>',
       '          <div style="display:flex;flex-wrap:wrap;gap:8px;">',
       '            <input id="r-hinv-name" type="text" placeholder="Full name" style="flex:1 1 200px;min-width:0;' + _HINV_INP + '">',
@@ -1074,7 +1063,7 @@
       '          </div>',
       '          <div style="display:flex;gap:8px;margin-top:10px;"><button onclick="rHuserInviteSend()" style="padding:7px 16px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">SEND INVITE</button><button onclick="rHuserInviteClose()" style="padding:7px 14px;background:transparent;color:var(--rc-text-dim,#9ca3af);font-weight:700;border:1px solid var(--rc-border,#374151);border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">CANCEL</button></div>',
       '        </div>',
-      '        <div id="r-husers-list" style="overflow-y:auto;padding:0 20px;flex:1;"></div>',
+      '        <div id="r-husers-list" class="rh-list"></div>',
       '      </div>',
       '    </div>',
 
@@ -1406,7 +1395,7 @@
       form.style.display = 'block';
       var btn = document.getElementById('r-' + key + '-add-btn');
       var cancel = document.getElementById('r-' + key + '-cancel-btn');
-      if (btn) btn.textContent = 'SAVE';
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-check"></i> Save';
       if (cancel) cancel.style.display = 'inline-block';
       var first = document.getElementById(cfg.inputs[0]);
       if (first) first.focus();
@@ -1421,7 +1410,7 @@
     form.style.display = 'none';
     var btn = document.getElementById('r-' + key + '-add-btn');
     var cancel = document.getElementById('r-' + key + '-cancel-btn');
-    if (btn) btn.textContent = 'ADD';
+    if (btn) btn.innerHTML = '<i class="fa-solid fa-plus"></i> Add User';
     if (cancel) cancel.style.display = 'none';
     cfg.inputs.forEach(function (id) { var el = document.getElementById(id); if (el) el.value = ''; });
     cfg.selects.forEach(function (id) { var el = document.getElementById(id); if (el) el.selectedIndex = 0; });
@@ -12944,6 +12933,7 @@
   window.rOpenAppUsersFromSettings = function () {
     var sm = document.getElementById('r-settings-modal');
     if (sm) sm.classList.add('hidden');
+    _ensureHuStyle();
     var modal = document.getElementById('r-husers-modal');
     if (modal) { modal.classList.remove('hidden'); _loadHospitalUsers(); }
   };
@@ -12972,10 +12962,17 @@
     { val: 'FVG', label: 'FVG — Farmasi Veteran Gemas' },
   ];
 
+  function _ensureHuStyle() {
+    if (document.getElementById('r-hu-style')) return;
+    var st = document.createElement('style'); st.id = 'r-hu-style';
+    st.textContent = "\n.rh-modal{background:var(--rc-bg,#0f1115);border:1px solid var(--rc-border,#374151);border-radius:16px;width:940px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.65);overflow:hidden;font-family:inherit;color:var(--rc-text,#fff)}\n.rh-head{display:flex;align-items:center;gap:14px;padding:18px 22px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0}\n.rh-ic,.rh-tile{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--rc-cyan,#D97757);background:linear-gradient(145deg,rgba(217,119,87,.28),rgba(217,119,87,.08));border:1px solid rgba(217,119,87,.5);flex:none}\n.rh-tile.sm{width:38px;height:38px;font-size:16px;border-radius:11px}\n.rh-ttl{flex:1;min-width:0}.rh-ttl h3{margin:0;font-size:22px;font-weight:700;letter-spacing:.2px}.rh-ttl p{margin:2px 0 0;font-size:12px;color:var(--rc-text-dim,#9ca3af)}\n.rh-head-btns{display:flex;align-items:center;gap:10px}\n.rh-x{background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:18px;padding:6px 8px;margin-left:2px}.rh-x:hover{color:#fff}\n.rh-btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:10px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;border:1px solid transparent;transition:filter .15s,transform .15s}\n.rh-btn.sm{padding:6px 12px;font-size:11px;border-radius:8px}\n.rh-btn.primary{background:linear-gradient(135deg,var(--rc-cyan,#D97757),#b9532f);color:#fff;box-shadow:0 4px 14px rgba(217,119,87,.35)}\n.rh-btn.ghost{background:rgba(255,255,255,.03);color:var(--rc-text,#fff);border-color:rgba(217,119,87,.55)}\n.rh-btn.danger{background:rgba(239,68,68,.08);color:#f87171;border-color:rgba(239,68,68,.45)}\n.rh-btn:hover:not([disabled]){filter:brightness(1.15)}.rh-btn:active:not([disabled]){transform:scale(.97)}.rh-btn[disabled]{opacity:.4;cursor:not-allowed}\n.rh-form{padding:12px 22px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;background:rgba(255,255,255,.02)}\n.rh-hint{font-size:10.5px;color:var(--rc-text-dim,#6b7280);margin-top:8px;line-height:1.5}\n.rh-in{padding:8px 11px;background:rgba(255,255,255,.05);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);border-radius:9px;font-size:12px;font-family:inherit;outline:none;min-width:0}\n.rh-in.sm{padding:5px 8px;font-size:11px;border-radius:7px}\n.rh-in:focus{border-color:var(--rc-cyan,#D97757)}.rh-in option{background:#1f2937;color:#fff}.rh-in:disabled{opacity:.55}\n#r-rollout-card{padding:14px 22px 0;flex-shrink:0;overflow-y:auto}\n.rh-list{overflow-y:auto;padding:12px 22px 20px;flex:1}\n.rh-card{background:rgba(255,255,255,.035);border:1px solid var(--rc-border,#374151);border-radius:14px;padding:14px 18px;margin-bottom:12px}\n.rh-phase{display:flex;align-items:center;gap:14px;flex-wrap:wrap}\n.rh-phase-tx{flex:1;min-width:220px}.rh-phase-h{font-size:16px;font-weight:700;display:flex;align-items:center;gap:10px;flex-wrap:wrap}\n.rh-sub{font-size:11.5px;color:var(--rc-text-dim,#9ca3af);margin-top:3px;line-height:1.45}\n.rh-vsep{width:1px;align-self:stretch;background:var(--rc-border,#374151);margin:0 4px}\n.rh-win{display:flex;align-items:center;gap:10px;font-size:20px;color:var(--rc-text-dim,#9ca3af)}.rh-win small{display:block;font-size:10.5px;color:var(--rc-text-dim,#9ca3af)}.rh-win b{display:block;font-size:16px;color:var(--rc-text,#fff)}\n.rh-pill{display:inline-block;font-size:10.5px;font-weight:600;padding:3px 11px;border-radius:99px;border:1px solid var(--rc-border,#374151);color:var(--rc-text-dim,#9ca3af);white-space:nowrap;background:rgba(255,255,255,.04)}\n.rh-pill.mute{color:#c4c7d0}.rh-pill.ok{color:#34d399;border-color:#34d399}.rh-pill.warn{color:#fbbf24;border-color:#fbbf24}.rh-pill.bad{color:#f87171;border-color:#f87171}\n.rh-provs-h{display:flex;align-items:center;gap:12px;margin-bottom:12px}.rh-provs-h b{font-size:15px}\n.rh-prov-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}\n.rh-prov{border:1px solid var(--rc-border,#374151);border-radius:12px;padding:10px 12px;background:rgba(0,0,0,.18)}\n.rh-prov-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.rh-prov-n{font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px}.rh-prov-n svg{flex:none}\n.rh-prov-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}\n.rh-sw{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:11px;color:var(--rc-text-dim,#9ca3af)}\n.rh-sw input{display:none}.rh-sw-k{width:32px;height:18px;border-radius:99px;background:#374151;position:relative;transition:background .2s}\n.rh-sw-k::after{content:\"\";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s}\n.rh-sw input:checked~.rh-sw-k{background:var(--rc-cyan,#D97757)}.rh-sw input:checked~.rh-sw-k::after{left:16px}\n.rh-note{font-size:10.5px;color:var(--rc-text-dim,#6b7280);margin-top:10px;line-height:1.5}\n.rh-user{background:rgba(255,255,255,.03);border:1px solid var(--rc-border,#374151);border-radius:14px;padding:16px 18px;margin-bottom:14px}\n.rh-user.master{border-color:rgba(217,119,87,.5);background:linear-gradient(135deg,rgba(217,119,87,.08),rgba(255,255,255,.02))}\n.rh-user.off{opacity:.7}\n.rh-uhead{display:flex;align-items:flex-start;gap:14px}\n.rh-av{width:44px;height:44px;border-radius:50%;background:linear-gradient(145deg,var(--rc-cyan,#D97757),#7c3aed);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex:none}\n.rh-uinfo{flex:1;min-width:0}.rh-uname{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:16px;font-weight:700}\n.rh-role{font-size:10px;font-weight:700;letter-spacing:.5px;padding:3px 10px;border-radius:99px;border:1px solid;background:rgba(255,255,255,.04)}\n.rh-role.owner{color:#c4b5fd;border-color:#8b5cf6}.rh-role.admin{color:#a78bfa;border-color:#8b5cf6}.rh-role.branch{color:#34d399;border-color:#10b981}.rh-role.other{color:#9ca3af;border-color:#6b7280}.rh-role.inv{color:#fbbf24;border-color:#fbbf24}\n.rh-resend{font-size:11px;color:var(--rc-cyan,#D97757);text-decoration:underline;font-weight:500}\n.rh-umeta{display:flex;gap:16px;flex-wrap:wrap;margin-top:5px;font-size:11.5px;color:var(--rc-text-dim,#9ca3af)}.rh-umeta i{margin-right:5px}\n.rh-uside{flex:none}\n.rh-owner{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:var(--rc-cyan,#D97757);padding:5px 14px;border:1px solid rgba(217,119,87,.5);border-radius:99px}\n.rh-status{display:inline-flex;align-items:center;gap:7px;padding:6px 16px;border-radius:99px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;border:1px solid}\n.rh-status i{font-size:7px}.rh-status.on{background:rgba(16,185,129,.12);color:#34d399;border-color:rgba(16,185,129,.55)}.rh-status.off{background:rgba(239,68,68,.1);color:#f87171;border-color:rgba(239,68,68,.45)}\n.rh-sec{margin:14px 0 8px;font-size:12px;font-weight:600;color:var(--rc-text-dim,#c4c7d0);display:flex;align-items:center;gap:8px}\n.rh-tags{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.rh-tags.sm{margin-top:10px}\n.rh-tag{cursor:pointer;user-select:none}.rh-tag input{display:none}\n.rh-tag span{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:99px;font-size:11.5px;font-weight:600;border:1px solid var(--rc-border,#374151);color:var(--rc-text-dim,#9ca3af);background:rgba(255,255,255,.03);transition:all .15s}\n.rh-tag span i{display:none;font-size:12px}\n.rh-tag span:hover{border-color:var(--rc-cyan,#D97757);color:#fff}\n.rh-tag input:checked+span{background:linear-gradient(135deg,rgba(217,119,87,.35),rgba(124,58,237,.3));border-color:var(--rc-cyan,#D97757);color:#fff;box-shadow:0 0 0 1px rgba(217,119,87,.25) inset}\n.rh-tag input:checked+span i{display:inline}\n.rh-tag.dis{cursor:not-allowed}.rh-tag.dis span{opacity:.55}.rh-tag.dis span:hover{border-color:var(--rc-border,#374151);color:var(--rc-text-dim,#9ca3af)}\n.rh-tag.dis input:checked+span:hover{color:#fff;border-color:var(--rc-cyan,#D97757)}\n.rh-tag.dis span em{font-style:normal;font-size:9.5px;opacity:.8}.rh-tag.dis span i.fa-lock{display:inline}\n.rh-opts{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--rc-border,#374151)}\n.rh-opt{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--rc-text-dim,#c4c7d0)}.rh-opt span{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}\n.rh-det{margin-top:12px;border:1px solid var(--rc-border,#374151);border-radius:11px;background:rgba(0,0,0,.15)}\n.rh-det summary{cursor:pointer;list-style:none;padding:10px 14px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:9px}\n.rh-det summary::-webkit-details-marker{display:none}.rh-det summary i{font-size:10px;transition:transform .2s;color:var(--rc-text-dim,#9ca3af)}\n.rh-det[open] summary i{transform:rotate(90deg)}\n.rh-idgrid{display:flex;flex-wrap:wrap;gap:8px;padding:0 14px}.rh-det .rh-tags.sm{padding:0 14px 14px}\n.rh-acts{display:flex;gap:10px;margin-top:14px}\n";
+    document.head.appendChild(st);
+  }
   window.rOpenHospitalUsers = function () {
     if (RS.userRole !== 'superadmin') return;
     var nav = document.getElementById('r-nav-dropdown');
     if (nav) nav.classList.add('hidden');
+    _ensureHuStyle();
     var modal = document.getElementById('r-husers-modal');
     if (modal) { modal.classList.remove('hidden'); _loadHospitalUsers(); }
   };
@@ -13010,28 +13007,50 @@
     }).join('');
   }
 
+  var _SVG_GOOGLE = '<svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7a14.5 14.5 0 0 1 0-9.4l-7.9-6.1a24 24 0 0 0 0 21.6l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>';
+  var _SVG_MS = '<svg viewBox="0 0 23 23" width="18" height="18" aria-hidden="true"><path fill="#f35325" d="M1 1h10v10H1z"/><path fill="#81bc06" d="M12 1h10v10H12z"/><path fill="#05a6f0" d="M1 12h10v10H1z"/><path fill="#ffba08" d="M12 12h10v10H12z"/></svg>';
   function _loadRolloutCard() {
     var el = document.getElementById('r-rollout-card');
     if (!el || !RS.supa || RS.userRole !== 'superadmin') return;
-    RS.supa.rpc('login_policy', { p_hostname: 'admin-console' }).then(function (res) {
-      var p = res.data || {};
+    Promise.all([
+      RS.supa.rpc('login_policy', { p_hostname: 'admin-console' }),
+      RS.supa.rpc('rpc_provider_status')
+    ]).then(function (rr) {
+      var p = (rr[0] && rr[0].data) || {};
+      var ps = (rr[1] && rr[1].data && rr[1].data.success) ? rr[1].data.providers : [];
       el.style.display = 'block';
-      var pill = function (txt, col) { return '<span style="font-size:10px;padding:3px 10px;border-radius:99px;border:1px solid ' + col + ';color:' + col + ';letter-spacing:0.5px;white-space:nowrap;">' + txt + '</span>'; };
-      var row = function (l, r) { return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">' + l + r + '</div>'; };
+      var h = '';
+      // ---- Invitation phase card ----
+      var pill = function (txt, cls) { return '<span class="rh-pill ' + (cls || '') + '">' + txt + '</span>'; };
       if (!p.started) {
-        el.innerHTML = row('<div><div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;">Invitation phase: not started</div><div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);margin-top:2px;">Collect e-mails first. START opens sign-up and begins the 14-day period.' + (p.ready ? '' : ' (Sign-up screen not released yet, START is locked.)') + '</div></div>',
-          '<button ' + (p.ready ? '' : 'disabled ') + 'onclick="rRolloutStart()" style="padding:7px 18px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;' + (p.ready ? '' : 'opacity:.4;cursor:not-allowed;') + '">START</button>');
+        var can = !!p.ready;
+        h += '<div class="rh-card rh-phase"><div class="rh-tile"><i class="fa-solid fa-paper-plane"></i></div>' +
+          '<div class="rh-phase-tx"><div class="rh-phase-h">Invitation Phase ' + pill('Not Started', 'mute') + '</div>' +
+          '<div class="rh-sub">Collect e-mails first. START opens sign-up and begins the 14-day period.' + (can ? '' : ' (Sign-up screen not released yet, START is locked.)') + '</div></div>' +
+          '<div class="rh-vsep"></div><div class="rh-win"><i class="fa-regular fa-calendar"></i><div><small>Sign-up window</small><b>14 days</b></div></div>' +
+          '<button class="rh-btn primary" ' + (can ? '' : 'disabled ') + 'onclick="rRolloutStart()"><i class="fa-solid fa-play"></i> Start Invitation</button></div>';
       } else {
-        var d = p.days_left || 0, col = p.expired ? '#ef4444' : d <= 3 ? '#f1c40f' : '#10b981';
-        el.innerHTML = row('<div><div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;">Invitation phase: ' + (p.expired ? 'ended' : 'day ' + Math.min(14, 15 - d) + ' of 14') + '</div><div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);margin-top:2px;">Started ' + new Date(p.started_at).toLocaleDateString('en-GB') + ' · ' + (p.expired ? 'ended ' : 'ends ') + new Date(p.legacy_until).toLocaleDateString('en-GB') + '</div></div>',
-          pill(p.expired ? 'ENDED' : d + ' DAYS LEFT', col));
+        var d = p.days_left || 0, cls = p.expired ? 'bad' : d <= 3 ? 'warn' : 'ok';
+        h += '<div class="rh-card rh-phase"><div class="rh-tile"><i class="fa-solid fa-paper-plane"></i></div>' +
+          '<div class="rh-phase-tx"><div class="rh-phase-h">Invitation Phase ' + pill(p.expired ? 'Ended' : 'Day ' + Math.min(14, 15 - d) + ' of 14', cls) + '</div>' +
+          '<div class="rh-sub">Started ' + new Date(p.started_at).toLocaleDateString('en-GB') + ' · ' + (p.expired ? 'ended ' : 'ends ') + new Date(p.legacy_until).toLocaleDateString('en-GB') + '</div></div>' +
+          '<div class="rh-vsep"></div><div class="rh-win"><i class="fa-regular fa-calendar"></i><div><small>' + (p.expired ? 'Phase' : 'Remaining') + '</small><b>' + (p.expired ? 'Ended' : d + ' days') + '</b></div></div></div>';
       }
+      // ---- Sign-in providers card ----
       var pv = p.providers || {};
-      el.insertAdjacentHTML('beforeend', '<div style="display:flex;align-items:center;gap:14px;margin-top:8px;padding-top:8px;border-top:1px solid var(--rc-border,#374151);font-size:10px;color:var(--rc-text-dim,#d1d5db);">Sign-in icons: ' +
-        '<label><input type="checkbox" id="r-prov-google"' + (pv.google ? ' checked' : '') + ' onchange="rSetProviders()"> Google</label>' +
-        '<label><input type="checkbox" id="r-prov-ms"' + (pv.microsoft ? ' checked' : '') + ' onchange="rSetProviders()"> Microsoft</label>' +
-        '<span style="color:var(--rc-text-dim,#6b7280);">Switch on only after the provider is set up in Supabase.</span></div>');
-      _loadProviderCard(el);
+      h += '<div class="rh-card rh-provs"><div class="rh-provs-h"><div class="rh-tile sm"><i class="fa-solid fa-shield-halved"></i></div><div><b>Sign-in Providers</b><div class="rh-sub">OAuth / SSO configuration</div></div></div><div class="rh-prov-grid">';
+      ps.forEach(function (x) {
+        var m = _PROV_META[x.provider]; if (!m) return;
+        var st = _provStatus(x), idp = x.provider === 'google' ? 'r-prov-google' : 'r-prov-ms', on = x.provider === 'google' ? pv.google : pv.microsoft;
+        h += '<div class="rh-prov"><div class="rh-prov-top"><span class="rh-prov-n">' + (x.provider === 'google' ? _SVG_GOOGLE : _SVG_MS) + ' ' + m.label + '</span>' +
+          '<label class="rh-sw" title="Show the ' + m.label + ' icon on the login screen"><input type="checkbox" id="' + idp + '"' + (on ? ' checked' : '') + ' onchange="rSetProviders()"><span class="rh-sw-t">Icon</span><span class="rh-sw-k"></span></label></div>' +
+          '<div class="rh-prov-row"><span class="rh-pill" style="color:' + st.col + ';border-color:' + st.col + ';">' + st.txt + '</span>' +
+          '<input type="date" class="rh-in sm" id="r-pexp-' + x.provider + '" value="' + (x.expires_on || '') + '">' +
+          '<button class="rh-btn ghost sm" onclick="rProviderSaveExpiry(\'' + x.provider + '\')">Save</button>' +
+          '<button class="rh-btn ghost sm" onclick="rProviderRotate(\'' + x.provider + '\')"><i class="fa-solid fa-rotate"></i> Rotate</button></div></div>';
+      });
+      h += '</div><div class="rh-note"><i class="fa-solid fa-circle-info"></i> Only the expiry date is stored here. The secret itself is entered in Supabase. Leave the date empty if the secret does not expire. Switch an icon on only after the provider is set up in Supabase.</div></div>';
+      el.innerHTML = h;
     });
   }
   window.rSetProviders = function () {
@@ -13071,27 +13090,6 @@
       document.body.appendChild(b);
     });
   };
-  function _loadProviderCard(el) {
-    if (!RS.supa) return;
-    RS.supa.rpc('rpc_provider_status').then(function (res) {
-      var d = res && res.data; if (!d || !d.success) return;
-      var h = '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--rc-border,#374151);font-size:10px;color:var(--rc-text-dim,#d1d5db);">' +
-        '<div style="font-size:11px;color:var(--rc-text,#fff);font-weight:600;margin-bottom:6px;">Sign-in provider secrets</div>';
-      d.providers.forEach(function (p) {
-        var m = _PROV_META[p.provider]; if (!m) return;
-        var s = _provStatus(p);
-        h += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">' +
-          '<span style="width:70px;font-weight:600;color:var(--rc-text,#fff);">' + m.label + '</span>' +
-          '<span style="font-size:10px;padding:2px 9px;border-radius:99px;border:1px solid ' + s.col + ';color:' + s.col + ';white-space:nowrap;">' + s.txt + '</span>' +
-          '<input type="date" id="r-pexp-' + p.provider + '" value="' + (p.expires_on || '') + '" style="background:transparent;color:inherit;border:1px solid var(--rc-border,#374151);border-radius:4px;padding:2px 6px;font-size:10px;font-family:inherit;">' +
-          '<button onclick="rProviderSaveExpiry(\'' + p.provider + '\')" style="padding:3px 10px;background:transparent;color:var(--rc-cyan,#D97757);border:1px solid var(--rc-cyan,#D97757);border-radius:4px;cursor:pointer;font-size:10px;font-family:inherit;">Save date</button>' +
-          '<button onclick="rProviderRotate(\'' + p.provider + '\')" style="padding:3px 10px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:10px;font-family:inherit;">Rotate…</button></div>';
-      });
-      h += '<div style="color:var(--rc-text-dim,#6b7280);">Only the expiry date is stored here. The secret itself is entered in Supabase. Leave the date empty if the secret does not expire.</div></div>';
-      var old = document.getElementById('r-prov-card'); if (old) old.remove();
-      var w = document.createElement('div'); w.id = 'r-prov-card'; w.innerHTML = h; el.appendChild(w);
-    });
-  }
   window.rProviderSaveExpiry = function (prov) {
     if (RS.userRole !== 'superadmin' || !RS.supa) return;
     var v = (document.getElementById('r-pexp-' + prov) || {}).value || null;
@@ -13160,101 +13158,69 @@
         var isActive = (status === 'ACTIVE');
         var safeId = uname.replace(/[^a-z0-9]/gi, '_');
 
-        var roleColor = role === 'SUPER_ADMIN' ? '#D97757' : role === 'ADMIN' ? '#8b5cf6' : role === 'BRANCH_USER' ? '#10b981' : '#9ca3af';
-
-        var row = '<div style="padding:14px 0;border-bottom:1px solid var(--rc-border,#1f2937);">';
-        // Username + role badge + status toggle
-        row += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
-        row += '<div style="display:flex;align-items:center;gap:8px;">';
-        row += '<span style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;">' + esc(uname) + '</span>';
-        row += '<span style="font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid ' + roleColor + ';color:' + roleColor + ';letter-spacing:0.5px;">' + esc(role) + '</span>';
-        if (u.invite_status === 'invited') row += '<span style="font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid #f1c40f;color:#f1c40f;letter-spacing:0.5px;">INVITED</span>' + (u.email ? '<a href="#" onclick="rResendInvite(\'' + uname.replace(/'/g, "\\'") + '\');return false;" style="font-size:9px;color:var(--rc-cyan,#D97757);text-decoration:underline;">resend e-mail</a>' : '');
-        if (u.email) row += '<span style="font-size:10px;color:var(--rc-text-dim,#9ca3af);">' + esc(u.email) + (u.department_id ? ' · ' + esc(u.department_id) : '') + '</span>';
+        var q = function (x) { return String(x).replace(/'/g, "\\'"); };
+        var roleCls = role === 'SUPER_ADMIN' ? 'owner' : role === 'ADMIN' ? 'admin' : role === 'BRANCH_USER' ? 'branch' : 'other';
+        var initial = (String(u.display_name || uname).trim().charAt(0) || '?').toUpperCase();
+        var row = '<div class="rh-user' + (isMaster ? ' master' : '') + (isActive ? '' : ' off') + '">';
+        // ---- head: avatar, name, badges, e-mail line, status ----
+        row += '<div class="rh-uhead"><div class="rh-av">' + esc(initial) + '</div><div class="rh-uinfo">';
+        row += '<div class="rh-uname"><span>' + esc(uname) + '</span><span class="rh-role ' + roleCls + '">' + esc(role) + '</span>';
+        if (u.invite_status === 'invited') row += '<span class="rh-role inv">INVITED</span>' + (u.email ? '<a href="#" class="rh-resend" onclick="rResendInvite(\'' + q(uname) + '\');return false;"><i class="fa-regular fa-envelope"></i> Resend e-mail</a>' : '');
         row += '</div>';
+        if (u.email || u.department_id) row += '<div class="rh-umeta">' + (u.email ? '<span><i class="fa-regular fa-envelope"></i> ' + esc(u.email) + '</span>' : '') + (u.department_id ? '<span><i class="fa-regular fa-building"></i> ' + esc(u.department_id) + '</span>' : '') + '</div>';
+        row += '</div><div class="rh-uside">';
         if (isMaster) {
-          row += '<span style="font-size:10px;color:var(--rc-cyan,#D97757);padding:3px 8px;border:1px solid rgba(217,119,87,0.3);border-radius:10px;">Owner</span>';
+          row += '<span class="rh-owner"><i class="fa-solid fa-crown"></i> Owner</span>';
         } else {
-          var statusStyle = isActive
-            ? 'background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.5);color:#10b981;'
-            : 'background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);color:#ef4444;';
           var newStatus = isActive ? 'DISABLED' : 'ACTIVE';
-          row += '<button onclick="rToggleHospitalUserStatus(\'' + uname.replace(/'/g, "\\'") + '\',\'' + newStatus + '\')" ';
-          row += 'style="' + statusStyle + 'padding:3px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;">';
-          row += isActive ? '● ACTIVE' : '○ DISABLED';
-          row += '</button>';
+          row += '<button class="rh-status ' + (isActive ? 'on' : 'off') + '" title="Click to ' + (isActive ? 'disable' : 'enable') + '" onclick="rToggleHospitalUserStatus(\'' + q(uname) + '\',\'' + newStatus + '\')"><i class="fa-solid fa-circle"></i> ' + (isActive ? 'Active' : 'Disabled') + '</button>';
         }
-        row += '</div>';
-        // App checkboxes
-        row += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:' + (isMaster ? '0' : '10px') + ';">';
+        row += '</div></div>';
+        // ---- app access: tags (click toggles; selected tag shows a check) ----
+        row += '<div class="rh-sec"><i class="fa-solid fa-grip"></i> App Access</div><div class="rh-tags">';
         _HOSPITAL_APPS.forEach(function (app) {
           var appId = 'uapp_' + safeId + '_' + app.replace(/[^a-z0-9]/gi, '_');
           var checked = apps.indexOf(app) !== -1;
           var isStoreApp = (app === 'Store Mngmnt');
           if (app === 'Doc Assembler' && !isMaster && _DOC_ASSEMBLER_BLOCKED_RE.test(uname)) {
-            row += '<label title="Doc Assembler is not available to branch IDs" style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--rc-text-dim,#9ca3af);opacity:0.45;cursor:not-allowed;">';
-            row += '<input type="checkbox" disabled style="cursor:not-allowed;"> ' + esc(app) + ' <span style="font-size:9px;">(HQ only)</span>';
-            row += '</label>';
+            row += '<label class="rh-tag dis" title="Doc Assembler is not available to branch IDs"><input type="checkbox" disabled><span><i class="fa-solid fa-lock"></i> ' + esc(app) + ' <em>HQ only</em></span></label>';
             return;
           }
           if (isMaster) {
-            row += '<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--rc-text-dim,#9ca3af);opacity:0.55;cursor:not-allowed;">';
-            row += '<input type="checkbox"' + (checked ? ' checked' : '') + ' disabled style="cursor:not-allowed;accent-color:var(--rc-cyan,#D97757);"> ' + esc(app);
-            row += '</label>';
+            row += '<label class="rh-tag dis"><input type="checkbox"' + (checked ? ' checked' : '') + ' disabled><span><i class="fa-solid fa-circle-check"></i> ' + esc(app) + '</span></label>';
           } else {
-            row += '<label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--rc-text-dim,#d1d5db);cursor:pointer;">';
-            row += '<input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') +
-              (isStoreApp ? ' onchange="_toggleHospitalStoreBranch(\'' + safeId + '\', this.checked)"' : '') +
-              ' style="cursor:pointer;accent-color:var(--rc-cyan,#D97757);"> ' + esc(app);
-            row += '</label>';
+            row += '<label class="rh-tag"><input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') +
+              (isStoreApp ? ' onchange="_toggleHospitalStoreBranch(\'' + safeId + '\', this.checked)"' : '') + '><span><i class="fa-solid fa-circle-check"></i> ' + esc(app) + '</span></label>';
           }
         });
         row += '</div>';
-        // Store Mngmnt branch lock — only meaningful for non-master users
-        // with the Store Mngmnt app checked; SUPER_ADMIN accounts get a
-        // free branch pick inside the app itself, so no lock to set here
-        // (mirrors #admin-store-branch-group in the desktop app's own
-        // Admin Settings modal, same store_branch column).
+        // ---- account type + store branch ----
         if (!isMaster) {
           var acctType = (u.account_type === 'individual') ? 'individual' : 'team';
-          row += '<div style="margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">';
-          row += '<span style="font-size:10px;color:var(--rc-text-dim,#9ca3af);">Account type:</span>';
-          row += '<select id="utype_' + safeId + '" style="background:var(--rc-bg-2,#1f2937);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);font-size:10px;border-radius:4px;padding:3px 6px;font-family:inherit;">';
-          row += '<option value="team"' + (acctType === 'team' ? ' selected' : '') + '>Team (shared ID)</option>';
-          row += '<option value="individual"' + (acctType === 'individual' ? ' selected' : '') + '>Individual (one person)</option>';
-          row += '</select>';
-          row += '</div>';
-        }
-        if (!isMaster) {
           var storeAppChecked = apps.indexOf('Store Mngmnt') !== -1;
-          row += '<div id="ubranch_' + safeId + '" style="' + (storeAppChecked ? '' : 'display:none;') + 'margin-bottom:10px;display:flex;align-items:center;gap:6px;">';
-          row += '<span style="font-size:10px;color:var(--rc-text-dim,#9ca3af);">Store branch:</span>';
-          row += '<select id="ubranchsel_' + safeId + '" style="background:var(--rc-bg-2,#1f2937);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);font-size:10px;border-radius:4px;padding:3px 6px;font-family:inherit;">';
-          _STORE_BRANCH_OPTIONS.forEach(function (opt) {
-            row += '<option value="' + esc(opt.val) + '"' + (opt.val === storeBranch ? ' selected' : '') + '>' + esc(opt.label) + '</option>';
-          });
-          row += '</select>';
-          row += '</div>';
-        }
-        if (!isMaster) {
+          row += '<div class="rh-opts"><div class="rh-opt"><span><i class="fa-regular fa-user"></i> Account Type</span>';
+          row += '<select id="utype_' + safeId + '" class="rh-in"><option value="team"' + (acctType === 'team' ? ' selected' : '') + '>Team (shared ID)</option><option value="individual"' + (acctType === 'individual' ? ' selected' : '') + '>Individual (one person)</option></select></div>';
+          row += '<div class="rh-vsep"></div><div class="rh-opt" id="ubranch_' + safeId + '" style="' + (storeAppChecked ? '' : 'display:none;') + '"><span><i class="fa-solid fa-store"></i> Store Branch</span>';
+          row += '<select id="ubranchsel_' + safeId + '" class="rh-in">';
+          _STORE_BRANCH_OPTIONS.forEach(function (opt) { row += '<option value="' + esc(opt.val) + '"' + (opt.val === storeBranch ? ' selected' : '') + '>' + esc(opt.label) + '</option>'; });
+          row += '</select></div></div>';
+          // ---- identity (collapsible) ----
           var idv = function (k) { return esc(u[k] || ''); };
-          row += '<details style="margin-bottom:10px;"><summary style="cursor:pointer;font-size:10px;color:var(--rc-cyan,#D97757);letter-spacing:0.5px;">E-MAIL / DEPARTMENT / SIGN-IN</summary>';
-          row += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center;">';
-          var ist = 'padding:5px 8px;background:#1f2937;border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:10px;font-family:inherit;';
-          row += '<input id="uname_' + safeId + '" placeholder="Full name" value="' + idv('display_name') + '" style="' + ist + 'width:140px;">';
-          row += '<input id="uemail_' + safeId + '" placeholder="E-mail" value="' + idv('email') + '"' + (u.auth_id ? ' disabled title="Locked after sign up"' : '') + ' style="' + ist + 'width:190px;">';
-          row += '<select id="udept_' + safeId + '" style="' + ist + '">' + _deptOpts(u.department_id) + '</select>';
-          row += '<select id="urole_' + safeId + '" style="' + ist + '">' + ['VIEWER','OPERATOR','BRANCH_USER','DEPT_ADMIN','BOD','ADMIN'].map(function (r) { return '<option value="' + r + '"' + (r === role ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>';
-          row += '<label style="font-size:10px;color:var(--rc-text-dim,#d1d5db);"><input type="checkbox" id="ustore_' + safeId + '"' + (u.store_access ? ' checked' : '') + '> Store (TOTP)</label>';
-          row += '<label style="font-size:10px;color:var(--rc-text-dim,#d1d5db);"><input type="checkbox" id="ugoog_' + safeId + '"' + (u.google_ok !== false ? ' checked' : '') + '> Google</label>';
-          row += '<label style="font-size:10px;color:var(--rc-text-dim,#d1d5db);"><input type="checkbox" id="ums_' + safeId + '"' + (u.microsoft_ok !== false ? ' checked' : '') + '> Microsoft</label>';
-          row += '<button onclick="rSaveUserIdentity(\'' + uname.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:transparent;color:var(--rc-cyan,#D97757);font-weight:700;border:1px solid var(--rc-cyan,#D97757);border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;">SAVE IDENTITY</button>';
+          row += '<details class="rh-det"><summary><i class="fa-solid fa-chevron-right"></i> E-mail / Department / Sign-in</summary>';
+          row += '<div class="rh-idgrid">';
+          row += '<input id="uname_' + safeId + '" class="rh-in" placeholder="Full name" value="' + idv('display_name') + '" style="width:150px;">';
+          row += '<input id="uemail_' + safeId + '" class="rh-in" placeholder="E-mail" value="' + idv('email') + '"' + (u.auth_id ? ' disabled title="Locked after sign up"' : '') + ' style="width:210px;">';
+          row += '<select id="udept_' + safeId + '" class="rh-in">' + _deptOpts(u.department_id) + '</select>';
+          row += '<select id="urole_' + safeId + '" class="rh-in">' + ['VIEWER','OPERATOR','BRANCH_USER','DEPT_ADMIN','BOD','ADMIN'].map(function (r) { return '<option value="' + r + '"' + (r === role ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>';
+          row += '</div><div class="rh-tags sm">';
+          row += '<label class="rh-tag"><input type="checkbox" id="ustore_' + safeId + '"' + (u.store_access ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Store (TOTP)</span></label>';
+          row += '<label class="rh-tag"><input type="checkbox" id="ugoog_' + safeId + '"' + (u.google_ok !== false ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Google</span></label>';
+          row += '<label class="rh-tag"><input type="checkbox" id="ums_' + safeId + '"' + (u.microsoft_ok !== false ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Microsoft</span></label>';
+          row += '<button class="rh-btn ghost sm" onclick="rSaveUserIdentity(\'' + q(uname) + '\')"><i class="fa-solid fa-floppy-disk"></i> Save identity</button>';
           row += '</div></details>';
-        }
-        if (!isMaster) {
-          row += '<button onclick="rSaveUserApps(\'' + uname.replace(/'/g, "\\'") + '\')" ';
-          row += 'style="padding:4px 14px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;">SAVE APPS</button>';
-          row += '<button onclick="rDeleteHospitalUser(\'' + uname.replace(/'/g, "\\'") + '\')" title="Remove this ID" ';
-          row += 'style="margin-left:8px;padding:4px 12px;background:transparent;color:#ef4444;font-weight:700;border:1px solid rgba(239,68,68,0.45);border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:0.5px;">REMOVE ID</button>';
+          // ---- actions ----
+          row += '<div class="rh-acts"><button class="rh-btn primary sm" onclick="rSaveUserApps(\'' + q(uname) + '\')"><i class="fa-solid fa-floppy-disk"></i> Save apps</button>';
+          row += '<button class="rh-btn danger sm" onclick="rDeleteHospitalUser(\'' + q(uname) + '\')" title="Remove this ID"><i class="fa-regular fa-trash-can"></i> Remove ID</button></div>';
         }
         row += '</div>';
         rows.push(row);
@@ -13353,7 +13319,7 @@
   // #admin-store-branch-group in the desktop app's Admin Settings modal.
   window._toggleHospitalStoreBranch = function (safeId, checked) {
     var div = document.getElementById('ubranch_' + safeId);
-    if (div) div.style.display = checked ? 'flex' : 'none';
+    if (div) div.style.display = checked ? '' : 'none';
   };
 
   // Permanently removes an ID that is no longer in use. Gated server-side by
