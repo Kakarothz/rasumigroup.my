@@ -1051,7 +1051,7 @@
       '          <div style="display:flex;flex-wrap:wrap;gap:8px;">',
       '            <select id="r-hinv-legacy" onchange="rHinvLegacyPick()" title="Link an existing individual ID (keeps its history)" style="flex:1 1 100%;' + _HINV_SEL + '"><option value="">New user (no existing ID)</option></select>',
       '            <input id="r-hinv-name" type="text" placeholder="Full name" style="flex:1 1 200px;min-width:0;' + _HINV_INP + '">',
-      '            <input id="r-hinv-un" type="text" placeholder="Username" maxlength="24" autocomplete="off" spellcheck="false" oninput="this.dataset.touched=\'1\'" style="flex:1 1 160px;min-width:0;' + _HINV_INP + '">',
+      '            <input id="r-hinv-un" type="text" placeholder="Username" maxlength="24" dir="auto" autocomplete="off" spellcheck="false" oninput="this.dataset.touched=\'1\'" style="flex:1 1 160px;min-width:0;' + _HINV_INP + '">',
       '            <input id="r-hinv-email" type="email" placeholder="E-mail" autocomplete="off" oninput="rHinvSuggest()" style="flex:1 1 220px;min-width:0;' + _HINV_INP + '">',
       '            <input id="r-hinv-email2" type="email" placeholder="Confirm e-mail" autocomplete="off" style="flex:1 1 220px;min-width:0;' + _HINV_INP + '">',
       '            <select id="r-hinv-role" style="' + _HINV_SEL + '"><option value="VIEWER">VIEWER</option><option value="OPERATOR">OPERATOR</option><option value="BRANCH_USER">BRANCH_USER</option><option value="DEPT_ADMIN">DEPT_ADMIN</option><option value="BOD">BOD (read-only overview)</option><option value="ADMIN">ADMIN</option></select>',
@@ -13301,7 +13301,7 @@
         var storeBranch = u.store_branch || '';
         var isMaster = (uname === 'mustaqim' || role === 'SUPER_ADMIN');
         var isActive = (status === 'ACTIVE');
-        var safeId = uname.replace(/[^a-z0-9]/gi, '_');
+        var safeId = _sidU(uname);
 
         var q = function (x) { return String(x).replace(/'/g, "\\'"); };
         var roleCls = role === 'SUPER_ADMIN' ? 'owner' : role === 'ADMIN' ? 'admin' : role === 'BRANCH_USER' ? 'branch' : 'other';
@@ -13497,7 +13497,7 @@
   window.rSaveUserApps = function (username) {
     if (RS.userRole !== 'superadmin') return;
     if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
-    var safeId = username.replace(/[^a-z0-9]/gi, '_');
+    var safeId = _sidU(username);
     var apps = [];
     _HOSPITAL_APPS.forEach(function (app) {
       var appId = 'uapp_' + safeId + '_' + app.replace(/[^a-z0-9]/gi, '_');
@@ -13525,6 +13525,11 @@
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
 
+  // Usernames may be Latin, Arabic or Jawi (diacritics stripped, single inner spaces). Same rules as the database.
+  function _normUsername(u) { return String(u || '').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640\u06D6-\u06ED]/g, '').replace(/\s+/g, ' ').trim(); }
+  function _validUsername(u) { u = _normUsername(u); return u.length >= 3 && u.length <= 24 && /^[a-z0-9ء-ي٠-٩ٮ-ۓ۰-ۿݐ-ݿ]([a-z0-9._ ء-ي٠-٩ٮ-ۓ۰-ۿݐ-ݿ-]*[a-z0-9ء-ي٠-٩ٮ-ۓ۰-ۿݐ-ݿ])?$/.test(u); }
+  // DOM-id-safe form of a username (non-ASCII characters become _<hex>, so two Arabic names never collide)
+  function _sidU(u) { return String(u || '').replace(/[^a-z0-9]/gi, function (c) { return '_' + c.charCodeAt(0).toString(16); }); }
   window.rHuserInviteClick = function () {
     var f = document.getElementById('r-huser-invite-form');
     if (!f) return;
@@ -13569,8 +13574,8 @@
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { rToast('Enter a valid e-mail', 'error'); return; }
     if (email !== email2) { rToast('The two e-mail addresses do not match', 'error'); return; }
     var legacy = g('r-hinv-legacy') ? g('r-hinv-legacy').value : '';
-    var un = g('r-hinv-un') ? g('r-hinv-un').value.trim().toLowerCase() : '';
-    if (!legacy && un && !/^[a-z0-9][a-z0-9._-]{2,23}$/.test(un)) { rToast('Username: 3-24 characters, a-z 0-9 . _ - (start with a letter or number)', 'error'); return; }
+    var un = g('r-hinv-un') ? _normUsername(g('r-hinv-un').value) : '';
+    if (!legacy && un && !_validUsername(un)) { rToast('Username: 3-24 characters (letters incl. Arabic/Jawi, numbers, . _ -)', 'error'); return; }
     var call = legacy
       ? RS.supa.rpc('rpc_link_legacy_user', { p_username: legacy, p_email: email, p_name: name, p_dept: g('r-hinv-dept').value, p_google: g('r-hinv-google').checked, p_microsoft: g('r-hinv-ms').checked })
       : RS.supa.rpc('rpc_invite_hospital_user', {
@@ -13588,7 +13593,7 @@
   window.rSaveUserIdentity = function (username) {
     if (RS.userRole !== 'superadmin') return;
     if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
-    var sid = username.replace(/[^a-z0-9]/gi, '_');
+    var sid = _sidU(username);
     var v = function (p) { var e = document.getElementById(p + sid); return e ? e.value : ''; };
     var c = function (p) { var e = document.getElementById(p + sid); return !!(e && e.checked); };
     RS.supa.rpc('rpc_update_hospital_user_identity', {
