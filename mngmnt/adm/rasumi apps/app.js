@@ -13025,8 +13025,20 @@
         el.innerHTML = row('<div><div style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;">Invitation phase: ' + (p.expired ? 'ended' : 'day ' + Math.min(14, 15 - d) + ' of 14') + '</div><div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);margin-top:2px;">Started ' + new Date(p.started_at).toLocaleDateString('en-GB') + ' · ' + (p.expired ? 'ended ' : 'ends ') + new Date(p.legacy_until).toLocaleDateString('en-GB') + '</div></div>',
           pill(p.expired ? 'ENDED' : d + ' DAYS LEFT', col));
       }
+      var pv = p.providers || {};
+      el.insertAdjacentHTML('beforeend', '<div style="display:flex;align-items:center;gap:14px;margin-top:8px;padding-top:8px;border-top:1px solid var(--rc-border,#374151);font-size:10px;color:var(--rc-text-dim,#d1d5db);">Sign-in icons: ' +
+        '<label><input type="checkbox" id="r-prov-google"' + (pv.google ? ' checked' : '') + ' onchange="rSetProviders()"> Google</label>' +
+        '<label><input type="checkbox" id="r-prov-ms"' + (pv.microsoft ? ' checked' : '') + ' onchange="rSetProviders()"> Microsoft</label>' +
+        '<span style="color:var(--rc-text-dim,#6b7280);">Switch on only after the provider is set up in Supabase.</span></div>');
     });
   }
+  window.rSetProviders = function () {
+    if (RS.userRole !== 'superadmin' || !RS.supa) return;
+    RS.supa.rpc('rpc_rollout_providers', { p_google: document.getElementById('r-prov-google').checked, p_microsoft: document.getElementById('r-prov-ms').checked }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      rToast('Sign-in icons updated', 'success');
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
   window.rRolloutStart = function () {
     if (RS.userRole !== 'superadmin' || !RS.supa) return;
     if (!window.confirm('Start the invitation phase now?\n\nThe 14-day period begins immediately. Invited users can sign up and every legacy-ID login will show the sign-up banner. This cannot be undone.')) return;
