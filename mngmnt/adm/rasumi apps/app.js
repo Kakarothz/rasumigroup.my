@@ -1049,8 +1049,10 @@
       '        <div id="r-huser-invite-form" class="rh-form" style="display:none;">',
       '          <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">INVITE BY E-MAIL (they sign up with this exact e-mail)</div>',
       '          <div style="display:flex;flex-wrap:wrap;gap:8px;">',
+      '            <select id="r-hinv-legacy" onchange="rHinvLegacyPick()" title="Link an existing individual ID (keeps its history)" style="flex:1 1 100%;' + _HINV_SEL + '"><option value="">New user (no existing ID)</option></select>',
       '            <input id="r-hinv-name" type="text" placeholder="Full name" style="flex:1 1 200px;min-width:0;' + _HINV_INP + '">',
-      '            <input id="r-hinv-email" type="email" placeholder="E-mail" autocomplete="off" style="flex:1 1 220px;min-width:0;' + _HINV_INP + '">',
+      '            <input id="r-hinv-un" type="text" placeholder="Username" maxlength="24" autocomplete="off" spellcheck="false" oninput="this.dataset.touched=\'1\'" style="flex:1 1 160px;min-width:0;' + _HINV_INP + '">',
+      '            <input id="r-hinv-email" type="email" placeholder="E-mail" autocomplete="off" oninput="rHinvSuggest()" style="flex:1 1 220px;min-width:0;' + _HINV_INP + '">',
       '            <input id="r-hinv-email2" type="email" placeholder="Confirm e-mail" autocomplete="off" style="flex:1 1 220px;min-width:0;' + _HINV_INP + '">',
       '            <select id="r-hinv-role" style="' + _HINV_SEL + '"><option value="VIEWER">VIEWER</option><option value="OPERATOR">OPERATOR</option><option value="BRANCH_USER">BRANCH_USER</option><option value="DEPT_ADMIN">DEPT_ADMIN</option><option value="BOD">BOD (read-only overview)</option><option value="ADMIN">ADMIN</option></select>',
       '            <select id="r-hinv-dept" style="' + _HINV_SEL + '"><option value="">- department -</option></select>',
@@ -13527,11 +13529,34 @@
     var f = document.getElementById('r-huser-invite-form');
     if (!f) return;
     f.style.display = f.style.display === 'none' ? 'block' : 'none';
-    if (f.style.display === 'block') { _loadDepts(); var n = document.getElementById('r-hinv-name'); if (n) n.focus(); }
+    if (f.style.display === 'block') { _loadDepts(); _loadLinkable(); var n = document.getElementById('r-hinv-name'); if (n) n.focus(); }
   };
   window.rHuserInviteClose = function () {
     var f = document.getElementById('r-huser-invite-form'); if (f) f.style.display = 'none';
-    ['r-hinv-name', 'r-hinv-email', 'r-hinv-email2'].forEach(function (id) { var e = document.getElementById(id); if (e) e.value = ''; });
+    ['r-hinv-name', 'r-hinv-email', 'r-hinv-email2', 'r-hinv-un'].forEach(function (id) { var e = document.getElementById(id); if (e) { e.value = ''; e.disabled = false; delete e.dataset.touched; } });
+    var lg = document.getElementById('r-hinv-legacy'); if (lg) lg.value = '';
+  };
+  // Username defaults to the e-mail name (editable); a legacy ID selected from the list locks it.
+  window.rHinvSuggest = function () {
+    var un = document.getElementById('r-hinv-un'), em = document.getElementById('r-hinv-email');
+    if (!un || !em || un.dataset.touched || un.disabled) return;
+    un.value = em.value.trim().toLowerCase().split('@')[0].replace(/[^a-z0-9._-]/g, '').replace(/^[._-]+/, '').slice(0, 24);
+  };
+  function _loadLinkable() {
+    var sel = document.getElementById('r-hinv-legacy');
+    if (!sel || !RS.supa) return;
+    RS.supa.rpc('rpc_legacy_linkable').then(function (r) {
+      var ids = (r.data && r.data.ids) || [];
+      sel.innerHTML = '<option value="">New user (no existing ID)</option>' + ids.map(function (i) {
+        return '<option value="' + esc(i) + '">Link existing ID: ' + esc(i) + ' (keeps its history)</option>';
+      }).join('');
+    }).catch(function () { });
+  }
+  window.rHinvLegacyPick = function () {
+    var v = document.getElementById('r-hinv-legacy').value, un = document.getElementById('r-hinv-un');
+    if (!un) return;
+    if (v) { un.value = v; un.disabled = true; }
+    else { un.disabled = false; un.value = ''; delete un.dataset.touched; rHinvSuggest(); }
   };
   window.rHuserInviteSend = function () {
     if (RS.userRole !== 'superadmin') return;
@@ -13543,13 +13568,19 @@
     if (!name) { rToast('Full name is required', 'error'); return; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { rToast('Enter a valid e-mail', 'error'); return; }
     if (email !== email2) { rToast('The two e-mail addresses do not match', 'error'); return; }
-    RS.supa.rpc('rpc_invite_hospital_user', {
-      p_name: name, p_email: email, p_role: g('r-hinv-role').value, p_dept: g('r-hinv-dept').value,
-      p_branch: '', p_apps: [], p_store_access: g('r-hinv-store').checked,
-      p_google: g('r-hinv-google').checked, p_microsoft: g('r-hinv-ms').checked
-    }).then(function (res) {
+    var legacy = g('r-hinv-legacy') ? g('r-hinv-legacy').value : '';
+    var un = g('r-hinv-un') ? g('r-hinv-un').value.trim().toLowerCase() : '';
+    if (!legacy && un && !/^[a-z0-9][a-z0-9._-]{2,23}$/.test(un)) { rToast('Username: 3-24 characters, a-z 0-9 . _ - (start with a letter or number)', 'error'); return; }
+    var call = legacy
+      ? RS.supa.rpc('rpc_link_legacy_user', { p_username: legacy, p_email: email, p_name: name, p_dept: g('r-hinv-dept').value, p_google: g('r-hinv-google').checked, p_microsoft: g('r-hinv-ms').checked })
+      : RS.supa.rpc('rpc_invite_hospital_user', {
+        p_name: name, p_email: email, p_role: g('r-hinv-role').value, p_dept: g('r-hinv-dept').value,
+        p_branch: '', p_apps: [], p_store_access: g('r-hinv-store').checked,
+        p_google: g('r-hinv-google').checked, p_microsoft: g('r-hinv-ms').checked, p_username: un || null
+      });
+    call.then(function (res) {
       if (res.error) throw new Error(res.error.message);
-      rToast('Invited ' + email + ' — they get an e-mail once the invitation phase has started', 'success'); _flushInvites();
+      rToast((legacy ? 'Linked ' + legacy + ' to ' : 'Invited ') + email + ' — they get an e-mail once the invitation phase has started', 'success'); _flushInvites();
       rHuserInviteClose();
       _loadHospitalUsers();
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
