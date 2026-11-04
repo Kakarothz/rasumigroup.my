@@ -1,8 +1,19 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>Rasumi Apps</title>
 <style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 80% at 50% 0%,#2a0a4a,#0f0818 65%);color:#fff;font:16px/1.5 "Segoe UI",system-ui,sans-serif;padding:20px}
-.c{width:100%;max-width:460px;background:rgba(20,10,30,.8);border:1px solid rgba(189,0,255,.45);border-radius:14px;padding:28px 28px 24px;text-align:center;box-shadow:0 0 30px rgba(189,0,255,.25)}
+.c{width:100%;max-width:460px;padding:28px 28px 24px;text-align:center}
 .c img{width:70%;max-width:260px;margin-bottom:14px}h1{font-size:20px;margin:0 0 8px;letter-spacing:.5px}p{color:#d7b8f0;margin:6px 0}
 ol{text-align:left;background:rgba(120,20,160,.2);border-left:4px solid #d900ff;border-radius:6px;padding:12px 12px 12px 34px;margin:14px 0;color:#fff}li{margin:4px 0}
 input{width:100%;height:42px;margin:6px 0;padding:0 12px;border-radius:6px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.4);color:#fff;font-size:16px}
 button{margin-top:8px;width:100%;padding:12px;border-radius:99px;border:2px solid #bd00ff;background:linear-gradient(135deg,#8b008b,#4b0082);color:#fff;font-weight:700;letter-spacing:1px;cursor:pointer}
-.m{min-height:22px;font-size:14px;margin-top:8px}.bad{color:#ff6b7a}.ok{color:#39ff14}</style></head><body><div class="c"><img src="../logo.webp" alt="Rasumi Medipharma"><h1>E-mail confirmed</h1><p>Go back to <b>Rasumi Apps</b>. The sign-up screen continues by itself in a few seconds.</p><p style="font-size:13px">You can close this tab.</p></div></body></html>
+.m{min-height:22px;font-size:14px;margin-top:8px}.bad{color:#ff6b7a}.ok{color:#39ff14}</style></head><body><div class="c"><img src="../logo.webp" alt="Rasumi Medipharma"><h1 id="t">E-mail confirmed</h1><p id="m">Return to <b>Rasumi Apps</b>. The sign-up screen continues automatically.</p><p id="n" style="font-size:13px">You can close this tab.</p>
+<script>(function(){try{
+var raw=(location.hash||'').replace(/^#/,'')+'&'+(location.search||'').replace(/^\?/,'');
+var q=new URLSearchParams(raw), msg=(q.get('message')||'').toLowerCase(), type=q.get('type')||'', err=q.get('error_description')||q.get('error')||'';
+var t=document.getElementById('t'), m=document.getElementById('m'), n=document.getElementById('n');
+if(err){t.textContent='Link not valid';m.textContent='This link has expired or was already used. Return to Rasumi Apps and request a new one.';n.textContent='';}
+else if(msg.indexOf('other email')>-1||msg.indexOf('other e-mail')>-1){t.textContent='Step 1 of 2 complete';m.innerHTML='Now open the <b>other</b> e-mail address and confirm the second link to finish the change.';n.textContent='';}
+else if(type==='email_change'||msg.indexOf('email address changed')>-1||msg.indexOf('email change')>-1){t.textContent='E-mail changed';m.innerHTML='Return to <b>Rasumi Apps</b>. Your new e-mail is active.';}
+else if(type==='recovery'){t.textContent='Password reset';m.innerHTML='Return to <b>Rasumi Apps</b> to continue.';}
+history.replaceState(null,'',location.pathname);
+}catch(e){}})();</script>
+</div></body></html>

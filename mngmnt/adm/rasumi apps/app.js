@@ -2457,7 +2457,7 @@
       var col = _ntCol(it.severity);
       var ic = _NT_ICON[it.category] || 'fa-bell';
       var unread = !it.read_at;
-      return '<div style="padding:6px 10px;border-bottom:1px solid var(--glass-border);display:flex;gap:8px;align-items:flex-start;' +
+      return '<div onclick="window._rNtRead(' + it.id + ')" style="cursor:default;padding:6px 10px;border-bottom:1px solid var(--glass-border);display:flex;gap:8px;align-items:flex-start;' +
         (unread ? 'background:rgba(239,68,68,.06);border-left:3px solid ' + col : 'border-left:3px solid transparent') + '">' +
         '<i class="fa-solid ' + ic + '" style="color:' + col + ';margin-top:2px;font-size:11px;flex-shrink:0"></i>' +
         '<div style="flex:1;min-width:0">' +
@@ -2476,6 +2476,12 @@
       if (r.data && r.data.success) { rToast('Unlocked', 'ok'); } else { rToast('Action failed', 'error'); }
       _ntLoad();
     });
+  };
+  window._rNtRead = function (id) {                      // clicking a notification marks just that one as read
+    var it = _nt.items.filter(function (x) { return x.id === id; })[0];
+    if (!it || it.read_at) return;
+    it.read_at = new Date().toISOString(); _nt.unread = Math.max(0, (_nt.unread || 0) - 1); updateAlertBadge();
+    RS.supa.rpc('rpc_notif_mark_read', { p_ids: [id] }).then(function () { _ntLoad(); });
   };
   window._rNtResolve = function (id) { RS.supa.rpc('rpc_notif_resolve', { p_ids: [id] }).then(function () { _ntLoad(); }); };
   window._rNtReadAll = function () { RS.supa.rpc('rpc_notif_mark_read', { p_ids: null }).then(function () { _ntLoad(); }); };
@@ -2541,7 +2547,7 @@
   function updateAlertBadge() {
     var tot = RS.unresolvedVibes + RS.unresolvedRenamer + RS.unresolvedVims + RS.unresolvedAppErrors + _sysAlertUnread + (_nt.unread || 0);
     var na = $r('r-nb-alerts');
-    if (na) { na.textContent = tot || ''; na.style.display = tot ? '' : 'none'; }
+    if (na) { na.textContent = tot > 99 ? '99+' : (tot || ''); na.classList.toggle('hidden', !tot); na.style.display = tot ? '' : 'none'; }
     // Keep the dropdown's per-category summary in sync with the badge total
     // it's built from — every caller of updateAlertBadge() (the 4 badge-count
     // callbacks in _pollBadgeCounts, plus system alert pushes) now also
