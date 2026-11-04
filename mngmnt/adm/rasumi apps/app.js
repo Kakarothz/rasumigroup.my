@@ -2360,7 +2360,10 @@
     _lastAlertKey[key] = now;
 
     // Push to store (always, so bell shows running history)
-    _sysAlerts.unshift({ ts: ts, machine: machine, lvl: lvl, msg: msg });
+    // One row per device + level: a repeat only bumps its counter, refreshes the time/message and moves it to the top
+    var prev = null;
+    for (var si = 0; si < _sysAlerts.length; si++) { if (_sysAlerts[si].machine === machine && _sysAlerts[si].lvl === lvl) { prev = _sysAlerts.splice(si, 1)[0]; break; } }
+    _sysAlerts.unshift({ ts: ts, machine: machine, lvl: lvl, msg: msg, count: (prev ? (prev.count || 1) : 0) + 1 });
     if (_sysAlerts.length > 50) _sysAlerts.pop();
 
     // Toast only for genuinely new, non-stale, post-init events
@@ -2457,7 +2460,7 @@
       var col = _ntCol(it.severity);
       var ic = _NT_ICON[it.category] || 'fa-bell';
       var unread = !it.read_at;
-      return '<div data-nt="' + it.id + '" onclick="window._rNtRead(' + it.id + ')" style="cursor:default;overflow:hidden;padding:6px 10px;border-bottom:1px solid var(--glass-border);display:flex;gap:8px;align-items:flex-start;' +
+      return '<div data-nt="' + it.id + '" onclick="window._rNtRead(' + it.id + ')" ondblclick="window._rNtResolve(' + it.id + ')" title="Double-click to dismiss" style="user-select:none;cursor:default;overflow:hidden;padding:6px 10px;border-bottom:1px solid var(--glass-border);display:flex;gap:8px;align-items:flex-start;' +
         (unread ? 'background:rgba(239,68,68,.06);border-left:3px solid ' + col : 'border-left:3px solid transparent') + '">' +
         '<i class="fa-solid ' + ic + '" style="color:' + col + ';margin-top:2px;font-size:11px;flex-shrink:0"></i>' +
         '<div style="flex:1;min-width:0">' +
@@ -2472,8 +2475,9 @@
   }
 
   // Row slides out to the right, then collapses; the bell panel stays open.
-  function _ntSlideOut(id, done) {
-    var rows = document.querySelectorAll('[data-nt="' + id + '"]');
+  function _ntSlideOut(id, done) { _rowSlide('[data-nt="' + id + '"]', done); }
+  function _rowSlide(sel, done) {
+    var rows = document.querySelectorAll(sel);
     if (!rows.length) { done(); return; }
     Array.prototype.forEach.call(rows, function (el) {
       el.style.maxHeight = el.offsetHeight + 'px';
@@ -2501,6 +2505,14 @@
     if (!it || it.read_at) return;
     it.read_at = new Date().toISOString(); _nt.unread = Math.max(0, (_nt.unread || 0) - 1); updateAlertBadge();
     RS.supa.rpc('rpc_notif_mark_read', { p_ids: [id] }).then(function () { _ntLoad(); });
+  };
+  // Double-click a warning row: it slides out of the panel (the device/level counter starts again if it comes back)
+  window._rSysDismiss = function (key) {
+    _rowSlide('[data-sys="' + String(key).replace(/"/g, '\\"') + '"]', function () {
+      _sysAlerts = _sysAlerts.filter(function (a) { return (a.machine + '|' + a.lvl) !== key; });
+      _sysAlertUnread = Math.min(_sysAlertUnread, _sysAlerts.length);
+      updateAlertBadge();
+    });
   };
   window._rNtResolve = function (id) {
     var req = RS.supa.rpc('rpc_notif_resolve', { p_ids: [id] });
@@ -2550,11 +2562,12 @@
       var col = isCrit ? 'var(--rc-red,#ef4444)' : 'var(--rc-warn,#f59e0b)';
       var icon = isCrit ? 'fa-circle-exclamation' : 'fa-triangle-exclamation';
       html +=
-        '<div style="padding:4px 10px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:7px">' +
+        '<div data-sys="' + esc(a.machine + '|' + a.lvl) + '" ondblclick="window._rSysDismiss(this.getAttribute(\'data-sys\'))" title="Double-click to dismiss" style="user-select:none;overflow:hidden;padding:4px 10px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;gap:7px">' +
         '<i class="fa-solid ' + icon + '" style="color:' + col + ';flex-shrink:0;font-size:11px"></i>' +
         '<div style="flex:1;min-width:0">' +
         '<div style="font-size:10px;color:' + col + ';font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
         esc(a.lvl) + ' — ' + esc(a.machine) +
+        ((a.count || 1) > 1 ? ' <span style="background:' + col + ';color:#fff;border-radius:8px;padding:0 6px;font-size:9px;margin-left:4px">&times;' + a.count + '</span>' : '') +
         '</div>' +
         '<div style="font-size:9px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
         esc(a.msg) +

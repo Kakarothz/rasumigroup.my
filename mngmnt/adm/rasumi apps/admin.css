@@ -412,6 +412,7 @@ nav-item.active .nav-icon { opacity: 1; }
 .badge.purple   { background: var(--accent-dim); color: var(--accent);  border: 1px solid rgba(192,132,252,0.3); }
 .badge.neutral  { background: rgba(255,255,255,0.06); color: var(--text-1); border: 1px solid var(--border); }
 .badge::before  { content: '●'; font-size: 7px; }
+[id^="r-nb-"].badge::before { content: none; }   /* nav + bell count tags are plain numbers, no status dot */
 
 /* Buttons */
 .btn {
