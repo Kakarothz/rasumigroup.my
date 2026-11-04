@@ -1152,7 +1152,7 @@
       var p = document.getElementById('r-display-panel');
       var g = document.getElementById('r-gear-btn');
       if (d && !d.classList.contains('hidden')) d.classList.add('hidden');
-      if (n && !n.classList.contains('hidden')) n.classList.add('hidden');
+      if (n && !n.classList.contains('hidden') && !n.contains(ev.target)) n.classList.add('hidden');   // clicks inside the bell panel (Resolve, Unlock...) keep it open
       if (p && !p.classList.contains('hidden') && g && !g.contains(ev.target) && !p.contains(ev.target)) {
         p.classList.add('hidden');
       }
@@ -2457,7 +2457,7 @@
       var col = _ntCol(it.severity);
       var ic = _NT_ICON[it.category] || 'fa-bell';
       var unread = !it.read_at;
-      return '<div onclick="window._rNtRead(' + it.id + ')" style="cursor:default;padding:6px 10px;border-bottom:1px solid var(--glass-border);display:flex;gap:8px;align-items:flex-start;' +
+      return '<div data-nt="' + it.id + '" onclick="window._rNtRead(' + it.id + ')" style="cursor:default;overflow:hidden;padding:6px 10px;border-bottom:1px solid var(--glass-border);display:flex;gap:8px;align-items:flex-start;' +
         (unread ? 'background:rgba(239,68,68,.06);border-left:3px solid ' + col : 'border-left:3px solid transparent') + '">' +
         '<i class="fa-solid ' + ic + '" style="color:' + col + ';margin-top:2px;font-size:11px;flex-shrink:0"></i>' +
         '<div style="flex:1;min-width:0">' +
@@ -2471,10 +2471,29 @@
     }).join('');
   }
 
+  // Row slides out to the right, then collapses; the bell panel stays open.
+  function _ntSlideOut(id, done) {
+    var rows = document.querySelectorAll('[data-nt="' + id + '"]');
+    if (!rows.length) { done(); return; }
+    Array.prototype.forEach.call(rows, function (el) {
+      el.style.maxHeight = el.offsetHeight + 'px';
+      el.style.transition = 'transform .3s ease, opacity .3s ease, max-height .3s ease .12s, padding .3s ease .12s, border-width .3s ease .12s';
+      void el.offsetHeight;
+      el.style.transform = 'translateX(110%)'; el.style.opacity = '0';
+      el.style.maxHeight = '0'; el.style.paddingTop = '0'; el.style.paddingBottom = '0'; el.style.borderBottomWidth = '0';
+    });
+    setTimeout(done, 460);
+  }
+  function _ntDropLocal(id) {
+    var it = _nt.items.filter(function (x) { return x.id === id; })[0];
+    if (it && !it.read_at) _nt.unread = Math.max(0, (_nt.unread || 0) - 1);
+    _nt.items = _nt.items.filter(function (x) { return x.id !== id; });
+    updateAlertBadge();
+  }
   window._rNtAction = function (id) {
     RS.supa.rpc('rpc_notif_action', { p_id: id }).then(function (r) {
-      if (r.data && r.data.success) { rToast('Unlocked', 'ok'); } else { rToast('Action failed', 'error'); }
-      _ntLoad();
+      if (r.data && r.data.success) { rToast('Unlocked', 'ok'); _ntSlideOut(id, function () { _ntDropLocal(id); _ntLoad(); }); }
+      else { rToast('Action failed', 'error'); _ntLoad(); }
     });
   };
   window._rNtRead = function (id) {                      // clicking a notification marks just that one as read
@@ -2483,7 +2502,10 @@
     it.read_at = new Date().toISOString(); _nt.unread = Math.max(0, (_nt.unread || 0) - 1); updateAlertBadge();
     RS.supa.rpc('rpc_notif_mark_read', { p_ids: [id] }).then(function () { _ntLoad(); });
   };
-  window._rNtResolve = function (id) { RS.supa.rpc('rpc_notif_resolve', { p_ids: [id] }).then(function () { _ntLoad(); }); };
+  window._rNtResolve = function (id) {
+    var req = RS.supa.rpc('rpc_notif_resolve', { p_ids: [id] });
+    _ntSlideOut(id, function () { _ntDropLocal(id); req.then(function () { _ntLoad(); }, function () { _ntLoad(); }); });
+  };
   window._rNtReadAll = function () { RS.supa.rpc('rpc_notif_mark_read', { p_ids: null }).then(function () { _ntLoad(); }); };
   window._rNtResolveAll = function () {
     if (!window.confirm('Resolve all open notifications?')) return;
