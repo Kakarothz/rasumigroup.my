@@ -758,6 +758,9 @@
       '      <div class="dropdown-item" onclick="window.location.href=\'./\'"><i class="fa-solid fa-border-all"></i> RASUMI APPS</div>',
       '      <div class="dropdown-item" onclick="window.location.href=\'../sales report/\'"><i class="fa-solid fa-shield-halved"></i> SALES REPORT</div>',
       '      <div class="dropdown-item" onclick="window.location.href=\'../camscanner/camscanner_admin/\'"><i class="fa-solid fa-camera"></i> CAMSCANNER ADMIN</div>',
+      // Rasumi Sentinel: separate service with its own login - opened in a new tab,
+      // never proxied through this console (no Sentinel credentials in this JS).
+      '      <div class="dropdown-item" onclick="window.open(\'https://sentinel.rasumigroup.my/admin\',\'_blank\',\'noopener\')"><i class="fa-solid fa-user-shield"></i> RASUMI SENTINEL</div>',
       '      <div class="dropdown-sep"></div>',
       '      <div class="dropdown-item" id="r-menu-profile" onclick="window.rOpenProfile()"><i class="fa-solid fa-user-gear"></i> UPDATE PROFILE</div>',
       '      <div class="dropdown-item" id="r-menu-settings" style="display:none" onclick="window.rOpenSettings()"><i class="fa-solid fa-sliders"></i> SETTINGS</div>',
@@ -802,12 +805,7 @@
       '  <div class="r-hn-item" id="rni-r-commands"  onclick="rNav(\'r-commands\')"><i class="fa-solid fa-terminal"></i><span class="r-hn-short">Commands</span><span class="r-hn-full">Commands</span></div>',
       '  <div class="r-hn-item" id="rni-r-alerts"    onclick="rNav(\'r-alerts\')"><i class="fa-solid fa-triangle-exclamation"></i><span class="r-hn-short">Alerts</span><span class="r-hn-full">Alerts</span> <span class="r-nb err" id="r-nb-alerts" style="display:none"></span></div>',
       '  <div class="r-hn-item" id="rni-r-release"   onclick="rNav(\'r-release\')"><i class="fa-solid fa-rocket"></i><span class="r-hn-short">Release</span><span class="r-hn-full">Release Mgmt</span></div>',
-      '  <div class="r-hn-sep"></div>',
-      // Deep-link only, not a routed tab: Sentinel has its own dashboard/login (admin key +
-      // IP allowlist once deployed, see rasumi-sentinel/deploy/Caddyfile) and must never have
-      // its credentials proxied through this NOC's client-side JS, so this just opens it in a
-      // new tab rather than rendering a panel here.
-      '  <div class="r-hn-item" id="rni-r-sentinel" onclick="window.open(\'https://sentinel.rasumigroup.my/admin\',\'_blank\')"><i class="fa-solid fa-shield-halved"></i><span class="r-hn-short">Sentinel</span><span class="r-hn-full">Rasumi Sentinel</span></div>',
+      // (Rasumi Sentinel link moved from this tab bar into the profile dropdown menu.)
       '</nav>',
 
       // ── BODY (nodes-panel + main) ──
