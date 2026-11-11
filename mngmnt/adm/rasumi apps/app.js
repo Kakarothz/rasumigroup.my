@@ -761,6 +761,8 @@
       // Rasumi Sentinel: separate service with its own login - opened in a new tab,
       // never proxied through this console (no Sentinel credentials in this JS).
       '      <div class="dropdown-item" onclick="window.open(\'https://sentinel.rasumigroup.my/admin\',\'_blank\',\'noopener\')"><i class="fa-solid fa-user-shield"></i> RASUMI SENTINEL</div>',
+      // Pixel AI Office: SSO via a one-time code (60 s, single use) - no second login.
+      '      <div class="dropdown-item" onclick="window.rOpenAgentOffice()"><i class="fa-solid fa-robot"></i> AGENT OFFICE</div>',
       '      <div class="dropdown-sep"></div>',
       '      <div class="dropdown-item" id="r-menu-profile" onclick="window.rOpenProfile()"><i class="fa-solid fa-user-gear"></i> UPDATE PROFILE</div>',
       '      <div class="dropdown-item" id="r-menu-settings" style="display:none" onclick="window.rOpenSettings()"><i class="fa-solid fa-sliders"></i> SETTINGS</div>',
@@ -12975,6 +12977,24 @@
   };
 
   // ── Open profile modal (called from inline onclick) ────────────
+  // Open agent.rasumigroup.my already signed in (one-time SSO code from Supabase).
+  // The tab is opened synchronously (popup blockers), then pointed at the SSO URL.
+  window.rOpenAgentOffice = function () {
+    var AGENT = 'https://agent.rasumigroup.my';
+    var w = window.open('about:blank', '_blank');
+    if (w) { try { w.opener = null; } catch (e) { } }
+    var go = function (url) { if (w && !w.closed) w.location.replace(url); else window.open(url, '_blank', 'noopener'); };
+    if (!RS || !RS.supa) { go(AGENT + '/auth/login'); return; }
+    RS.supa.rpc('agent_issue_sso_code').then(function (r) {
+      if (r.error || typeof r.data !== 'string' || !/^[0-9a-f]{64}$/.test(r.data)) {
+        console.warn('Agent SSO unavailable:', r.error && r.error.message);
+        go(AGENT + '/auth/login');
+        return;
+      }
+      go(AGENT + '/auth/sso?code=' + r.data);
+    }).catch(function () { go(AGENT + '/auth/login'); });
+  };
+
   window.rLogout = function () {
     if (RS && RS.supa) {
       RS.supa.auth.signOut().then(function () {
