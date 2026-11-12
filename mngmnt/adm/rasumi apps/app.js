@@ -2416,7 +2416,7 @@
   // admin role changes…) survive refresh and are written even while the console
   // is closed. P1 = red, P2 = amber, P3 = info.
   var _nt = { items: [], unread: 0, p1: 0, started: false, seen: null, ch: null, timer: null };
-  var _NT_ICON = { security: 'fa-user-lock', provider: 'fa-key', system: 'fa-envelope-circle-check', device: 'fa-desktop' };
+  var _NT_ICON = { security: 'fa-user-lock', provider: 'fa-key', system: 'fa-envelope-circle-check', device: 'fa-desktop', account: 'fa-user-plus' };
 
   function _ntAgo(ts) {
     var s = Math.max(0, (Date.now() - new Date(ts).getTime()) / 1000);
@@ -2473,7 +2473,7 @@
         '<div style="font-size:' + (big ? 12 : 10.5) + 'px;font-weight:' + (unread ? 700 : 500) + ';color:' + col + '">' + esc(it.title) + '</div>' +
         (it.body ? '<div style="font-size:' + (big ? 11 : 9.5) + 'px;color:var(--text-muted);margin-top:1px;' + (big ? '' : 'white-space:normal') + '">' + esc(it.body) + '</div>' : '') +
         '<div style="display:flex;gap:6px;margin-top:4px;align-items:center">' +
-        (it.action ? '<button onclick="window._rNtAction(' + it.id + ')" style="background:' + col + ';color:#fff;border:0;border-radius:4px;padding:2px 9px;font-size:9.5px;font-weight:600;cursor:pointer"><i class="fa-solid fa-lock-open"></i> Unlock</button>' : '') +
+        (it.action ? '<button onclick="window._rNtAction(' + it.id + ')" style="background:' + col + ';color:#fff;border:0;border-radius:4px;padding:2px 9px;font-size:9.5px;font-weight:600;cursor:pointer">' + (String(it.action).indexOf('revoke_signup:') === 0 ? '<i class="fa-solid fa-user-xmark"></i> Revoke' : '<i class="fa-solid fa-lock-open"></i> Unlock') + '</button>' : '') +
         '<button onclick="window._rNtResolve(' + it.id + ')" style="background:none;border:1px solid var(--glass-border);color:var(--text-muted);border-radius:4px;padding:2px 8px;font-size:9.5px;cursor:pointer">Resolve</button>' +
         '</div></div>' +
         '<span style="font-size:9px;color:var(--text-muted);opacity:.7;flex-shrink:0">' + _ntAgo(it.created_at) + '</span></div>';
@@ -13203,6 +13203,11 @@
           '<div class="rh-sub">Started ' + new Date(p.started_at).toLocaleDateString('en-GB') + ' · ' + (p.expired ? 'ended ' : 'ends ') + new Date(p.legacy_until).toLocaleDateString('en-GB') + '</div></div>' +
           '<div class="rh-vsep"></div><div class="rh-win"><i class="fa-regular fa-calendar"></i><div><small>' + (p.expired ? 'Phase' : 'Remaining') + '</small><b>' + (p.expired ? 'Ended' : d + ' days') + '</b></div></div></div>';
       }
+      // ---- Store Portal sign-on (Rasumi Apps account -> Store Portal without its own login) ----
+      h += '<div class="rh-card rh-phase"><div class="rh-tile"><i class="fa-solid fa-store"></i></div>' +
+        '<div class="rh-phase-tx"><div class="rh-phase-h">Store Portal Sign-on</div>' +
+        '<div class="rh-sub">Off = everyone uses the Store Portal login. Pilot = pilot e-mails only. All = every linked individual ID (2FA required).</div></div>' +
+        '<div class="rh-vsep"></div><select id="r-store-sso" class="rh-in" onchange="rSetStoreSso()" disabled><option value="off">Off</option><option value="pilot">Pilot</option><option value="all">All</option></select></div>';
       // ---- Sign-in providers card ----
       var pv = p.providers || {};
       h += '<div class="rh-card rh-provs"><div class="rh-provs-h"><div class="rh-tile sm"><i class="fa-solid fa-shield-halved"></i></div><div><b>Sign-in Providers</b><div class="rh-sub">OAuth / SSO configuration</div></div></div><div class="rh-prov-grid">';
@@ -13218,6 +13223,10 @@
       });
       h += '</div><div class="rh-note"><i class="fa-solid fa-circle-info"></i> Only the expiry date is stored here. The secret itself is entered in Supabase. Leave the date empty if the secret does not expire. Switch an icon on only after the provider is set up in Supabase.</div></div>';
       el.innerHTML = h;
+      RS.supa.rpc('rpc_store_sso_get').then(function (r) {
+        var sel = document.getElementById('r-store-sso');
+        if (sel && r && r.data && r.data.mode) { sel.value = r.data.mode; sel.disabled = false; }
+      }).catch(function () { });
       // compact summary on the Users tab + attention dot on the second tab
       var sum = document.getElementById('r-hu-sum'), dot = document.getElementById('r-hu-dot');
       var phase = !p.started ? 'Invitation <b>Not started</b>' : p.expired ? 'Invitation <b style="color:#f87171">Ended</b>' : 'Invitation <b style="color:#34d399">Day ' + Math.min(14, 15 - (p.days_left || 0)) + ' of 14</b>';
@@ -13233,6 +13242,16 @@
       if (b) b.classList.toggle('on', k === t); if (pn) pn.classList.toggle('on', k === t);
     });
     var sr = document.querySelector('.rh-search'); if (sr) sr.style.visibility = t === 'u' ? 'visible' : 'hidden';
+  };
+  window.rSetStoreSso = function () {
+    if (RS.userRole !== 'superadmin' || !RS.supa) return;
+    var sel = document.getElementById('r-store-sso'); if (!sel) return;
+    var mode = sel.value;
+    if (mode === 'all' && !window.confirm('Turn Store Portal sign-on ON for every linked individual ID?\n\nThey will need two-step verification to open the Store Portal.')) { RS.supa.rpc('rpc_store_sso_get').then(function (r) { if (r && r.data && r.data.mode) sel.value = r.data.mode; }); return; }
+    RS.supa.rpc('rpc_store_sso_set', { p_mode: mode }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      rToast('Store Portal sign-on: ' + mode.toUpperCase(), 'success');
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
   window.rSetProviders = function () {
     if (RS.userRole !== 'superadmin' || !RS.supa) return;
@@ -13338,12 +13357,16 @@
     _loadRolloutCard();
     _loadDepts().then(function () { _renderHospitalUsers(list); });
   }
+  var _huStoreProfiles = [];
   function _renderHospitalUsers(list) {
     list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;"><span class="r-spin"></span> Loading…</div>';
     RS.supa.rpc('rpc_user_devices').then(function (dr) {
       _huDev = {};
       var dd = dr && dr.data && dr.data.success ? dr.data.devices : [];
       dd.forEach(function (x) { var k = String(x.username || '').toLowerCase(); (_huDev[k] = _huDev[k] || []).push(x); });
+      // Store Portal profiles for the Store Mngmnt options (double-click the chip). Missing RPC -> empty list.
+      return RS.supa.rpc('rpc_store_profiles_list').then(function (pr) { _huStoreProfiles = (pr && Array.isArray(pr.data)) ? pr.data : []; }, function () { _huStoreProfiles = []; });
+    }).then(function () {
       return RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type,email,display_name,department_id,invite_status,auth_id,store_access,google_ok,microsoft_ok,avatar_url').order('username');
     }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
@@ -13401,12 +13424,34 @@
           }
           if (isMaster) {
             row += '<label class="rh-tag dis"><input type="checkbox"' + (checked ? ' checked' : '') + ' disabled><span><i class="fa-solid fa-circle-check"></i> ' + esc(app) + '</span></label>';
+          } else if (isStoreApp) {
+            row += '<label class="rh-tag rh-store-chip" title="Double-click: Store Portal options" ondblclick="rToggleStorePortalOpts(\'' + safeId + '\', event)"><input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') +
+              ' onchange="_toggleHospitalStoreBranch(\'' + safeId + '\', this.checked)"><span><i class="fa-solid fa-circle-check"></i> ' + esc(app) +
+              ' <i class="fa-solid fa-chevron-down rh-sp-car" id="uspcar_' + safeId + '" style="font-size:10px;margin-left:4px;opacity:.75"></i>' +
+              '<i class="fa-solid fa-door-open" id="uspico_' + safeId + '" title="Store Portal button is ON" style="font-size:11px;margin-left:6px;color:#38bdf8;' + (u.store_access ? '' : 'display:none;') + '"></i></span></label>';
           } else {
-            row += '<label class="rh-tag"><input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') +
-              (isStoreApp ? ' onchange="_toggleHospitalStoreBranch(\'' + safeId + '\', this.checked)"' : '') + '><span><i class="fa-solid fa-circle-check"></i> ' + esc(app) + '</span></label>';
+            row += '<label class="rh-tag"><input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> ' + esc(app) + '</span></label>';
           }
         });
         row += '</div>';
+        // ---- Store Portal options (Store Mngmnt chip -> double-click) ----
+        if (!isMaster) {
+          var _indiv = (u.account_type === 'individual');
+          var _linked = (_huStoreProfiles.filter(function (p) { return String(p.app_username || '').toLowerCase() === String(uname).toLowerCase(); })[0] || {}).id || '';
+          row += '<div class="rh-sp" id="uspp_' + safeId + '" style="display:none;margin:4px 0 10px;padding:10px 12px;border:1px solid rgba(56,189,248,.45);border-radius:10px;background:rgba(56,189,248,.06)">';
+          row += '<div style="font-size:12px;color:#38bdf8;margin-bottom:8px"><i class="fa-solid fa-store"></i> Store Portal options</div>';
+          row += '<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center">';
+          row += '<label class="rh-tag"><input type="checkbox" id="ustore_' + safeId + '"' + (u.store_access ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Store Portal button</span></label>';
+          row += '<span style="font-size:12px;color:var(--rc-text-dim,#9ca3af)">Profile</span><select id="ustoreprof_' + safeId + '" class="rh-in"' + (_indiv ? '' : ' disabled title="Team (shared) IDs always use the Store Portal login"') + '>';
+          row += '<option value="">None (Store Portal login)</option>';
+          _huStoreProfiles.forEach(function (p) {
+            var taken = p.app_username && String(p.app_username).toLowerCase() !== String(uname).toLowerCase();
+            row += '<option value="' + esc(p.id) + '"' + (p.id === _linked ? ' selected' : '') + (taken ? ' disabled' : '') + '>' + esc(p.id) + ' — ' + esc(p.role || '') + ' · ' + esc(p.home_branch_code || '-') + (taken ? ' (linked to ' + esc(p.app_username) + ')' : '') + (p.is_active === false ? ' (inactive)' : '') + '</option>';
+          });
+          row += '</select>';
+          row += '<button class="rh-btn primary sm" onclick="rSaveStorePortal(\'' + q(uname) + '\')"><i class="fa-solid fa-floppy-disk"></i> Save</button>';
+          row += '</div><div style="font-size:11px;color:var(--rc-text-dim,#9ca3af);margin-top:6px">' + (_indiv ? 'Profile linked: opens the Store Portal with the Rasumi Apps account (no Store Portal login, 2FA required).' : 'Team ID: the Store Portal button opens the normal Store Portal login.') + '</div></div>';
+        }
         // ---- devices (from login sessions + live heartbeat) ----
         row += '<div class="rh-sec"><i class="fa-solid fa-laptop"></i> Devices <span class="rh-sec-n">' + devs.length + '</span></div><div class="rh-devs">';
         if (!devs.length) row += '<span class="rh-dev-none">No device activity yet.</span>';
@@ -13434,7 +13479,6 @@
           row += '<select id="udept_' + safeId + '" class="rh-in">' + _deptOpts(u.department_id) + '</select>';
           row += '<select id="urole_' + safeId + '" class="rh-in">' + ['VIEWER','OPERATOR','BRANCH_USER','DEPT_ADMIN','BOD','ADMIN'].map(function (r) { return '<option value="' + r + '"' + (r === role ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>';
           row += '</div><div class="rh-tags sm">';
-          row += '<label class="rh-tag"><input type="checkbox" id="ustore_' + safeId + '"' + (u.store_access ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Store (TOTP)</span></label>';
           row += '<label class="rh-tag"><input type="checkbox" id="ugoog_' + safeId + '"' + (u.google_ok !== false ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Google</span></label>';
           row += '<label class="rh-tag"><input type="checkbox" id="ums_' + safeId + '"' + (u.microsoft_ok !== false ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Microsoft</span></label>';
           row += '<button class="rh-btn ghost sm" onclick="rSaveUserIdentity(\'' + q(uname) + '\')"><i class="fa-solid fa-floppy-disk"></i> Save identity</button>';
@@ -13543,6 +13587,36 @@
   window._toggleHospitalStoreBranch = function (safeId, checked) {
     var div = document.getElementById('ubranch_' + safeId);
     if (div) div.style.display = checked ? '' : 'none';
+    var sp = document.getElementById('uspp_' + safeId);
+    if (sp) sp.style.display = (checked && sp.dataset.open === '1') ? '' : 'none';
+  };
+
+  // Store Mngmnt chip double-click: show / hide the Store Portal options (only while Store Mngmnt is ticked).
+  // The two clicks of a double-click toggle the checkbox twice, so its state ends where it started.
+  window.rToggleStorePortalOpts = function (safeId, ev) {
+    if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+    var p = document.getElementById('uspp_' + safeId);
+    if (!p) return;
+    var opening = p.dataset.open !== '1';            // intended state (the clicks briefly untick/retick the chip)
+    var cb = document.getElementById('uapp_' + safeId + '_Store_Mngmnt');
+    if (opening && cb && !cb.checked) { rToast('Tick Store Mngmnt first', 'info'); return; }
+    p.dataset.open = opening ? '1' : '';
+    p.style.display = opening ? '' : 'none';
+    var car = document.getElementById('uspcar_' + safeId);
+    if (car) car.className = 'fa-solid ' + (opening ? 'fa-chevron-up' : 'fa-chevron-down') + ' rh-sp-car';
+  };
+  window.rSaveStorePortal = function (username) {
+    if (RS.userRole !== 'superadmin') return;
+    if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
+    var sid = _sidU(username);
+    var cb = document.getElementById('ustore_' + sid), sel = document.getElementById('ustoreprof_' + sid);
+    var on = !!(cb && cb.checked), prof = (sel && !sel.disabled) ? sel.value : '';
+    RS.supa.rpc('rpc_set_store_portal', { p_username: username, p_store_access: on, p_store_id: prof || null }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      var ico = document.getElementById('uspico_' + sid); if (ico) ico.style.display = on ? '' : 'none';
+      rToast(username + ' — Store Portal button ' + (on ? 'ON' : 'OFF') + (prof ? ' · profile ' + prof : ''), 'success');
+      _loadHospitalUsers();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
 
   // Permanently removes an ID that is no longer in use. Gated server-side by
