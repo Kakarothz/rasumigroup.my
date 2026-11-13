@@ -13211,6 +13211,15 @@
           '<div class="rh-sub">Collect e-mails first. START opens sign-up and begins the 14-day period.' + (can ? '' : ' (Sign-up screen not released yet, START is locked.)') + '</div></div>' +
           '<div class="rh-vsep"></div><div class="rh-win"><i class="fa-regular fa-calendar"></i><div><small>Sign-up window</small><b>14 days</b></div></div>' +
           '<button class="rh-btn primary" ' + (can ? '' : 'disabled ') + 'onclick="rRolloutStart()"><i class="fa-solid fa-play"></i> Start Invitation</button></div>';
+        // ---- Test devices (pilot): these PCs see sign-up + banner before START (= "Test on this device" in Rasumi Apps) ----
+        h += '<div class="rh-card rh-phase" id="r-pilot-card" style="flex-wrap:wrap"><div class="rh-tile"><i class="fa-solid fa-flask"></i></div>' +
+          '<div class="rh-phase-tx"><div class="rh-phase-h">Test Devices</div>' +
+          '<div class="rh-sub">These PCs see the Sign up screen and the invitation banner now, as if the phase had started. Nobody else is affected.</div>' +
+          '<div id="r-pilot-hosts" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><span class="rh-sub"><span class="r-spin"></span> Loading…</span></div></div>' +
+          '<div class="rh-vsep"></div><div style="display:flex;flex-direction:column;gap:6px;min-width:220px">' +
+          '<div style="display:flex;gap:6px"><input id="r-pilot-add" class="rh-in" list="r-pilot-dl" placeholder="PC hostname" style="flex:1;min-width:0"><datalist id="r-pilot-dl"></datalist>' +
+          '<button class="rh-btn ghost sm" onclick="rPilotAdd()"><i class="fa-solid fa-plus"></i> Add</button></div>' +
+          '<select id="r-pilot-days" class="rh-in" onchange="rPilotSave()" title="What the banner shows on test devices"><option value="14">Banner: 14 days left</option><option value="3">Banner: 3 days left</option><option value="1">Banner: last day</option><option value="0">Banner: ended</option></select></div></div>';
       } else {
         var d = p.days_left || 0, cls = p.expired ? 'bad' : d <= 3 ? 'warn' : 'ok';
         h += '<div class="rh-card rh-phase"><div class="rh-tile"><i class="fa-solid fa-paper-plane"></i></div>' +
@@ -13238,6 +13247,7 @@
       });
       h += '</div><div class="rh-note"><i class="fa-solid fa-circle-info"></i> Only the expiry date is stored here. The secret itself is entered in Supabase. Leave the date empty if the secret does not expire. Switch an icon on only after the provider is set up in Supabase.</div></div>';
       el.innerHTML = h;
+      if (!p.started) _loadPilot();
       RS.supa.rpc('rpc_store_sso_get').then(function (r) {
         var sel = document.getElementById('r-store-sso');
         if (sel && r && r.data && r.data.mode) { sel.value = r.data.mode; sel.disabled = false; }
@@ -13251,6 +13261,50 @@
       if (dot) dot.style.display = attn ? '' : 'none';
     });
   }
+  // ---- Test devices (pilot hosts) ----
+  var _pilotHosts = [];
+  function _renderPilotHosts() {
+    var box = document.getElementById('r-pilot-hosts'); if (!box) return;
+    box.innerHTML = _pilotHosts.length ? _pilotHosts.map(function (h, i) {
+      return '<span class="rh-pill" style="display:inline-flex;align-items:center;gap:6px"><i class="fa-solid fa-desktop"></i> ' + esc(h) +
+        '<a href="#" title="Remove" onclick="rPilotRemove(' + i + ');return false;" style="color:inherit;opacity:.7"><i class="fa-solid fa-xmark"></i></a></span>';
+    }).join('') : '<span class="rh-sub">No test devices.</span>';
+  }
+  function _loadPilot() {
+    if (!RS.supa) return;
+    RS.supa.rpc('rpc_pilot_get').then(function (r) {
+      if (r.error) throw new Error(r.error.message);
+      var d = r.data || {};
+      _pilotHosts = (d.hosts || []).slice();
+      var sel = document.getElementById('r-pilot-days');
+      if (sel) { var v = Math.min(14, d.days == null ? 14 : d.days); sel.value = String(v >= 14 ? 14 : v >= 3 ? 3 : v >= 1 ? 1 : 0); }
+      _renderPilotHosts();
+      // hostname suggestions from known devices
+      var dl = document.getElementById('r-pilot-dl');
+      if (dl) {
+        var seen = {}; Object.keys(_huDev || {}).forEach(function (k) { (_huDev[k] || []).forEach(function (x) { if (x.hostname) seen[String(x.hostname).toLowerCase()] = 1; }); });
+        dl.innerHTML = Object.keys(seen).sort().map(function (h) { return '<option value="' + esc(h) + '">'; }).join('');
+      }
+    }).catch(function (e) { var b = document.getElementById('r-pilot-hosts'); if (b) b.innerHTML = '<span class="rh-sub" style="color:#ef4444">' + esc(e.message || String(e)) + '</span>'; });
+  }
+  window.rPilotSave = function () {
+    if (RS.userRole !== 'superadmin' || !RS.supa) return;
+    var sel = document.getElementById('r-pilot-days');
+    RS.supa.rpc('rpc_pilot_set', { p_hosts: _pilotHosts, p_days: sel ? parseInt(sel.value, 10) : 14 }).then(function (r) {
+      if (r.error) throw new Error(r.error.message);
+      if (r.data && r.data.success === false) throw new Error(r.data.reason || 'Could not save');
+      rToast('Test devices saved', 'success'); _loadPilot();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); _loadPilot(); });
+  };
+  window.rPilotAdd = function () {
+    var inp = document.getElementById('r-pilot-add'); if (!inp) return;
+    var h = inp.value.trim().toLowerCase();
+    if (!h) { rToast('Enter a PC hostname', 'error'); return; }
+    if (_pilotHosts.indexOf(h) === -1) _pilotHosts.push(h);
+    inp.value = ''; rPilotSave();
+  };
+  window.rPilotRemove = function (i) { _pilotHosts.splice(i, 1); rPilotSave(); };
+
   window.rHuTab = function (t) {
     ['u', 'i'].forEach(function (k) {
       var b = document.getElementById('r-hu-tab-' + k), pn = document.getElementById('r-hu-pane-' + k);
@@ -13382,7 +13436,7 @@
       // Store Portal profiles for the Store Mngmnt options (double-click the chip). Missing RPC -> empty list.
       return RS.supa.rpc('rpc_store_profiles_list').then(function (pr) { _huStoreProfiles = (pr && Array.isArray(pr.data)) ? pr.data : []; }, function () { _huStoreProfiles = []; });
     }).then(function () {
-      return RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type,email,display_name,department_id,invite_status,auth_id,store_access,google_ok,microsoft_ok,avatar_url,ops_access').order('username');
+      return RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type,email,display_name,department_id,invite_status,auth_id,store_access,google_ok,microsoft_ok,avatar_url,ops_access,failed_login_count,last_login_utc').order('username');
     }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
       if (!res.data || !res.data.length) {
@@ -13418,10 +13472,16 @@
         row += '<div class="rh-uname"><span>' + esc(uname) + '</span><span class="rh-role ' + roleCls + '">' + esc(role) + '</span>';
         if (u.invite_status === 'invited') row += '<span class="rh-role inv">INVITED</span>' + (u.email ? '<a href="#" class="rh-resend" onclick="rResendInvite(\'' + q(uname) + '\', this);return false;"><i class="fa-regular fa-envelope"></i> Resend e-mail</a>' : '');
         row += '</div>';
-        if (u.email || u.department_id) row += '<div class="rh-umeta">' + (u.email ? '<span><i class="fa-regular fa-envelope"></i> ' + esc(u.email) + '</span>' : '') + (u.department_id ? '<span><i class="fa-regular fa-building"></i> ' + esc(u.department_id) + '</span>' : '') + '</div>';
+        var _fails = u.failed_login_count || 0;
+        var _lastLg = u.last_login_utc ? new Date(u.last_login_utc).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+        row += '<div class="rh-umeta">' + (u.email ? '<span><i class="fa-regular fa-envelope"></i> ' + esc(u.email) + '</span>' : '') + (u.department_id ? '<span><i class="fa-regular fa-building"></i> ' + esc(u.department_id) + '</span>' : '') +
+          '<span title="Last login"><i class="fa-regular fa-clock"></i> ' + esc(_lastLg) + '</span>' +
+          '<span title="Failed logins since the last successful login"' + (_fails ? ' style="color:#f59e0b"' : '') + '><i class="fa-solid fa-triangle-exclamation"></i> ' + _fails + ' failed</span></div>';
         row += '</div><div class="rh-uside">';
         if (isMaster) {
           row += '<span class="rh-owner"><i class="fa-solid fa-crown"></i> Owner</span>';
+        } else if (status === 'LOCKED') {
+          row += '<button class="rh-status off" style="color:#f59e0b;border-color:#f59e0b" title="Locked after too many wrong passwords. Click to unlock (also resets the failed count)." onclick="rToggleHospitalUserStatus(\'' + q(uname) + '\',\'ACTIVE\')"><i class="fa-solid fa-lock"></i> Locked · Unlock</button>';
         } else {
           var newStatus = isActive ? 'DISABLED' : 'ACTIVE';
           row += '<button class="rh-status ' + (isActive ? 'on' : 'off') + '" title="Click to ' + (isActive ? 'disable' : 'enable') + '" onclick="rToggleHospitalUserStatus(\'' + q(uname) + '\',\'' + newStatus + '\')"><i class="fa-solid fa-circle"></i> ' + (isActive ? 'Active' : 'Disabled') + '</button>';
