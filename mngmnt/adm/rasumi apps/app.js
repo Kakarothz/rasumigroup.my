@@ -1067,8 +1067,10 @@
       '            <label><input id="r-hinv-store" type="checkbox"> Store access (Authenticator code)</label>',
       '            <label><input id="r-hinv-google" type="checkbox" checked> Google sign-in</label>',
       '            <label><input id="r-hinv-ms" type="checkbox" checked> Microsoft sign-in</label>',
-      '            <span style="color:var(--rc-text-dim,#6b7280);">Apps and Store branch: set in the list below after inviting.</span>',
       '          </div>',
+      '          <div style="margin-top:10px;font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;">APPS (ready the moment they sign up)</div>',
+      '          <div id="r-hinv-apps" class="rh-tags" style="margin-top:6px;"></div>',
+      '          <div id="r-hinv-branch-row" style="display:none;margin-top:6px;font-size:11px;color:var(--rc-text-dim,#d1d5db);"><i class="fa-solid fa-store"></i> Store Branch <select id="r-hinv-branch" style="' + _HINV_SEL + 'margin-left:6px;"></select></div>',
       '          <div style="display:flex;gap:8px;margin-top:10px;"><button onclick="rHuserInviteSend()" style="padding:7px 16px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">SEND INVITE</button><button onclick="rHuserInviteClose()" style="padding:7px 14px;background:transparent;color:var(--rc-text-dim,#9ca3af);font-weight:700;border:1px solid var(--rc-border,#374151);border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">CANCEL</button></div>',
       '        </div>',
       '        <div class="rh-tabs">',
@@ -12228,6 +12230,20 @@
       rShowFieldWarn('rel-version-warn', '⚠ invalid format — numeric only: 9.7, 10.0, 12.5.1');
       return;
     }
+    // PCs only update when the version number goes UP - re-releasing the same number reaches nobody already on it.
+    var _liveVer = String(((RS.appSettingsCache || {}).latest_version) || '').trim();
+    if (_liveVer && /^\d+(\.\d+)*$/.test(_liveVer)) {
+      var _cmp = (function (a, b) {
+        var x = a.split('.').map(Number), y = b.split('.').map(Number);
+        for (var i = 0; i < Math.max(x.length, y.length); i++) { var d = (x[i] || 0) - (y[i] || 0); if (d) return d; }
+        return 0;
+      })(version.trim(), _liveVer);
+      if (_cmp === 0) {
+        rShowFieldWarn('rel-version-warn', '⚠ v' + _liveVer + ' is already live — PCs on it will NOT update. Bump the version (release.py) first.');
+        return;
+      }
+      if (_cmp < 0 && !window.confirm('v' + version.trim() + ' is LOWER than the live v' + _liveVer + '.\n\nThis is a rollback. Continue?')) return;
+    }
 
     // ── URL validation ──────────────────────────────────────────
     if (!url.trim()) {
@@ -13309,7 +13325,12 @@
       // ---- Store Portal sign-on (Rasumi Apps account -> Store Portal without its own login) ----
       h += '<div class="rh-card rh-phase"><div class="rh-tile"><i class="fa-solid fa-store"></i></div>' +
         '<div class="rh-phase-tx"><div class="rh-phase-h">Store Portal Sign-on</div>' +
-        '<div class="rh-sub">Off = everyone uses the Store Portal login. Pilot = pilot e-mails only. All = every linked individual ID (2FA required).</div></div>' +
+        '<div class="rh-sub">Off = everyone uses the Store Portal login. Pilot = pilot e-mails only. All = every linked individual ID (2FA required).</div>' +
+        '<div id="r-pe-box" style="display:none;margin-top:8px">' +
+        '<div class="rh-sub" style="margin-bottom:4px">Pilot e-mails (also used for the sign-up pilot). An e-mail change follows automatically.</div>' +
+        '<div id="r-pe-list" style="display:flex;flex-wrap:wrap;gap:6px"></div>' +
+        '<div style="display:flex;gap:6px;margin-top:6px;max-width:420px"><input id="r-pe-add" class="rh-in" placeholder="name@company.com" style="flex:1;min-width:0">' +
+        '<button class="rh-btn ghost sm" onclick="rPilotEmailAdd()"><i class="fa-solid fa-plus"></i> Add</button></div></div></div>' +
         '<div class="rh-vsep"></div><select id="r-store-sso" class="rh-in" onchange="rSetStoreSso()" disabled><option value="off">Off</option><option value="pilot">Pilot</option><option value="all">All</option></select></div>';
       // ---- Sign-in providers card ----
       var pv = p.providers || {};
@@ -13330,6 +13351,7 @@
       RS.supa.rpc('rpc_store_sso_get').then(function (r) {
         var sel = document.getElementById('r-store-sso');
         if (sel && r && r.data && r.data.mode) { sel.value = r.data.mode; sel.disabled = false; }
+        _loadPilotEmails();
       }).catch(function () { });
       // compact summary on the Users tab + attention dot on the second tab
       var sum = document.getElementById('r-hu-sum'), dot = document.getElementById('r-hu-dot');
@@ -13391,6 +13413,44 @@
     });
     var sr = document.querySelector('.rh-search'); if (sr) sr.style.visibility = t === 'u' ? 'visible' : 'hidden';
   };
+  // ---- Pilot e-mails (auth_rollout.pilot_emails) - visible + editable; shown while Store sign-on is Pilot ----
+  var _pilotEmails = [];
+  function _renderPilotEmails() {
+    var box = document.getElementById('r-pe-box'), list = document.getElementById('r-pe-list'), sel = document.getElementById('r-store-sso');
+    if (box) box.style.display = (sel && sel.value === 'pilot') ? '' : 'none';
+    if (!list) return;
+    list.innerHTML = _pilotEmails.length ? _pilotEmails.map(function (e, i) {
+      return '<span class="rh-pill" style="display:inline-flex;align-items:center;gap:6px"><i class="fa-regular fa-envelope"></i> ' + esc(e) +
+        '<a href="#" title="Remove" onclick="rPilotEmailRemove(' + i + ');return false;" style="color:inherit;opacity:.7"><i class="fa-solid fa-xmark"></i></a></span>';
+    }).join('') : '<span class="rh-sub">No pilot e-mails.</span>';
+  }
+  function _loadPilotEmails() {
+    if (!RS.supa) return;
+    RS.supa.rpc('rpc_pilot_emails_get').then(function (r) {
+      if (r.error) throw new Error(r.error.message);
+      _pilotEmails = ((r.data && r.data.emails) || []).slice();
+      _renderPilotEmails();
+    }).catch(function () { _renderPilotEmails(); });
+  }
+  function _savePilotEmails() {
+    RS.supa.rpc('rpc_pilot_emails_set', { p_emails: _pilotEmails }).then(function (r) {
+      if (r.error) throw new Error(r.error.message);
+      rToast('Pilot e-mails saved', 'success'); _loadPilotEmails();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); _loadPilotEmails(); });
+  }
+  window.rPilotEmailAdd = function () {
+    if (RS.userRole !== 'superadmin' || !RS.supa) return;
+    var inp = document.getElementById('r-pe-add'); if (!inp) return;
+    var e = inp.value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { rToast('Enter a valid e-mail', 'error'); return; }
+    if (_pilotEmails.indexOf(e) === -1) _pilotEmails.push(e);
+    inp.value = ''; _savePilotEmails();
+  };
+  window.rPilotEmailRemove = function (i) {
+    if (RS.userRole !== 'superadmin' || !RS.supa) return;
+    _pilotEmails.splice(i, 1); _savePilotEmails();
+  };
+
   window.rSetStoreSso = function () {
     if (RS.userRole !== 'superadmin' || !RS.supa) return;
     var sel = document.getElementById('r-store-sso'); if (!sel) return;
@@ -13399,6 +13459,7 @@
     RS.supa.rpc('rpc_store_sso_set', { p_mode: mode }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
       rToast('Store Portal sign-on: ' + mode.toUpperCase(), 'success');
+      _renderPilotEmails();
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
   window.rSetProviders = function () {
@@ -13550,6 +13611,12 @@
         row += '<div class="rh-uhead"><div class="rh-av">' + (av ? '<img src="' + esc(av) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '<span>' + esc(initial) + '</span></div><div class="rh-uinfo">';
         row += '<div class="rh-uname"><span>' + esc(uname) + '</span><span class="rh-role ' + roleCls + '">' + esc(role) + '</span>';
         if (u.invite_status === 'invited') row += '<span class="rh-role inv">INVITED</span>' + (u.email ? '<a href="#" class="rh-resend" onclick="rResendInvite(\'' + q(uname) + '\', this);return false;"><i class="fa-regular fa-envelope"></i> Resend e-mail</a>' : '');
+        // Store Portal has its OWN role / branch (store_user_profiles) - show it so it is never a surprise; click = edit it
+        var _sp = _huStoreProfiles.filter(function (p) { return String(p.app_username || '').toLowerCase() === String(uname).toLowerCase(); })[0];
+        if (_sp) {
+          row += '<a href="#" class="rh-role" style="text-decoration:none;border-color:#38bdf8;color:#38bdf8" title="Store Portal profile ' + esc(_sp.id) + ' (separate from the Rasumi Apps role). Click to edit."'
+            + ' onclick="rOpenStoreStaffFor(\'' + q(_sp.id) + '\');return false;"><i class="fa-solid fa-store"></i> Store: ' + esc(_sp.role || '-') + ' · ' + esc(_sp.home_branch_code || '-') + '</a>';
+        }
         row += '</div>';
         var _fails = u.failed_login_count || 0;
         var _lastLg = u.last_login_utc ? new Date(u.last_login_utc).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
@@ -13643,6 +13710,10 @@
           row += '<label class="rh-tag"><input type="checkbox" id="ugoog_' + safeId + '"' + (u.google_ok !== false ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Google</span></label>';
           row += '<label class="rh-tag"><input type="checkbox" id="ums_' + safeId + '"' + (u.microsoft_ok !== false ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Microsoft</span></label>';
           row += '<button class="rh-btn ghost sm" onclick="rSaveUserIdentity(\'' + q(uname) + '\')"><i class="fa-solid fa-floppy-disk"></i> Save identity</button>';
+          if (u.auth_id) {
+            row += '<button class="rh-btn ghost sm" onclick="rAdminChangeEmail(\'' + q(uname) + '\')" title="Change the sign-in e-mail now (no confirmation link needed)"><i class="fa-solid fa-at"></i> Change e-mail</button>';
+            row += '<button class="rh-btn ghost sm" onclick="rAdminResetMfa(\'' + q(uname) + '\')" title="Remove two-step verification and forget remembered PCs (lost / new phone)"><i class="fa-solid fa-shield-halved"></i> Reset 2FA</button>';
+          }
           row += '</div></details>';
           // ---- actions ----
           row += '<div class="rh-acts"><button class="rh-btn primary sm" id="usave_' + safeId + '" style="display:none" onclick="rSaveUserApps(\'' + q(uname) + '\')"><i class="fa-solid fa-floppy-disk"></i> Save changes</button>';
@@ -13897,6 +13968,8 @@
     // server-side. See sql/users_hospital_admin_rpc_gate_v9.sql.
     return RS.supa.rpc('rpc_save_user_apps', { p_username: username, p_allowed_apps: apps, p_store_branch: storeBranch, p_account_type: acctType }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
+      // FALSE = no row updated: the ID was renamed / removed since this list loaded (e.g. anith -> anithazmey)
+      if (res.data === false) { _loadHospitalUsers(); throw new Error('ID "' + username + '" not found - it may have been renamed. The list has been refreshed, try again.'); }
       // Ops Centre: sent when the box is enabled (individual ADMIN), or to clear a tick that was on
       // before the role / account type changed.
       var ops = document.getElementById('uops_' + safeId);
@@ -13919,8 +13992,26 @@
     var f = document.getElementById('r-huser-invite-form');
     if (!f) return;
     f.style.display = f.style.display === 'none' ? 'block' : 'none';
-    if (f.style.display === 'block') { _loadDepts(); _loadLinkable(); var n = document.getElementById('r-hinv-name'); if (n) n.focus(); }
+    if (f.style.display === 'block') { _loadDepts(); _loadLinkable(); _renderInviteApps(); var n = document.getElementById('r-hinv-name'); if (n) n.focus(); }
   };
+  // Invite form: apps + Store Branch chosen up front, so the person's menu is complete the moment they sign up.
+  function _renderInviteApps() {
+    var box = document.getElementById('r-hinv-apps'), br = document.getElementById('r-hinv-branch');
+    if (!box) return;
+    box.innerHTML = _HOSPITAL_APPS.map(function (app) {
+      var id = 'r-hinv-app-' + app.replace(/[^a-z0-9]/gi, '_');
+      return '<label class="rh-tag"><input type="checkbox" id="' + id + '" data-app="' + esc(app) + '"' + (app === 'Store Mngmnt' ? ' onchange="_rHinvStoreToggle()"' : '') + '><span><i class="fa-solid fa-circle-check"></i> ' + esc(app) + '</span></label>';
+    }).join('');
+    if (br) br.innerHTML = _STORE_BRANCH_OPTIONS.map(function (o) { return '<option value="' + esc(o.val) + '">' + esc(o.label) + '</option>'; }).join('');
+    _rHinvStoreToggle();
+  }
+  window._rHinvStoreToggle = function () {
+    var st = document.getElementById('r-hinv-app-Store_Mngmnt'), row = document.getElementById('r-hinv-branch-row');
+    if (row) row.style.display = (st && st.checked) ? '' : 'none';
+  };
+  function _inviteApps() {
+    return Array.prototype.map.call(document.querySelectorAll('#r-hinv-apps input[data-app]:checked'), function (c) { return c.getAttribute('data-app'); });
+  }
   window.rHuserInviteClose = function () {
     var f = document.getElementById('r-huser-invite-form'); if (f) f.style.display = 'none';
     ['r-hinv-name', 'r-hinv-email', 'r-hinv-email2', 'r-hinv-un'].forEach(function (id) { var e = document.getElementById(id); if (e) { e.value = ''; e.disabled = false; delete e.dataset.touched; } });
@@ -13944,6 +14035,9 @@
   }
   window.rHinvLegacyPick = function () {
     var v = document.getElementById('r-hinv-legacy').value, un = document.getElementById('r-hinv-un');
+    // linking an existing ID keeps that ID's own apps - hide the app picker then
+    var ab = document.getElementById('r-hinv-apps'); if (ab) ab.style.display = v ? 'none' : '';
+    if (v) { var brr = document.getElementById('r-hinv-branch-row'); if (brr) brr.style.display = 'none'; } else { _rHinvStoreToggle(); }
     if (!un) return;
     if (v) { un.value = v; un.disabled = true; }
     else { un.disabled = false; un.value = ''; delete un.dataset.touched; rHinvSuggest(); }
@@ -13965,7 +14059,8 @@
       ? RS.supa.rpc('rpc_link_legacy_user', { p_username: legacy, p_email: email, p_name: name, p_dept: g('r-hinv-dept').value, p_google: g('r-hinv-google').checked, p_microsoft: g('r-hinv-ms').checked })
       : RS.supa.rpc('rpc_invite_hospital_user', {
         p_name: name, p_email: email, p_role: g('r-hinv-role').value, p_dept: g('r-hinv-dept').value,
-        p_branch: '', p_apps: [], p_store_access: g('r-hinv-store').checked,
+        p_branch: (_inviteApps().indexOf('Store Mngmnt') !== -1 && g('r-hinv-branch')) ? g('r-hinv-branch').value : '',
+        p_apps: _inviteApps(), p_store_access: g('r-hinv-store').checked,
         p_google: g('r-hinv-google').checked, p_microsoft: g('r-hinv-ms').checked, p_username: un || null
       });
     call.then(function (res) {
@@ -13975,6 +14070,40 @@
       _loadHospitalUsers();
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
+  // Super admin account tools (sql/admin_account_tools_v1.sql)
+  window.rAdminChangeEmail = function (username) {
+    if (RS.userRole !== 'superadmin' || !RS.supa) return;
+    rPrompt({
+      title: 'Change e-mail - ' + username, label: 'New sign-in e-mail (takes effect now, no confirmation link)',
+      placeholder: 'name@company.com', icon: 'fa-at', confirmText: 'Change e-mail',
+      onConfirm: function (val) {
+        var e = String(val || '').trim().toLowerCase();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { rToast('Enter a valid e-mail', 'error'); return; }
+        RS.supa.rpc('rpc_admin_change_email', { p_username: username, p_email: e }).then(function (r) {
+          if (r.error) throw new Error(r.error.message);
+          if (r.data && r.data.success === false) { rToast(r.data.reason || 'Could not change e-mail', 'error'); return; }
+          rToast(username + ' now signs in with ' + e, 'success');
+          _loadHospitalUsers();
+        }).catch(function (err) { rToast('Error: ' + (err.message || String(err)), 'error'); });
+      }
+    });
+  };
+  window.rAdminResetMfa = function (username) {
+    if (RS.userRole !== 'superadmin' || !RS.supa) return;
+    rPrompt({
+      title: 'Reset 2FA - ' + username,
+      label: 'Removes their authenticator and forgets every remembered PC. They can set 2FA up again in My Profile.',
+      icon: 'fa-shield-halved', confirmText: 'Reset 2FA', hideInput: true,
+      onConfirm: function () {
+        RS.supa.rpc('rpc_admin_reset_mfa', { p_username: username }).then(function (r) {
+          if (r.error) throw new Error(r.error.message);
+          if (r.data && r.data.success === false) { rToast(r.data.reason || 'Could not reset 2FA', 'error'); return; }
+          rToast(username + ': 2FA reset (' + (r.data.factors_removed || 0) + ' authenticator, ' + (r.data.devices_forgotten || 0) + ' PC forgotten)', 'success');
+        }).catch(function (err) { rToast('Error: ' + (err.message || String(err)), 'error'); });
+      }
+    });
+  };
+
   window.rSaveUserIdentity = function (username) {
     if (RS.userRole !== 'superadmin') return;
     if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
@@ -14055,6 +14184,22 @@
     if (sm) sm.classList.add('hidden');
     var modal = document.getElementById('r-store-staff-modal');
     if (modal) { modal.classList.remove('hidden'); _loadStoreBranchOptions().then(_loadStoreStaff); }
+  };
+  // From an App Users card: open Store Management Staff and jump to (and highlight) that person's Store Portal profile.
+  window.rOpenStoreStaffFor = function (profileId) {
+    window.rOpenStoreStaffFromSettings();
+    var sid = String(profileId || '').replace(/[^a-z0-9]/gi, '_');
+    var tries = 0;
+    (function seek() {
+      var el = document.getElementById('sstaffrow_' + sid);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.transition = 'background .6s'; el.style.background = 'rgba(217,119,87,.18)';
+        setTimeout(function () { el.style.background = ''; }, 1800);
+        return;
+      }
+      if (++tries < 30) setTimeout(seek, 200);
+    })();
   };
 
   // Per-staff capability overrides — additive on top of role (see
@@ -14190,7 +14335,7 @@
           var isSuperAdmin = (u.role === 'SUPER_ADMIN');
           var roleColor = isSuperAdmin ? '#f59e0b' : u.role === 'ADMIN' ? '#D97757' : u.role === 'STORE_ADMIN' ? '#8b5cf6' : '#9ca3af';
 
-          var row = '<div style="padding:14px 0;border-bottom:1px solid var(--rc-border,#1f2937);">';
+          var row = '<div id="sstaffrow_' + safeId + '" style="padding:14px 0;border-bottom:1px solid var(--rc-border,#1f2937);">';
           row += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
           row += '<div style="display:flex;align-items:center;gap:8px;">';
           row += '<span style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;">' + esc(u.id) + '</span>';

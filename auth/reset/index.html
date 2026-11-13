@@ -10,6 +10,8 @@ button{margin-top:8px;width:100%;padding:12px;border-radius:99px;border:2px soli
 (function(){
 var URL='https://seqlkwdghibmsfkbuwqq.supabase.co', KEY='sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp';
 var h=new URLSearchParams(location.hash.slice(1)), tok=h.get('access_token'), type=h.get('type');
+// keep the reset token for this tab only, so a refresh (F5) does not throw the link away
+try{ if(tok&&type==='recovery'){sessionStorage.setItem('rs_reset_tok',tok)} else {tok=sessionStorage.getItem('rs_reset_tok'); if(tok) type='recovery'} }catch(e){}
 var m=document.getElementById('m'), f=document.getElementById('f');
 function say(t,c){m.textContent=t;m.className='m '+(c||'')}
 if(!tok||type!=='recovery'){f.style.display='none';say('This reset link is invalid or has expired. Request a new one from the app (Forgot password?).','bad');}
@@ -21,7 +23,7 @@ document.getElementById('go').onclick=function(){
   say('Saving...');
   fetch(URL+'/auth/v1/user',{method:'PUT',headers:{'Content-Type':'application/json',apikey:KEY,Authorization:'Bearer '+tok},body:JSON.stringify({password:a})})
    .then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})})
-   .then(function(x){if(x.ok){f.style.display='none';say('Password updated. Go back to Rasumi Apps and sign in.','ok')}else{say((x.j&&(x.j.msg||x.j.message))||'Could not update the password.','bad')}})
+   .then(function(x){if(x.ok){try{sessionStorage.removeItem('rs_reset_tok')}catch(e){}f.style.display='none';say('Password updated. Go back to Rasumi Apps and sign in.','ok')}else{if(x.j&&/expired|invalid|jwt/i.test(String(x.j.msg||x.j.message||''))){try{sessionStorage.removeItem('rs_reset_tok')}catch(e){}say('This reset link has expired. Request a new one from Rasumi Apps (Forgot password?).','bad');return}say((x.j&&(x.j.msg||x.j.message))||'Could not update the password.','bad')}})
    .catch(function(){say('Connection error. Try again.','bad')});
 };
 })();
