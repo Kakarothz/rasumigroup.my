@@ -13367,7 +13367,7 @@
       // Store Portal profiles for the Store Mngmnt options (double-click the chip). Missing RPC -> empty list.
       return RS.supa.rpc('rpc_store_profiles_list').then(function (pr) { _huStoreProfiles = (pr && Array.isArray(pr.data)) ? pr.data : []; }, function () { _huStoreProfiles = []; });
     }).then(function () {
-      return RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type,email,display_name,department_id,invite_status,auth_id,store_access,google_ok,microsoft_ok,avatar_url').order('username');
+      return RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type,email,display_name,department_id,invite_status,auth_id,store_access,google_ok,microsoft_ok,avatar_url,ops_access').order('username');
     }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
       if (!res.data || !res.data.length) {
@@ -13433,6 +13433,13 @@
             row += '<label class="rh-tag"><input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> ' + esc(app) + '</span></label>';
           }
         });
+        // ---- Ops Centre (agent.rasumigroup.my) — not an app: opens the Operation Centre from Admin Monitor ----
+        if (!isMaster) {
+          var _opsOk = (role === 'ADMIN' && u.account_type === 'individual');
+          row += '<label class="rh-tag' + (_opsOk ? '' : ' dis') + '" title="' + (_opsOk ? 'Operation Centre button in Admin Monitor (signed in with this account, no Admin Console access)' : 'Individual ADMIN IDs only') + '">' +
+            '<input type="checkbox" id="uops_' + safeId + '"' + (u.ops_access ? ' checked' : '') + (_opsOk ? '' : ' disabled') + '>' +
+            '<span><i class="fa-solid fa-circle-check"></i> Ops Centre</span></label>';
+        }
         row += '</div>';
         // ---- Store Portal options (Store Mngmnt chip -> double-click) ----
         if (!isMaster) {
@@ -13660,6 +13667,16 @@
     // server-side. See sql/users_hospital_admin_rpc_gate_v9.sql.
     RS.supa.rpc('rpc_save_user_apps', { p_username: username, p_allowed_apps: apps, p_store_branch: storeBranch, p_account_type: acctType }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
+      // Ops Centre tick (only sent when the box is enabled, i.e. an individual ADMIN ID)
+      var ops = document.getElementById('uops_' + safeId);
+      if (ops && !ops.disabled) {
+        return RS.supa.rpc('rpc_set_ops_access', { p_username: username, p_on: !!ops.checked }).then(function (r2) {
+          if (r2.error) throw new Error(r2.error.message);
+          return res;
+        });
+      }
+      return res;
+    }).then(function () {
       rToast(username + ' — ' + apps.length + '/' + _HOSPITAL_APPS.length + ' apps saved', 'success');
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
