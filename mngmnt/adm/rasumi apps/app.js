@@ -10673,6 +10673,22 @@
       '<button class="r-btn-primary" id="r-btn-announce" disabled onclick="rSendAnnouncement()" style="flex-shrink:0"><i class="fa-solid fa-paper-plane"></i> Announce</button>' +
       '</div>' +
       '</div>' +
+      // ── Dashboard banner (live on the dashboard of every open Rasumi Apps — sql/dashboard_banner_live_v1.sql) ──
+      '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--rc-border)">' +
+      '<h4 style="font-size:11px;font-weight:700;color:var(--rc-text-dim);letter-spacing:0.1em;margin:0 0 8px;text-transform:uppercase">📣 Dashboard Banner (live, no restart)</h4>' +
+      '<div id="r-bb-status" style="font-size:11px;color:var(--rc-text-dim);margin-bottom:8px">Checking…</div>' +
+      '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px">' +
+      '<label style="display:inline-flex;gap:6px;align-items:center;cursor:pointer"><input type="radio" name="r-bb-kind" value="text" checked onchange="rBbKind()"> Text</label>' +
+      '<label style="display:inline-flex;gap:6px;align-items:center;cursor:pointer"><input type="radio" name="r-bb-kind" value="image" onchange="rBbKind()"> Image</label>' +
+      '<label style="display:inline-flex;gap:6px;align-items:center">Expires <input type="datetime-local" id="r-bb-exp" class="r-filter-input" style="width:auto;padding:4px 8px"></label>' +
+      '</div>' +
+      '<div id="r-bb-text-row"><textarea id="r-bb-msg" class="r-filter-input" maxlength="140" rows="2" style="width:100%;resize:none" placeholder="Important message only — max 140 characters" oninput="var c=document.getElementById(\'r-bb-cnt\');if(c)c.textContent=this.value.length"></textarea>' +
+      '<div style="font-size:10px;color:var(--rc-text-dim);text-align:right"><span id="r-bb-cnt">0</span>/140</div></div>' +
+      '<div id="r-bb-image-row" style="display:none"><input type="file" id="r-bb-file" accept="image/png,image/jpeg,image/webp" onchange="rBbImage(this)"><div id="r-bb-preview" style="margin-top:6px"></div></div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px">' +
+      '<button class="r-btn-primary" onclick="rBbSend()"><i class="fa-solid fa-bullhorn"></i> Broadcast now</button>' +
+      '<button class="r-btn-warn" onclick="rBbClear()"><i class="fa-solid fa-ban"></i> Take down</button>' +
+      '</div></div>' +
       '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--rc-border)">' +
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">' +
       '<h4 style="font-size:11px;font-weight:700;color:var(--rc-text-dim);letter-spacing:0.1em;margin:0;text-transform:uppercase">💡 Auto Tips (login screen)</h4>' +
@@ -10693,6 +10709,7 @@
       '</div>';
 
     if (window.rTipsLoad) window.rTipsLoad();
+    if (window.rBbStatus) window.rBbStatus();
     // [Fasa 6] Command history — read from Supabase
     if (RS.supa) {
       Promise.all([
@@ -11008,6 +11025,68 @@
       rToast('📢 Announcement sent — active for ' + hours + ' hour(s)', 'success');
       if (ed) ed.innerHTML = '';
     }).catch(function (err) { rToast('Error: ' + err.message, 'error'); });
+  };
+
+  // ── DASHBOARD BANNER (Admin Console → every open Rasumi Apps, live) ──
+  var _rBbImg = null;
+  window.rBbKind = function () {
+    var img = (document.querySelector('input[name="r-bb-kind"]:checked') || {}).value === 'image';
+    var t = $r('r-bb-text-row'), i = $r('r-bb-image-row');
+    if (t) t.style.display = img ? 'none' : ''; if (i) i.style.display = img ? '' : 'none';
+  };
+  window.rBbImage = function (input) {
+    _rBbImg = null; var pv = $r('r-bb-preview'); if (pv) pv.innerHTML = '';
+    var f = input.files && input.files[0]; if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        // same as the Rasumi Apps composer: fixed-height banner, stored at 120px tall (crisp on HiDPI)
+        var s = Math.min(1, 120 / img.height), w = Math.max(1, Math.round(img.width * s)), h = Math.max(1, Math.round(img.height * s));
+        var c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h);
+        _rBbImg = c.toDataURL('image/jpeg', 0.85);
+        if (pv) pv.innerHTML = '<img src="' + _rBbImg + '" style="height:48px;border-radius:4px">';
+      };
+      img.src = rd.result;
+    };
+    rd.readAsDataURL(f);
+  };
+  window.rBbStatus = function () {
+    var el = $r('r-bb-status'); if (!el || !RS.supa) return;
+    var ex = $r('r-bb-exp');
+    if (ex && !ex.value) { var d = new Date(Date.now() + 24 * 3600 * 1000); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); ex.value = d.toISOString().slice(0, 16); }
+    RS.supa.rpc('get_active_dashboard_banner').then(function (r) {
+      var b = (r && r.data) || {};
+      el.innerHTML = b.kind
+        ? '<span style="color:#34d399">● Live now:</span> ' + (b.kind === 'image' ? 'image banner' : '"' + esc(b.message || '') + '"') + ' — until ' + esc(new Date(b.expires_at).toLocaleString('en-GB'))
+        : 'No banner live right now.';
+    }).catch(function () { el.textContent = 'Could not read the current banner.'; });
+  };
+  window.rBbSend = function () {
+    if (RS.userRole !== 'superadmin' || !RS.supa) { rToast('Super admin only', 'warn'); return; }
+    var kind = (document.querySelector('input[name="r-bb-kind"]:checked') || {}).value || 'text';
+    var msg = (($r('r-bb-msg') || {}).value || '').trim();
+    var exv = ($r('r-bb-exp') || {}).value;
+    if (!exv) { rToast('Set an expiry date / time', 'warn'); return; }
+    if (kind === 'text' && !msg) { rToast('Enter a message', 'warn'); return; }
+    if (kind === 'image' && !_rBbImg) { rToast('Choose an image', 'warn'); return; }
+    RS.supa.rpc('rpc_dashboard_banner_broadcast', {
+      p_kind: kind, p_message: kind === 'text' ? msg : null, p_image_data: kind === 'image' ? _rBbImg : null,
+      p_expires_at: new Date(exv).toISOString()
+    }).then(function (r) {
+      if (r.error) throw new Error(r.error.message);
+      if (r.data && r.data.success === false) { rToast(r.data.reason || 'Could not broadcast', 'error'); return; }
+      rToast('📣 Banner is live on every open Rasumi Apps', 'success');
+      var m = $r('r-bb-msg'); if (m) m.value = ''; var c = $r('r-bb-cnt'); if (c) c.textContent = '0';
+      rBbStatus();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
+  window.rBbClear = function () {
+    if (RS.userRole !== 'superadmin' || !RS.supa) { rToast('Super admin only', 'warn'); return; }
+    RS.supa.rpc('rpc_dashboard_banner_clear').then(function (r) {
+      if (r.error) throw new Error(r.error.message);
+      rToast('Banner taken down', 'success'); rBbStatus();
+    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
 
   // ── AUTO TIPS (rotating login-screen tips) ──────────────────
