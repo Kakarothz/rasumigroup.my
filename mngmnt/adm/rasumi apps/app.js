@@ -13150,13 +13150,28 @@
       fetch(RASUMI_SUPABASE_URL + '/functions/v1/send-invite-emails', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: RASUMI_SUPABASE_ANON_KEY, Authorization: 'Bearer ' + RASUMI_SUPABASE_ANON_KEY }, body: '{}' }).catch(function () {});
     } catch (e) { }
   }
-  window.rResendInvite = function (username) {
+  // One click only: the link locks while sending and stays "Sent" (server also refuses a resend within 10 min
+  // or once the person has already signed up — see sql/invite_resend_guard_v1.sql).
+  window.rResendInvite = function (username, el) {
     if (RS.userRole !== 'superadmin' || !RS.supa) return;
+    if (el && el.dataset.busy) return;
+    var orig = el ? el.innerHTML : '';
+    var lock = function (html, title) { if (!el) return; el.dataset.busy = '1'; el.innerHTML = html; el.style.pointerEvents = 'none'; el.style.opacity = '.7'; if (title) el.title = title; };
+    var unlock = function () { if (!el) return; delete el.dataset.busy; el.innerHTML = orig; el.style.pointerEvents = ''; el.style.opacity = ''; };
+    lock('<i class="fa-solid fa-spinner fa-spin"></i> Sending…');
     RS.supa.rpc('rpc_resend_invite', { p_username: username }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
-      if (res.data && res.data.success === false) { rToast(res.data.reason || 'Could not resend', 'error'); return; }
+      if (res.data && res.data.success === false) {
+        var why = res.data.reason || 'Could not resend';
+        rToast(why, 'error');
+        if (/already signed up/i.test(why)) lock('<i class="fa-solid fa-user-check"></i> Signed up', why);
+        else if (/already sent/i.test(why)) lock('<i class="fa-solid fa-check"></i> Sent', why);
+        else unlock();
+        return;
+      }
+      lock('<i class="fa-solid fa-check"></i> Sent', 'Invitation e-mail queued');
       rToast('Invitation e-mail queued for ' + username, 'success'); _flushInvites();
-    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
+    }).catch(function (e) { unlock(); rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
   var _hDepts = null;
   function _loadDepts() {
@@ -13396,12 +13411,12 @@
         var initial = (String(u.display_name || uname).trim().charAt(0) || '?').toUpperCase();
         var devs = _huDev[String(uname).toLowerCase()] || [];
         var qtxt = [uname, u.display_name, u.email, u.department_id, role].concat(devs.map(function (d) { return d.hostname; })).join(' ').toLowerCase();
-        var row = '<div class="rh-user' + (isMaster ? ' master' : '') + (isActive ? '' : ' off') + '" data-q="' + esc(qtxt) + '">';
+        var row = '<div class="rh-user' + (isMaster ? ' master' : '') + (isActive ? '' : ' off') + '" data-q="' + esc(qtxt) + '"' + (isMaster ? '' : ' data-sid="' + safeId + '" data-role="' + esc(role) + '"') + '>';
         // ---- head: avatar, name, badges, e-mail line, status ----
         var av = (u.avatar_url && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/]+=*$/.test(u.avatar_url)) ? u.avatar_url : '';
         row += '<div class="rh-uhead"><div class="rh-av">' + (av ? '<img src="' + esc(av) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '<span>' + esc(initial) + '</span></div><div class="rh-uinfo">';
         row += '<div class="rh-uname"><span>' + esc(uname) + '</span><span class="rh-role ' + roleCls + '">' + esc(role) + '</span>';
-        if (u.invite_status === 'invited') row += '<span class="rh-role inv">INVITED</span>' + (u.email ? '<a href="#" class="rh-resend" onclick="rResendInvite(\'' + q(uname) + '\');return false;"><i class="fa-regular fa-envelope"></i> Resend e-mail</a>' : '');
+        if (u.invite_status === 'invited') row += '<span class="rh-role inv">INVITED</span>' + (u.email ? '<a href="#" class="rh-resend" onclick="rResendInvite(\'' + q(uname) + '\', this);return false;"><i class="fa-regular fa-envelope"></i> Resend e-mail</a>' : '');
         row += '</div>';
         if (u.email || u.department_id) row += '<div class="rh-umeta">' + (u.email ? '<span><i class="fa-regular fa-envelope"></i> ' + esc(u.email) + '</span>' : '') + (u.department_id ? '<span><i class="fa-regular fa-building"></i> ' + esc(u.department_id) + '</span>' : '') + '</div>';
         row += '</div><div class="rh-uside">';
@@ -13436,7 +13451,7 @@
         // ---- Ops Centre (agent.rasumigroup.my) — not an app: opens the Operation Centre from Admin Monitor ----
         if (!isMaster) {
           var _opsOk = (role === 'ADMIN' && u.account_type === 'individual');
-          row += '<label class="rh-tag' + (_opsOk ? '' : ' dis') + '" title="' + (_opsOk ? 'Operation Centre button in Admin Monitor (signed in with this account, no Admin Console access)' : 'Individual ADMIN IDs only') + '">' +
+          row += '<label class="rh-tag' + (_opsOk ? '' : ' dis') + '" id="uopsl_' + safeId + '" title="' + (_opsOk ? 'Operation Centre button in Admin Monitor (signed in with this account, no Admin Console access)' : 'Individual ADMIN IDs only (set Role = ADMIN and Account Type = Individual)') + '">' +
             '<input type="checkbox" id="uops_' + safeId + '"' + (u.ops_access ? ' checked' : '') + (_opsOk ? '' : ' disabled') + '>' +
             '<span><i class="fa-solid fa-circle-check"></i> Ops Centre</span></label>';
         }
@@ -13491,13 +13506,14 @@
           row += '<button class="rh-btn ghost sm" onclick="rSaveUserIdentity(\'' + q(uname) + '\')"><i class="fa-solid fa-floppy-disk"></i> Save identity</button>';
           row += '</div></details>';
           // ---- actions ----
-          row += '<div class="rh-acts"><button class="rh-btn primary sm" onclick="rSaveUserApps(\'' + q(uname) + '\')"><i class="fa-solid fa-floppy-disk"></i> Save apps</button>';
+          row += '<div class="rh-acts"><button class="rh-btn primary sm" id="usave_' + safeId + '" style="display:none" onclick="rSaveUserApps(\'' + q(uname) + '\')"><i class="fa-solid fa-floppy-disk"></i> Save changes</button>';
           row += '<button class="rh-btn danger sm" onclick="rDeleteHospitalUser(\'' + q(uname) + '\')" title="Remove this ID"><i class="fa-regular fa-trash-can"></i> Remove ID</button></div>';
         }
         row += '</div>';
         rows.push(row);
       });
       list.innerHTML = rows.join('');
+      _huDirtyInit(list);
       var _c = document.getElementById('r-hu-cnt'); if (_c) _c.textContent = String(rows.length);
       rHuFilter();
     }).catch(function (e) {
@@ -13640,9 +13656,84 @@
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
 
+  // ── Per-card "Save changes": hidden until something tracked differs from what was loaded ──
+  // Tracked: app chips, Ops Centre, Account Type, Store Branch, Role. (Store Portal options and the
+  // identity text fields keep their own Save buttons.)
+  function _huState(card) {
+    var sid = card.dataset.sid, g = function (p) { return document.getElementById(p + sid); };
+    var apps = Array.prototype.map.call(card.querySelectorAll('input[id^="uapp_' + sid + '_"]'), function (c) { return c.checked ? '1' : '0'; }).join('');
+    var storeOn = card.querySelector('input[id="uapp_' + sid + '_Store_Mngmnt"]');
+    var ops = g('uops_'), typ = g('utype_'), br = g('ubranchsel_'), rl = g('urole_');
+    return [apps, ops && !ops.disabled && ops.checked ? '1' : '0', typ ? typ.value : '',
+      (storeOn && storeOn.checked && br) ? br.value : '', rl ? rl.value : ''].join('|');
+  }
+  // Ops Centre chip follows the Role + Account Type currently selected (not only the saved ones).
+  function _huOpsSync(card) {
+    var sid = card.dataset.sid, ops = document.getElementById('uops_' + sid), lbl = document.getElementById('uopsl_' + sid);
+    if (!ops) return;
+    var rl = document.getElementById('urole_' + sid), typ = document.getElementById('utype_' + sid);
+    var ok = (rl ? rl.value : card.dataset.role) === 'ADMIN' && (typ ? typ.value : '') === 'individual';
+    ops.disabled = !ok;
+    if (!ok) ops.checked = false;
+    if (lbl) {
+      lbl.classList.toggle('dis', !ok);
+      lbl.title = ok ? 'Operation Centre button in Admin Monitor (signed in with this account, no Admin Console access)' : 'Individual ADMIN IDs only (set Role = ADMIN and Account Type = Individual)';
+    }
+  }
+  function _huRefresh(card) {
+    var btn = document.getElementById('usave_' + card.dataset.sid);
+    if (!btn || btn.dataset.busy) return;
+    btn.style.display = (_huState(card) !== card.dataset.snap) ? '' : 'none';
+  }
+  function _huDirtyInit(list) {
+    Array.prototype.forEach.call(list.querySelectorAll('.rh-user[data-sid]'), function (card) { card.dataset.snap = _huState(card); });
+    if (list.dataset.dirtyBound) return;
+    list.dataset.dirtyBound = '1';
+    list.addEventListener('change', function (ev) {
+      var card = ev.target && ev.target.closest ? ev.target.closest('.rh-user[data-sid]') : null;
+      if (!card) return;
+      if (/^(urole_|utype_)/.test(ev.target.id || '')) _huOpsSync(card);
+      _huRefresh(card);
+    });
+  }
+
   window.rSaveUserApps = function (username) {
     if (RS.userRole !== 'superadmin') return;
     if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
+    var sid0 = _sidU(username);
+    var card = document.querySelector('.rh-user[data-sid="' + sid0 + '"]');
+    var btn = document.getElementById('usave_' + sid0);
+    var btnHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+      if (btn.dataset.busy) return;
+      btn.dataset.busy = '1'; btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving…';
+    }
+    var done = function (ok) {
+      if (!btn) return;
+      delete btn.dataset.busy; btn.disabled = false; btn.innerHTML = btnHtml;
+      if (ok && card) { card.dataset.snap = _huState(card); }
+      if (card) _huRefresh(card); else if (ok) btn.style.display = 'none';
+    };
+    // Role changed in the identity dropdown? Save it first — Ops Centre is checked against the saved role.
+    var rlSel = document.getElementById('urole_' + sid0);
+    var roleChanged = !!(card && rlSel && rlSel.value !== card.dataset.role);
+    var pre = roleChanged ? RS.supa.rpc('rpc_update_hospital_user_identity', (function () {
+      var v = function (p) { var e = document.getElementById(p + sid0); return e ? e.value : ''; };
+      var c = function (p) { var e = document.getElementById(p + sid0); return !!(e && e.checked); };
+      return { p_username: username, p_name: v('uname_'), p_email: v('uemail_'), p_dept: v('udept_'), p_role: v('urole_'),
+        p_store_access: c('ustore_'), p_google: c('ugoog_'), p_microsoft: c('ums_') };
+    })()).then(function (r) { if (r.error) throw new Error(r.error.message); card.dataset.role = rlSel.value; }) : Promise.resolve();
+    pre.then(function () { return _saveUserAppsCore(username); })
+      .then(function (n) {
+        done(true);
+        rToast(username + ' — saved (' + n + '/' + _HOSPITAL_APPS.length + ' apps' + (roleChanged ? ', role ' + rlSel.value : '') + ')', 'success');
+        if (roleChanged) _loadHospitalUsers();
+      })
+      .catch(function (e) { done(false); rToast('Error: ' + (e.message || String(e)), 'error'); });
+  };
+
+  function _saveUserAppsCore(username) {
     var safeId = _sidU(username);
     var apps = [];
     _HOSPITAL_APPS.forEach(function (app) {
@@ -13665,21 +13756,20 @@
     // direct table write gated only client-side; now goes through a
     // SECURITY DEFINER RPC that checks admin_users.role = 'superadmin'
     // server-side. See sql/users_hospital_admin_rpc_gate_v9.sql.
-    RS.supa.rpc('rpc_save_user_apps', { p_username: username, p_allowed_apps: apps, p_store_branch: storeBranch, p_account_type: acctType }).then(function (res) {
+    return RS.supa.rpc('rpc_save_user_apps', { p_username: username, p_allowed_apps: apps, p_store_branch: storeBranch, p_account_type: acctType }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
-      // Ops Centre tick (only sent when the box is enabled, i.e. an individual ADMIN ID)
+      // Ops Centre: sent when the box is enabled (individual ADMIN), or to clear a tick that was on
+      // before the role / account type changed.
       var ops = document.getElementById('uops_' + safeId);
-      if (ops && !ops.disabled) {
-        return RS.supa.rpc('rpc_set_ops_access', { p_username: username, p_on: !!ops.checked }).then(function (r2) {
+      if (ops && (!ops.disabled || ops.defaultChecked)) {
+        var on = !ops.disabled && !!ops.checked;
+        return RS.supa.rpc('rpc_set_ops_access', { p_username: username, p_on: on }).then(function (r2) {
           if (r2.error) throw new Error(r2.error.message);
-          return res;
+          ops.defaultChecked = on;
         });
       }
-      return res;
-    }).then(function () {
-      rToast(username + ' — ' + apps.length + '/' + _HOSPITAL_APPS.length + ' apps saved', 'success');
-    }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
-  };
+    }).then(function () { return apps.length; });
+  }
 
   // Usernames may be Latin, Arabic or Jawi (diacritics stripped, single inner spaces). Same rules as the database.
   function _normUsername(u) { return String(u || '').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640\u06D6-\u06ED]/g, '').replace(/\s+/g, ' ').trim(); }
