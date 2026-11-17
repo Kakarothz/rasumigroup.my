@@ -1053,25 +1053,28 @@
       '          <div class="rh-hint">Team = one ID shared by a branch (greeting: "Good morning, team"). Individual = one person (greeting uses the ID as their name, e.g. farhan → "Good morning, Farhan").</div>',
       '        </div>',
       '        <div id="r-huser-invite-form" class="rh-form" style="display:none;">',
-      '          <div style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;margin-bottom:8px;">INVITE BY E-MAIL (they sign up with this exact e-mail)</div>',
+      '          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;"><span style="font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;">INVITE BY E-MAIL (they sign up with this exact e-mail)</span><span class="rh-hb-mode"><button type="button" id="r-hinv-m-single" class="on" onclick="rHinvMode(false)">Single</button><button type="button" id="r-hinv-m-bulk" onclick="rHinvMode(true)"><i class="fa-solid fa-users"></i> Bulk</button></span></div>',
+      '          <div id="r-hinv-bulk" style="display:none;margin-bottom:8px;"><div id="r-hinv-chips" class="rh-hb-box"></div><div id="r-hinv-bcount" class="rh-hb-count"></div></div>',
       '          <div style="display:flex;flex-wrap:wrap;gap:8px;">',
       '            <select id="r-hinv-legacy" onchange="rHinvLegacyPick()" title="Link an existing individual ID (keeps its history)" style="flex:1 1 100%;' + _HINV_SEL + '"><option value="">New user (no existing ID)</option></select>',
       '            <input id="r-hinv-name" type="text" placeholder="Full name" style="flex:1 1 200px;min-width:0;' + _HINV_INP + '">',
       '            <input id="r-hinv-un" type="text" placeholder="Username" maxlength="24" dir="auto" autocomplete="off" spellcheck="false" oninput="this.dataset.touched=\'1\'" style="flex:1 1 160px;min-width:0;' + _HINV_INP + '">',
       '            <input id="r-hinv-email" type="email" placeholder="E-mail" autocomplete="off" oninput="rHinvSuggest()" style="flex:1 1 220px;min-width:0;' + _HINV_INP + '">',
       '            <input id="r-hinv-email2" type="email" placeholder="Confirm e-mail" autocomplete="off" style="flex:1 1 220px;min-width:0;' + _HINV_INP + '">',
-      '            <select id="r-hinv-role" style="' + _HINV_SEL + '"><option value="VIEWER">VIEWER</option><option value="OPERATOR">OPERATOR</option><option value="BRANCH_USER">BRANCH_USER</option><option value="DEPT_ADMIN">DEPT_ADMIN</option><option value="BOD">BOD (read-only overview)</option><option value="ADMIN">ADMIN</option></select>',
+      '            <select id="r-hinv-role" onchange="rHinvRolePick()" style="' + _HINV_SEL + '"><option value="VIEWER">VIEWER</option><option value="OPERATOR">OPERATOR</option><option value="BRANCH_USER">BRANCH_USER</option><option value="DEPT_ADMIN">DEPT_ADMIN</option><option value="BOD">BOD (read-only overview)</option><option value="ADMIN">ADMIN</option><option value="PHARMACIST">Pharmacist</option></select>',
+      '            <select id="r-hinv-pharm" onchange="rHinvPharmPick()" style="display:none;flex:1 1 100%;' + _HINV_SEL + '"><option value="">- pharmacist -</option></select>',
       '            <select id="r-hinv-dept" style="' + _HINV_SEL + '"><option value="">- department -</option></select>',
       '          </div>',
       '          <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;font-size:10px;color:var(--rc-text-dim,#d1d5db);">',
-      '            <label><input id="r-hinv-store" type="checkbox"> Store access (Authenticator code)</label>',
+      '            <label id="r-hinv-store-lbl"><input id="r-hinv-store" type="checkbox"> Store access (Authenticator code)</label>',
       '            <label><input id="r-hinv-google" type="checkbox" checked> Google sign-in</label>',
       '            <label><input id="r-hinv-ms" type="checkbox" checked> Microsoft sign-in</label>',
       '          </div>',
-      '          <div style="margin-top:10px;font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;">APPS (ready the moment they sign up)</div>',
+      '          <div id="r-hinv-apps-ttl" style="margin-top:10px;font-size:10px;color:var(--rc-text-dim,#9ca3af);letter-spacing:1px;">APPS (ready the moment they sign up)</div>',
       '          <div id="r-hinv-apps" class="rh-tags" style="margin-top:6px;"></div>',
       '          <div id="r-hinv-branch-row" style="display:none;margin-top:6px;font-size:11px;color:var(--rc-text-dim,#d1d5db);"><i class="fa-solid fa-store"></i> Store Branch <select id="r-hinv-branch" style="' + _HINV_SEL + 'margin-left:6px;"></select></div>',
-      '          <div style="display:flex;gap:8px;margin-top:10px;"><button onclick="rHuserInviteSend()" style="padding:7px 16px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">SEND INVITE</button><button onclick="rHuserInviteClose()" style="padding:7px 14px;background:transparent;color:var(--rc-text-dim,#9ca3af);font-weight:700;border:1px solid var(--rc-border,#374151);border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">CANCEL</button></div>',
+      '          <div id="r-hinv-btable" style="display:none;margin-top:12px;"></div>',
+      '          <div style="display:flex;gap:8px;margin-top:10px;"><button id="r-hinv-send" onclick="rHuserInviteSend()" style="padding:7px 16px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">SEND INVITE</button><button onclick="rHuserInviteClose()" style="padding:7px 14px;background:transparent;color:var(--rc-text-dim,#9ca3af);font-weight:700;border:1px solid var(--rc-border,#374151);border-radius:4px;cursor:pointer;font-size:11px;font-family:inherit;">CANCEL</button></div>',
       '        </div>',
       '        <div class="rh-tabs">',
       '          <button class="rh-tab on" id="r-hu-tab-u" onclick="rHuTab(\'u\')"><i class="fa-solid fa-user-group"></i> Users <span class="cnt" id="r-hu-cnt">0</span></button>',
@@ -1109,6 +1112,7 @@
       '              <option value="STORE_ADMIN">STORE_ADMIN</option>',
       '              <option value="ADMIN">ADMIN</option>',
       '            </select>',
+      '            <select id="r-sstaff-new-pic" style="display:none !important;padding:9px 10px;background:#1f2937;border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:11px;font-family:inherit;cursor:pointer;min-width:180px;"><option value="">Link to PIC…</option></select>',
       '            <select id="r-sstaff-new-branch" style="padding:9px 10px;background:#1f2937;border:1px solid var(--rc-border,#374151);color:#fff;border-radius:4px;font-size:11px;font-family:inherit;cursor:pointer;min-width:110px;">',
       '              <option value="ALL">ALL — HQ/ADMIN</option>',
       '            </select>',
@@ -13228,6 +13232,14 @@
     if (document.getElementById('r-hu-style')) return;
     var st = document.createElement('style'); st.id = 'r-hu-style';
     st.textContent = "\n.rh-modal{background:var(--rc-bg,#0f1115);border:1px solid var(--rc-border,#374151);border-radius:16px;width:940px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.65);overflow:hidden;font-family:inherit;color:var(--rc-text,#fff)}\n.rh-head{display:flex;align-items:center;gap:14px;padding:18px 22px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0}\n.rh-ic,.rh-tile{width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--rc-cyan,#D97757);background:none;border:none;flex:none}\n.rh-tile.sm{width:28px;height:28px;font-size:23px}\n.rh-ttl{flex:1;min-width:0}.rh-ttl h3{margin:0;font-size:22px;font-weight:700;letter-spacing:.2px}.rh-ttl p{margin:2px 0 0;font-size:12px;color:var(--rc-text-dim,#9ca3af)}\n.rh-head-btns{display:flex;align-items:center;gap:10px}\n.rh-x{background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;font-size:18px;padding:6px 8px;margin-left:2px}.rh-x:hover{color:#fff}\n.rh-btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:10px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;border:1px solid transparent;transition:filter .15s,transform .15s}\n.rh-btn.sm{padding:6px 12px;font-size:11px;border-radius:8px}\n.rh-btn.primary{background:linear-gradient(135deg,var(--rc-cyan,#D97757),#b9532f);color:#fff;box-shadow:0 4px 14px rgba(217,119,87,.35)}\n.rh-btn.ghost{background:rgba(255,255,255,.03);color:var(--rc-text,#fff);border-color:rgba(217,119,87,.55)}\n.rh-btn.danger{background:rgba(239,68,68,.08);color:#f87171;border-color:rgba(239,68,68,.45)}\n.rh-btn:hover:not([disabled]){filter:brightness(1.15)}.rh-btn:active:not([disabled]){transform:scale(.97)}.rh-btn[disabled]{opacity:.4;cursor:not-allowed}\n.rh-form{padding:12px 22px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0;background:rgba(255,255,255,.02)}\n.rh-hint{font-size:10.5px;color:var(--rc-text-dim,#6b7280);margin-top:8px;line-height:1.5}\n.rh-in{padding:8px 11px;background:rgba(255,255,255,.05);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);border-radius:9px;font-size:12px;font-family:inherit;outline:none;min-width:0}\n.rh-in.sm{padding:5px 8px;font-size:11px;border-radius:7px}\n.rh-in:focus{border-color:var(--rc-cyan,#D97757)}.rh-in option{background:#1f2937;color:#fff}.rh-in:disabled{opacity:.55}\n#r-rollout-card{padding:14px 22px 0;flex-shrink:0;overflow-y:auto}\n.rh-list{overflow-y:auto;padding:12px 22px 20px;flex:1}\n.rh-card{background:rgba(255,255,255,.035);border:1px solid var(--rc-border,#374151);border-radius:14px;padding:14px 18px;margin-bottom:12px}\n.rh-phase{display:flex;align-items:center;gap:14px;flex-wrap:wrap}\n.rh-phase-tx{flex:1;min-width:220px}.rh-phase-h{font-size:16px;font-weight:700;display:flex;align-items:center;gap:10px;flex-wrap:wrap}\n.rh-sub{font-size:11.5px;color:var(--rc-text-dim,#9ca3af);margin-top:3px;line-height:1.45}\n.rh-vsep{width:1px;align-self:stretch;background:var(--rc-border,#374151);margin:0 4px}\n.rh-win{display:flex;align-items:center;gap:10px;font-size:20px;color:var(--rc-text-dim,#9ca3af)}.rh-win small{display:block;font-size:10.5px;color:var(--rc-text-dim,#9ca3af)}.rh-win b{display:block;font-size:16px;color:var(--rc-text,#fff)}\n.rh-pill{display:inline-block;font-size:10.5px;font-weight:600;padding:3px 11px;border-radius:99px;border:1px solid var(--rc-border,#374151);color:var(--rc-text-dim,#9ca3af);white-space:nowrap;background:rgba(255,255,255,.04)}\n.rh-pill.mute{color:#c4c7d0}.rh-pill.ok{color:#34d399;border-color:#34d399}.rh-pill.warn{color:#fbbf24;border-color:#fbbf24}.rh-pill.bad{color:#f87171;border-color:#f87171}\n.rh-provs-h{display:flex;align-items:center;gap:12px;margin-bottom:12px}.rh-provs-h b{font-size:15px}\n.rh-prov-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}\n.rh-prov{border:1px solid var(--rc-border,#374151);border-radius:12px;padding:10px 12px;background:rgba(0,0,0,.18)}\n.rh-prov-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.rh-prov-n{font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px}.rh-prov-n svg{flex:none}\n.rh-prov-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}\n.rh-sw{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:11px;color:var(--rc-text-dim,#9ca3af)}\n.rh-sw input{display:none}.rh-sw-k{width:32px;height:18px;border-radius:99px;background:#374151;position:relative;transition:background .2s}\n.rh-sw-k::after{content:\"\";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s}\n.rh-sw input:checked~.rh-sw-k{background:var(--rc-cyan,#D97757)}.rh-sw input:checked~.rh-sw-k::after{left:16px}\n.rh-note{font-size:10.5px;color:var(--rc-text-dim,#6b7280);margin-top:10px;line-height:1.5}\n.rh-user{background:rgba(255,255,255,.03);border:1px solid var(--rc-border,#374151);border-radius:14px;padding:16px 18px;margin-bottom:14px}\n.rh-user.master{border-color:rgba(217,119,87,.5);background:linear-gradient(135deg,rgba(217,119,87,.08),rgba(255,255,255,.02))}\n.rh-user.off{opacity:.7}\n.rh-uhead{display:flex;align-items:flex-start;gap:14px}\n.rh-av{width:44px;height:44px;border-radius:50%;background:linear-gradient(145deg,var(--rc-cyan,#D97757),#7c3aed);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex:none;position:relative;overflow:hidden}.rh-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}\n.rh-uinfo{flex:1;min-width:0}.rh-uname{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:16px;font-weight:700}\n.rh-role{font-size:10px;font-weight:700;letter-spacing:.5px;padding:3px 10px;border-radius:99px;border:1px solid;background:rgba(255,255,255,.04)}\n.rh-role.owner{color:#c4b5fd;border-color:#8b5cf6}.rh-role.admin{color:#a78bfa;border-color:#8b5cf6}.rh-role.branch{color:#34d399;border-color:#10b981}.rh-role.other{color:#9ca3af;border-color:#6b7280}.rh-role.inv{color:#fbbf24;border-color:#fbbf24}\n.rh-resend{font-size:11px;color:var(--rc-cyan,#D97757);text-decoration:underline;font-weight:500}\n.rh-umeta{display:flex;gap:16px;flex-wrap:wrap;margin-top:5px;font-size:11.5px;color:var(--rc-text-dim,#9ca3af)}.rh-umeta i{margin-right:5px}\n.rh-uside{flex:none}\n.rh-owner{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:var(--rc-cyan,#D97757);padding:5px 14px;border:1px solid rgba(217,119,87,.5);border-radius:99px}\n.rh-status{display:inline-flex;align-items:center;gap:7px;padding:6px 16px;border-radius:99px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;border:1px solid}\n.rh-status i{font-size:7px}.rh-status.on{background:rgba(16,185,129,.12);color:#34d399;border-color:rgba(16,185,129,.55)}.rh-status.off{background:rgba(239,68,68,.1);color:#f87171;border-color:rgba(239,68,68,.45)}\n.rh-sec{margin:14px 0 8px;font-size:12px;font-weight:600;color:var(--rc-text-dim,#c4c7d0);display:flex;align-items:center;gap:8px}\n.rh-tags{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.rh-tags.sm{margin-top:10px}\n.rh-tag{cursor:pointer;user-select:none}.rh-tag input{display:none}\n.rh-tag span{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:99px;font-size:11.5px;font-weight:600;border:1px solid var(--rc-border,#374151);color:var(--rc-text-dim,#9ca3af);background:rgba(255,255,255,.03);transition:all .15s}\n.rh-tag span i{display:none;font-size:12px}\n.rh-tag span:hover{border-color:var(--rc-cyan,#D97757);color:#fff}\n.rh-tag input:checked+span{background:linear-gradient(135deg,rgba(217,119,87,.35),rgba(124,58,237,.3));border-color:var(--rc-cyan,#D97757);color:#fff;box-shadow:0 0 0 1px rgba(217,119,87,.25) inset}\n.rh-tag input:checked+span i{display:inline}\n.rh-tag.dis{cursor:not-allowed}.rh-tag.dis span{opacity:.55}.rh-tag.dis span:hover{border-color:var(--rc-border,#374151);color:var(--rc-text-dim,#9ca3af)}\n.rh-tag.dis input:checked+span:hover{color:#fff;border-color:var(--rc-cyan,#D97757)}\n.rh-tag.dis span em{font-style:normal;font-size:9.5px;opacity:.8}.rh-tag.dis span i.fa-lock{display:inline}\n.rh-opts{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--rc-border,#374151)}\n.rh-opt{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--rc-text-dim,#c4c7d0)}.rh-opt span{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}\n.rh-det{margin-top:12px;border:1px solid var(--rc-border,#374151);border-radius:11px;background:rgba(0,0,0,.15)}\n.rh-det summary{cursor:pointer;list-style:none;padding:10px 14px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:9px}\n.rh-det summary::-webkit-details-marker{display:none}.rh-det summary i{font-size:10px;transition:transform .2s;color:var(--rc-text-dim,#9ca3af)}\n.rh-det[open] summary i{transform:rotate(90deg)}\n.rh-idgrid{display:flex;flex-wrap:wrap;gap:8px;padding:0 14px}.rh-det .rh-tags.sm{padding:0 14px 14px}\n.rh-acts{display:flex;gap:10px;margin-top:14px}\n.rh-search{position:relative;flex:0 1 300px;min-width:180px}.rh-search i.fa-magnifying-glass{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--rc-text-dim,#9ca3af);pointer-events:none}\n.rh-search input{width:100%;padding:9px 32px 9px 34px;background:rgba(255,255,255,.05);border:1px solid var(--rc-border,#374151);border-radius:10px;color:var(--rc-text,#fff);font-size:12px;font-family:inherit;outline:none}\n.rh-search input:focus{border-color:var(--rc-cyan,#D97757)}.rh-search-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--rc-text-dim,#9ca3af);cursor:pointer;padding:4px 6px}.rh-search-x:hover{color:#fff}\n.rh-empty{padding:30px 10px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:13px}\n.rh-sec-n{font-size:10.5px;padding:1px 8px;border-radius:99px;background:rgba(255,255,255,.08);color:var(--rc-text-dim,#9ca3af)}\n.rh-devs{display:flex;flex-wrap:wrap;gap:8px}\n.rh-dev{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:99px;font-size:11.5px;font-weight:600;border:1px solid var(--rc-border,#374151);background:rgba(255,255,255,.03);color:var(--rc-text,#fff)}\n.rh-dev i{font-size:7px;color:#6b7280}.rh-dev.on{border-color:rgba(16,185,129,.55);background:rgba(16,185,129,.08)}.rh-dev.on i{color:#34d399}\n.rh-dev em{font-style:normal;font-weight:500;font-size:10.5px;color:var(--rc-text-dim,#9ca3af)}.rh-dev.on em{color:#34d399}\n.rh-dev.hit{border-color:var(--rc-cyan,#D97757);box-shadow:0 0 0 2px rgba(217,119,87,.3)}\n.rh-dev-none{font-size:11.5px;color:var(--rc-text-dim,#6b7280)}.rh-dev-more{font-size:11px;color:var(--rc-text-dim,#9ca3af);padding:5px 6px}\n.rh-modal{width:1000px}.rh-head{flex-wrap:nowrap}.rh-ttl{flex:0 1 auto;min-width:0}.rh-ttl p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rh-head-btns{margin-left:auto;flex:none}.rh-search{flex:1 1 200px;max-width:300px;min-width:140px}.rh-tabs{display:flex;gap:6px;padding:0 22px;border-bottom:1px solid var(--rc-border,#374151);flex-shrink:0}.rh-tab{position:relative;background:none;border:none;color:var(--rc-text-dim,#9ca3af);font-family:inherit;font-size:13px;font-weight:600;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;border-bottom:2px solid transparent;margin-bottom:-1px}.rh-tab:hover{color:#fff}.rh-tab.on{color:#fff;border-bottom-color:var(--rc-cyan,#D97757)}.rh-tab .cnt{font-size:10.5px;padding:1px 8px;border-radius:99px;background:rgba(255,255,255,.08);color:var(--rc-text-dim,#9ca3af)}.rh-tab .dot{width:8px;height:8px;border-radius:50%;background:#fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,.18)}.rh-pane{display:none;flex:1;min-height:0;overflow-y:auto;flex-direction:column}.rh-pane.on{display:flex}.rh-pane .rh-list{overflow:visible;flex:none}#r-rollout-card{padding:16px 22px 22px;overflow:visible}.rh-sum{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11.5px;color:var(--rc-text-dim,#9ca3af);padding:9px 14px;margin:14px 22px 0;border:1px solid var(--rc-border,#374151);border-radius:11px;background:rgba(255,255,255,.025);cursor:pointer}.rh-sum:hover{border-color:var(--rc-cyan,#D97757)}.rh-sum b{color:#fff;font-weight:600}.rh-sum .sep{width:1px;height:14px;background:var(--rc-border,#374151)}.rh-sum .go{margin-left:auto;color:var(--rc-cyan,#D97757);font-weight:600}.rh-provs{padding:12px 16px}.rh-provs-h{margin-bottom:10px}\n";
+    st.textContent += "\n.rh-hb-mode{display:inline-flex;border:1px solid var(--rc-border,#374151);border-radius:6px;overflow:hidden}.rh-hb-mode button{background:none;border:none;color:var(--rc-text-dim,#9ca3af);font:inherit;font-size:11px;padding:5px 14px;cursor:pointer}.rh-hb-mode button.on{background:rgba(217,119,87,.16);color:#D97757;font-weight:700}" +
+      "\n.rh-hb-box{display:flex;flex-wrap:wrap;align-items:center;gap:6px;background:rgba(255,255,255,.05);border:1px solid var(--rc-border,#374151);border-radius:4px;padding:6px 8px;min-height:38px;cursor:text;transition:border-color .2s}.rh-hb-box:focus-within{border-color:#D97757;box-shadow:0 0 10px rgba(217,119,87,.2)}" +
+      "\n.rh-hb-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(217,119,87,.1);border:1px solid rgba(217,119,87,.3);color:#D97757;padding:3px 6px 3px 10px;border-radius:14px;font-size:12px;white-space:nowrap}.rh-hb-chip.reg{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.45);color:#f59e0b}.rh-hb-chip.done{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.45);color:#10b981}.rh-hb-chip.flash{animation:rhHbFlash .6s 2}@keyframes rhHbFlash{50%{opacity:.25}}" +
+      "\n.rh-hb-chip button{background:none;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0;opacity:.7}.rh-hb-chip button:hover{opacity:1;color:#ef4444}" +
+      "\n.rh-hb-in{flex:1 1 140px;min-width:140px;background:transparent!important;border:none!important;outline:none;color:var(--rc-text,#fff);font:inherit;font-size:12px;padding:4px 2px}" +
+      "\n.rh-hb-count{font-size:11px;color:var(--rc-text-dim,#9ca3af);margin-top:6px}" +
+      "\n.rh-hb-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px}.rh-hb-tbl th{font-weight:400;text-align:left;color:var(--rc-text-dim,#6b7280);padding:4px 6px 4px 0}.rh-hb-tbl td{border-top:1px solid var(--rc-border,#1f2937);padding:5px 6px 5px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rh-hb-tbl input,.rh-hb-tbl select{width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(255,255,255,.05);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);border-radius:4px;font:inherit;font-size:11px}.rh-hb-tbl select{background:var(--rc-bg-2,#1f2937)}" +
+      "\n.rh-hb-st{text-align:right}.rh-hb-st.ok{color:#10b981}.rh-hb-st.warn{color:#f59e0b}.rh-hb-st.err{color:#ef4444;white-space:normal}.rh-hb-st.busy{color:var(--rc-text-dim,#9ca3af)}";
     document.head.appendChild(st);
   }
   window.rOpenHospitalUsers = function () {
@@ -13566,7 +13578,7 @@
     _loadRolloutCard();
     _loadDepts().then(function () { _renderHospitalUsers(list); });
   }
-  var _huStoreProfiles = [];
+  var _huStoreProfiles = [], _huUsers = [];
   function _renderHospitalUsers(list) {
     list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;"><span class="r-spin"></span> Loading…</div>';
     RS.supa.rpc('rpc_user_devices').then(function (dr) {
@@ -13579,6 +13591,7 @@
       return RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type,email,display_name,department_id,invite_status,auth_id,store_access,google_ok,microsoft_ok,avatar_url,ops_access,failed_login_count,last_login_utc').order('username');
     }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
+      _huUsers = res.data || [];
       if (!res.data || !res.data.length) {
         list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;">No users found</div>';
         return;
@@ -14016,6 +14029,8 @@
     var f = document.getElementById('r-huser-invite-form'); if (f) f.style.display = 'none';
     ['r-hinv-name', 'r-hinv-email', 'r-hinv-email2', 'r-hinv-un'].forEach(function (id) { var e = document.getElementById(id); if (e) { e.value = ''; e.disabled = false; delete e.dataset.touched; } });
     var lg = document.getElementById('r-hinv-legacy'); if (lg) lg.value = '';
+    var rl = document.getElementById('r-hinv-role'); if (rl && rl.value === 'PHARMACIST') { rl.value = 'VIEWER'; rHinvRolePick(); }
+    if (!_hbBusy) { _hbReset(); if (_hbOn) rHinvMode(false); }
   };
   // Username defaults to the e-mail name (editable); a legacy ID selected from the list locks it.
   window.rHinvSuggest = function () {
@@ -14042,8 +14057,210 @@
     if (v) { un.value = v; un.disabled = true; }
     else { un.disabled = false; un.value = ''; delete un.dataset.touched; rHinvSuggest(); }
   };
+  // Pharmacist invite (sql/store/store_pic_invite_v1.sql): pick the pharmacist; app, branch, Store access and the
+  // Store Portal profile are set by rpc_invite_pic.
+  var _hinvPharms = [];
+  function _hinvIsPharm() { var r = document.getElementById('r-hinv-role'); return !!(r && r.value === 'PHARMACIST'); }
+  window.rHinvRolePick = function () {
+    var ph = _hinvIsPharm(), show = function (id, on) { var e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none'; };
+    ['r-hinv-dept', 'r-hinv-apps', 'r-hinv-apps-ttl', 'r-hinv-store-lbl'].forEach(function (id) { show(id, !ph); });
+    show('r-hinv-legacy', !ph && !_hbOn);
+    show('r-hinv-pharm', ph && !_hbOn);
+    if (ph) {
+      show('r-hinv-branch-row', false);
+      var lg = document.getElementById('r-hinv-legacy'); if (lg && lg.value) { lg.value = ''; rHinvLegacyPick(); }
+      _hinvLoadPharms();
+    } else { _rHinvStoreToggle(); }
+    if (_hbOn) _hbRender();
+  };
+  function _hinvLoadPharms() {
+    var sel = document.getElementById('r-hinv-pharm');
+    if (!sel || !RS.supa) return;
+    RS.supa.rpc('store_pic_list', {}).then(function (r) {
+      _hinvPharms = (r && Array.isArray(r.data)) ? r.data.filter(function (p) { return p.active !== false && !p.store_user_id; }) : [];
+      sel.innerHTML = '<option value="">- pharmacist -</option>' + _hinvPharms.map(function (p) {
+        return '<option value="' + esc(String(p.id)) + '">' + esc(p.branch) + ' · ' + esc(p.print_name) + '</option>';
+      }).join('');
+      if (_hbOn) _hbRender();
+    }).catch(function () { });
+  }
+  window.rHinvPharmPick = function () {
+    var id = document.getElementById('r-hinv-pharm').value, n = document.getElementById('r-hinv-name');
+    var p = _hinvPharms.filter(function (x) { return String(x.id) === id; })[0];
+    if (p && n && !n.value.trim()) n.value = p.print_name;
+  };
+  // ---- Bulk invite: e-mail capsules (same behaviour as the PO Mailer To field), shared role / apps / branch ----
+  var _hbOn = false, _hbNames = {}, _hbPick = {}, _hbStatus = {}, _hbBusy = false;
+  var _HB_RE = /^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]{2,}$/;
+  function _hbEmails() { return Array.prototype.map.call(document.querySelectorAll('#r-hinv-chips .rh-hb-chip'), function (c) { return c.getAttribute('data-em'); }); }
+  function _hbRegistered(em) { return _huUsers.some(function (u) { return String(u.email || '').toLowerCase() === em; }); }
+  window.rHinvMode = function (bulk) {
+    if (_hbBusy) return;
+    _hbOn = !!bulk;
+    var show = function (id, on) { var e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none'; };
+    ['r-hinv-name', 'r-hinv-un', 'r-hinv-email', 'r-hinv-email2'].forEach(function (id) { show(id, !_hbOn); });
+    show('r-hinv-legacy', !_hbOn && !_hinvIsPharm());
+    show('r-hinv-pharm', !_hbOn && _hinvIsPharm());
+    show('r-hinv-bulk', _hbOn); show('r-hinv-btable', _hbOn);
+    var a = document.getElementById('r-hinv-m-single'), b = document.getElementById('r-hinv-m-bulk');
+    if (a) a.classList.toggle('on', !_hbOn); if (b) b.classList.toggle('on', _hbOn);
+    if (_hbOn) {
+      var lg = document.getElementById('r-hinv-legacy'); if (lg && lg.value) { lg.value = ''; rHinvLegacyPick(); }
+      _hbInit(); _hbRender();
+      var inp = document.querySelector('#r-hinv-chips .rh-hb-in'); if (inp) inp.focus();
+    } else { _hbSendLabel(); }
+  };
+  function _hbInit() {
+    var box = document.getElementById('r-hinv-chips');
+    if (!box || box.querySelector('.rh-hb-in')) return;
+    var inp = document.createElement('input');
+    inp.className = 'rh-hb-in'; inp.type = 'text'; inp.placeholder = 'Type or paste e-mails'; inp.autocomplete = 'off'; inp.spellcheck = false;
+    box.appendChild(inp);
+    box.addEventListener('click', function (e) { if (e.target === box) inp.focus(); });
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ',' || e.key === ';' || e.key === ' ' || (e.key === 'Tab' && inp.value.trim())) {
+        if (inp.value.trim()) { e.preventDefault(); _hbCommit(inp.value); }
+        else if (e.key !== 'Tab') e.preventDefault();
+      } else if (e.key === 'Backspace' && !inp.value) {
+        var cs = box.querySelectorAll('.rh-hb-chip:not(.done)'); if (cs.length && !_hbBusy) { cs[cs.length - 1].remove(); _hbRender(); }
+      }
+    });
+    inp.addEventListener('blur', function () { if (inp.value.trim()) _hbCommit(inp.value); });
+    inp.addEventListener('paste', function (e) {
+      var t = (e.clipboardData || window.clipboardData).getData('text');
+      if (t && /[,;\s]/.test(t)) { e.preventDefault(); _hbCommit(inp.value + ' ' + t); }
+    });
+  }
+  function _hbCommit(raw) {
+    var box = document.getElementById('r-hinv-chips'), inp = box.querySelector('.rh-hb-in');
+    var parts = String(raw).replace(/[<>"']/g, ' ').split(/[,;\s]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+    var left = '';
+    parts.forEach(function (p, i) {
+      var em = p.toLowerCase().replace(/^mailto:/, '');
+      if (_HB_RE.test(em)) _hbAdd(em); else if (i === parts.length - 1) left = p;
+    });
+    inp.value = left;
+    _hbRender();
+  }
+  function _hbAdd(em) {
+    var box = document.getElementById('r-hinv-chips'), inp = box.querySelector('.rh-hb-in');
+    var ex = box.querySelector('.rh-hb-chip[data-em="' + em.replace(/"/g, '') + '"]');
+    if (ex) { ex.classList.remove('flash'); void ex.offsetWidth; ex.classList.add('flash'); return; }
+    var c = document.createElement('span'); c.className = 'rh-hb-chip'; c.setAttribute('data-em', em);
+    var l = document.createElement('span'); l.textContent = em;
+    var x = document.createElement('button'); x.type = 'button'; x.innerHTML = '&times;'; x.title = 'Remove';
+    x.onclick = function () { if (_hbBusy) return; c.remove(); delete _hbStatus[em]; _hbRender(); };
+    c.appendChild(l); c.appendChild(x);
+    box.insertBefore(c, inp);
+  }
+  function _hbUserBase(em) {
+    var u = em.split('@')[0].replace(/[^a-z0-9._-]/g, '').replace(/^[._-]+/, '').slice(0, 24);
+    return u || 'user';
+  }
+  function _hbWords(t) { return String(t || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 3 && ['bin', 'binti', 'bte', 'syed', 'abd', 'abdul'].indexOf(w) < 0; }); }
+  function _hbMatchPharm(em, name, taken) {
+    var keys = _hbWords(em.split('@')[0].replace(/[._-]/g, ' ') + ' ' + name), best = null, bs = 0;
+    var loc = em.split('@')[0].replace(/[^a-z]/g, '');
+    _hinvPharms.forEach(function (p) {
+      if (taken[p.id]) return;
+      var ws = _hbWords(p.print_name), sc = 0;
+      ws.forEach(function (w) { if (keys.indexOf(w) >= 0) sc += 2; else if (loc.indexOf(w) >= 0) sc += 1; });
+      if (sc > bs) { bs = sc; best = p; }
+    });
+    return best ? String(best.id) : '';
+  }
+  function _hbRender() {
+    var t = document.getElementById('r-hinv-btable'); if (!t) return;
+    var ems = _hbEmails(), ph = _hinvIsPharm(), used = {}, taken = {}, ready = 0, reg = 0, done = 0;
+    _huUsers.forEach(function (u) { used[String(u.username || '').toLowerCase()] = 1; });
+    if (ph) ems.forEach(function (em) { if (_hbPick[em]) taken[_hbPick[em]] = 1; });
+    var rows = ems.map(function (em) {
+      var chip = document.querySelector('#r-hinv-chips .rh-hb-chip[data-em="' + em + '"]');
+      var st = _hbStatus[em], isReg = !st && _hbRegistered(em);
+      if (chip) { chip.classList.toggle('reg', isReg); chip.title = isReg ? 'Already registered' : ''; }
+      var nm = _hbNames[em] || '', cell2, cls, label;
+      if (st && st.ok) { done++; cls = 'ok'; label = '<i class="fa-solid fa-circle-check"></i> Invited'; }
+      else if (st && st.busy) { cls = 'busy'; label = '<span class="r-spin"></span> Sending'; }
+      else if (st && st.err) { ready++; cls = 'err'; label = esc(st.err); }
+      else if (isReg) { reg++; cls = 'warn'; label = 'Already registered'; }
+      else { ready++; cls = 'ok'; label = 'Ready'; }
+      if (isReg) cell2 = '<td>—</td>';
+      else if (ph) {
+        if (!_hbPick[em] && _hinvPharms.length) { var m = _hbMatchPharm(em, nm, taken); if (m) { _hbPick[em] = m; taken[m] = 1; } }
+        cell2 = '<td><select data-hbp="' + esc(em) + '"' + (st && (st.ok || st.busy) ? ' disabled' : '') + '><option value="">- pharmacist -</option>' + _hinvPharms.map(function (p) {
+          var id = String(p.id), other = taken[id] && _hbPick[em] !== id;
+          return '<option value="' + id + '"' + (_hbPick[em] === id ? ' selected' : '') + (other ? ' disabled' : '') + '>' + esc(p.branch) + ' · ' + esc(p.print_name) + '</option>';
+        }).join('') + '</select></td>';
+        if (!st && !_hbPick[em]) { ready--; cls = 'warn'; label = 'Pick the pharmacist'; }
+      } else {
+        var b = _hbUserBase(em), u = b, n = 0;
+        while (used[u]) { n++; u = b + n; }
+        used[u] = 1;
+        cell2 = '<td>' + (st && st.username ? esc(st.username) : esc(u)) + '</td>';
+      }
+      return '<tr><td title="' + esc(em) + '">' + esc(em) + '</td><td>' + (isReg ? '—' : '<input data-hbn="' + esc(em) + '" value="' + esc(nm) + '" placeholder="Full name"' + (st && (st.ok || st.busy) ? ' disabled' : '') + '>') + '</td>' + cell2 + '<td class="rh-hb-st ' + cls + '">' + label + '</td></tr>';
+    });
+    t.innerHTML = ems.length ? '<table class="rh-hb-tbl"><colgroup><col style="width:34%"><col style="width:' + (ph ? '24' : '30') + '%"><col style="width:' + (ph ? '26' : '16') + '%"><col style="width:' + (ph ? '16' : '20') + '%"></colgroup><tr><th>E-mail</th><th>Full name</th><th>' + (ph ? 'Pharmacist' : 'Username') + '</th><th class="rh-hb-st">Status</th></tr>' + rows.join('') + '</table>' : '';
+    var c = document.getElementById('r-hinv-bcount');
+    if (c) c.textContent = ems.length ? ems.length + ' e-mail' + (ems.length > 1 ? 's' : '') + ' · ' + ready + ' ready' + (reg ? ' · ' + reg + ' already registered' : '') + (done ? ' · ' + done + ' invited' : '') : '';
+    _hbSendLabel(ready);
+  }
+  function _hbSendLabel(n) {
+    var b = document.getElementById('r-hinv-send'); if (!b) return;
+    b.textContent = !_hbOn ? 'SEND INVITE' : (_hbBusy ? 'SENDING…' : 'SEND ' + (n || 0) + ' INVITE' + (n === 1 ? '' : 'S'));
+  }
+  document.addEventListener('input', function (e) {
+    var em = e.target && e.target.getAttribute && e.target.getAttribute('data-hbn');
+    if (em) _hbNames[em] = e.target.value;
+  });
+  document.addEventListener('change', function (e) {
+    var em = e.target && e.target.getAttribute && e.target.getAttribute('data-hbp');
+    if (em) { _hbPick[em] = e.target.value; _hbRender(); }
+  });
+  function _hbSend() {
+    if (_hbBusy) return;
+    var g = function (id) { return document.getElementById(id); };
+    var inp = document.querySelector('#r-hinv-chips .rh-hb-in'); if (inp && inp.value.trim()) _hbCommit(inp.value);
+    var ph = _hinvIsPharm();
+    var list = _hbEmails().filter(function (em) { var st = _hbStatus[em]; return !(st && st.ok) && !_hbRegistered(em) && (!ph || _hbPick[em]); });
+    if (!list.length) { rToast('No e-mail ready to invite', 'error'); return; }
+    var apps = _inviteApps(), branch = (apps.indexOf('Store Mngmnt') !== -1 && g('r-hinv-branch')) ? g('r-hinv-branch').value : '';
+    var common = { p_role: g('r-hinv-role').value, p_dept: g('r-hinv-dept').value, p_branch: branch, p_apps: apps, p_store_access: g('r-hinv-store').checked,
+                   p_google: g('r-hinv-google').checked, p_microsoft: g('r-hinv-ms').checked };
+    _hbBusy = true; var ok = 0, bad = 0;
+    var next = function (i) {
+      if (i >= list.length) {
+        _hbBusy = false; _hbRender();
+        rToast(ok + ' invited' + (bad ? ', ' + bad + ' failed' : '') + ' — e-mails go out once the invitation phase has started', bad ? 'error' : 'success');
+        if (ok) { _flushInvites(); _loadHospitalUsers(); }
+        return;
+      }
+      var em = list[i], nm = (_hbNames[em] || '').trim();
+      _hbStatus[em] = { busy: true }; _hbRender();
+      var call = ph
+        ? RS.supa.rpc('rpc_invite_pic', { p_name: nm || null, p_email: em, p_pic_id: Number(_hbPick[em]), p_username: null, p_google: common.p_google, p_microsoft: common.p_microsoft })
+        : RS.supa.rpc('rpc_invite_hospital_user', Object.assign({ p_name: nm, p_email: em, p_username: null }, common));
+      call.then(function (res) {
+        if (res.error) throw new Error(res.error.message);
+        ok++; _hbStatus[em] = { ok: true, username: res.data && res.data.username };
+        var c = document.querySelector('#r-hinv-chips .rh-hb-chip[data-em="' + em + '"]'); if (c) c.classList.add('done');
+        if (ph && _hbPick[em]) _hinvPharms = _hinvPharms.filter(function (p) { return String(p.id) !== _hbPick[em]; });
+        _huUsers.push({ username: res.data && res.data.username, email: em });
+      }).catch(function (e) { bad++; _hbStatus[em] = { err: (e && e.message) || String(e) }; })
+        .then(function () { next(i + 1); });
+    };
+    _hbRender(); next(0);
+  }
+  function _hbReset() {
+    _hbNames = {}; _hbPick = {}; _hbStatus = {};
+    var box = document.getElementById('r-hinv-chips');
+    if (box) { Array.prototype.forEach.call(box.querySelectorAll('.rh-hb-chip'), function (c) { c.remove(); }); var i = box.querySelector('.rh-hb-in'); if (i) i.value = ''; }
+    var t = document.getElementById('r-hinv-btable'); if (t) t.innerHTML = '';
+    var c = document.getElementById('r-hinv-bcount'); if (c) c.textContent = '';
+  }
   window.rHuserInviteSend = function () {
     if (RS.userRole !== 'superadmin') return;
+    if (_hbOn) { if (RS.supa) _hbSend(); return; }
     if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
     var g = function (id) { return document.getElementById(id); };
     var name = g('r-hinv-name').value.trim();
@@ -14055,7 +14272,12 @@
     var legacy = g('r-hinv-legacy') ? g('r-hinv-legacy').value : '';
     var un = g('r-hinv-un') ? _normUsername(g('r-hinv-un').value) : '';
     if (!legacy && un && !_validUsername(un)) { rToast('Username: 3-24 characters (letters incl. Arabic/Jawi, numbers, . _ -)', 'error'); return; }
-    var call = legacy
+    var pharm = _hinvIsPharm() ? g('r-hinv-pharm').value : '';
+    if (_hinvIsPharm() && !pharm) { rToast('Select the pharmacist', 'error'); return; }
+    if (pharm) legacy = '';
+    var call = pharm
+      ? RS.supa.rpc('rpc_invite_pic', { p_name: name, p_email: email, p_pic_id: Number(pharm), p_username: un || null, p_google: g('r-hinv-google').checked, p_microsoft: g('r-hinv-ms').checked })
+      : legacy
       ? RS.supa.rpc('rpc_link_legacy_user', { p_username: legacy, p_email: email, p_name: name, p_dept: g('r-hinv-dept').value, p_google: g('r-hinv-google').checked, p_microsoft: g('r-hinv-ms').checked })
       : RS.supa.rpc('rpc_invite_hospital_user', {
         p_name: name, p_email: email, p_role: g('r-hinv-role').value, p_dept: g('r-hinv-dept').value,
@@ -14288,6 +14510,49 @@
     return html;
   }
 
+  // Branch PIC list (po_branch_pic via store_pic_list) for "Link to PIC" - a PHARMACIST account signs SR POs as that PIC
+  var _sstaffPics = [];
+  function _sstaffPicSelectHtml(id, u) {
+    var branch = (u.home_branch_code || '').toUpperCase();
+    var show = u.role === 'PHARMACIST';
+    var h = '<select id="' + id + '" style="' + (show ? '' : 'display:none;') + 'background:var(--rc-bg-2,#1f2937);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);font-size:10px;border-radius:4px;padding:3px 6px;font-family:inherit;max-width:230px;">';
+    h += '<option value="">Not linked</option>';
+    _sstaffPics.forEach(function (p) {
+      if (p.branch !== branch && !(p.store_user_id && p.store_user_id.toLowerCase() === u.id.toLowerCase())) return;
+      var taken = p.store_user_id && p.store_user_id.toLowerCase() !== u.id.toLowerCase();
+      var mine = p.store_user_id && p.store_user_id.toLowerCase() === u.id.toLowerCase();
+      h += '<option value="' + p.id + '"' + (mine ? ' selected' : '') + (taken ? ' disabled' : '') + '>' + esc(p.print_name) + (taken ? ' (linked to ' + esc(p.store_user_id) + ')' : '') + '</option>';
+    });
+    return h + '</select>';
+  }
+  function _sstaffFillNewPic() {
+    var sel = document.getElementById('r-sstaff-new-pic');
+    var role = (document.getElementById('r-sstaff-new-role') || {}).value;
+    var branch = ((document.getElementById('r-sstaff-new-branch') || {}).value || '').toUpperCase();
+    if (!sel) return;
+    sel.style.display = role === 'PHARMACIST' ? '' : 'none';
+    var opts = '<option value="">Link to PIC…</option>';
+    _sstaffPics.forEach(function (p) {
+      if (p.branch !== branch) return;
+      opts += '<option value="' + p.id + '"' + (p.store_user_id ? ' disabled' : '') + '>' + esc(p.print_name) + (p.store_user_id ? ' (linked to ' + esc(p.store_user_id) + ')' : '') + '</option>';
+    });
+    sel.innerHTML = opts;
+  }
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t || !t.id) return;
+    if (t.id === 'r-sstaff-new-role' || t.id === 'r-sstaff-new-branch') _sstaffFillNewPic();
+    if (/^srole_/.test(t.id)) {
+      var pic = document.getElementById('spic_' + t.id.slice(6));
+      if (pic) pic.style.display = t.value === 'PHARMACIST' ? '' : 'none';
+    }
+  });
+  function _sstaffLinkPic(userId, picId) {
+    return RS.supa.rpc('store_pic_link', { p_store_user_id: userId, p_pic_id: picId ? Number(picId) : null }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    });
+  }
+
   function _loadStoreStaff() {
     var list = document.getElementById('r-sstaff-list');
     if (!list || !RS.supa) return;
@@ -14300,10 +14565,12 @@
       // left NULL) rather than one RPC round-trip per row — the roster
       // here is small (single pharmacy operation), same "fetch once,
       // group client-side" approach as the rest of this admin panel.
-      RS.supa.rpc('store_totp_list_devices', {})
+      RS.supa.rpc('store_totp_list_devices', {}),
+      RS.supa.rpc('store_pic_list', {})
     ]).then(function (results) {
         var res = results[0];
         var devicesRes = results[1];
+        _sstaffPics = (results[2] && !results[2].error && results[2].data) || [];
         if (res.error) throw new Error(res.error.message);
         var devicesByUser = {};
         if (!devicesRes.error && devicesRes.data) {
@@ -14333,13 +14600,17 @@
           var safeId = u.id.replace(/[^a-z0-9]/gi, '_');
           var isActive = (u.is_active !== false);
           var isSuperAdmin = (u.role === 'SUPER_ADMIN');
-          var roleColor = isSuperAdmin ? '#f59e0b' : u.role === 'ADMIN' ? '#D97757' : u.role === 'STORE_ADMIN' ? '#8b5cf6' : '#9ca3af';
+          var roleColor = isSuperAdmin ? '#f59e0b' : u.role === 'ADMIN' ? '#D97757' : u.role === 'STORE_ADMIN' ? '#8b5cf6' : u.role === 'PHARMACIST' ? '#10b981' : '#9ca3af';
+          var linkedPic = _sstaffPics.filter(function (p) { return p.store_user_id && p.store_user_id.toLowerCase() === u.id.toLowerCase(); })[0];
 
           var row = '<div id="sstaffrow_' + safeId + '" style="padding:14px 0;border-bottom:1px solid var(--rc-border,#1f2937);">';
           row += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
           row += '<div style="display:flex;align-items:center;gap:8px;">';
           row += '<span style="font-size:12px;color:var(--rc-text,#fff);font-weight:600;">' + esc(u.id) + '</span>';
           row += '<span style="font-size:10px;color:var(--rc-text-dim,#9ca3af);">' + esc(u.full_name || '') + '</span>';
+          if (u.role === 'PHARMACIST') {
+            row += '<span style="font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid ' + roleColor + ';color:' + roleColor + ';letter-spacing:0.5px;" title="' + esc(linkedPic ? linkedPic.print_name + ' · ' + linkedPic.title : 'Not linked') + '">' + (linkedPic ? esc(linkedPic.short_name) : 'not linked') + '</span>';
+          }
           if (isSuperAdmin) {
             row += '<span style="font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid ' + roleColor + ';color:' + roleColor + ';letter-spacing:0.5px;">SUPER_ADMIN</span>';
           }
@@ -14363,11 +14634,12 @@
           } else {
             row += '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;">';
             row += '<select id="srole_' + safeId + '" style="background:var(--rc-bg-2,#1f2937);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);font-size:10px;border-radius:4px;padding:3px 6px;font-family:inherit;">';
-            ['STOREKEEPER', 'STORE_ADMIN', 'ADMIN'].forEach(function (r) {
+            ['STOREKEEPER', 'STORE_ADMIN', 'ADMIN', 'PHARMACIST'].forEach(function (r) {
               row += '<option value="' + r + '"' + (r === u.role ? ' selected' : '') + '>' + r + '</option>';
             });
             row += '</select>';
             row += _sstaffBranchSelectHtml('sbranch_' + safeId, u.home_branch_code || 'ALL');
+            row += _sstaffPicSelectHtml('spic_' + safeId, u);
             row += '<button onclick="rSaveStoreStaffProfile(\'' + u.id.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;">SAVE</button>';
             row += '<button onclick="rDeleteStoreStaff(\'' + u.id.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);color:#ef4444;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;margin-left:auto;">DELETE</button>';
             row += '</div>';
@@ -14386,6 +14658,7 @@
           rows.push(row);
         });
         list.innerHTML = rows.join('');
+        _sstaffFillNewPic();
       }).catch(function (e) {
         list.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;font-size:12px;">Error: ' + esc(e.message || String(e)) + '</div>';
       });
@@ -14407,6 +14680,9 @@
     if (!userId || !fullName) { rToast('Staff ID and Full Name are required', 'error'); return; }
     if (!/^[a-z0-9_]+$/.test(userId)) { rToast('Staff ID: huruf kecil, angka, underscore sahaja', 'error'); return; }
     if (!password || password.length < 6) { rToast('Password must be at least 6 characters', 'error'); return; }
+    var picSel = document.getElementById('r-sstaff-new-pic');
+    var picId = role === 'PHARMACIST' && picSel ? picSel.value : '';
+    if (role === 'PHARMACIST' && (!branch || branch === 'ALL')) { rToast('Pick the branch of this PIC (not ALL)', 'error'); return; }
 
     _storePbkdf2Hash(password).then(function (h) {
       return RS.supa.rpc('store_create_staff', {
@@ -14419,9 +14695,16 @@
         else { throw new Error(res.error.message); }
         return;
       }
-      rToast('Staff added: ' + userId + ' (' + role + ')', 'success');
-      rAddPanelClose('sstaff');
-      _loadStoreStaff();
+      var done = function (extra) {
+        rToast('Staff added: ' + userId + ' (' + role + ')' + (extra || ''), 'success');
+        rAddPanelClose('sstaff');
+        _loadStoreStaff();
+      };
+      if (picId) {
+        return _sstaffLinkPic(userId, picId).then(function (r) { done(r && r.pic ? ' · PIC ' + r.pic : ''); })
+          .catch(function (e) { rToast('Staff added, but the PIC link failed: ' + (e.message || e), 'error'); _loadStoreStaff(); });
+      }
+      done();
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
 
@@ -14447,8 +14730,14 @@
       p_capabilities: capabilities
     }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
-      rToast(userId + ' — role/branch/capabilities saved', 'success');
-      _loadStoreStaff();
+      var picSel = document.getElementById('spic_' + safeId);
+      var link = picSel ? (role === 'PHARMACIST' ? (picSel.value || null) : null) : undefined;
+      var after = function (extra) { rToast(userId + ' — role/branch/capabilities saved' + (extra || ''), 'success'); _loadStoreStaff(); };
+      if (link !== undefined && (role === 'PHARMACIST' || _sstaffPics.some(function (p) { return p.store_user_id && p.store_user_id.toLowerCase() === userId.toLowerCase(); }))) {
+        return _sstaffLinkPic(userId, link).then(function (r) { after(r && r.pic ? ' · PIC ' + r.pic : (link ? '' : ' · PIC unlinked')); })
+          .catch(function (e) { rToast('Saved, but the PIC link failed: ' + (e.message || e), 'error'); _loadStoreStaff(); });
+      }
+      after();
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
 
