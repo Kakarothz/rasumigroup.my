@@ -280,6 +280,7 @@
     'rasumifvt': 'FVT',
     'rasumifvl': 'FVL',
     'rasumifvg': 'FVG',
+    'rasumirsa': 'RSA',
     'admin': 'ADMIN',
     'mustaqim': 'SUPER ADMIN',
     'super admin': 'SUPER ADMIN'   // agent may log display name instead of login id
@@ -6776,7 +6777,7 @@
       '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-file-invoice"></i> Orders</h3>' +
       '<div class="r-filter-bar">' +
       '<input id="po-o-q" class="r-filter-input" placeholder="Search PO / LPO / supplier / machine" oninput="rPoOrdersRender()" style="width:220px">' +
-      '<select id="po-o-br" class="r-filter-input" onchange="rPoOrdersRender()"><option value="">All branches</option><option>TNB</option><option>FVKL</option><option>FVT</option><option>FVL</option><option>FVG</option></select>' +
+      '<select id="po-o-br" class="r-filter-input" onchange="rPoOrdersRender()"><option value="">All branches</option><option>TNB</option><option>FVKL</option><option>FVT</option><option>FVL</option><option>FVG</option><option>RSA</option></select>' +
       '<select id="po-o-ds" class="r-filter-input" onchange="rPoOrdersRender()"><option value="">DocuShare: all</option><option value="ok">Filed OK</option><option value="failed">Failed</option><option value="none">Not filed</option></select>' +
       '<select id="po-o-iss" class="r-filter-input" onchange="rPoOrdersRender()"><option value="">All orders</option><option value="issues">Issues only</option></select>' +
       '<button class="r-btn-sm" onclick="rPoTab(\'orders\')">Refresh</button></div></div>' +
@@ -6811,7 +6812,7 @@
   function _poOrdBranch(o) {
     if (o.order_type === 'TENDER') return 'TNB';
     var b = String(o.branch_name || '').toUpperCase();
-    return /^(FVKL|FVT|FVL|FVG)$/.test(b) ? b : (o.branch_name || '—');
+    return /^(FVKL|FVT|FVL|FVG|RSA)$/.test(b) ? b : (o.branch_name || '—');
   }
 
   function _poOrdDs(o) {
@@ -13285,6 +13286,7 @@
     { val: 'FVT', label: 'FVT — Farmasi Veteran Terendak' },
     { val: 'FVL', label: 'FVL — Farmasi Veteran Lumut' },
     { val: 'FVG', label: 'FVG — Farmasi Veteran Gemas' },
+    { val: 'RSA', label: 'RSA — Rasumi Shah Alam' },
   ];
 
   function _ensureHuStyle() {
