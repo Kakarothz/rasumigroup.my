@@ -7977,7 +7977,8 @@
     RS.supa.auth.getSession().then(function (r) {
       var tok = r && r.data && r.data.session ? r.data.session.access_token : '';
       return fetch(RASUMI_SUPABASE_URL + '/functions/v1/gmail-mailbox-oauth?action=start', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', apikey: RASUMI_SUPABASE_ANON_KEY, Authorization: 'Bearer ' + tok }, body: '{}'
+        method: 'POST', headers: { 'Content-Type': 'application/json', apikey: RASUMI_SUPABASE_ANON_KEY, Authorization: 'Bearer ' + tok },
+        body: JSON.stringify({ return_to: location.origin + location.pathname })
       }).then(function (x) { return x.json(); });
     }).then(function (d) {
       if (!d || !d.url) throw new Error((d && d.error) || 'Could not start the Google sign-in.');
@@ -7988,6 +7989,21 @@
       rToast(e.message || String(e), 'error');
     }).then(function () { if (btn) btn.disabled = false; });
   };
+  // The Google sign-in popup comes back to this page with ?wsmail=ok|fail: hand the result to the opener and close.
+  (function () {
+    try {
+      var q = new URLSearchParams(location.search);
+      if (!q.get('wsmail')) return;
+      var ok = q.get('wsmail') === 'ok', msg = q.get('wsmsg') || '';
+      if (window.opener) {
+        window.opener.postMessage({ rasumiMailbox: ok, msg: msg }, location.origin);
+        document.documentElement.innerHTML = '<body style="background:#0f1115;color:#fff;font-family:Segoe UI,Arial;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><div style="text-align:center"><h2>' + (ok ? 'Invoice mailbox connected' : 'Not connected') + '</h2><p style="color:#9ca3af">' + msg.replace(/[<>&]/g, '') + '</p></div></body>';
+        setTimeout(function () { window.close(); }, ok ? 1500 : 6000);
+      } else {
+        history.replaceState(null, '', location.pathname);
+      }
+    } catch (e) { }
+  })();
   window.addEventListener('message', function (ev) {
     if (!ev || !ev.data || typeof ev.data.rasumiMailbox === 'undefined') return;
     rToast(ev.data.msg || (ev.data.rasumiMailbox ? 'Invoice mailbox connected' : 'Not connected'), ev.data.rasumiMailbox ? 'success' : 'error');
