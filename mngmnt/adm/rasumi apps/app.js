@@ -7920,11 +7920,13 @@
         { id: 'ezrx', title: 'Zuellig Pharma (EZ Rx)' },
         { id: 'dksh', title: 'DKSH' },
         { id: 'zuellig_mail', title: 'Zuellig invoice mailbox (company e-mail, read-only)' },
+        { id: 'workspace_mail', title: 'account@rasumi.com.my invoice mailbox (Google Workspace, read-only)' },
         { id: 'docushare', title: 'DocuShare' }
       ];
       var rows = res.data || [];
       function rowHtml(p, showRole) {
         var k = esc(p.portal_key);
+        if (p.portal_key === 'workspace_mail') return _wsMailRow(p, canWrite);
         var role = /_fv$/.test(p.portal_key) ? 'Farmasi Veteran (FV branches)' : 'TNB Tender';
         var st = p.last_login_at
           ? '<span style="color:' + (p.last_login_ok ? '#34d399' : '#f87171') + '">' + (p.last_login_ok ? 'Last login OK' : 'Last login FAILED') +
@@ -7950,6 +7952,47 @@
       }).join('') || '<div class="r-empty">No portals configured.</div>';
     });
   };
+
+  // Invoice mailbox account@rasumi.com.my: "Sign in with Google" (Gmail read-only), token kept server-side
+  // (edge function gmail-mailbox-oauth, sql/po_mailer/workspace_mail_oauth_v1.sql).
+  function _wsMailRow(p, canWrite) {
+    var st = p.last_login_at
+      ? '<span style="color:' + (p.last_login_ok ? '#34d399' : '#f87171') + '">' + (p.last_login_ok ? 'Connected' : 'Not connected') +
+        '</span> <span style="color:#6B7A8F">' + esc(new Date(p.last_login_at).toLocaleString()) + ' — ' + esc(p.last_login_msg || '') + '</span>'
+      : '<span style="color:#fbbf24">Not connected</span>';
+    return '<div style="padding:10px 0;border-top:1px solid rgba(255,255,255,0.06)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+      '<div><div style="font-weight:600">' + esc(p.username || 'account@rasumi.com.my') + '</div>' +
+      '<div style="font-size:11px;color:#6B7A8F;margin-top:2px">Gmail read-only. Searched for supplier invoice PDFs by every Rasumi Apps PC.</div></div>' +
+      (canWrite ? '<button class="r-btn-sm" id="ws-mail-btn" onclick="rWsMailSignIn()" style="display:inline-flex;align-items:center;gap:8px">' +
+        '<svg width="14" height="14" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>' +
+        (p.last_login_ok ? 'Reconnect' : 'Sign in with Google') + '</button>' : '') +
+      '</div><div style="margin-top:6px;font-size:12px" id="ws-mail-st">' + st + '</div></div>';
+  }
+  window.rWsMailSignIn = function () {
+    if (RS.userRole !== 'superadmin' || !RS.supa) return;
+    var btn = document.getElementById('ws-mail-btn'), st = document.getElementById('ws-mail-st');
+    var win = window.open('', 'rasumiWsMail', 'width=520,height=680');
+    if (btn) btn.disabled = true;
+    RS.supa.auth.getSession().then(function (r) {
+      var tok = r && r.data && r.data.session ? r.data.session.access_token : '';
+      return fetch(RASUMI_SUPABASE_URL + '/functions/v1/gmail-mailbox-oauth?action=start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', apikey: RASUMI_SUPABASE_ANON_KEY, Authorization: 'Bearer ' + tok }, body: '{}'
+      }).then(function (x) { return x.json(); });
+    }).then(function (d) {
+      if (!d || !d.url) throw new Error((d && d.error) || 'Could not start the Google sign-in.');
+      if (win) win.location = d.url; else window.location = d.url;
+      if (st) st.innerHTML = '<span style="color:#9ca3af">Sign in as account@rasumi.com.my in the Google window…</span>';
+    }).catch(function (e) {
+      if (win) win.close();
+      rToast(e.message || String(e), 'error');
+    }).then(function () { if (btn) btn.disabled = false; });
+  };
+  window.addEventListener('message', function (ev) {
+    if (!ev || !ev.data || typeof ev.data.rasumiMailbox === 'undefined') return;
+    rToast(ev.data.msg || (ev.data.rasumiMailbox ? 'Invoice mailbox connected' : 'Not connected'), ev.data.rasumiMailbox ? 'success' : 'error');
+    if (window.rLoadSupplierPortals) window.rLoadSupplierPortals();
+  });
 
   window.rSaveSupplierPortal = function (key) {
     if (RS.userRole !== 'superadmin') return;
