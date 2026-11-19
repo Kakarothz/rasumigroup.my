@@ -13642,7 +13642,7 @@
     _loadRolloutCard();
     _loadDepts().then(function () { _renderHospitalUsers(list); });
   }
-  var _huStoreProfiles = [], _huUsers = [];
+  var _huStoreProfiles = [], _huUsers = [], _huStoreCaps = {};
   function _renderHospitalUsers(list) {
     list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;"><span class="r-spin"></span> Loading…</div>';
     RS.supa.rpc('rpc_user_devices').then(function (dr) {
@@ -13651,6 +13651,12 @@
       dd.forEach(function (x) { var k = String(x.username || '').toLowerCase(); (_huDev[k] = _huDev[k] || []).push(x); });
       // Store Portal profiles for the Store Mngmnt options (double-click the chip). Missing RPC -> empty list.
       return RS.supa.rpc('rpc_store_profiles_list').then(function (pr) { _huStoreProfiles = (pr && Array.isArray(pr.data)) ? pr.data : []; }, function () { _huStoreProfiles = []; });
+    }).then(function () {
+      // capabilities of each Store Portal profile (Special Request option in the Store Mngmnt options)
+      return RS.supa.from('store_user_profiles').select('id,capabilities').then(function (cr) {
+        _huStoreCaps = {};
+        ((cr && cr.data) || []).forEach(function (r) { _huStoreCaps[String(r.id).toLowerCase()] = r.capabilities || {}; });
+      }, function () { _huStoreCaps = {}; });
     }).then(function () {
       return RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type,email,display_name,full_name,department_id,invite_status,auth_id,store_access,google_ok,microsoft_ok,avatar_url,ops_access,failed_login_count,last_login_utc').order('username');
     }).then(function (res) {
@@ -13761,6 +13767,8 @@
           row += '<div style="font-size:12px;color:#38bdf8;margin-bottom:8px"><i class="fa-solid fa-store"></i> Store Portal options</div>';
           row += '<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center">';
           row += '<label class="rh-tag"><input type="checkbox" id="ustore_' + safeId + '"' + (u.store_access ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Store Portal button</span></label>';
+          var _srOn = !!(_linked && (_huStoreCaps[String(_linked).toLowerCase()] || {}).sr_create);
+          row += '<label class="rh-tag" title="Opens the Special Request page in the Store Portal (needs a linked profile)"><input type="checkbox" id="ussr_' + safeId + '"' + (_srOn ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Special Request</span></label>';
           row += '<span style="font-size:12px;color:var(--rc-text-dim,#9ca3af)">Profile</span><select id="ustoreprof_' + safeId + '" class="rh-in"' + (_indiv ? '' : ' disabled title="Team (shared) IDs always use the Store Portal login"') + '>';
           row += '<option value="">None (Store Portal login)</option>';
           _huStoreProfiles.forEach(function (p) {
@@ -13956,10 +13964,21 @@
     var sid = _sidU(username);
     var cb = document.getElementById('ustore_' + sid), sel = document.getElementById('ustoreprof_' + sid);
     var on = !!(cb && cb.checked), prof = (sel && !sel.disabled) ? sel.value : '';
+    var srEl = document.getElementById('ussr_' + sid), sr = !!(srEl && srEl.checked);
+    if (sr && !prof) { rToast('Special Request needs a Store Portal profile: pick one first', 'info'); return; }
     RS.supa.rpc('rpc_set_store_portal', { p_username: username, p_store_access: on, p_store_id: prof || null }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
+      // Special Request = capability sr_create on the linked Store Portal profile (other capabilities kept)
+      if (!prof) return null;
+      var caps = Object.assign({}, _huStoreCaps[String(prof).toLowerCase()] || {});
+      if (!!caps.sr_create === sr) return null;
+      caps.sr_create = sr;
+      return RS.supa.rpc('store_update_profile', { p_user_id: prof, p_full_name: null, p_capabilities: caps }).then(function (r2) {
+        if (r2.error) throw new Error('Special Request: ' + r2.error.message);
+      });
+    }).then(function () {
       var ico = document.getElementById('uspico_' + sid); if (ico) ico.style.display = on ? '' : 'none';
-      rToast(username + ' — Store Portal button ' + (on ? 'ON' : 'OFF') + (prof ? ' · profile ' + prof : ''), 'success');
+      rToast(username + ' — Store Portal button ' + (on ? 'ON' : 'OFF') + (prof ? ' · profile ' + prof : '') + (prof ? ' · Special Request ' + (sr ? 'ON' : 'OFF') : ''), 'success');
       _loadHospitalUsers();
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
@@ -14537,7 +14556,8 @@
   var STORE_CAPABILITY_DEFS = [
     { key: 'vims_sync', label: 'VIMS Sync' },
     { key: 'dispatch_confirm', label: 'Dispatch Confirmation' },
-    { key: 'bincard_edit', label: 'Bin Card Correction' }
+    { key: 'bincard_edit', label: 'Bin Card Correction' },
+    { key: 'sr_create', label: 'Special Request' }      // listed so saving here never wipes it (capabilities are replaced whole)
   ];
   function _sstaffCapabilitiesHtml(safeId, caps) {
     caps = caps || {};
