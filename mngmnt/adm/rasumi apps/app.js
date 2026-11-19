@@ -1062,7 +1062,7 @@
       '            <input id="r-hinv-un" type="text" placeholder="Username" maxlength="24" dir="auto" autocomplete="off" spellcheck="false" oninput="this.dataset.touched=\'1\'" style="flex:1 1 160px;min-width:0;' + _HINV_INP + '">',
       '            <input id="r-hinv-email" type="email" placeholder="E-mail" autocomplete="off" oninput="rHinvSuggest()" style="flex:1 1 220px;min-width:0;' + _HINV_INP + '">',
       '            <input id="r-hinv-email2" type="email" placeholder="Confirm e-mail" autocomplete="off" style="flex:1 1 220px;min-width:0;' + _HINV_INP + '">',
-      '            <select id="r-hinv-role" onchange="rHinvRolePick()" style="' + _HINV_SEL + '"><option value="VIEWER">VIEWER</option><option value="OPERATOR">OPERATOR</option><option value="BRANCH_USER">BRANCH_USER</option><option value="DEPT_ADMIN">DEPT_ADMIN</option><option value="BOD">BOD (read-only overview)</option><option value="ADMIN">ADMIN</option><option value="PHARMACIST">Pharmacist</option></select>',
+      '            <select id="r-hinv-role" onchange="rHinvRolePick()" style="' + _HINV_SEL + '"><option value="VIEWER">VIEWER</option><option value="OPERATOR">OPERATOR</option><option value="BRANCH_USER">BRANCH_USER</option><option value="DEPT_ADMIN">DEPT_ADMIN</option><option value="BOD">BOD (read-only overview)</option><option value="ADMIN">ADMIN</option><option value="SUPER_ADMIN">SUPER_ADMIN</option><option value="PHARMACIST">Pharmacist</option></select>',
       '            <select id="r-hinv-pharm" onchange="rHinvPharmPick()" style="display:none;flex:1 1 100%;' + _HINV_SEL + '"><option value="">- pharmacist -</option></select>',
       '            <select id="r-hinv-dept" style="' + _HINV_SEL + '"><option value="">- department -</option></select>',
       '          </div>',
@@ -2067,7 +2067,7 @@
           var _pending = _missing.length;
           _missing.forEach(function (h) {
             RS.supa.from('logs').select('branch_id')
-              .ilike('machine', h)
+              .eq('machine', h)      // exact match uses idx_logs_machine_timestamp (ilike timed out: 500)
               .not('branch_id', 'is', null)
               .order('timestamp', { ascending: false })
               .limit(1)
@@ -13273,7 +13273,8 @@
   };
 
   // ── Hospital Users Management ──────────────────────────────────
-  var _HOSPITAL_APPS = ['Scanify', 'Renamer HQ', 'FV Branch', 'PDF Splitter', 'PDF Studio', 'Quick Rename', 'Vibes Automation', 'Store Mngmnt', 'PO Auto Email', 'Doc Assembler'];
+  // 'AutoCount PO' is not an app: it lets a PO Mailer user create POs / suppliers / items in the live AutoCount books
+  var _HOSPITAL_APPS = ['Scanify', 'Renamer HQ', 'FV Branch', 'PDF Splitter', 'PDF Studio', 'Quick Rename', 'Vibes Automation', 'Store Mngmnt', 'PO Auto Email', 'AutoCount PO', 'Doc Assembler'];
   // Doc Assembler is HQ-only: the branch logins (fvkl / fvt / fvg / fvl / fvkk, with or without the rasumi prefix)
   // can never hold it. Also enforced in the database (trigger on users) and in the desktop app.
   var _DOC_ASSEMBLER_BLOCKED_RE = /^(rasumi)?fv(kl|kk|t|g|l)$/i;
@@ -13649,7 +13650,7 @@
       // Store Portal profiles for the Store Mngmnt options (double-click the chip). Missing RPC -> empty list.
       return RS.supa.rpc('rpc_store_profiles_list').then(function (pr) { _huStoreProfiles = (pr && Array.isArray(pr.data)) ? pr.data : []; }, function () { _huStoreProfiles = []; });
     }).then(function () {
-      return RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type,email,display_name,department_id,invite_status,auth_id,store_access,google_ok,microsoft_ok,avatar_url,ops_access,failed_login_count,last_login_utc').order('username');
+      return RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type,email,display_name,full_name,department_id,invite_status,auth_id,store_access,google_ok,microsoft_ok,avatar_url,ops_access,failed_login_count,last_login_utc').order('username');
     }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
       _huUsers = res.data || [];
@@ -13678,7 +13679,7 @@
         var roleCls = role === 'SUPER_ADMIN' ? 'owner' : role === 'ADMIN' ? 'admin' : role === 'BRANCH_USER' ? 'branch' : 'other';
         var initial = (String(u.display_name || uname).trim().charAt(0) || '?').toUpperCase();
         var devs = _huDev[String(uname).toLowerCase()] || [];
-        var qtxt = [uname, u.display_name, u.email, u.department_id, role].concat(devs.map(function (d) { return d.hostname; })).join(' ').toLowerCase();
+        var qtxt = [uname, u.display_name, u.full_name, u.email, u.department_id, role].concat(devs.map(function (d) { return d.hostname; })).join(' ').toLowerCase();
         var row = '<div class="rh-user' + (isMaster ? ' master' : '') + (isActive ? '' : ' off') + '" data-q="' + esc(qtxt) + '"' + (isMaster ? '' : ' data-sid="' + safeId + '" data-role="' + esc(role) + '"') + '>';
         // ---- head: avatar, name, badges, e-mail line, status ----
         var av = (u.avatar_url && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/]+=*$/.test(u.avatar_url)) ? u.avatar_url : '';
@@ -13694,7 +13695,7 @@
         row += '</div>';
         var _fails = u.failed_login_count || 0;
         var _lastLg = u.last_login_utc ? new Date(u.last_login_utc).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
-        row += '<div class="rh-umeta">' + (u.email ? '<span><i class="fa-regular fa-envelope"></i> ' + esc(u.email) + '</span>' : '') + (u.department_id ? '<span><i class="fa-regular fa-building"></i> ' + esc(u.department_id) + '</span>' : '') +
+        row += '<div class="rh-umeta">' + (u.full_name ? '<span title="Full name (as per IC)"><i class="fa-regular fa-id-card"></i> ' + esc(u.full_name) + '</span>' : '') + (u.email ? '<span><i class="fa-regular fa-envelope"></i> ' + esc(u.email) + '</span>' : '') + (u.department_id ? '<span><i class="fa-regular fa-building"></i> ' + esc(u.department_id) + '</span>' : '') +
           '<span title="Last login"><i class="fa-regular fa-clock"></i> ' + esc(_lastLg) + '</span>' +
           '<span title="Failed logins since the last successful login"' + (_fails ? ' style="color:#f59e0b"' : '') + '><i class="fa-solid fa-triangle-exclamation"></i> ' + _fails + ' failed</span></div>';
         row += '</div><div class="rh-uside">';
@@ -13776,7 +13777,7 @@
           var idv = function (k) { return esc(u[k] || ''); };
           row += '<details class="rh-det"><summary><i class="fa-solid fa-chevron-right"></i> E-mail / Department / Sign-in</summary>';
           row += '<div class="rh-idgrid">';
-          row += '<input id="uname_' + safeId + '" class="rh-in" placeholder="Full name" value="' + idv('display_name') + '" style="width:150px;">';
+          row += '<input id="uname_' + safeId + '" class="rh-in" placeholder="Display name" title="Display name (nickname shown on the profile card)" value="' + idv('display_name') + '" style="width:150px;">';
           row += '<input id="uemail_' + safeId + '" class="rh-in" placeholder="E-mail" value="' + idv('email') + '"' + (u.auth_id ? ' disabled title="Locked after sign up"' : '') + ' style="width:210px;">';
           row += '<select id="udept_' + safeId + '" class="rh-in">' + _deptOpts(u.department_id) + '</select>';
           row += '<select id="urole_' + safeId + '" class="rh-in">' + ['VIEWER','OPERATOR','BRANCH_USER','DEPT_ADMIN','BOD','ADMIN'].map(function (r) { return '<option value="' + r + '"' + (r === role ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>';
