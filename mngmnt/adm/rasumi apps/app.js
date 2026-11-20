@@ -13340,7 +13340,7 @@
       return !(r.data && r.data.success === false) || /already sent/i.test((r.data && r.data.reason) || '');
     }).catch(function () { return false; });
   }
-  // One click only: the link locks while sending and stays "Sent" (server also refuses a resend within 10 min
+  // One click only: the link locks while sending and stays "Sent" (server also refuses a resend within 1 min
   // or once the person has already signed up — see sql/invite_resend_guard_v1.sql).
   window.rResendInvite = function (username, el) {
     if (RS.userRole !== 'superadmin' || !RS.supa) return;
