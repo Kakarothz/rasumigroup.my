@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<title>Rasumi Apps · Your invitation</title>
+<link rel="icon" href="assets/icon.png">
+<link rel="stylesheet" href="style.css?v=7">
+</head><body>
+<canvas id="bg" aria-hidden="true"></canvas>
+<div class="lp">
+ <div class="wrap">
+  <header class="top" id="top">
+   <div class="brand"><img src="assets/logo.png" alt="Rasumi"><b>Apps</b><span class="tag">INTERNAL</span></div>
+   <div class="who"><span class="pill" id="who-pill" hidden><i></i><span id="who-mail"></span></span><a href="#faq" id="who-help" hidden>Help</a></div>
+  </header>
+ </div>
+
+ <!-- loading -->
+ <div class="center" id="v-load"><div class="cbox"><div class="spin"></div><p>Checking your invitation…</p></div></div>
+
+ <!-- not available -->
+ <div class="center" id="v-err" hidden><div class="cbox">
+  <div class="e404" id="e404" aria-hidden="true">404</div>
+  <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+  <h2 id="err-h">This link is not available</h2><p id="err-p">It may have expired or already been used. Ask IT to send a new invitation.</p>
+  <small>Help: it@rasumi.com.my</small>
+ </div></div>
+
+ <!-- invitation -->
+ <div id="v-open" hidden>
+  <div class="wrap">
+   <div class="hero">
+    <div>
+     <div class="eyebrow">Private invitation · <span id="ver-eyebrow">Windows</span></div>
+     <h1>Welcome to Rasumi Apps, <em id="o-name"></em></h1>
+     <p class="lead">Your personal workspace for the Rasumi Medipharma tools you use every day.</p>
+     <div class="cta">
+      <button class="btn btn-p dl-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.5 10.5 4.4v7.1H3zM11.5 4.3 21 3v8.5h-9.5zM3 12.5h7.5v7.1L3 18.5zM11.5 12.5H21V21l-9.5-1.3z"/></svg>Download for Windows</button>
+      <a class="btn btn-s" href="#new">What's new</a>
+     </div>
+     <div class="phone-note" id="phone-note" hidden>Rasumi Apps is for Windows PCs. Open this invitation e-mail on your PC to download.</div>
+     <div class="meta" id="o-meta"></div>
+     <div class="err" id="dl-err" hidden></div>
+    </div>
+    <div class="glow"><div class="win"><div class="bar"><img src="assets/icon.png" alt=""><span>Rasumi Apps · <b>Dashboard</b></span><span class="ctl">— ☐ ✕</span></div><img class="full" src="assets/shots/dashboard.webp" alt="Rasumi Apps dashboard"></div></div>
+   </div>
+   <ol class="onb" aria-label="Getting started">
+    <li class="ob done" id="st1"><div class="ob-ic"><img src="assets/icons/ob_mail.webp" alt=""><span class="d">✓</span></div><div class="ob-tx"><em>Step 1 · <span class="ob-s">Done</span></em><b>Invitation opened</b><span>From your e-mail</span></div></li>
+    <li class="ob now" id="st2"><div class="ob-ic"><img src="assets/icons/ob_download.webp" alt=""><span class="d">2</span></div><div class="ob-tx"><em>Step 2 · <span class="ob-s">Now</span></em><b>Download</b><span>About 1 minute on office Wi-Fi</span></div></li>
+    <li class="ob" id="st3"><div class="ob-ic"><img src="assets/icons/ob_install.webp" alt=""><span class="d">3</span></div><div class="ob-tx"><em>Step 3 · <span class="ob-s">Next</span></em><b>Install &amp; sign up</b><span id="st3-mail">Use the invited e-mail</span></div></li>
+    <li class="ob" id="st4"><div class="ob-ic"><img src="assets/icons/ob_2fa.webp" alt=""><span class="d">4</span></div><div class="ob-tx"><em>Step 4 · <span class="ob-s">Next</span></em><b>Turn on two-step</b><span>Authenticator app, once</span></div></li>
+   </ol>
+  </div>
+
+
+  <section class="am" id="how"><div class="wrap">
+   <div class="sh"><div class="eyebrow">How Rasumi Apps works</div><h2>Every job mapped, end to end</h2>
+    <p>What used to be manual, and the automation that now runs it. The maps move on their own, the way the app does.</p></div>
+   <nav class="idx" id="idx"></nav>
+   <div id="chs"></div>
+  </div></section>
+  <svg class="am-defs" aria-hidden="true"><defs>
+   <linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1100" y2="0"><stop offset="0" stop-color="#ff5cb6"/><stop offset="1" stop-color="#a46bff"/></linearGradient>
+   <filter id="gl" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="4"/></filter>
+  </defs></svg>
+  <section id="tour"><div class="wrap">
+   <div class="sh"><h2>A quick look inside</h2><p>Real screens from Rasumi Apps. What you see depends on your role.</p></div>
+   <div class="seg" role="tablist" id="seg"></div>
+   <div class="tour"><div class="tx" id="tx"></div>
+    <div class="win shotbox"><div class="bar"><img src="assets/icon.png" alt=""><span id="tbar">Rasumi Apps</span><span class="ctl">— ☐ ✕</span></div><img class="full" id="timg" alt=""></div></div>
+  </div></section>
+
+  <section id="new" class="pt0"><div class="wrap">
+   <div class="sh"><h2>What's new in 15.0</h2><p>Highlights from this release.</p></div>
+   <div class="news">
+    <div class="nc"><div class="k">PO Mailer</div><h4>POs straight into AutoCount</h4><p>Purchase orders for FVKL, FVT, FVL, FVG and RSA are created in AutoCount from the Stock Alert.</p></div>
+    <div class="nc"><div class="k">Store Portal</div><h4>Special Request</h4><p>Pharmacists request items in Store Portal; the purchaser turns it into a PO with the pharmacist's signature and stamp.</p></div>
+    <div class="nc"><div class="k">Store Portal</div><h4>RSA joins as a full branch</h4><p>Products, bin card, receiving, transfers, delivery and stock count for Rasumi Shah Alam.</p></div>
+    <div class="nc"><div class="k">Everywhere</div><h4>Notification bell</h4><p>Delivered, new special requests and POs ready, in one place, even if they came while the app was closed.</p></div>
+    <div class="nc"><div class="k">PO Mailer</div><h4>Smart reorder plan</h4><p>A suggested minimum and maximum stock for every item, worked out every night.</p></div>
+    <div class="nc"><div class="k">Document tools</div><h4>Live progress</h4><p>Renamer, Splitter and Scanify show what is being read and how long is left.</p></div>
+   </div>
+  </div></section>
+
+  <section class="pt0"><div class="wrap">
+   <div class="sh"><h2>Built for internal use</h2><p>Your account and your data stay inside Rasumi.</p></div>
+   <div class="trust">
+    <div class="tr"><div class="ti"><img src="assets/icons/sec_account.webp" alt=""></div><h4>Personal account</h4><p>Every action is recorded under your own name.</p></div>
+    <div class="tr"><div class="ti"><img src="assets/icons/sec_2fa.webp" alt=""></div><h4>Two-step verification</h4><p>An authenticator code protects every sign-in.</p></div>
+    <div class="tr"><div class="ti"><img src="assets/icons/sec_invite.webp" alt=""></div><h4>Invitation only</h4><p>Only e-mails invited by Rasumi can sign up.</p></div>
+    <div class="tr"><div class="ti"><img src="assets/icons/sec_download.webp" alt=""></div><h4>Private download</h4><p>Locked to your PC on the first download. Each download link lasts 10 minutes.</p></div>
+   </div>
+  </div></section>
+
+  <section id="faq" class="pt0"><div class="wrap">
+   <div class="sh"><h2>Questions</h2></div>
+   <div class="faq">
+    <details><summary>Windows says "Windows protected your PC". Is it safe?</summary><div class="a">Yes. Click <b>More info</b>, then <b>Run anyway</b>. This shows for internal software that is not sold in public stores.</div></details>
+    <details><summary>Do I need administrator rights?</summary><div class="a">No. Rasumi Apps installs for your Windows user only. If your PC is locked down, contact IT.</div></details>
+    <details><summary>I already have an older version.</summary><div class="a">Install over it. Your settings stay, and later updates install by themselves.</div></details>
+    <details><summary>Which e-mail do I sign up with?</summary><div class="a">The one this invitation was sent to: <b class="o-mail"></b>. Other e-mails cannot sign up.</div></details>
+    <details><summary>Can I open this page on another computer?</summary><div class="a">You can read it anywhere, but after your first download it works in that browser on that PC only. If you changed PC, ask IT to reset your invitation.</div></details>
+   </div>
+  </div></section>
+
+  <section class="pt0"><div class="wrap">
+   <div class="req"><div><h3>Install Rasumi Apps on your PC</h3><p class="until" id="o-until"></p>
+    <dl id="o-dl"></dl></div>
+    <button class="btn btn-p dl-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.5 10.5 4.4v7.1H3zM11.5 4.3 21 3v8.5h-9.5zM3 12.5h7.5v7.1L3 18.5zM11.5 12.5H21V21l-9.5-1.3z"/></svg>Download for Windows</button></div>
+  </div></section>
+ </div>
+
+ <footer><div class="wrap"><span>© <span id="yr"></span> Rasumi Medipharma Sdn. Bhd. · Internal use only</span><span>Help: it@rasumi.com.my</span></div></footer>
+
+ <div class="dl" id="dl" role="dialog" aria-modal="true" aria-labelledby="dlh"><div class="dlc">
+  <div class="ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 4.5 4.5L19 7"/></svg></div>
+  <h3 id="dlh">Your download has started</h3><p id="dl-file"></p>
+  <ol><li>Open the file from your browser's downloads.<span>Usually the Downloads folder.</span></li><li>Run the installer.<span>Rasumi Apps opens when it finishes.</span></li><li>Choose Sign up with <b class="o-mail"></b>.<span>Then turn on two-step verification.</span></li></ol>
+  <div class="lockn">This invitation now works in this browser on this PC only.</div>
+  <div class="tip">If Windows shows "Windows protected your PC", click <b>More info</b> → <b>Run anyway</b>.</div>
+  <div class="act"><span id="dl-left"></span><button class="btn btn-s btn-sm" id="dl-done">Done</button></div>
+ </div></div>
+</div>
+<script src="app.js?v=5"></script>
+<script src="flows.js?v=1"></script>
+<script src="bg.js?v=1"></script>
+</body></html>

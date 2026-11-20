@@ -13731,14 +13731,11 @@
           } else if (isStoreApp) {
             row += '<label class="rh-tag rh-store-chip"><input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') +
               ' onchange="_toggleHospitalStoreBranch(\'' + safeId + '\', this.checked)"><span><i class="fa-solid fa-circle-check"></i> ' + esc(app) +
-              ' <i class="fa-solid fa-chevron-down rh-sp-car rh-car-btn" id="uspcar_' + safeId + '" title="Store Portal options" onclick="rToggleStorePortalOpts(\'' + safeId + '\', event)"></i>' +
-              '<i class="fa-solid fa-door-open" id="uspico_' + safeId + '" title="Store Portal button is ON" style="font-size:11px;margin-left:6px;color:#38bdf8;' + (u.store_access ? '' : 'display:none;') + '"></i></span></label>';
+              ' <i class="fa-solid fa-chevron-down rh-sp-car rh-car-btn" id="uspcar_' + safeId + '" title="Store Portal options" onclick="rToggleStorePortalOpts(\'' + safeId + '\', event)"></i></span></label>';
           } else if (app === 'PO Auto Email') {
-            var _acOn = apps.indexOf(_AC_PO_PERM) !== -1;
             row += '<label class="rh-tag"><input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') +
               ' onchange="_toggleAcPoOpts(\'' + safeId + '\', this.checked)"><span><i class="fa-solid fa-circle-check"></i> ' + esc(app) +
-              ' <i class="fa-solid fa-chevron-down rh-car-btn" id="uacpcar_' + safeId + '" title="PO Mailer options" onclick="rToggleAcPoOpts(\'' + safeId + '\', event)"></i>' +
-              '<i class="fa-solid fa-file-invoice" id="uacpico_' + safeId + '" title="Creates POs in AutoCount" style="font-size:11px;margin-left:6px;color:#f472b6;' + (_acOn && checked ? '' : 'display:none;') + '"></i></span></label>';
+              ' <i class="fa-solid fa-chevron-down rh-car-btn" id="uacpcar_' + safeId + '" title="PO Mailer options" onclick="rToggleAcPoOpts(\'' + safeId + '\', event)"></i></span></label>';
           } else {
             row += '<label class="rh-tag"><input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> ' + esc(app) + '</span></label>';
           }
