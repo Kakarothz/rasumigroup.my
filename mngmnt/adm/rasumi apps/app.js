@@ -13303,6 +13303,16 @@
       "\n.rh-hb-in{flex:1 1 140px;min-width:140px;background:transparent!important;border:none!important;outline:none;color:var(--rc-text,#fff);font:inherit;font-size:12px;padding:4px 2px}" +
       "\n.rh-hb-count{font-size:11px;color:var(--rc-text-dim,#9ca3af);margin-top:6px}" +
       "\n.rh-hb-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px}.rh-hb-tbl th{font-weight:400;text-align:left;color:var(--rc-text-dim,#6b7280);padding:4px 6px 4px 0}.rh-hb-tbl td{border-top:1px solid var(--rc-border,#1f2937);padding:5px 6px 5px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rh-hb-tbl input,.rh-hb-tbl select{width:100%;box-sizing:border-box;padding:4px 7px;background:rgba(255,255,255,.05);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);border-radius:4px;font:inherit;font-size:11px}.rh-hb-tbl select{background:var(--rc-bg-2,#1f2937)}" +
+      "\n.rh-ichip{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;font-weight:600;padding:3px 10px;border-radius:99px;border:1px solid #6b7280;color:#9ca3af;text-decoration:none;white-space:nowrap;cursor:pointer}.rh-ichip:hover{filter:brightness(1.2)}" +
+      "\n.rh-ichip.wait{border-color:#fbbf24;color:#fbbf24;background:rgba(251,191,36,.08)}.rh-ichip.bad{border-color:#f87171;color:#f87171;background:rgba(248,113,113,.08)}.rh-ichip.ok{border-color:#34d399;color:#34d399;background:rgba(16,185,129,.08)}" +
+      "\n.rh-idots{display:inline-flex;gap:3px}.rh-idots i{display:block;width:6px;height:6px;border-radius:50%;background:#4b5563}.rh-idots i.g{background:#34d399}.rh-idots i.wait{background:#fbbf24}.rh-idots i.bad{background:#f87171}.rh-idots i.idle{background:#9ca3af}" +
+      "\n.rh-drawer{position:fixed;top:0;right:0;height:100vh;width:340px;max-width:92vw;z-index:100001;background:var(--rc-bg,#0f1115);border-left:1px solid var(--rc-border,#374151);box-shadow:-12px 0 40px rgba(0,0,0,.5);padding:18px 18px 24px;overflow-y:auto;color:var(--rc-text,#fff);font-family:inherit;animation:rhDrIn .18s ease-out}@keyframes rhDrIn{from{transform:translateX(30px);opacity:0}}" +
+      "\n.rh-dr-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.rh-dr-head b{font-size:15px}.rh-dr-sum{margin:12px 0 4px;font-size:11.5px;color:var(--rc-text-dim,#9ca3af)}" +
+      "\n.rh-tl{margin:14px 0 6px 6px;border-left:2px solid var(--rc-border,#374151);padding-left:16px}.rh-ev{position:relative;margin-bottom:14px;font-size:12px;line-height:1.45}.rh-ev::before{content:'';position:absolute;left:-22px;top:3px;width:10px;height:10px;border-radius:50%;background:#34d399}" +
+      "\n.rh-ev.wait::before{background:#fbbf24}.rh-ev.bad::before{background:#f87171}.rh-ev.idle::before{background:#4b5563}.rh-ev.idle b{color:var(--rc-text-dim,#9ca3af)}.rh-ev b{font-weight:600;display:block}.rh-ev span{font-size:11px;color:var(--rc-text-dim,#9ca3af)}.rh-dr-act{margin-top:8px}" +
+      "\n.rh-isum{margin:16px 22px 0;border:1px solid var(--rc-border,#374151);border-radius:12px;padding:12px 14px;background:rgba(255,255,255,.025)}.rh-isum-h{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}" +
+      "\n.rh-isum-g{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}.rh-isum-g button{background:rgba(255,255,255,.04);border:1px solid var(--rc-border,#374151);border-radius:9px;padding:8px 6px;color:var(--rc-text,#fff);font-family:inherit;cursor:pointer;text-align:center}.rh-isum-g button:hover{border-color:var(--rc-cyan,#D97757)}.rh-isum-g b{display:block;font-size:18px}.rh-isum-g span{font-size:10.5px;color:var(--rc-text-dim,#9ca3af)}" +
+      "\n.rh-ifbar{margin:12px 22px 0;font-size:11.5px;color:var(--rc-text-dim,#c4c7d0);display:flex;align-items:center;gap:6px}.rh-ifbar b{color:#fff}.rh-ifbar a{margin-left:8px;color:var(--rc-cyan,#D97757);text-decoration:none}" +
       "\n.rh-hb-st{text-align:right}.rh-hb-st.ok{color:#10b981}.rh-hb-st.warn{color:#f59e0b}.rh-hb-st.err{color:#ef4444;white-space:normal}.rh-hb-st.busy{color:var(--rc-text-dim,#9ca3af)}";
     document.head.appendChild(st);
   }
@@ -13320,6 +13330,15 @@
     try {
       fetch(RASUMI_SUPABASE_URL + '/functions/v1/send-invite-emails', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: RASUMI_SUPABASE_ANON_KEY, Authorization: 'Bearer ' + RASUMI_SUPABASE_ANON_KEY }, body: '{}' }).catch(function () {});
     } catch (e) { }
+  }
+  // Send Invite = the e-mail goes out right away (no separate Resend click). Queues it now, even before the
+  // invitation phase has started; "already sent" (phase running, the invite queued itself) counts as sent.
+  function _sendInviteNow(username) {
+    if (!username || !RS.supa) return Promise.resolve(false);
+    return RS.supa.rpc('rpc_resend_invite', { p_username: username }).then(function (r) {
+      if (r.error) return false;
+      return !(r.data && r.data.success === false) || /already sent/i.test((r.data && r.data.reason) || '');
+    }).catch(function () { return false; });
   }
   // One click only: the link locks while sending and stays "Sent" (server also refuses a resend within 10 min
   // or once the person has already signed up — see sql/invite_resend_guard_v1.sql).
@@ -13626,7 +13645,7 @@
     var x = document.getElementById('r-hu-search-x'); if (x) x.style.display = q ? '' : 'none';
     var cards = document.querySelectorAll('#r-husers-list .rh-user'), shown = 0;
     cards.forEach(function (c) {
-      var hit = !q || (c.getAttribute('data-q') || '').indexOf(q) !== -1;
+      var hit = (!q || (c.getAttribute('data-q') || '').indexOf(q) !== -1) && (!_invFilter || c.getAttribute('data-stage') === _invFilter);
       c.style.display = hit ? '' : 'none'; if (hit) shown++;
       c.querySelectorAll('.rh-dev').forEach(function (d) { d.classList.toggle('hit', !!q && (d.getAttribute('data-h') || '').indexOf(q) !== -1); });
     });
@@ -13641,6 +13660,93 @@
     if (!list || !RS.supa) return;
     _loadRolloutCard();
     _loadDepts().then(function () { _renderHospitalUsers(list); });
+  }
+  // ---- Invitation progress (rpc_admin_invite_progress): one chip on the card, details in a side panel ----
+  var _huInv = {}, _invFilter = '';
+  var _INV_STEPS = [['sent', 'E-mail sent'], ['opened', 'Link opened'], ['downloaded', 'Downloaded'], ['installed', 'Installed'], ['signed', 'Signed up']];
+  function _invUa(ua) {
+    ua = String(ua || '');
+    var os = /Windows NT 10/.test(ua) ? 'Windows' : /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iPhone' : /Mac OS X/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : '';
+    var br = /Edg\//.test(ua) ? 'Edge' : /GSA\/|Gmail/i.test(ua) ? 'Gmail app' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : '';
+    return [os, br].filter(Boolean).join(' · ') || 'Unknown device';
+  }
+  // {n: 0-5, key, label, tone: ok|wait|bad|idle}
+  function _invStage(p) {
+    if (!p) return { n: 0, key: 'none', label: 'Invited', tone: 'idle' };
+    var ev = p.events || [], last = ev.length ? ev[ev.length - 1] : null;
+    if (p.signed_up) return { n: 5, key: 'signed', label: 'Signed up', tone: 'ok' };
+    if (p.installed) return { n: 4, key: 'installed', label: 'Installed (likely)', tone: 'wait' };
+    if (p.downloads > 0) return { n: 3, key: 'downloaded', label: 'Downloaded', tone: 'wait' };
+    if (last && last.kind === 'denied' && last.note === 'not_windows') return { n: 2, key: 'opened', label: 'Opened on phone', tone: 'bad' };
+    if (last && last.kind === 'denied' && last.note === 'other_device') return { n: 2, key: 'opened', label: 'Other PC blocked', tone: 'bad' };
+    if (p.opens > 0 || ev.length) return { n: 2, key: 'opened', label: 'Link opened', tone: 'wait' };
+    if (p.sent_at) return { n: 1, key: 'sent', label: 'E-mail sent', tone: 'idle' };
+    if (p.send_error) return { n: 0, key: 'none', label: 'E-mail failed', tone: 'bad' };
+    return { n: 0, key: 'none', label: 'Not sent yet', tone: 'idle' };
+  }
+  function _invChip(uname) {
+    var s = _invStage(_huInv[String(uname).toLowerCase()]);
+    var dots = '';
+    for (var i = 1; i <= 5; i++) dots += '<i class="' + (i < s.n || (i === s.n && s.tone === 'ok') ? 'g' : i === s.n ? s.tone : '') + '"></i>';
+    return '<a href="#" class="rh-ichip ' + s.tone + '" title="Invitation progress. Click for details." onclick="rInvOpen(\'' + String(uname).replace(/'/g, "\\'") + '\');return false;">'
+      + '<span class="rh-idots">' + dots + '</span>' + esc(s.label) + ' · ' + s.n + '/5</a>';
+  }
+  function _invFmt(iso) { return iso ? new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''; }
+  window.rInvOpen = function (uname) {
+    var p = _huInv[String(uname).toLowerCase()] || { username: uname, events: [] };
+    var u = _huUsers.filter(function (x) { return String(x.username).toLowerCase() === String(uname).toLowerCase(); })[0] || {};
+    var items = [];
+    if (p.sent_at) items.push({ t: p.sent_at, c: '', h: 'E-mail sent', s: '' });
+    else items.push({ t: null, c: p.send_error ? 'bad' : 'idle', h: p.send_error ? 'E-mail failed' : 'E-mail not sent yet', s: p.send_error ? String(p.send_error).slice(0, 120) : '' });
+    (p.events || []).forEach(function (e) {
+      var dev = _invUa(e.ua) + (e.ip ? ' · ' + e.ip : '');
+      if (e.kind === 'open') items.push({ t: e.at, c: '', h: 'Link opened', s: dev });
+      else if (e.kind === 'bind') items.push({ t: e.at, c: '', h: 'Locked to this PC', s: dev });
+      else if (e.kind === 'download') items.push({ t: e.at, c: '', h: 'Downloaded', s: dev });
+      else if (e.kind === 'denied') items.push({ t: e.at, c: 'bad', h: e.note === 'not_windows' ? 'Opened on a phone, blocked' : e.note === 'other_device' ? 'Opened on another PC, blocked' : 'Blocked (' + (e.note || 'denied') + ')', s: dev });
+      else items.push({ t: e.at, c: '', h: e.kind, s: dev });
+    });
+    if (p.downloads > 0 && !(p.events || []).some(function (e) { return e.kind === 'download'; }))
+      items.push({ t: p.last_download_at, c: '', h: 'Downloaded', s: p.downloads + ' of ' + (p.max_downloads || '-') });
+    items.push(p.installed ? { t: p.installed_at, c: 'wait', h: 'Installed (likely)', s: p.installed + ' online from the same IP' } : { t: null, c: 'idle', h: 'Installed', s: 'not seen yet' });
+    items.push(p.signed_up ? { t: null, c: '', h: 'Signed up', s: 'Waiting for the first sign-in to finish linking' } : { t: null, c: 'idle', h: 'Signed up', s: 'not yet' });
+    var old = document.getElementById('r-inv-drawer'); if (old) old.remove();
+    var d = document.createElement('div'); d.id = 'r-inv-drawer'; d.className = 'rh-drawer';
+    d.innerHTML = '<div class="rh-dr-head"><div><b>' + esc(uname) + '</b><div class="rh-sub">' + esc(p.email || u.email || '') + '</div></div>'
+      + '<button class="rh-x" onclick="rInvClose()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>'
+      + '<div class="rh-dr-sum">' + (p.downloads ? 'Downloads ' + p.downloads + ' of ' + (p.max_downloads || '-') + ' · ' : '') + 'Opened ' + (p.opens || 0) + 'x' + (p.device_ua ? ' · PC: ' + esc(_invUa(p.device_ua)) : '') + '</div>'
+      + '<div class="rh-tl">' + items.map(function (it) {
+        return '<div class="rh-ev ' + it.c + '"><b>' + esc(it.h) + '</b><span>' + esc([_invFmt(it.t), it.s].filter(Boolean).join(' · ')) + '</span></div>';
+      }).join('') + '</div>'
+      + '<div class="rh-dr-act"><button class="rh-btn ghost sm" onclick="rResendInvite(\'' + String(uname).replace(/'/g, "\\'") + '\', this)"><i class="fa-regular fa-envelope"></i> Resend e-mail (new link)</button></div>';
+    document.body.appendChild(d);
+    setTimeout(function () { document.addEventListener('mousedown', _invOutside, true); }, 0);
+  };
+  function _invOutside(e) { var d = document.getElementById('r-inv-drawer'); if (d && !d.contains(e.target) && !(e.target.closest && e.target.closest('.rh-ichip'))) rInvClose(); }
+  window.rInvClose = function () { var d = document.getElementById('r-inv-drawer'); if (d) d.remove(); document.removeEventListener('mousedown', _invOutside, true); };
+  // Invitation tab: one row of counts; click = filter the Users tab to that stage
+  function _invSummary() {
+    var pane = document.getElementById('r-hu-pane-i'); if (!pane) return;
+    var box = document.getElementById('r-inv-sum');
+    if (!box) { box = document.createElement('div'); box.id = 'r-inv-sum'; box.className = 'rh-isum'; pane.insertBefore(box, pane.firstChild); }
+    var cnt = { none: 0, sent: 0, opened: 0, downloaded: 0, installed: 0, signed: 0 }, tot = 0;
+    _huUsers.forEach(function (u) { if (u.invite_status === 'invited') { tot++; cnt[_invStage(_huInv[String(u.username).toLowerCase()]).key]++; } });
+    if (!tot) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    var cells = [['none', 'Not sent']].concat(_INV_STEPS);
+    box.innerHTML = '<div class="rh-isum-h">Open invitations <span class="rh-sec-n">' + tot + '</span></div><div class="rh-isum-g">' + cells.map(function (c) {
+      return '<button onclick="rInvFilter(\'' + c[0] + '\')"><b>' + cnt[c[0]] + '</b><span>' + c[1] + '</span></button>';
+    }).join('') + '</div>';
+    _invFilterBar();
+  }
+  window.rInvFilter = function (key) { _invFilter = key || ''; rHuTab('u'); _invFilterBar(); rHuFilter(); };
+  function _invFilterBar() {
+    var list = document.getElementById('r-husers-list'); if (!list) return;
+    var bar = document.getElementById('r-inv-fbar');
+    if (!_invFilter) { if (bar) bar.remove(); return; }
+    if (!bar) { bar = document.createElement('div'); bar.id = 'r-inv-fbar'; bar.className = 'rh-ifbar'; list.parentNode.insertBefore(bar, list); }
+    var lbl = (_INV_STEPS.filter(function (s) { return s[0] === _invFilter; })[0] || ['', 'Not sent'])[1];
+    bar.innerHTML = '<i class="fa-solid fa-filter"></i> Invitation: <b>' + esc(lbl) + '</b> <a href="#" onclick="rInvFilter(\'\');return false;"><i class="fa-solid fa-xmark"></i> Clear</a>';
   }
   var _huStoreProfiles = [], _huUsers = [], _huStoreCaps = {};
   function _renderHospitalUsers(list) {
@@ -13657,6 +13763,12 @@
         _huStoreCaps = {};
         ((cr && cr.data) || []).forEach(function (r) { _huStoreCaps[String(r.id).toLowerCase()] = r.capabilities || {}; });
       }, function () { _huStoreCaps = {}; });
+    }).then(function () {
+      // invitation progress (open invites only); missing RPC -> chips fall back to "Invited"
+      return RS.supa.rpc('rpc_admin_invite_progress').then(function (ir) {
+        _huInv = {};
+        ((ir && Array.isArray(ir.data)) ? ir.data : []).forEach(function (p) { _huInv[String(p.username || '').toLowerCase()] = p; });
+      }, function () { _huInv = {}; });
     }).then(function () {
       return RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type,email,display_name,full_name,department_id,invite_status,auth_id,store_access,google_ok,microsoft_ok,avatar_url,ops_access,failed_login_count,last_login_utc').order('username');
     }).then(function (res) {
@@ -13688,12 +13800,13 @@
         var initial = (String(u.display_name || uname).trim().charAt(0) || '?').toUpperCase();
         var devs = _huDev[String(uname).toLowerCase()] || [];
         var qtxt = [uname, u.display_name, u.full_name, u.email, u.department_id, role].concat(devs.map(function (d) { return d.hostname; })).join(' ').toLowerCase();
-        var row = '<div class="rh-user' + (isMaster ? ' master' : '') + (isActive ? '' : ' off') + '" data-q="' + esc(qtxt) + '"' + (isMaster ? '' : ' data-sid="' + safeId + '" data-role="' + esc(role) + '"') + '>';
+        var _ist = u.invite_status === 'invited' ? _invStage(_huInv[String(uname).toLowerCase()]) : null;
+        var row = '<div class="rh-user' + (isMaster ? ' master' : '') + (isActive ? '' : ' off') + '" data-q="' + esc(qtxt) + '"' + (_ist ? ' data-stage="' + _ist.key + '"' : '') + (isMaster ? '' : ' data-sid="' + safeId + '" data-role="' + esc(role) + '"') + '>';
         // ---- head: avatar, name, badges, e-mail line, status ----
         var av = (u.avatar_url && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/]+=*$/.test(u.avatar_url)) ? u.avatar_url : '';
         row += '<div class="rh-uhead"><div class="rh-av">' + (av ? '<img src="' + esc(av) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '<span>' + esc(initial) + '</span></div><div class="rh-uinfo">';
         row += '<div class="rh-uname"><span>' + esc(uname) + '</span><span class="rh-role ' + roleCls + '">' + esc(role) + '</span>';
-        if (u.invite_status === 'invited') row += '<span class="rh-role inv">INVITED</span>' + (u.email ? '<a href="#" class="rh-resend" onclick="rResendInvite(\'' + q(uname) + '\', this);return false;"><i class="fa-regular fa-envelope"></i> Resend e-mail</a>' : '');
+        if (u.invite_status === 'invited') row += _invChip(uname);
         // Store Portal has its OWN role / branch (store_user_profiles) - show it so it is never a surprise; click = edit it
         var _sp = _huStoreProfiles.filter(function (p) { return String(p.app_username || '').toLowerCase() === String(uname).toLowerCase(); })[0];
         if (_sp) {
@@ -13821,6 +13934,7 @@
       list.innerHTML = rows.join('');
       _huDirtyInit(list);
       var _c = document.getElementById('r-hu-cnt'); if (_c) _c.textContent = String(rows.length);
+      _invSummary();
       rHuFilter();
     }).catch(function (e) {
       if (list) list.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;font-size:12px;">Error: ' + esc(e.message || String(e)) + '</div>';
@@ -14348,8 +14462,12 @@
     var next = function (i) {
       if (i >= list.length) {
         _hbBusy = false; _hbRender();
-        rToast(ok + ' invited' + (bad ? ', ' + bad + ' failed' : '') + ' — e-mails go out once the invitation phase has started', bad ? 'error' : 'success');
-        if (ok) { _flushInvites(); _loadHospitalUsers(); }
+        var users = list.map(function (em) { return (_hbStatus[em] || {}).username; }).filter(Boolean);
+        Promise.all(users.map(_sendInviteNow)).then(function (rs) {
+          var sent = rs.filter(Boolean).length;
+          rToast(ok + ' invited, ' + sent + ' e-mail' + (sent === 1 ? '' : 's') + ' sent' + (bad ? ', ' + bad + ' failed' : ''), bad || sent < ok ? 'error' : 'success');
+          if (ok) { _flushInvites(); _loadHospitalUsers(); }
+        });
         return;
       }
       var em = list[i], nm = (_hbNames[em] || '').trim();
@@ -14404,9 +14522,13 @@
       });
     call.then(function (res) {
       if (res.error) throw new Error(res.error.message);
-      rToast((legacy ? 'Linked ' + legacy + ' to ' : 'Invited ') + email + ' — they get an e-mail once the invitation phase has started', 'success'); _flushInvites();
+      var uname = (res.data && res.data.username) || legacy || un;
       rHuserInviteClose();
-      _loadHospitalUsers();
+      return _sendInviteNow(uname).then(function (sent) {
+        rToast((legacy ? 'Linked ' + legacy + ' to ' : 'Invited ') + email + (sent ? ' — invitation e-mail sent' : ' — e-mail not sent, use Resend e-mail'), sent ? 'success' : 'error');
+        _flushInvites();
+        _loadHospitalUsers();
+      });
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
   // Super admin account tools (sql/admin_account_tools_v1.sql)
