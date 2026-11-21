@@ -137,7 +137,10 @@
   function setRun(v) { if (reduce) return; v = v && !document.hidden; if (v && !run) { run = true; raf = requestAnimationFrame(loop); } else if (!v) { run = false; cancelAnimationFrame(raf); } }
   size(); if (reduce) lon0 = TARGET;
   window.addEventListener('resize', size);
-  if ('IntersectionObserver' in window) new IntersectionObserver(function (e) { seen = e[0].isIntersecting; setRun(seen); }).observe(cv);
+  // the band sits inside the invitation view, which is hidden until the link is checked: a canvas measured while
+  // hidden is 0 x 0, so measure again whenever its box changes (shown, rotated, resized)
+  if ('ResizeObserver' in window) new ResizeObserver(function () { size(); if (reduce) draw(0); }).observe(cv);
+  if ('IntersectionObserver' in window) new IntersectionObserver(function (e) { seen = e[0].isIntersecting; if (seen && !W) size(); setRun(seen); }).observe(cv);
   else { seen = true; setRun(true); }
   document.addEventListener('visibilitychange', function () { setRun(seen); });
   if (reduce) draw(0);
