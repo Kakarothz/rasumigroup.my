@@ -13770,7 +13770,7 @@
         ((ir && Array.isArray(ir.data)) ? ir.data : []).forEach(function (p) { _huInv[String(p.username || '').toLowerCase()] = p; });
       }, function () { _huInv = {}; });
     }).then(function () {
-      return RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type,email,display_name,full_name,department_id,invite_status,auth_id,store_access,google_ok,microsoft_ok,avatar_url,ops_access,failed_login_count,last_login_utc').order('username');
+      return RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type,email,display_name,full_name,department_id,invite_status,auth_id,store_access,google_ok,microsoft_ok,avatar_url,ops_access,failed_login_count,last_login_utc,privilege').order('username');
     }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
       _huUsers = res.data || [];
@@ -13915,6 +13915,8 @@
           row += '<input id="uemail_' + safeId + '" class="rh-in" placeholder="E-mail" value="' + idv('email') + '"' + (u.auth_id ? ' disabled title="Locked after sign up"' : '') + ' style="width:210px;">';
           row += '<select id="udept_' + safeId + '" class="rh-in">' + _deptOpts(u.department_id) + '</select>';
           row += '<select id="urole_' + safeId + '" class="rh-in">' + ['VIEWER','OPERATOR','BRANCH_USER','DEPT_ADMIN','BOD','ADMIN'].map(function (r) { return '<option value="' + r + '"' + (r === role ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>';
+          // Privilege (Rasumi Apps > Admin Monitor > Eksekutif: finance + staff records). Super admin only.
+          row += '<select id="upriv_' + safeId + '" class="rh-in" title="Privilege: BOD, HR or Accounts see the Eksekutif page (finance and staff records)">' + [['', 'No privilege'], ['BOD', 'BOD'], ['HR', 'HR'], ['ACCOUNTANT', 'Accounts']].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === (u.privilege || '') ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>';
           row += '</div><div class="rh-tags sm">';
           row += '<label class="rh-tag"><input type="checkbox" id="ugoog_' + safeId + '"' + (u.google_ok !== false ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Google</span></label>';
           row += '<label class="rh-tag"><input type="checkbox" id="ums_' + safeId + '"' + (u.microsoft_ok !== false ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Microsoft</span></label>';
@@ -14574,6 +14576,9 @@
     RS.supa.rpc('rpc_update_hospital_user_identity', {
       p_username: username, p_name: v('uname_'), p_email: v('uemail_'), p_dept: v('udept_'), p_role: v('urole_'),
       p_store_access: c('ustore_'), p_google: c('ugoog_'), p_microsoft: c('ums_')
+    }).then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      return RS.supa.rpc('admin_console_set_privilege', { p_username: username, p_privilege: v('upriv_') });
     }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
       rToast(username + ' — identity saved', 'success');
