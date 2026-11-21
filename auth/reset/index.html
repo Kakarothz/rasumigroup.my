@@ -6,26 +6,64 @@
 ol{text-align:left;background:rgba(120,20,160,.2);border-left:4px solid #d900ff;border-radius:6px;padding:12px 12px 12px 34px;margin:14px 0;color:#fff}li{margin:4px 0}
 input{width:100%;height:42px;margin:6px 0;padding:0 12px;border-radius:6px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.4);color:#fff;font-size:16px}
 button{margin-top:8px;width:100%;padding:12px;border-radius:99px;border:2px solid #bd00ff;background:linear-gradient(135deg,#8b008b,#4b0082);color:#fff;font-weight:700;letter-spacing:1px;cursor:pointer}
-.m{min-height:22px;font-size:14px;margin-top:8px}.bad{color:#ff6b7a}.ok{color:#39ff14}</style></head><body><div class="c"><img src="../logo.webp" alt="Rasumi Medipharma"><h1>Set a new password</h1><div id="f"><input id="p1" type="password" placeholder="New password (min. 8 characters)" autocomplete="new-password"><input id="p2" type="password" placeholder="Confirm new password" autocomplete="new-password"><button id="go">Save password</button></div><div id="m" class="m"></div>
+.m{min-height:22px;font-size:14px;margin-top:8px}.bad{color:#ff6b7a}.ok{color:#39ff14}</style></head><body><div class="c"><img src="../logo.webp" alt="Rasumi Medipharma"><h1>Set a new password</h1><div id="f"><input id="p1" type="password" placeholder="New password (min. 8 characters)" autocomplete="new-password"><input id="p2" type="password" placeholder="Confirm new password" autocomplete="new-password"><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code from your authenticator app" style="display:none;letter-spacing:4px;text-align:center"><button id="go">Save password</button></div><div id="m" class="m"></div>
 <script>
 (function(){
 var URL='https://seqlkwdghibmsfkbuwqq.supabase.co', KEY='sb_publishable_BotuzQAIly3eTShpQ_Lmtg_Y9_QlyDp';
 var h=new URLSearchParams(location.hash.slice(1)), tok=h.get('access_token'), type=h.get('type');
 // keep the reset token for this tab only, so a refresh (F5) does not throw the link away
 try{ if(tok&&type==='recovery'){sessionStorage.setItem('rs_reset_tok',tok)} else {tok=sessionStorage.getItem('rs_reset_tok'); if(tok) type='recovery'} }catch(e){}
-var m=document.getElementById('m'), f=document.getElementById('f');
+var m=document.getElementById('m'), f=document.getElementById('f'), code=document.getElementById('code');
+var factor=null;              // verified TOTP factor: the account has 2FA, so the change needs a code first (AAL2)
 function say(t,c){m.textContent=t;m.className='m '+(c||'')}
+function api(path,method,body,bearer){
+  return fetch(URL+'/auth/v1'+path,{method:method,headers:{'Content-Type':'application/json',apikey:KEY,Authorization:'Bearer '+bearer},body:body?JSON.stringify(body):undefined})
+    .then(function(r){return r.json().catch(function(){return{}}).then(function(j){return{ok:r.ok,j:j}})});
+}
+function msg(j){return String((j&&(j.msg||j.message||j.error_description))||'')}
+function expired(){try{sessionStorage.removeItem('rs_reset_tok')}catch(e){}f.style.display='none';say('This reset link has expired. Request a new one from Rasumi Apps (Forgot password?).','bad')}
+function needCode(){code.style.display='';code.focus()}
 if(!tok||type!=='recovery'){f.style.display='none';say('This reset link is invalid or has expired. Request a new one from the app (Forgot password?).','bad');}
+else api('/user','GET',null,tok).then(function(x){
+  if(!x.ok){if(/expired|invalid|jwt/i.test(msg(x.j)))expired();return}
+  var fs=(x.j.factors||[]).filter(function(q){return q.status==='verified'&&q.factor_type==='totp'});
+  if(fs.length){factor=fs[0];needCode()}
+}).catch(function(){});
 history.replaceState(null,'',location.pathname);
+// 2FA accounts: challenge + verify the code -> a session that may change the password
+function elevate(){
+  if(!factor)return Promise.resolve(tok);
+  var c=(code.value||'').replace(/\D/g,'');
+  if(c.length!==6)return Promise.reject('code');
+  return api('/factors/'+factor.id+'/challenge','POST',{},tok).then(function(x){
+    if(!x.ok)throw msg(x.j)||'challenge';
+    return api('/factors/'+factor.id+'/verify','POST',{challenge_id:x.j.id,code:c},tok);
+  }).then(function(x){
+    if(!x.ok||!x.j.access_token)throw 'badcode';
+    return x.j.access_token;
+  });
+}
 document.getElementById('go').onclick=function(){
   var a=document.getElementById('p1').value,b=document.getElementById('p2').value;
   if(a.length<8){say('Password must be at least 8 characters.','bad');return}
   if(a!==b){say('The two passwords do not match.','bad');return}
   say('Saving...');
-  fetch(URL+'/auth/v1/user',{method:'PUT',headers:{'Content-Type':'application/json',apikey:KEY,Authorization:'Bearer '+tok},body:JSON.stringify({password:a})})
-   .then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})})
-   .then(function(x){if(x.ok){try{sessionStorage.removeItem('rs_reset_tok')}catch(e){}f.style.display='none';say('Password updated. Go back to Rasumi Apps and sign in.','ok')}else{if(x.j&&/expired|invalid|jwt/i.test(String(x.j.msg||x.j.message||''))){try{sessionStorage.removeItem('rs_reset_tok')}catch(e){}say('This reset link has expired. Request a new one from Rasumi Apps (Forgot password?).','bad');return}say((x.j&&(x.j.msg||x.j.message))||'Could not update the password.','bad')}})
-   .catch(function(){say('Connection error. Try again.','bad')});
+  elevate().then(function(t2){return api('/user','PUT',{password:a},t2)}).then(function(x){
+    if(x.ok){try{sessionStorage.removeItem('rs_reset_tok')}catch(e){}f.style.display='none';say('Password updated. Go back to Rasumi Apps and sign in.','ok');return}
+    var e=msg(x.j);
+    if(/aal2|mfa/i.test(e)){                               // 2FA not seen when the page opened: ask for the code now
+      if(!factor){api('/user','GET',null,tok).then(function(y){var fs=((y.j||{}).factors||[]).filter(function(q){return q.status==='verified'});factor=fs[0]||null;needCode()})}
+      else needCode();
+      say('Enter the 6-digit code from your authenticator app, then press Save password.','bad');return}
+    if(/expired|invalid|jwt/i.test(e)){expired();return}
+    if(/same|different from the old/i.test(e)){say('Choose a password different from your current one.','bad');return}
+    say(e||'Could not update the password.','bad');
+  }).catch(function(err){
+    if(err==='code'){needCode();say('Enter the 6-digit code from your authenticator app.','bad');return}
+    if(err==='badcode'){say('That code is not right or has expired. Check your authenticator app and try again. Lost it? Ask IT to reset your 2FA.','bad');code.value='';code.focus();return}
+    if(/expired|invalid|jwt/i.test(String(err))){expired();return}
+    say('Connection error. Try again.','bad');
+  });
 };
 })();
 </script></div></body></html>
