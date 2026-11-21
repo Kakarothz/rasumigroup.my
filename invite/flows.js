@@ -69,6 +69,25 @@ function dpath(A,B){var x1=A[0]+W/2,y1=A[1],x2=B[0]-W/2,y2=B[1];
  if(B[0]<A[0]){x1=A[0];y1=A[1]+(B[1]>A[1]?H/2:-H/2);x2=B[0];y2=B[1]+(B[1]>A[1]?-H/2:H/2);return 'M'+x1+' '+y1+' C'+x1+' '+(y1+(y2-y1)/2)+' '+x2+' '+(y1+(y2-y1)/2)+' '+x2+' '+y2}
  if(Math.abs(B[0]-A[0])<10){x1=A[0];x2=B[0];y1=A[1]+(B[1]>A[1]?H/2:-H/2);y2=B[1]+(B[1]>A[1]?-H/2:H/2);return 'M'+x1+' '+y1+' L'+x2+' '+y2}
  var mx=(x1+x2)/2;return 'M'+x1+' '+y1+' C'+mx+' '+y1+' '+mx+' '+y2+' '+x2+' '+y2}
+/* Phones / narrow screens: the same map turned vertical (flow runs top to bottom) so it fits the width
+   without sideways scrolling. Node rows become columns; spacing is widened until no two boxes overlap. */
+var VERT=window.matchMedia&&matchMedia('(max-width: 760px)').matches;
+function verticalise(a){
+ // each desktop column (same x) becomes one step down the page; a column with several boxes is laid out
+ // two per line, so the map is never wider than two boxes (fits a phone without shrinking the text)
+ var pad=12,gap=16,vw=2*W+gap+pad*2,cx=vw/2,lineH=H+30,y=H/2+18,M={},cols={};
+ Object.keys(a.N).forEach(function(k){var x=Math.round(a.N[k][0]/40);(cols[x]=cols[x]||[]).push(k)});
+ Object.keys(cols).map(Number).sort(function(p,q){return p-q}).forEach(function(c){
+  var ks=cols[c].sort(function(p,q){return a.N[p][1]-a.N[q][1]});
+  for(var i=0;i<ks.length;i+=2){var pair=ks.slice(i,i+2);
+   pair.forEach(function(k,j){var n=a.N[k];M[k]=[pair.length===1?cx:cx+(j?1:-1)*(W/2+gap/2),y,n[2],n[3],n[4]]});
+   y+=lineH}
+  y+=22});
+ a.N=M;a._vw=vw;a.h=Math.round(y-lineH-22+H/2+24);a._vert=1}
+function dpathV(A,B){
+ if(Math.abs(B[1]-A[1])<10){var s=B[0]>A[0]?1:-1;return 'M'+(A[0]+s*W/2)+' '+A[1]+' L'+(B[0]-s*W/2)+' '+B[1]}
+ var d=B[1]>A[1]?1:-1,x1=A[0],y1=A[1]+d*H/2,x2=B[0],y2=B[1]-d*H/2,my=(y1+y2)/2;
+ return 'M'+x1+' '+y1+' C'+x1+' '+my+' '+x2+' '+my+' '+x2+' '+y2}
 var host=document.getElementById('chs'),idx=document.getElementById('idx');
 idx.innerHTML=APPS.map(function(a){return '<a href="#'+a.id+'">'+a.name.replace(' & Store Portal','')+'</a>'}).join('');
 APPS.forEach(function(a){
@@ -76,9 +95,11 @@ APPS.forEach(function(a){
  s.innerHTML='<div class="hd"><img src="'+(ICO[a.ic]||('assets/icons/'+a.ic+'.webp'))+'" alt=""><div><div class="n">'+a.n+'</div><h3>'+a.name+(a.who?'<span class="for">'+a.who+'</span>':'')+'</h3></div></div>'+
   '<p class="prob"><span class="k">The problem</span>'+a.prob+'</p><p class="lead">'+a.lead+'</p><div class="map"></div><div class="cap"><i></i><span></span></div>';
  host.appendChild(s);
- var svg=mk('svg',{viewBox:'0 0 1030 '+a.h},s.querySelector('.map')),EG=mk('g',{},svg),NG=mk('g',{},svg),PG=mk('g',{},svg);
+ if(VERT)verticalise(a);
+ var svg=mk('svg',{viewBox:'0 0 '+(a._vw||1030)+' '+a.h},s.querySelector('.map')),EG=mk('g',{},svg),NG=mk('g',{},svg),PG=mk('g',{},svg);
+ if(a._vert)s.querySelector('.map').classList.add('v');
  a._e={};a._n={};
- a.E.forEach(function(e){var p=mk('path',{d:dpath(a.N[e[0]],a.N[e[1]]),'class':'e'+(e[3]?' no':'')},EG);a._e[e[0]+'>'+e[1]]=p;
+ a.E.forEach(function(e){var p=mk('path',{d:(a._vert?dpathV:dpath)(a.N[e[0]],a.N[e[1]]),'class':'e'+(e[3]?' no':'')},EG);a._e[e[0]+'>'+e[1]]=p;
   if(e[2]){var A=a.N[e[0]],B=a.N[e[1]],l=p.getTotalLength(),pt=p.getPointAtLength(l*.45);tx(EG,pt.x,pt.y-6,e[2],'el')}});
  Object.keys(a.N).forEach(function(k){var n=a.N[k],g=mk('g',{'class':'nd '+n[4]},NG);
   mk('rect',{'class':'b',x:n[0]-W/2,y:n[1]-H/2,width:W,height:H,rx:n[4]==='q'?8:23},g);tx(g,n[0],n[1]-2,n[2]);tx(g,n[0],n[1]+13,n[3],'s');a._n[k]=g});

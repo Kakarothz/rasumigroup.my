@@ -196,7 +196,7 @@ body.is404 .center{min-height:100vh}
 .pk{fill:#fff}
 .halo{fill:#ff5cb6;opacity:.35}
 .pk.a+.halo,.halo.a{fill:#fbbf24}
-@media(max-width:760px){.am .sh h2{font-size:29px}.map{overflow-x:auto}.map svg{min-width:760px}}
+@media(max-width:760px){.am .sh h2{font-size:29px}.map.v{max-width:400px;margin-left:auto;margin-right:auto}.map.v svg{width:100%;height:auto}}
 
 .am-defs{position:absolute;width:0;height:0;overflow:hidden}
 
@@ -252,17 +252,22 @@ body{background:radial-gradient(1100px 560px at 78% -8%,rgba(224,33,138,.18),tra
 @media(max-width:560px){.onb{grid-template-columns:1fr}.onb>li{flex-direction:row;text-align:left;gap:12px}.ob-tx{margin-top:0}}
 @media(prefers-reduced-motion:reduce){.ob.now .ob-ic img{animation:none}.onb:after{transition:none}}
 
-/* Built with: technology marquee (right -> left, non-stop) */
+/* Built with: technology marquee (row 1 right -> left, row 2 left -> right, non-stop) */
 .tk{padding-bottom:56px;overflow:hidden}
 .tk .sh{margin-bottom:22px}
-.tk-row{display:flex;width:max-content;overflow:hidden;width:100%;-webkit-mask-image:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent);mask-image:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent)}
+.tk-row{position:relative;display:flex;width:100%;overflow:hidden}
+.tk-row:before,.tk-row:after{content:"";position:absolute;top:0;bottom:0;width:9%;z-index:2;pointer-events:none}
+.tk-row:before{left:0;background:linear-gradient(90deg,#07040c,rgba(7,4,12,0))}
+.tk-row:after{right:0;background:linear-gradient(270deg,#07040c,rgba(7,4,12,0))}
 .tk-row+.tk-row{margin-top:18px}
-.tk-track{display:flex;align-items:center;gap:46px;padding:0 23px;margin:0;list-style:none;flex:none;animation:tk-mv 60s linear infinite}
-.tk-row.r2 .tk-track{animation-duration:75s;animation-direction:reverse}
-.tk-row:hover .tk-track{animation-play-state:paused}
-.tk-track li{flex:none;height:56px;display:flex;align-items:center}
+.tk-track{display:flex;align-items:center;gap:46px;padding:0 23px;margin:0;list-style:none;flex:0 0 auto;will-change:transform;
+ -webkit-animation:tk-mv 60s linear infinite;animation:tk-mv 60s linear infinite}
+.tk-row.r2 .tk-track{-webkit-animation-duration:75s;animation-duration:75s;-webkit-animation-direction:reverse;animation-direction:reverse}
+.tk-row:hover .tk-track{-webkit-animation-play-state:paused;animation-play-state:paused}
+.tk-track li{flex:0 0 auto;height:56px;display:flex;align-items:center}
 .tk-track img{height:56px;width:auto;max-width:120px;object-fit:contain;filter:drop-shadow(0 6px 14px rgba(0,0,0,.45));transition:transform .2s}
 .tk-track img:hover{transform:scale(1.12)}
-@keyframes tk-mv{from{transform:translateX(0)}to{transform:translateX(-100%)}}
-@media(max-width:640px){.tk-track{gap:30px}.tk-track li,.tk-track img{height:42px}}
-@media(prefers-reduced-motion:reduce){.tk-track{animation:none}.tk-row{flex-wrap:wrap;justify-content:center}.tk-track[aria-hidden]{display:none}}
+@-webkit-keyframes tk-mv{from{-webkit-transform:translate3d(0,0,0)}to{-webkit-transform:translate3d(-100%,0,0)}}
+@keyframes tk-mv{from{transform:translate3d(0,0,0)}to{transform:translate3d(-100%,0,0)}}
+@media(max-width:640px){.tk-track{gap:30px;padding:0 15px;-webkit-animation-duration:40s;animation-duration:40s}.tk-row.r2 .tk-track{-webkit-animation-duration:50s;animation-duration:50s}.tk-track li,.tk-track img{height:42px}}
+@media(prefers-reduced-motion:reduce){.tk-track{-webkit-animation:none;animation:none}.tk-row{flex-wrap:wrap;justify-content:center}.tk-row:before,.tk-row:after{display:none}.tk-track[aria-hidden]{display:none}}
