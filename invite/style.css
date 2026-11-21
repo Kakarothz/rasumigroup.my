@@ -271,3 +271,20 @@ body{background:radial-gradient(1100px 560px at 78% -8%,rgba(224,33,138,.18),tra
 @keyframes tk-mv{from{transform:translate3d(0,0,0)}to{transform:translate3d(-100%,0,0)}}
 @media(max-width:640px){.tk-track{gap:30px;padding:0 15px;-webkit-animation-duration:40s;animation-duration:40s}.tk-row.r2 .tk-track{-webkit-animation-duration:50s;animation-duration:50s}.tk-track li,.tk-track img{height:42px}}
 @media(prefers-reduced-motion:reduce){.tk-track{-webkit-animation:none;animation:none}.tk-row{flex-wrap:wrap;justify-content:center}.tk-row:before,.tk-row:after{display:none}.tk-track[aria-hidden]{display:none}}
+
+/* Coming soon: names are placeholder text, blurred on purpose (the real names are not in the page) */
+.cs-g{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.cs-c{position:relative;border:1px dashed rgba(255,92,182,.35);border-radius:16px;padding:20px 18px 18px;background:linear-gradient(180deg,rgba(224,33,138,.07),rgba(139,61,255,.04));overflow:hidden}
+.cs-c:after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.06) 45%,transparent 60%);transform:translateX(-100%);animation:cs-sh 4.5s ease-in-out infinite}
+.cs-c:nth-child(2n):after{animation-delay:1.2s}.cs-c:nth-child(3n):after{animation-delay:2.4s}
+@keyframes cs-sh{60%,100%{transform:translateX(100%)}}
+.cs-tg{position:absolute;top:14px;right:14px;font-size:10px;letter-spacing:1px;color:#fbbf24;border:1px solid rgba(251,191,36,.45);border-radius:999px;padding:1px 8px}
+.cs-k{font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:var(--mag2);font-weight:600}
+.cs-bl{display:block;filter:blur(6px);user-select:none;-webkit-user-select:none;pointer-events:none}
+.cs-c b.cs-bl{font-size:16px;margin:10px 0 6px;color:#fff}
+.cs-c span.cs-bl{font-size:13px;color:var(--mut);filter:blur(4.5px)}
+.cs-k.cs-bl{filter:blur(4px)}
+.cs-ft{text-align:center;margin-top:18px;font-size:13px;color:var(--mut2)}
+@media(max-width:980px){.cs-g{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.cs-g{grid-template-columns:1fr 1fr;gap:10px}.cs-c{padding:16px 14px}}
+@media(prefers-reduced-motion:reduce){.cs-c:after{animation:none}}
