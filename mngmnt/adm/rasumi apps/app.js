@@ -13801,7 +13801,7 @@
         var status = u.status || 'ACTIVE';
         var apps = Array.isArray(u.allowed_apps) ? u.allowed_apps : [];
         var storeBranch = u.store_branch || '';
-        var isMaster = (uname === 'mustaqim' || role === 'SUPER_ADMIN');
+        var isMaster = (uname === 'mustaqim');          // the one owner account; any other Super Admin can be edited / deleted
         var isActive = (status === 'ACTIVE');
         var safeId = _sidU(uname);
 
@@ -13863,6 +13863,10 @@
             row += '<label class="rh-tag"><input type="checkbox" id="' + appId + '"' + (checked ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> ' + esc(app) + '</span></label>';
           }
         });
+        // ---- Insights (BOD / HR / Accounts dashboard): opened by the Privilege below, not by an app tick ----
+        var _insOn = isMaster || role === 'SUPER_ADMIN' || ['BOD', 'HR', 'ACCOUNTANT'].indexOf(u.privilege || '') !== -1;
+        row += '<label class="rh-tag dis" title="Insights is opened by the Privilege (BOD, HR or Accounts) below"><input type="checkbox"' + (_insOn ? ' checked' : '') + ' disabled>' +
+          '<span><i class="fa-solid fa-circle-check"></i> Insights' + (_insOn && u.privilege ? ' <em>' + esc(u.privilege === 'ACCOUNTANT' ? 'Accounts' : u.privilege) + '</em>' : '') + '</span></label>';
         // ---- Ops Centre (agent.rasumigroup.my) — not an app: opens the Operation Centre from Admin Monitor ----
         if (!isMaster) {
           var _opsOk = (role === 'ADMIN' && u.account_type === 'individual');
@@ -13926,7 +13930,7 @@
           row += '<select id="udept_' + safeId + '" class="rh-in">' + _deptOpts(u.department_id) + '</select>';
           row += '<select id="urole_' + safeId + '" class="rh-in">' + ['VIEWER','OPERATOR','BRANCH_USER','DEPT_ADMIN','BOD','ADMIN'].map(function (r) { return '<option value="' + r + '"' + (r === role ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>';
           // Privilege (Rasumi Apps > Admin Monitor > Eksekutif: finance + staff records). Super admin only.
-          row += '<select id="upriv_' + safeId + '" class="rh-in" title="Privilege: BOD, HR or Accounts see the Eksekutif page (finance and staff records)">' + [['', 'No privilege'], ['BOD', 'BOD'], ['HR', 'HR'], ['ACCOUNTANT', 'Accounts']].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === (u.privilege || '') ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>';
+          row += '<select id="upriv_' + safeId + '" class="rh-in" title="Privilege: BOD, HR or Accounts open the Insights app (finance and staff records)">' + [['', 'No privilege'], ['BOD', 'BOD'], ['HR', 'HR'], ['ACCOUNTANT', 'Accounts']].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === (u.privilege || '') ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>';
           row += '</div><div class="rh-tags sm">';
           row += '<label class="rh-tag"><input type="checkbox" id="ugoog_' + safeId + '"' + (u.google_ok !== false ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Google</span></label>';
           row += '<label class="rh-tag"><input type="checkbox" id="ums_' + safeId + '"' + (u.microsoft_ok !== false ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Microsoft</span></label>';
