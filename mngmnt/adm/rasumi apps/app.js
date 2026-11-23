@@ -1035,7 +1035,7 @@
       '    <div id="r-husers-modal" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.82);z-index:10001;display:flex;align-items:center;justify-content:center;">',
       '      <div class="rh-modal">',
       '        <div class="rh-head">',
-      '          <div class="rh-ic"><i class="fa-solid fa-users"></i></div>',
+      '          <div class="rh-ic" style="width:46px;height:46px"><img src="assets/app_users.webp?v=1" alt="" style="width:46px;height:46px;object-fit:contain;display:block"></div>',
       '          <div class="rh-ttl"><h3>App Users</h3><p>Manage users, invitations and application access.</p></div>',
       '          <div class="rh-search"><i class="fa-solid fa-magnifying-glass"></i><input id="r-hu-search" type="text" placeholder="Search user ID, name, e-mail or device" autocomplete="off" oninput="rHuFilter()"><button type="button" class="rh-search-x" id="r-hu-search-x" title="Clear" onclick="rHuClearSearch()" style="display:none;"><i class="fa-solid fa-xmark"></i></button></div>',
       '          <div class="rh-head-btns">',
