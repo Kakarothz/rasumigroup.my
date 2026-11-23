@@ -6,16 +6,75 @@ window.RA_KB = (function () {
   function n(id, q, a, kw, next, extra) { N[id] = Object.assign({ id: id, q: q, a: a, kw: kw || [], next: next || [] }, extra || {}); }
 
   // ---------------------------------------------------------------- topics (first menu)
-  var TOPICS = ['start', 'apps', 'agents', 'account', 'tech', 'it'];
+  var TOPICS = ['about', 'start', 'apps', 'agents', 'account', 'trouble', 'tech', 'it'];
+
+  // ---------------------------------------------------------------- 0. about Rasumi Apps
+  n('about', ['What is Rasumi Apps?', 'Apa itu Rasumi Apps?'],
+    ['<b>Rasumi Apps</b> is Rasumi Medipharma\'s own Windows app for staff. It puts daily work in one place:<ul><li><b>Documents</b>: rename, split and clean up scanned invoices, DOs and claim papers (Renamer, Splitter, Scanify, Doc Manager).</li><li><b>Store and purchasing</b>: branch stock, Store Portal, Special Request and PO Mailer linked to AutoCount.</li><li><b>Claims</b>: Vibes Agent sends claim documents to JHEV.</li><li><b>Management</b>: Admin Monitor and Executive reports.</li></ul>Behind it, 20 agents keep the data from VIMS and AutoCount up to date for every branch. You only see the apps your role needs.',
+     '<b>Rasumi Apps</b> ialah app Windows milik Rasumi Medipharma untuk staf. Ia himpunkan kerja harian dalam satu tempat:<ul><li><b>Dokumen</b>: namakan, pecahkan dan kemaskan scan invois, DO dan kertas claim (Renamer, Splitter, Scanify, Doc Manager).</li><li><b>Stor dan pembelian</b>: stok cawangan, Store Portal, Special Request dan PO Mailer yang disambung ke AutoCount.</li><li><b>Claim</b>: Vibes Agent hantar dokumen claim ke JHEV.</li><li><b>Pengurusan</b>: Admin Monitor dan laporan Eksekutif.</li></ul>Di belakangnya, 20 agent memastikan data dari VIMS dan AutoCount sentiasa terkini untuk setiap cawangan. Anda hanya nampak app yang diperlukan oleh peranan anda.'],
+    ['what is rasumi', 'apa itu rasumi', 'about rasumi', 'tentang rasumi', 'rasumi apps ni', 'rasumi apps tu', 'introduce', 'perkenalkan', 'explain rasumi', 'terangkan rasumi', 'overview', 'gambaran'], ['b_who', 'b_role', 'b_why', 'b_cost', 'b_maker', 'w_terms']);
+  n('b_who', ['Who uses it?', 'Siapa yang guna?'],
+    ['Rasumi staff who are invited by IT: HQ claim and document teams, branch counters and pharmacists, purchasers, Accounts, HR and management. Each person signs in with their own account, so the app shows the right tools and credits the work to the right person.',
+     'Staf Rasumi yang dijemput oleh IT: pasukan claim dan dokumen HQ, kaunter dan farmasi cawangan, purchaser, Akaun, HR dan pengurusan. Setiap orang log masuk dengan akaun sendiri, jadi app papar alat yang betul dan kerja dikreditkan kepada orang yang betul.'],
+    ['who uses', 'siapa guna', 'siapa pakai', 'who can use', 'siapa boleh guna', 'for who', 'untuk siapa', 'staff only', 'staf sahaja'], ['b_role']);
+  n('b_role', ['Which apps will I see?', 'App mana yang saya akan nampak?'],
+    ['It depends on the role and branch IT gave you. For example a branch counter sees Scanify and Store Portal, a purchaser sees PO Mailer, and Accounts sees Executive. If an app you need is missing after you sign in, use <b>Leave a message for IT</b> and say which app.',
+     'Bergantung pada peranan dan cawangan yang IT tetapkan. Contohnya kaunter cawangan nampak Scanify dan Store Portal, purchaser nampak PO Mailer, dan Akaun nampak Eksekutif. Jika app yang anda perlukan tiada selepas log masuk, guna <b>Tinggalkan mesej untuk IT</b> dan nyatakan app mana.'],
+    ['which app', 'app mana', 'my role', 'peranan saya', 'role', 'peranan', 'access', 'akses', 'permission', 'kebenaran', 'cannot see', 'tak nampak', 'missing app', 'app tiada', 'menu tiada', 'request access', 'minta akses'], ['it']);
+  n('b_why', ['Why should I use it?', 'Kenapa perlu guna?'],
+    ['Less manual work and fewer mistakes: files are named and split for you, stock and POs come straight from AutoCount, claims are tracked DO by DO, and your work is recorded under your name. Everything is in one app instead of many folders, portals and spreadsheets.',
+     'Kurang kerja manual dan kurang silap: fail dinamakan dan dipecahkan untuk anda, stok dan PO terus dari AutoCount, claim dijejak DO demi DO, dan kerja anda direkod atas nama anda. Semua dalam satu app, bukan banyak folder, portal dan spreadsheet.'],
+    ['why use', 'kenapa guna', 'kenapa perlu', 'benefit', 'faedah', 'kelebihan', 'advantage', 'mandatory', 'wajib', 'must i', 'kena guna', 'perlu guna', 'wajib guna', 'have to use'], []);
+  n('b_cost', ['Is it free? Do I need a licence?', 'Percuma ke? Perlu lesen?'],
+    ['Yes, it is free for Rasumi staff. It is built in-house, so there is no licence to buy and nothing to pay. You only need the invitation and a Windows PC.',
+     'Ya, percuma untuk staf Rasumi. Ia dibina sendiri, jadi tiada lesen untuk dibeli dan tiada bayaran. Anda hanya perlukan jemputan dan PC Windows.'],
+    ['how much does it cost', 'berapa harga', 'berapa kos', 'free', 'percuma', 'cost', 'kos', 'price', 'harga', 'bayar', 'pay', 'licence', 'license', 'lesen', 'subscription', 'langganan'], []);
+  n('b_maker', ['Who built Rasumi Apps?', 'Siapa bina Rasumi Apps?'],
+    ['Rasumi Apps is designed and built in-house by the <b>IT / AI team at Rasumi Medipharma</b>, and keeps improving based on feedback from staff, including messages and ratings from this chat.',
+     'Rasumi Apps direka dan dibina sendiri oleh <b>pasukan IT / AI Rasumi Medipharma</b>, dan terus ditambah baik berdasarkan maklum balas staf, termasuk mesej dan rating dari chat ini.'],
+    ['who built', 'siapa bina', 'siapa buat', 'who made', 'who developed', 'developer', 'pembangun', 'who created', 'siapa cipta'], []);
+
+  // glossary: words staff meet in the apps
+  n('w_terms', ['What do VIMS, AutoCount, DocuShare and JHEV mean?', 'Apa maksud VIMS, AutoCount, DocuShare dan JHEV?'],
+    ['These are the systems Rasumi Apps works with. Which one?', 'Ini sistem yang Rasumi Apps bekerja bersama. Yang mana satu?'],
+    ['glossary', 'istilah', 'meaning', 'maksud', 'terms'], ['w_vims', 'w_ac', 'w_ds', 'w_jhev', 'w_doc']);
+  n('w_vims', ['What is VIMS?', 'Apa itu VIMS?'],
+    ['<b>VIMS</b> is the dispensing and claim system used at the counters: sales, DOs, indents and the claim list. Rasumi Apps reads it automatically (VIMS Sync and VIMS Claim Batch); patient details are never copied into reports.',
+     '<b>VIMS</b> ialah sistem dispensing dan claim yang digunakan di kaunter: jualan, DO, indent dan senarai claim. Rasumi Apps membacanya secara automatik (VIMS Sync dan VIMS Claim Batch); butiran pesakit tidak pernah disalin ke laporan.'],
+    ['what is vims', 'apa itu vims', 'vims tu apa', 'vims apa'], []);
+  n('w_ac', ['What is AutoCount?', 'Apa itu AutoCount?'],
+    ['<b>AutoCount</b> is the accounting system for each company book (FVKL, FVT, FVL, FVG, RSA): invoices, DOs, POs, GRNs and payments. Rasumi Apps creates POs in it and reads it through the AutoCount Bridge.',
+     '<b>AutoCount</b> ialah sistem perakaunan untuk setiap buku syarikat (FVKL, FVT, FVL, FVG, RSA): invois, DO, PO, GRN dan bayaran. Rasumi Apps mencipta PO di dalamnya dan membacanya melalui AutoCount Bridge.'],
+    ['what is autocount', 'apa itu autocount', 'autocount tu apa', 'autocount apa'], []);
+  n('w_ds', ['What is DocuShare?', 'Apa itu DocuShare?'],
+    ['<b>DocuShare</b> is where Rasumi keeps its scanned documents. The Renamer names files the way DocuShare folders expect, and supplier invoices are uploaded there when an order is delivered.',
+     '<b>DocuShare</b> ialah tempat Rasumi simpan dokumen yang diimbas. Renamer namakan fail ikut format folder DocuShare, dan invois pembekal dimuat naik ke situ bila order dihantar.'],
+    ['what is docushare', 'apa itu docushare', 'docushare tu apa', 'docushare apa'], []);
+  n('w_jhev', ['What is JHEV / Vibes?', 'Apa itu JHEV / Vibes?'],
+    ['<b>JHEV</b> is the government veterans\' department that pays for veterans\' medicine; <b>Vibes</b> is its online claim portal. Each DO is claimed there, and Rasumi Apps tracks every DO from issued to sent to paid.',
+     '<b>JHEV</b> ialah jabatan hal ehwal veteran yang membayar ubat veteran; <b>Vibes</b> ialah portal claim dalam talian. Setiap DO dituntut di situ, dan Rasumi Apps menjejak setiap DO dari dikeluarkan, dihantar hingga dibayar.'],
+    ['what is jhev', 'apa itu jhev', 'jhev tu apa', 'jhev apa', 'what is vibes', 'apa itu vibes'], []);
+  n('w_doc', ['What are DO, PO, GRN and invoice?', 'Apa itu DO, PO, GRN dan invois?'],
+    ['<ul><li><b>DO</b> (delivery order): goods given out, for example medicine dispensed against a claim.</li><li><b>PO</b> (purchase order): what we order from a supplier.</li><li><b>GRN</b> (goods received note): stock received against a PO.</li><li><b>Invoice</b>: the bill, from us to a customer or from a supplier to us.</li></ul>',
+     '<ul><li><b>DO</b> (delivery order): barang dikeluarkan, contohnya ubat didispens untuk claim.</li><li><b>PO</b> (purchase order): pesanan kita kepada pembekal.</li><li><b>GRN</b> (goods received note): stok diterima berdasarkan PO.</li><li><b>Invois</b>: bil, dari kita kepada pelanggan atau dari pembekal kepada kita.</li></ul>'],
+    ['what is do', 'apa itu do', 'what is grn', 'apa itu grn', 'what is po', 'apa itu po', 'delivery order', 'goods received'], []);
 
   // ---------------------------------------------------------------- 1. getting started
   n('start', ['Getting started', 'Mula guna'],
     ['Happy to help you get set up. What do you need help with?', 'Saya boleh bantu anda mula. Bahagian mana yang anda perlukan?'],
-    ['start', 'mula', 'setup', 'begin', 'getting started'], ['s_dl', 's_inst', 's_smart', 's_signup', 's_2fa', 's_link', 's_req']);
+    ['start', 'mula', 'setup', 'begin', 'getting started', 'first time', 'kali pertama', 'baru join', 'new staff', 'staf baru'], ['s_dl', 's_inst', 's_smart', 's_signup', 's_2fa', 's_valid', 's_link', 's_multi', 's_req']);
+  n('s_valid', ['How long is my invitation valid?', 'Berapa lama jemputan saya sah?'],
+    [function (c) { var i = c.info || {}; return 'Your invitation works' + (i.expires_at ? ' until <b>' + c.esc(c.date(i.expires_at)) + '</b>' : ' until the date shown on this page') + (i.downloads_left != null ? ' and has <b>' + i.downloads_left + '</b> download' + (i.downloads_left === 1 ? '' : 's') + ' left' : '') + '. Once Rasumi Apps is installed and you have signed up, the invitation is no longer needed: you sign in with your own account from then on.'; },
+     function (c) { var i = c.info || {}; return 'Jemputan anda sah' + (i.expires_at ? ' sehingga <b>' + c.esc(c.date(i.expires_at)) + '</b>' : ' sehingga tarikh di page ini') + (i.downloads_left != null ? ' dan berbaki <b>' + i.downloads_left + '</b> muat turun' : '') + '. Selepas Rasumi Apps dipasang dan anda sudah mendaftar, jemputan tidak diperlukan lagi: anda log masuk dengan akaun sendiri.'; }],
+    ['how long', 'berapa lama', 'valid', 'sah', 'expiry', 'expire', 'tarikh tamat', 'until when', 'sampai bila', 'downloads left', 'baki muat turun', 'how many download', 'berapa kali'], ['s_link']);
+  n('s_multi', ['Can I install on another PC or share the link?', 'Boleh pasang di PC lain atau kongsi link?'],
+    ['The invitation is personal and works on one PC. Do not forward it: a colleague who needs Rasumi Apps gets their own invitation from IT. To use Rasumi Apps on a second PC (for example at another branch), ask IT and they will send a new invitation; you sign in there with the same account.',
+     'Jemputan ini peribadi dan berfungsi di satu PC. Jangan forward: rakan sekerja yang perlukan Rasumi Apps akan dapat jemputan sendiri dari IT. Untuk guna Rasumi Apps di PC kedua (contohnya di cawangan lain), minta IT dan mereka akan hantar jemputan baharu; anda log masuk di situ dengan akaun yang sama.'],
+    ['share', 'kongsi', 'forward', 'colleague', 'rakan', 'kawan', 'second pc', 'pc kedua', 'pc lain', 'another pc', 'other pc', 'computer lain', 'another computer', 'two pc', 'dua pc', 'laptop', 'more than one', 'lebih dari satu', 'home pc', 'pc rumah', 'at home', 'di rumah', 'rumah', 'work from home', 'wfh'], ['it']);
   n('s_dl', ['How do I download Rasumi Apps?', 'Bagaimana muat turun Rasumi Apps?'],
     ['Press <b>Download for Windows</b> on this page. The installer starts downloading straight away.<ul><li>Each download link works for <b>10 minutes</b>; press the button again for a new one.</li><li>After the first download this invitation works <b>on this PC and browser only</b>.</li><li>Office Wi-Fi takes about a minute.</li></ul>',
      'Tekan <b>Download for Windows</b> di page ini. Installer akan terus dimuat turun.<ul><li>Setiap link muat turun sah <b>10 minit</b>; tekan semula untuk link baharu.</li><li>Selepas muat turun pertama, jemputan ini hanya berfungsi <b>di PC dan browser ini</b>.</li><li>Dengan Wi-Fi pejabat, lebih kurang seminit.</li></ul>'],
-    ['download', 'muat turun', 'muatturun', 'dl', 'installer', 'exe', 'setup file', 'link download', 'tak boleh download', 'cannot download'], ['s_inst', 's_smart']);
+    ['download', 'muat turun', 'muatturun', 'dl', 'installer', 'exe', 'setup file', 'link download', 'download link', 'where download', 'mana nak download'], ['s_inst', 's_smart']);
   n('s_inst', ['How do I install it?', 'Bagaimana memasang?'],
     ['<ol><li>Open the file from your browser\'s downloads (usually the <b>Downloads</b> folder).</li><li>Run it. It installs for your Windows user only, so <b>no administrator rights</b> are needed.</li><li>Rasumi Apps opens when it finishes.</li></ol>Already have an older version? Install over it. Your settings stay.',
      '<ol><li>Buka fail dari senarai muat turun browser (biasanya folder <b>Downloads</b>).</li><li>Jalankan. Ia dipasang untuk user Windows anda sahaja, jadi <b>tidak perlu hak administrator</b>.</li><li>Rasumi Apps terbuka sebaik selesai.</li></ol>Ada versi lama? Pasang terus di atasnya. Tetapan anda kekal.'],
@@ -35,11 +94,11 @@ window.RA_KB = (function () {
   n('s_link', ['My link expired or I changed PC', 'Link tamat tempoh atau saya tukar PC'],
     ['For your security the invitation works only on the PC and browser where you first downloaded, and only until its expiry date. If it expired or you changed PC, use <b>Leave a message for IT</b> and IT will reset it or send a new invitation.',
      'Untuk keselamatan, jemputan hanya berfungsi di PC dan browser tempat muat turun pertama, dan hanya sehingga tarikh tamat. Jika tamat tempoh atau anda tukar PC, guna <b>Tinggalkan mesej untuk IT</b> dan IT akan reset atau hantar jemputan baharu.'],
-    ['expired', 'tamat', 'another pc', 'other pc', 'tukar pc', 'pc lain', 'new pc', 'computer lain', 'link not working', 'link tak jalan', 'not available', 'reset invitation', 'reset jemputan'], ['it']);
+    ['expired', 'tamat', 'tamat tempoh', 'tukar pc', 'changed pc', 'new pc', 'pc baru', 'format pc', 'link not working', 'link tak jalan', 'not available', 'reset invitation', 'reset jemputan'], ['it']);
   n('s_req', ['What do I need? Can I use my phone?', 'Apa keperluan? Boleh guna telefon?'],
     ['Rasumi Apps runs on <b>Windows 10 or 11 PCs</b> with an internet connection. It does not run on phones, tablets or Mac. You can read this page on your phone, but download on your PC. Updates install by themselves the next time you open the app.',
      'Rasumi Apps berjalan di <b>PC Windows 10 atau 11</b> dengan sambungan internet. Ia tidak berjalan di telefon, tablet atau Mac. Anda boleh baca page ini di telefon, tetapi muat turun di PC. Kemas kini dipasang sendiri bila app dibuka.'],
-    ['phone', 'telefon', 'handphone', 'mobile', 'mac', 'ipad', 'tablet', 'requirement', 'keperluan', 'windows 10', 'windows 11', 'spec', 'update', 'kemas kini', 'auto update'], ['s_dl']);
+    ['phone', 'telefon', 'handphone', 'mobile', 'mac', 'ipad', 'tablet', 'requirement', 'keperluan', 'windows 10', 'windows 11', 'windows 7', 'windows 8', 'spec', 'ram', '32 bit', '64 bit', 'macbook'], ['s_dl']);
 
   // ---------------------------------------------------------------- 2. the apps
   n('apps', ['The apps', 'Aplikasi'],
@@ -89,7 +148,7 @@ window.RA_KB = (function () {
   n('p_exec', ['Executive (BOD, HR, Accounts)', 'Eksekutif (BOD, HR, Akaun)'],
     ['For the Board, HR and Accounts: sales, medicine cost and margin, collections, purchases and what customers owe; the <b>JHEV claims</b> tracker (every DO month: issued, sent, paid, carried forward); branch operations; and staff workload and KPI measured against each branch\'s own normal. Reports export to PDF and Excel.',
      'Untuk Lembaga, HR dan Akaun: jualan, kos ubat dan margin, kutipan, belian dan baki pelanggan; penjejak <b>tuntutan JHEV</b> (setiap bulan DO: dikeluarkan, dihantar, dibayar, dibawa ke depan); operasi cawangan; serta beban kerja dan KPI staf berbanding normal cawangan sendiri. Laporan boleh dieksport ke PDF dan Excel.'],
-    ['executive', 'eksekutif', 'bod', 'hr', 'accounts', 'akaun', 'kpi', 'report', 'laporan', 'finance', 'kewangan', 'jhev claims'], [], { agent: 'workload' });
+    ['executive', 'eksekutif', 'bod', 'hr', 'accounts team', 'jabatan akaun', 'kpi', 'report', 'laporan', 'finance', 'kewangan', 'jhev claims'], [], { agent: 'workload' });
   n('p_settings', ['Settings', 'Settings'],
     ['Your account, your way: sign-in methods (password, Google, Microsoft), two-step verification, light / dark / auto theme, and signing out other devices.',
      'Akaun anda, cara anda: kaedah log masuk (password, Google, Microsoft), pengesahan dua langkah, tema cerah / gelap / auto, dan log keluar peranti lain.'],
@@ -125,7 +184,7 @@ window.RA_KB = (function () {
   function grp(id, en, ms, keys, kw) {
     n(id, [en, ms], [function (c) { return c.agentList(keys, 'en'); }, function (c) { return c.agentList(keys, 'ms'); }], kw, [], { live: true });
   }
-  grp('g_data', 'Who pulls the data (VIMS, AutoCount, Vibes)?', 'Siapa tarik data (VIMS, AutoCount, Vibes)?', ['vims_sync', 'vims_batch', 'ac_bridge', 'vibes', 'store_sync'], ['pull data', 'tarik data', 'sync', 'vims', 'autocount', 'ac', 'data source', 'sumber data', 'vibes', 'store']);
+  grp('g_data', 'Who pulls the data (VIMS, AutoCount, Vibes)?', 'Siapa tarik data (VIMS, AutoCount, Vibes)?', ['vims_sync', 'vims_batch', 'ac_bridge', 'vibes', 'store_sync'], ['pull data', 'tarik data', 'sync', 'vims', 'autocount', 'ac', 'data source', 'sumber data', 'vibes', 'jhev', 'upload to jhev', 'claim upload', 'store sync']);
   grp('g_exec', 'Who builds the Executive reports and KPI?', 'Siapa bina laporan Eksekutif dan KPI?', ['finance', 'workload', 'claims', 'reports'], ['who builds report', 'siapa buat laporan', 'siapa siapkan report', 'report agent', 'kpi agent', 'claim tracker', 'report', 'laporan', 'kpi', 'executive', 'eksekutif', 'finance', 'kewangan']);
   grp('g_buy', 'Purchasing and store agents', 'Agent purchasing dan stor', ['reorder', 'po', 'supplier', 'docushare', 'grn'], ['purchasing agent', 'po agent', 'grn agent', 'supplier agent', 'docushare agent', 'purchase order', 'reorder', 'grn', 'docushare', 'supplier', 'pembekal', 'invoice', 'invois']);
   grp('g_docs', 'Document agents', 'Agent dokumen', ['renamer', 'splitter', 'scanify'], ['document agent', 'agent dokumen', 'ocr agent', 'renamer', 'splitter', 'scanify', 'rename', 'ocr']);
@@ -135,11 +194,15 @@ window.RA_KB = (function () {
   // ---------------------------------------------------------------- 4. account & security
   n('account', ['Account & security', 'Akaun & keselamatan'],
     ['Your account is personal and protected. What would you like to know?', 'Akaun anda peribadi dan dilindungi. Apa yang anda mahu tahu?'],
-    ['account', 'akaun', 'security', 'keselamatan', 'login', 'log masuk', 'sign in'], ['a_personal', 'a_forgot', 'a_lostphone', 'a_google', 'a_devices', 'a_privacy']);
+    ['account', 'akaun', 'security', 'keselamatan', 'login', 'log masuk', 'sign in'], ['a_personal', 'a_forgot', 'a_lostphone', 'a_google', 'a_logout', 'a_devices', 'a_privacy']);
+  n('a_logout', ['How do I sign out?', 'Bagaimana log keluar?'],
+    ['Press <b>Log Out</b> in the profile menu (top right). Closing the window with <b>X</b> keeps you signed in for the day, which is fine on your own PC; on a shared PC always use Log Out.',
+     'Tekan <b>Log Out</b> dalam menu profil (atas kanan). Tutup tetingkap dengan <b>X</b> mengekalkan log masuk untuk hari itu, tidak mengapa di PC sendiri; di PC kongsi sentiasa guna Log Out.'],
+    ['sign out', 'log keluar', 'logout', 'log out', 'keluar akaun', 'stay signed in', 'kekal log masuk'], []);
   n('a_personal', ['Why a personal account?', 'Kenapa akaun peribadi?'],
     ['Every action you take is recorded under your own name, so your work is credited to you (for example in the staff workload and KPI) and nobody can act as you. On a shared PC, press <b>Log Out</b> when you finish; closing with <b>X</b> keeps you signed in for the day.',
      'Setiap tindakan direkod atas nama anda sendiri, jadi kerja anda dikreditkan kepada anda (contohnya dalam beban kerja dan KPI staf) dan tiada orang boleh bertindak sebagai anda. Di PC kongsi, tekan <b>Log Out</b> bila selesai; tutup dengan <b>X</b> mengekalkan log masuk untuk hari itu.'],
-    ['personal', 'peribadi', 'shared pc', 'pc kongsi', 'log out', 'logout', 'single id', 'id sendiri'], []);
+    ['personal', 'peribadi', 'shared pc', 'pc kongsi', 'single id', 'id sendiri', 'own account', 'akaun sendiri', 'share account', 'kongsi akaun', 'guna id orang'], []);
   n('a_forgot', ['I forgot my password', 'Saya lupa password'],
     ['On the sign-in screen press <b>Forgot password</b>. We e-mail a reset link from noreply@rasumi.com.my. Open it, choose a new password and, if two-step is on, type the 6-digit code from your authenticator app.',
      'Di skrin log masuk tekan <b>Forgot password</b>. Kami e-mel link reset dari noreply@rasumi.com.my. Buka, pilih password baharu dan, jika dua langkah aktif, taip kod 6 digit dari app authenticator.'],
@@ -147,7 +210,7 @@ window.RA_KB = (function () {
   n('a_lostphone', ['I lost my phone / authenticator', 'Saya hilang telefon / authenticator'],
     ['No problem. IT can reset your two-step verification. Use <b>Leave a message for IT</b> from your invited e-mail; after the reset you set up the authenticator again on your next sign-in.',
      'Tiada masalah. IT boleh reset pengesahan dua langkah anda. Guna <b>Tinggalkan mesej untuk IT</b> dari e-mel jemputan; selepas reset anda set semula authenticator pada log masuk seterusnya.'],
-    ['lost phone', 'hilang telefon', 'new phone', 'telefon baru', 'reset 2fa', 'authenticator hilang', 'cannot get code', 'tak dapat kod'], ['it']);
+    ['lost phone', 'lost my phone', 'phone lost', 'hilang telefon', 'telefon hilang', 'new phone', 'telefon baru', 'reset 2fa', 'authenticator hilang', 'got new phone', 'change phone', 'changed phone', 'tukar telefon', 'ganti telefon', 'phone rosak', 'telefon rosak'], ['it']);
   n('a_google', ['Can I sign in with Google or Microsoft?', 'Boleh log masuk dengan Google atau Microsoft?'],
     ['Yes. Tap the <b>Google</b> or <b>Microsoft</b> icon on the sign-in screen, as long as the account uses your invited e-mail. You can add or remove sign-in methods later in <b>Settings</b>.',
      'Boleh. Tekan ikon <b>Google</b> atau <b>Microsoft</b> di skrin log masuk, asalkan akaun itu guna e-mel jemputan anda. Anda boleh tambah atau buang kaedah log masuk dalam <b>Settings</b>.'],
@@ -159,9 +222,46 @@ window.RA_KB = (function () {
   n('a_privacy', ['Where does my data go?', 'Ke mana data saya pergi?'],
     ['Your account and work data stay inside Rasumi systems. Sign-in uses encrypted connections (HTTPS), passwords are never stored in plain text, invitation links are stored only as hashes and locked to your PC, and patient details from VIMS are never copied into reports.',
      'Akaun dan data kerja anda kekal dalam sistem Rasumi. Log masuk guna sambungan disulitkan (HTTPS), password tidak pernah disimpan dalam teks biasa, link jemputan disimpan sebagai hash sahaja dan dikunci pada PC anda, dan butiran pesakit dari VIMS tidak pernah disalin ke laporan.'],
-    ['privacy', 'privasi', 'data', 'safe', 'selamat', 'encrypt', 'patient', 'pesakit', 'pdpa'], []);
+    ['privacy', 'privasi', 'data stored', 'where data', 'mana data', 'data disimpan', 'simpan data', 'my data', 'data saya', 'data', 'encrypt', 'patient', 'pesakit', 'pdpa'], []);
 
-  // ---------------------------------------------------------------- 5. technology
+  // ---------------------------------------------------------------- 5. troubleshooting
+  n('trouble', ['Something is not working', 'Ada masalah'],
+    ['Sorry to hear that. Which one is closest to what you see?', 'Maaf mendengarnya. Yang mana paling hampir dengan apa yang anda alami?'],
+    ['problem', 'masalah', 'not working', 'tak jalan', 'issue', 'isu', 'trouble', 'rosak', 'broken', 'something wrong', 'ada masalah'], ['x_dlfail', 'x_open', 'x_signin', 'x_email', 'x_code', 'x_slow', 'x_error', 'x_uninstall']);
+  n('x_dlfail', ['The download fails or stops', 'Muat turun gagal atau terhenti'],
+    ['<ol><li>Press <b>Download for Windows</b> again: each press gives a fresh link (old links stop after 10 minutes).</li><li>Use the <b>same browser</b> on the same PC you opened the invitation with.</li><li>If the browser or antivirus removed the file, choose <b>Keep</b> in the browser\'s downloads list.</li></ol>If it says the download limit is reached, leave a message for IT to reset it.',
+     '<ol><li>Tekan <b>Download for Windows</b> semula: setiap tekanan beri link baharu (link lama tamat selepas 10 minit).</li><li>Guna <b>browser yang sama</b> di PC yang sama semasa anda buka jemputan.</li><li>Jika browser atau antivirus buang fail, pilih <b>Keep</b> dalam senarai muat turun browser.</li></ol>Jika tertera had muat turun dicapai, tinggalkan mesej untuk IT untuk reset.'],
+    ['download fail', 'download failed', 'cannot download', 'can\'t download', 'tak boleh download', 'tak dapat download', 'gagal download', 'muat turun gagal', 'download stuck', 'download stop', 'terhenti', 'network error', 'failed download', 'download limit', 'had muat turun', 'download tak jadi', 'keep file', 'file deleted', 'fail hilang'], ['s_smart', 'it']);
+  n('x_open', ['The app does not open or shows a blank screen', 'App tidak terbuka atau skrin kosong'],
+    ['<ol><li>Wait a few seconds: the first start after install or update takes a little longer.</li><li>Close it fully (also from the icons next to the clock), then open <b>Rasumi Apps</b> again from the Start menu.</li><li>Restart the PC.</li><li>Still blank? Run the installer again over the top: your settings stay.</li></ol>If none of this works, leave a message for IT with a photo of the screen.',
+     '<ol><li>Tunggu beberapa saat: permulaan pertama selepas pasang atau kemas kini ambil masa sedikit.</li><li>Tutup sepenuhnya (juga dari ikon sebelah jam), kemudian buka <b>Rasumi Apps</b> semula dari menu Start.</li><li>Restart PC.</li><li>Masih kosong? Jalankan installer sekali lagi di atasnya: tetapan anda kekal.</li></ol>Jika masih gagal, tinggalkan mesej untuk IT dengan gambar skrin.'],
+    ['not open', 'tak buka', 'tidak terbuka', 'won\'t open', 'cannot open', 'tak boleh buka', 'blank', 'kosong', 'white screen', 'skrin putih', 'black screen', 'skrin hitam', 'crash', 'hang', 'freeze', 'tergantung', 'close sendiri', 'closes by itself'], ['it']);
+  n('x_signin', ['I cannot sign in', 'Saya tidak boleh log masuk'],
+    [function (c) { return '<ul><li>Use the invited e-mail' + (c.email ? ' (<b>' + c.esc(c.email) + '</b>)' : '') + '; other e-mails are not allowed.</li><li>New account? Open the confirmation e-mail from noreply@rasumi.com.my first.</li><li>Wrong password? Press <b>Forgot password</b>.</li><li>Too many tries? Wait a few minutes before trying again.</li><li>With Google or Microsoft, pick the account with the invited e-mail.</li></ul>'; },
+     function (c) { return '<ul><li>Guna e-mel jemputan' + (c.email ? ' (<b>' + c.esc(c.email) + '</b>)' : '') + '; e-mel lain tidak dibenarkan.</li><li>Akaun baharu? Buka e-mel pengesahan dari noreply@rasumi.com.my dahulu.</li><li>Password salah? Tekan <b>Forgot password</b>.</li><li>Terlalu banyak cubaan? Tunggu beberapa minit sebelum cuba semula.</li><li>Dengan Google atau Microsoft, pilih akaun yang guna e-mel jemputan.</li></ul>'; }],
+    ['cannot sign in', 'can\'t sign in', 'cannot login', 'can\'t login', 'tak boleh login', 'tak boleh log masuk', 'login failed', 'gagal log masuk', 'wrong password', 'password salah', 'invalid', 'locked', 'dikunci', 'access denied', 'not allowed', 'tidak dibenarkan', 'account disabled'], ['a_forgot', 'x_email', 'x_code']);
+  n('x_email', ['I did not get the e-mail', 'Saya tidak terima e-mel'],
+    ['Our e-mails come from <b>noreply@rasumi.com.my</b>.<ol><li>Wait 2–3 minutes.</li><li>Check <b>Spam</b> or <b>Junk</b>, and in Gmail the <b>Promotions</b> or <b>Updates</b> tab.</li><li>Make sure you typed the invited e-mail.</li><li>Ask for it again (for example press Forgot password again).</li></ol>Still nothing after 10 minutes? Leave a message for IT.',
+     'E-mel kami dari <b>noreply@rasumi.com.my</b>.<ol><li>Tunggu 2–3 minit.</li><li>Semak <b>Spam</b> atau <b>Junk</b>, dan dalam Gmail tab <b>Promotions</b> atau <b>Updates</b>.</li><li>Pastikan anda taip e-mel jemputan.</li><li>Minta semula (contohnya tekan Forgot password sekali lagi).</li></ol>Masih tiada selepas 10 minit? Tinggalkan mesej untuk IT.'],
+    ['no email', 'tak dapat email', 'tak terima email', 'tiada email', 'tak dapat e mel', 'did not get', 'didn\'t get', 'didn\'t receive', 'not received', 'tak sampai', 'spam', 'junk', 'confirmation email', 'e mel pengesahan', 'verify email', 'sahkan email'], ['it']);
+  n('x_code', ['The 6-digit code is not accepted', 'Kod 6 digit tidak diterima'],
+    ['<ol><li>Type the <b>newest</b> code; each one changes every 30 seconds.</li><li>Make sure the phone\'s date and time are set to <b>automatic</b>; a clock that is a minute off makes codes fail.</li><li>Use the Rasumi entry in the authenticator app, not another account.</li></ol>Changed or lost your phone? Leave a message for IT to reset two-step.',
+     '<ol><li>Taip kod <b>terbaru</b>; setiap kod bertukar setiap 30 saat.</li><li>Pastikan tarikh dan masa telefon ditetapkan <b>automatik</b>; jam yang lari seminit menyebabkan kod gagal.</li><li>Guna entri Rasumi dalam app authenticator, bukan akaun lain.</li></ol>Tukar atau hilang telefon? Tinggalkan mesej untuk IT untuk reset dua langkah.'],
+    ['otp not working', 'code not working', 'kod tak jalan', 'kod tak boleh', 'code wrong', 'kod salah', 'tak dapat kod', 'cannot get code', 'no code', 'tiada kod', 'code not accepted', 'kod tak diterima', 'invalid code', 'kod tidak sah', 'otp salah', 'otp tak jalan', 'code expired', 'kod tamat', 'authenticator not working', 'authenticator tak jalan'], ['a_lostphone']);
+  n('x_slow', ['It is slow or numbers look old', 'Lambat atau angka nampak lama'],
+    ['Rasumi Apps needs a working internet connection. Data from VIMS and AutoCount refreshes every few minutes, so very new entries can take up to about 10 minutes to appear. If a screen seems stuck, close and reopen the app; if it stays slow for everyone at the branch, tell IT.',
+     'Rasumi Apps perlukan sambungan internet. Data dari VIMS dan AutoCount dikemas kini setiap beberapa minit, jadi entri sangat baharu boleh ambil sehingga lebih kurang 10 minit untuk muncul. Jika skrin nampak tersekat, tutup dan buka semula app; jika kekal lambat untuk semua di cawangan, beritahu IT.'],
+    ['slow', 'lambat', 'lag', 'loading', 'lama sangat', 'takes long', 'old data', 'data lama', 'not updated', 'tak update', 'tak terkini', 'offline', 'internet', 'wifi', 'no connection', 'tiada sambungan'], ['it']);
+  n('x_error', ['I see an error message', 'Saya nampak mesej ralat'],
+    ['Take a screenshot (<b>Windows + Shift + S</b>) or a photo, then use <b>Leave a message for IT</b> and type what you were doing and the error text. Most errors are also logged automatically, so IT can find them quickly.',
+     'Ambil screenshot (<b>Windows + Shift + S</b>) atau gambar, kemudian guna <b>Tinggalkan mesej untuk IT</b> dan taip apa yang anda sedang buat serta teks ralat. Kebanyakan ralat juga direkod secara automatik, jadi IT boleh cari dengan cepat.'],
+    ['install error', 'error install', 'ralat pasang', 'error pasang', 'error masa', 'report bug', 'lapor bug', 'report error', 'report issue', 'lapor masalah', 'error', 'ralat', 'eror', 'err', 'failed', 'gagal', 'exception', 'something went wrong', 'popup', 'warning', 'amaran', 'bug'], ['it']);
+  n('x_uninstall', ['How do I uninstall it?', 'Bagaimana nyahpasang?'],
+    ['Open Windows <b>Settings → Apps → Installed apps</b>, find <b>Rasumi Apps</b> and choose <b>Uninstall</b>. No administrator rights are needed. To reinstall later you need a new invitation from IT.',
+     'Buka <b>Settings → Apps → Installed apps</b> Windows, cari <b>Rasumi Apps</b> dan pilih <b>Uninstall</b>. Tidak perlu hak administrator. Untuk pasang semula nanti anda perlukan jemputan baharu dari IT.'],
+    ['uninstall', 'nyahpasang', 'buang app', 'remove app', 'delete app', 'padam app', 'reinstall', 'pasang semula'], []);
+
+  // ---------------------------------------------------------------- 6. technology
   n('tech', ['Technology', 'Teknologi'],
     ['Happy to talk tech. What would you like to know?', 'Boleh, mari bincang teknologi. Apa yang anda mahu tahu?'],
     ['technology', 'teknologi', 'tech', 'stack', 'built with', 'dibina dengan'], ['t_lang', 't_db', 't_ai', 't_host', 't_update', 't_sec']);
@@ -194,7 +294,11 @@ window.RA_KB = (function () {
   n('it', ['Contact IT', 'Hubungi IT'],
     ['I can pass your question to IT. Leave a message here and IT will reply to your e-mail as soon as possible. You can also e-mail <a href="mailto:it@rasumi.com.my">it@rasumi.com.my</a>.',
      'Saya boleh hantar soalan anda kepada IT. Tinggalkan mesej di sini dan IT akan membalas ke e-mel anda secepat mungkin. Anda juga boleh e-mel <a href="mailto:it@rasumi.com.my">it@rasumi.com.my</a>.'],
-    ['contact', 'hubungi', 'it support', 'human', 'manusia', 'staff it', 'talk to', 'cakap dengan', 'admin', 'help me', 'tolong'], [], { form: true });
+    ['contact', 'hubungi', 'it support', 'human', 'manusia', 'staff it', 'talk to', 'cakap dengan', 'leave message', 'tinggal mesej', 'report problem', 'lapor masalah', 'it team', 'pasukan it', 'live agent', 'real person', 'orang sebenar'], [], { form: true });
+  n('it_when', ['When will IT reply?', 'Bila IT akan balas?'],
+    ['IT replies by e-mail as soon as possible during office hours. Your message has a reference number (RA-…) and a copy goes to your inbox; reply to that e-mail to add details.',
+     'IT membalas melalui e-mel secepat mungkin pada waktu pejabat. Mesej anda ada nombor rujukan (RA-…) dan salinan dihantar ke inbox anda; balas e-mel itu untuk tambah butiran.'],
+    ['reply', 'balas', 'balasan', 'when reply', 'bila balas', 'how long reply', 'berapa lama balas', 'office hours', 'waktu pejabat', 'ticket status', 'status tiket', 'no reply', 'tiada balasan', 'reference', 'rujukan'], ['it']);
 
   // ---------------------------------------------------------------- small talk (typed)
   var SMALL = [
@@ -204,12 +308,36 @@ window.RA_KB = (function () {
     { kw: ['who are you', 'siapa kamu', 'siapa awak', 'are you human', 'kau siapa', 'are you a bot'],
       a: ['I\'m Rasumi Agent, the assistant for Rasumi Apps. I answer questions about Rasumi Apps, from installing and signing in to using each app, and I can pass your message to IT.',
           'Saya Rasumi Agent, pembantu Rasumi Apps. Saya jawab soalan tentang Rasumi Apps, dari pemasangan dan log masuk hingga penggunaan setiap app, dan boleh hantar mesej anda kepada IT.'] },
-    { kw: ['what is rasumi apps', 'apa itu rasumi apps', 'rasumi apps apa', 'about rasumi apps'],
-      a: ['Rasumi Apps is Rasumi Medipharma\'s own Windows app: document tools (Renamer, Splitter, Scanify), Store Portal, PO Mailer, Vibes Agent, Admin Monitor and Executive, with automation running in the background for every branch.',
-          'Rasumi Apps ialah app Windows milik Rasumi Medipharma: alat dokumen (Renamer, Splitter, Scanify), Store Portal, PO Mailer, Vibes Agent, Admin Monitor dan Eksekutif, dengan automasi berjalan di belakang untuk setiap cawangan.'] }
+    { kw: ['ok', 'okay', 'baik', 'noted', 'faham', 'understood', 'got it', 'alright', 'great', 'bagus', 'nice', 'cool'],
+      a: ['Great! Anything else about Rasumi Apps?', 'Baik! Ada apa-apa lagi tentang Rasumi Apps?'] },
+    { kw: ['tak faham', 'tidak faham', 'do not understand', 'confused', 'keliru', 'blur', 'not clear', 'kurang jelas'],
+      a: ['No problem, let\'s take it step by step. Pick a topic below, or tell me in a few words what you are trying to do (for example "install", "forgot password" or "app will not open").',
+          'Tiada masalah, kita buat satu-satu. Pilih topik di bawah, atau beritahu saya dalam beberapa perkataan apa yang anda cuba buat (contohnya "pasang", "lupa password" atau "app tak buka").'] },
+    { kw: ['bye', 'goodbye', 'jumpa lagi', 'selamat tinggal', 'see you'],
+      a: ['Goodbye! I\'m here whenever you need help with Rasumi Apps.', 'Jumpa lagi! Saya sentiasa ada bila anda perlukan bantuan tentang Rasumi Apps.'] }
   ];
+  // high-precision phrasings checked before keyword scoring (text is lower case, punctuation removed)
+  var INTENTS = [
+    [/\b(what|wht|wat)( s| is| are)? (this |the )?rasumi( apps?)?\b|\bapa (itu |tu |ni |ini |benda )?rasumi( apps?)?\b|\brasumi( apps?)? (ni |tu |ialah |itu |ini )?apa\b|\b(tell|explain)( me)? (about |what )?(is )?rasumi\b|\bwhat (does|do|can) rasumi( apps?)? do\b|\brasumi( apps?)? (buat|boleh buat) apa\b/, 'about'],
+    [/\b(what|apa) (is|itu|tu)? ?(vims)\b|\bvims (tu |ni |itu |ini )?apa\b/, 'w_vims'],
+    [/\b(what|apa) (is|itu|tu)? ?(autocount)\b|\bautocount (tu |ni |itu |ini )?apa\b/, 'w_ac'],
+    [/\b(what|apa) (is|itu|tu)? ?(docushare)\b|\bdocushare (tu |ni |itu |ini )?apa\b/, 'w_ds'],
+    [/\b(what|apa) (is|itu|tu)? ?(jhev|vibes portal)\b|\bjhev (tu |ni |itu |ini )?apa\b/, 'w_jhev'],
+    [/\b(how many|berapa) (agents?|ejen|bot)\b|\b(list|senarai|show|tunjuk)( all| semua)? (the )?(agents?|ejen)\b/, 'g_all'],
+    [/\b(what|apa) (is |are |itu |tu )?(a |an )?(grn|do|po|dos|pos|delivery order|purchase order)\b|\b(grn|do|po) (tu |ni |itu |ini )?apa\b/, 'w_doc'],
+    [/\b(which|what) apps?\b.*\b(see|get|have|use|access)\b|\bapps? (apa|mana)( yang)? (saya |aku )?(dapat|nampak|boleh guna|ada|guna)\b|\b(cant|can't|cannot|can not|tak|tidak) (see|nampak|jumpa|find) .*\b(app|apps|menu|module|modul|tab|po mailer|store portal|executive|eksekutif|scanify|renamer|splitter|vibes|admin monitor|doc manager)\b/, 'b_role'],
+    [/^(?!.*(virus|smartscreen|protected|installer|blocked|disekat|selamat (pagi|petang|malam|tinggal|datang|tengahari))).*\b(safe|secure|selamat)\b/, 't_sec'],
+    [/\b(on|kat|di|dalam|guna|use|install|pasang)( on| kat| di| my| dalam)? (mac|macbook|ipad|iphone|android|tablet|chromebook|linux)\b/, 's_req'],
+    [/\b(is it|adakah|ke) (free|percuma)\b|\b(free|percuma) (ke|tak|or not)\b/, 'b_cost'],
+    [/\bwho (built|made|created|developed)\b|\bsiapa (bina|buat|cipta|develop)\b/, 'b_maker']
+  ];
+  // words that carry no meaning on their own (English + Malay)
+  var STOP = ('a an the is are am was were be been do does did can could would should will shall may might must i me my mine you your we our us it its this that these those ' +
+    'to of in on at for from with by about as into how what when where which who whom why please pls plz hi hello hey thanks thank ok okay rasumi apps app ' +
+    'saya aku awak kau anda kita kami ini itu ni tu nak mahu hendak boleh ke kah tak tidak ada apa bagaimana macam mana camne cmne siapa bila kenapa mengapa yang dan atau untuk dengan ' +
+    'di dalam pada dari kepada tolong sila je jer lah la pun sahaja saja tu ni tell me explain').split(' ');
   var OFF = ['I can only help with Rasumi Apps. That question is outside what I\'m here for. Ask me about installing, signing in, using the apps or our technology.',
              'Saya hanya boleh membantu tentang Rasumi Apps. Soalan itu di luar skop saya. Tanya saya tentang pemasangan, log masuk, penggunaan aplikasi atau teknologi kami.'];
   var CATS = [['Install / download', 'Pasang / muat turun'], ['Sign-in / 2FA', 'Log masuk / 2FA'], ['Using the apps', 'Guna aplikasi'], ['Invitation link', 'Link jemputan'], ['Other', 'Lain-lain']];
-  return { N: N, TOPICS: TOPICS, AG: AG, SMALL: SMALL, OFF: OFF, CATS: CATS };
+  return { N: N, TOPICS: TOPICS, AG: AG, SMALL: SMALL, OFF: OFF, CATS: CATS, INTENTS: INTENTS, STOP: STOP };
 })();

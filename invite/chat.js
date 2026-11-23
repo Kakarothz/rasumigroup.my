@@ -10,10 +10,10 @@
   var FN = 'https://seqlkwdghibmsfkbuwqq.supabase.co/functions/v1/invite-download';
   var KB = window.RA_KB; if (!KB) return;
   var ls = { get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) { } } };
-  var LANG = ls.get('ra_chat_lang') === 'ms' ? 'ms' : 'en', L = function () { return LANG === 'ms' ? 1 : 0; };
+  var LANG = 'en', L = function () { return LANG === 'ms' ? 1 : 0; };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var T = function (en, ms) { return LANG === 'ms' ? ms : en; };
-  var info = null, el = {}, transcript = [], busy = false, started = false, status = null, statusAt = 0, lastTopic = '', lastQ = '';
+  var awaitSolved = false, userIssue = '', info = null, el = {}, transcript = [], busy = false, started = false, status = null, statusAt = 0, lastTopic = '', lastQ = '';
 
   function call(body) {
     body.token = ls.get('rasumi_inv_t'); body.device = ls.get('rasumi_inv_d');
@@ -35,6 +35,8 @@
   var ctx = {
     esc: esc,
     get email() { return info && info.email; },
+    get info() { return window.RA_INFO || info || {}; },
+    date: function (s) { try { return new Date(s).toLocaleDateString(LANG === 'ms' ? 'ms-MY' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return ''; } },
     agentList: function (keys, lang) {
       var i = lang === 'ms' ? 1 : 0;
       return '<ul>' + keys.map(function (k) {
@@ -126,7 +128,7 @@
     items.forEach(function (it) {
       var b = document.createElement('button'); b.type = 'button'; b.className = 'ra-q' + (it.cls ? ' ' + it.cls : ''); b.textContent = it.label;
       // quick replies disappear once one is picked; the choice shows as the user's own message
-      b.onclick = function () { if (busy || w.classList.contains('ra-used')) return; w.classList.add('ra-used'); w.remove(); it.go(); };
+      b.onclick = function () { if (busy || w.classList.contains('ra-used')) return; w.classList.add('ra-used'); w.remove(); awaitSolved = false; it.go(); };
       w.appendChild(b);
     });
     el.ms.appendChild(w); scroll(); return w;
@@ -164,6 +166,7 @@
   function askSolved() {
     setTimeout(function () {
       agentSay(T('Did this answer your question?', 'Adakah ini menjawab soalan anda?'), function () {
+        awaitSolved = true;
         quick([
           { label: T('Yes, thanks', 'Ya, terima kasih'), go: function () { userSay(T('Yes, thanks', 'Ya, terima kasih')); rateAsk(true); } },
           { label: T('No', 'Tidak'), go: function () { userSay(T('No', 'Tidak')); notSolved(); } },
@@ -238,31 +241,204 @@
   }
 
   // ---------------------------------------------------------------- typed questions
-  function norm(s) { return ' ' + String(s || '').toLowerCase().replace(/[^\p{L}\p{N}#.+ ]+/gu, ' ').replace(/\s+/g, ' ').trim() + ' '; }
-  function match(text) {
-    var t = norm(text), best = null, score = 0;
+  // shortforms and chat spellings -> full words (Malay SMS style and English chat style)
+  var FOLD = (function () {
+    var m = {}, add = function (full, list) { list.split(' ').forEach(function (s) { m[s] = full; }); };
+    // Malay
+    add('tak', 'x tk tak tkde tke xk');           add('tak ada', 'xde xda takde takda tiada tade xada');
+    add('tak boleh', 'xleh xblh xboleh xbleh takleh tkleh tkboleh xbole');     add('tak dapat', 'xdapat xdpt tkdpt takdpt xdapt');
+    add('tak jadi', 'xjadi tkjadi');               add('tak tahu', 'xtau xtahu tktau taktau tatau');
+    add('boleh', 'blh bole bleh leh boley buleh'); add('dapat', 'dpt dapet dpat dpet');
+    add('nak', 'nk nk2 nok');                      add('macam', 'mcm mcam cam');
+    add('macam mana', 'camne cmne camana cmana mcmana macamana mcmne camno macammana');
+    add('mana', 'mne mna mn');                     add('apa', 'ape ap pe apo');
+    add('kenapa', 'knp knape napa nape kenape apasal asal');   add('bagaimana', 'bgmn bgaimana');
+    add('bila', 'bile bla');                       add('siapa', 'sape spa sapa');
+    add('saya', 'sy sye saye sya');              add('aku', 'aq ak');
+    add('awak', 'awk');                            add('kau', 'ko hang');
+    add('dah', 'dh da sdh sudah udah');            add('belum', 'blm blum lum');
+    add('lagi', 'lg lgi');                         add('juga', 'jgk jugak gak jg');
+    add('sahaja', 'je jer ja sje saje');           add('sebab', 'sbb sbab bcoz');
+    add('dengan', 'dgn ngn dng');                  add('untuk', 'utk tuk ntuk');
+    add('dalam', 'dlm');                           add('kat', 'dkt dekat kt');
+    add('tolong', 'tlg tlong tolonglah');          add('minta', 'mntk mintak mtk');
+    add('terima kasih', 'tq tqvm tenkiu tenkyu');
+    add('kena', 'kne kna');                        add('kalau', 'kl klu kalo klau');
+    add('sekarang', 'skrg skrang skg');            add('orang', 'org');
+    add('kawan', 'kwn');                           add('telefon', 'fon tfon tel hp handphone henfon');
+    add('komputer', 'komp kompiuter');             add('masalah', 'mslh msalah');
+    add('lambat', 'lmbt lembab slow');             add('sangat', 'sgt sngt');
+    add('jawab', 'jwb');                           add('mesej', 'mesg msj');
+    add('password', 'pw pwd passwd katalaluan'); add('akaun', 'akaon');
+    add('email', 'emel eml emil e-mail mail');     add('muat turun', 'muatturun');
+    add('pasang', 'psg');                          add('berapa', 'brp brape berape');
+    add('harga', 'hrg');                           add('percuma', 'prcm');
+    add('esok', 'esk');                            add('baru', 'bru br');
+    add('betul', 'btul btl');                      add('salah', 'slh');
+    add('cuba', 'cba');                       add('ini', 'ni nih');
+    add('itu', 'tu tuh');                          add('ada', 'ade');
+    add('pejabat', 'opis ofis office');            add('buka', 'bukak bkak bka');
+    add('yang', 'yg yng');                         add('faham', 'phm fhm paham');
+    add('tapi', 'tp tpi');                         add('pun', 'pn');            add('cawangan', 'cwgn branch');
+    // English
+    add('you', 'u yu');                            add('your', 'ur yr');
+    add('are', 'r');                               add('why', 'y');
+    add('please', 'pls plz plss pleas');           add('what', 'wht wat wut whut');
+    add('how', 'hw');                              add('have', 'hv');
+    add('can', 'cn');                              add('cannot', 'cant can\'t cnt cnnot');
+    add('do not', 'dont don\'t dnt');              add('does not', 'doesnt doesn\'t');
+    add('did not', 'didnt didn\'t');               add('will not', 'wont won\'t');
+    add('is not', 'isnt isn\'t');                  add('i am', 'im i\'m');
+    add('because', 'bcs bc coz cuz cos becoz');    add('about', 'abt');
+    add('people', 'ppl');                          add('something', 'smth smtg sth');
+    add('message', 'msg');                         add('thanks', 'thx thnx tnx');
+    add('tomorrow', 'tmrw tmr');                   add('information', 'info');
+    add('problem', 'prob prblm prb');              add('account', 'acc acct accnt');
+    add('verification', 'verif verify');           add('authenticator', 'auth authenticatr');
+    add('register', 'reg regis');                  add('download', 'dl dload dwnld downlod donwload dowload downlaod d/l');
+    add('install', 'instal instl inst installl');  add('update', 'upd8 updt');
+    add('error', 'err eror errror');               add('computer', 'comp');
+    add('internet', 'net inet');
+    add('2fa', '2-fa 2step twofa mfa');            add('otp', 'tac');
+    m['login'] = 'log masuk login'; m['signin'] = 'sign in'; m['signup'] = 'sign up'; m['logout'] = 'log out';
+    // a word may be both Malay and English shortform: keep the Malay reading for these only when the sentence is Malay (see langOf)
+    return m;
+  })();
+  function norm(s) {
+    var t = String(s || '').toLowerCase().replace(/[’']/g, '\'')
+      .replace(/\b([a-z]{3,})2\b/g, '$1')                      // kawan2 -> kawan (Malay plural shorthand)
+      .replace(/([a-z])\1{2,}/g, '$1')                          // tolonggg -> tolong, pleaseee -> please
+      .replace(/[^\p{L}\p{N}#.+'\/ -]+/gu, ' ').replace(/ e[ -]?(mail|mel) /g, ' email ').replace(/[-\/]/g, ' ').replace(/\s+/g, ' ').trim();
+    return ' ' + t.split(' ').map(function (w) { return FOLD[w] || w; }).join(' ') + ' ';
+  }
+  // which language did the user write in? Malay vs English by everyday words, after shortforms are expanded
+  var MS = ('saya aku awak kau anda kami kita tak tidak nak mahu hendak macam mana apa kenapa bagaimana bila siapa boleh dapat dah belum lagi juga sahaja sebab dengan untuk dalam kat pada ' +
+    'tolong minta terima kasih kena kalau sekarang orang kawan telefon masalah lambat sangat jawab mesej ada tiada ini itu ni tu lah kah ke pun muat turun pasang daftar lupa kata laluan hilang ' +
+    'akaun jemputan guna buat cara perlu betul salah tukar baru cuba cawangan pejabat berapa harga percuma esok keluar masuk boleh ralat nampak jumpa sudah selepas sebelum kerja fail').split(' ');
+  var EN = ('i you your my me we our the a an is are am was were be do does did not can cannot will would should could what how why when where who which please help want need have has ' +
+    'with for from this that it to of and or but if my get got use using work working tried try still again know thanks hello hi there new old change lost forgot about because').split(' ');
+  var MSW = {}, ENW = {}; MS.forEach(function (w) { MSW[w] = 1; }); EN.forEach(function (w) { ENW[w] = 1; });
+  function langOf(text) {
+    var raw = String(text || '').toLowerCase();
+    if (/[一-鿿஀-௿؀-ۿ]/.test(raw)) return 'other';   // Chinese, Tamil, Arabic script
+    var ms = 0, en = 0;
+    norm(text).trim().split(' ').forEach(function (w) { if (MSW[w]) ms++; if (ENW[w]) en++; });
+    if (/\b(nak|tak|x|xde|nk|mcm|camne|sy|tlg|dpt|blh|knp|lah|kah|ke)\b/.test(raw)) ms += 2;        // strong Malay chat markers
+    if (ms > en) return 'ms';
+    if (en > ms) return 'en';
+    return null;                                                   // not sure: keep the current language
+  }
+  function setLang(l) { if (l && l !== LANG) { LANG = l; labels(); } }
+  var STOP = {}; (KB.STOP || []).forEach(function (w) { STOP[w] = 1; });
+  function stem(w) {                                         // installing -> install, downloads -> download, passwordnya -> password
+    if (w.length > 6) w = w.replace(/(nya|lah)$/, '');
+    if (w.length > 5) w = w.replace(/(ing|ed)$/, '');
+    if (w.length > 4 && !/ss$/.test(w)) w = w.replace(/s$/, '');
+    return w;
+  }
+  function words(t) { return t.trim().split(' ').filter(function (w) { return w && !STOP[w]; }).map(stem); }
+  function near(a, b) {                                      // one typo allowed on longer words
+    if (a.length < 5 || b.length < 5 || Math.abs(a.length - b.length) > 1) return false;
+    var i = 0, j = 0, e = 0;
+    while (i < a.length && j < b.length) {
+      if (a[i] === b[j]) { i++; j++; continue; }
+      if (++e > 1) return false;
+      if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
+    }
+    return e + (a.length - i) + (b.length - j) <= 1;
+  }
+  var QW = {};                                               // meaningful words of each node's question, once
+  function qwords(id) {
+    if (QW[id]) return QW[id];
+    var n = KB.N[id], seen = {}, out = [];
+    words(norm(n.q[0] + ' ' + n.q[1])).forEach(function (w) { if (w.length > 3 && !seen[w]) { seen[w] = 1; out.push(w); } });
+    return (QW[id] = out);
+  }
+  function rank(text) {
+    var t = norm(text), tw = words(t), out = [];
+    for (var i = 0; i < (KB.INTENTS || []).length; i++) if (KB.INTENTS[i][0].test(t)) return [{ id: KB.INTENTS[i][1], s: 99 }];
+    if (!tw.length) return out;
+    var agentWord = / (agent|agents|ejen|bot|robot) /.test(t);
     Object.keys(KB.N).forEach(function (id) {
-      var n = KB.N[id], s = 0;
-      n.kw.forEach(function (k) { var kk = norm(k); if (t.indexOf(kk) >= 0) s += kk.length > 6 ? 3 : 2; });
-      norm(n.q[0] + ' ' + n.q[1]).trim().split(' ').forEach(function (wd) { if (wd.length > 4 && t.indexOf(' ' + wd + ' ') >= 0) s += 1; });
-      if (KB.TOPICS.indexOf(id) >= 0) s -= 1;                 // prefer a precise answer over a topic menu
-      if (s > 0 && /^g_/.test(id) && / (agent|agents|ejen|bot|robot) /.test(t)) s += 3;   // "which agent …" -> the agents answer, not the app
-      if (s > score) { score = s; best = id; }
+      var n = KB.N[id], s = 0, used = {};                  // each typed word earns points once per answer
+      n.kw.forEach(function (k) {
+        var kk = norm(k).trim(); if (!kk) return;
+        if (kk.indexOf(' ') >= 0) {
+          if (t.indexOf(' ' + kk + ' ') >= 0) s += 4 + (kk.split(' ').length > 2 ? 2 : 0);
+          else {                                              // same words in another order ("telefon saya hilang" = "hilang telefon")
+            var kws = words(' ' + kk + ' ');
+            if (kws.length >= 2 && kws.every(function (w) { return tw.indexOf(w) >= 0; })) s += 3;
+          }
+        }
+        else {
+          var sk = stem(kk), hit = tw.indexOf(sk) >= 0 ? sk : (t.indexOf(' ' + kk + ' ') >= 0 && !STOP[kk] ? kk : null);
+          if (hit) { if (!used[hit]) { used[hit] = 1; s += kk.length >= 5 ? 3 : 2; } }
+          else if (sk.length >= 5) {
+            var f = tw.filter(function (w) { return !used[w] && near(w, sk); })[0];
+            if (f) { used[f] = 1; s += sk.length >= 6 ? 3 : 2; }
+          }
+        }
+      });
+      qwords(id).forEach(function (w) { if (tw.indexOf(w) >= 0) s += 1; });
+      if (!s) return;
+      if (KB.TOPICS.indexOf(id) >= 0) s -= 2;               // prefer a precise answer over a topic menu
+      if (/^g_/.test(id) && agentWord) s += 3;             // "which agent …" -> the agents answer, not the app
+      if (s > 0) out.push({ id: id, s: s });
     });
-    return score >= 2 ? best : null;
+    return out.sort(function (a, b) { return b.s - a.s; });
   }
   function small(text) {
     var t = norm(text);
     for (var i = 0; i < KB.SMALL.length; i++) if (KB.SMALL[i].kw.some(function (k) { return t.indexOf(norm(k)) >= 0; })) return KB.SMALL[i].a[L()];
     return null;
   }
+  function suggest(list) {
+    agentSay(T('I want to give you the right answer. Did you mean one of these?', 'Saya mahu beri jawapan yang tepat. Adakah anda maksudkan salah satu ini?'), function () {
+      var items = list.map(function (r) { var c = KB.N[r.id]; return { label: qText(c), go: function () { userSay(qText(c)); showNode(r.id); } }; });
+      items.push({ label: T('None of these', 'Bukan semua ini'), cls: 'ra-mut', go: function () { userSay(T('None of these', 'Bukan semua ini')); notSolved(); } });
+      quick(items);
+    });
+  }
+  function logMiss(text) { call({ action: 'rate', topic: 'Unanswered', question: text.slice(0, 300), resolved: false, lang: LANG }); }
+  var YES = /^(yes|ya|yup|yep|yeah|ok|okay|boleh|dah|sudah|settle|solved|selesai|done|betul|correct|thanks|terima kasih|dah ok|dah boleh)( .*)?$/,
+      NO = /^(no|nope|tak|tidak|belum|not yet|nah|bukan|masih|still)( .*)?$/,
+      STILL = / (still|masih|tetap) | (tak jadi|tak berjaya|tak work|not working|does not work|did not work|not solved|tak selesai|dah cuba|already tried|same problem|sama juga|masih sama) /;
   function typed() {
     var text = el.input.value.trim(); if (!text || busy) return;
-    el.input.value = ''; userSay(text);
-    var id = match(text);
-    if (id) return showNode(id);
+    el.input.value = '';
+    var last = el.ms.lastElementChild, open = last && last.classList.contains('ra-qr') ? last : null;
+    var lg = langOf(text);
+    var other = lg === 'other';
+    setLang(other ? 'en' : lg);
+    userSay(text);
+    var nt = norm(text);
+    // answer to "Did this answer your question?" typed instead of tapped
+    if (awaitSolved && open) {
+      if (YES.test(nt.trim()) && !STILL.test(nt)) { awaitSolved = false; open.remove(); return rateAsk(true); }
+      if (NO.test(nt.trim()) || STILL.test(nt)) { awaitSolved = false; open.remove(); return notSolved(); }
+    }
+    // "still not working" right after an answer -> hand over to IT instead of repeating it
+    if (lastQ && STILL.test(nt) && rank(text).every(function (x) { return x.s < 5; })) { awaitSolved = false; return notSolved(); }
+    if (open) open.remove();
+    if (other) return agentSay('I can reply in <b>English</b> or <b>Bahasa Melayu</b>. Please type your question in English or Malay, or pick a topic below.', function () {
+      var r = rank(text); if (r[0] && r[0].s >= 3) showNode(r[0].id); else topicChips();
+    });
+    else answerTyped(text);
+  }
+  function answerTyped(text) {
+    var r = rank(text), top = r[0], second = r[1];
+    if ((!top || top.s < 3) && STILL.test(norm(text))) { userIssue = text; return showNode('trouble'); }
+    if (top && top.s >= 3 && (!second || second.s < top.s)) { lastQ = text; return showNode(top.id); }
+    if (top && top.s >= 3) {                                  // two answers fit equally well: let the user pick
+      return suggest(r.filter(function (x) { return x.s === top.s; }).slice(0, 4));
+    }
+    var nt = norm(text).trim();
+    if ((!top || top.s < 3) && YES.test(nt)) return agentSay(T('Great! Anything else about Rasumi Apps?', 'Baik! Ada apa-apa lagi tentang Rasumi Apps?'), function () { quick([menuChip()]); });
+    if ((!top || top.s < 3) && NO.test(nt)) return notSolved();
     var s = small(text);
-    if (s) return agentSay(s, topicChips);
+    if (s && (!top || words(norm(text)).length <= 2)) return agentSay(s, topicChips);
+    if (top) { logMiss(text); return suggest(r.slice(0, 3)); }
+    logMiss(text);
     agentSay(KB.OFF[L()], function () { quick([menuChip(), itChip()]); });
   }
 

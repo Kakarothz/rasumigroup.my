@@ -73,7 +73,8 @@
   var info = null;
   function render(r) {
     info = r;
-    window.RA_INFO = { first_name: r.first_name, email: r.email };            // Rasumi Agent chat (chat.js)
+    window.RA_INFO = { first_name: r.first_name, email: r.email, expires_at: r.expires_at, downloads_left: r.downloads_left,
+      version: r.installer && r.installer.version, size: r.installer && r.installer.size };   // Rasumi Agent chat (chat.js)
     try { document.dispatchEvent(new CustomEvent('ra:info')); } catch (e) { }
     var first = r.first_name || 'there';
     $('o-name').textContent = first;
@@ -108,6 +109,7 @@
           $('dl-file').textContent = (r.name || '') + (r.size ? ' · ' + fmtSize(r.size) : '');
           $('dl-left').textContent = r.downloads_left + ' download' + (r.downloads_left === 1 ? '' : 's') + ' left on this invitation';
           if ($('o-left')) $('o-left').textContent = r.downloads_left;
+          if (window.RA_INFO) window.RA_INFO.downloads_left = r.downloads_left;
           $('dl').classList.add('on');
           var a = $('st2'), c = $('st3'); a.classList.remove('now'); a.classList.add('done'); a.querySelector('.d').textContent = '✓'; a.querySelector('.ob-s').textContent = 'Done'; c.classList.add('now'); c.querySelector('.ob-s').textContent = 'Now'; document.querySelector('.onb').classList.add('p2');
         } else if (r && r.reason === 'download_limit') {
