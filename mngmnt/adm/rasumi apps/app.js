@@ -12327,7 +12327,7 @@
     var payload = {
       id: 1,
       latest_version: version.trim(),
-      update_url: url.trim(),
+      update_url: rDriveDirect(url),
       release_notes: notes.trim() || null,
       released_by: (function () {
         var nick = RS.userNickname || '';
@@ -12751,13 +12751,23 @@
     }
   };
 
+  // Any Google Drive link (share link /file/d/<id>/view, open?id=, uc?id=) -> direct download link.
+  // A share link opens Drive's preview page (HTML), so the updater and the installer mirror could not download it.
+  function rDriveDirect(url) {
+    var u = String(url || '').trim();
+    var m = u.match(/\/file\/d\/([A-Za-z0-9_-]{10,})/) || u.match(/[?&]id=([A-Za-z0-9_-]{10,})/);
+    if (m && /drive\.google\.com|drive\.usercontent\.google\.com|docs\.google\.com/.test(u)) {
+      return 'https://drive.usercontent.google.com/download?id=' + m[1] + '&export=download&confirm=t';
+    }
+    return u;
+  }
   function _doPushTargetedRelease(hostnames, version, url, notes, releasedBy) {
     var now = new Date().toISOString();
     var rows = hostnames.map(function (h) {
       return {
         hostname: h,
         target_version: version,
-        update_url: url,
+        update_url: rDriveDirect(url),
         status: 'pending',
         released_by: releasedBy,
         notes: notes || null,
