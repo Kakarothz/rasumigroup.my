@@ -1,0 +1,234 @@
+### What is Rasumi Apps?  [about]
+**Rasumi Apps** is Rasumi Medipharma's own **automation app** for Windows. It automates the daily work of staff and puts it in one place:
+- **Documents**: rename, split and clean up scanned invoices, DOs and claim papers (Renamer, Splitter, Scanify, Doc Manager).
+- **Store and purchasing**: branch stock, Store Portal, Special Request and PO Mailer linked to AutoCount.
+- **Claims**: Vibes Agent sends claim documents to JHEV.
+- **Management**: Admin Monitor and Insights reports.In the background, automation runs on its own: it pulls the data from VIMS and AutoCount for every branch, fills in documents and keeps everything up to date, so staff do less manual work. You only see the apps your role needs.
+
+### Who uses it?  [b_who]
+Rasumi staff who are invited by the developer: HQ claim and document teams, branch counters and pharmacists, purchasers, Accounts and management. Each person signs in with their own account, so the app shows the right tools and credits the work to the right person.
+
+### Which apps will I see?  [b_role]
+It depends on the role and branch set by management. For example a branch counter sees Scanify and Store Portal, a purchaser sees PO Mailer, and Accounts sees Insights. If an app you need is missing after you sign in, use **Leave a message for IT** and say which app.
+
+### Why should I use it?  [b_why]
+Less manual work and fewer mistakes: files are named and split for you, stock and POs come straight from AutoCount, claims are tracked DO by DO, and your work is recorded under your name. Everything is in one app instead of many folders, portals and spreadsheets.
+
+### Is it free? Do I need a licence?  [b_cost]
+Yes, it is free for Rasumi staff. It is built in-house, so there is no licence to buy and nothing to pay. You only need the invitation and a Windows PC.
+
+### Who built Rasumi Apps?  [b_maker]
+Rasumi Apps is designed and built in-house by the **IT / AI team at Rasumi Medipharma**, and keeps improving based on feedback from staff, including messages and ratings from this chat.
+
+### What is VIMS?  [w_vims]
+**VIMS** is the dispensing and claim system used at the counters: sales, DOs, indents and the claim list. Rasumi Apps reads it automatically (VIMS Sync and VIMS Claim Batch); patient details are never copied into reports.
+
+### What is AutoCount?  [w_ac]
+**AutoCount** is the accounting system for each company book (FVKL, FVT, FVL, FVG, RSA): invoices, DOs, POs, GRNs and payments. Rasumi Apps creates POs in it and reads it through the AutoCount Bridge.
+
+### What is DocuShare?  [w_ds]
+**DocuShare** is where Rasumi keeps its scanned documents. The Renamer names files the way DocuShare folders expect, and supplier invoices are uploaded there when an order is delivered.
+
+### What is JHEV / Vibes?  [w_jhev]
+**JHEV** is the government veterans' department that pays for veterans' medicine; **Vibes** is its online claim portal. Each DO is claimed there, and Rasumi Apps tracks every DO from issued to sent to paid.
+
+### What are DO, PO, GRN and invoice?  [w_doc]
+- **DO** (delivery order): goods given out, for example medicine dispensed against a claim.
+- **PO** (purchase order): what we order from a supplier.
+- **GRN** (goods received note): stock received against a PO.
+- **Invoice**: the bill, from us to a customer or from a supplier to us.
+
+### How long is my invitation valid?  [s_valid]
+Your invitation works until the date shown on this page. Once Rasumi Apps is installed and you have signed up, the invitation is no longer needed: you sign in with your own account from then on.
+
+### Can I install on another PC or share the link?  [s_multi]
+The invitation is personal and works on one PC. Do not forward it: a colleague who needs Rasumi Apps gets their own invitation from IT. To use Rasumi Apps on a second PC (for example at another branch), ask IT and they will send a new invitation; you sign in there with the same account.
+
+### How do I download Rasumi Apps?  [s_dl]
+Press **Download for Windows** on this page. The installer starts downloading straight away.
+- Each download link works for **10 minutes**; press the button again for a new one.
+- After the first download this invitation works **on this PC and browser only**.
+- Office Wi-Fi takes about a minute.
+
+### How do I install it?  [s_inst]
+- Open the file from your browser's downloads (usually the **Downloads** folder).
+- Run it. It installs for your Windows user only, so **no administrator rights** are needed.
+- Rasumi Apps opens when it finishes.Already have an older version? Install over it. Your settings stay.
+
+### Windows says "Windows protected your PC"  [s_smart]
+That is normal for internal software that is not sold in public stores. If Windows shows **Open File – Security Warning** (Unknown Publisher), click **Run**. If it shows **Windows protected your PC**, click **More info**, then **Run anyway**. The installer is built and signed off by Rasumi IT.
+
+### Which e-mail do I sign up with?  [s_signup]
+Use the e-mail this invitation was sent to. Other e-mails cannot sign up.
+- Open Rasumi Apps and press **Sign up**.
+- Enter this e-mail and choose a password, or tap **Google** or **Microsoft**.
+- Confirm the e-mail we send you (from noreply@rasumi.com.my).
+
+### How do I turn on two-step verification?  [s_2fa]
+After your first sign-in, Rasumi Apps shows a QR code. Scan it once with an authenticator app (**Google Authenticator** or **Microsoft Authenticator**), then type the 6-digit code. From then on, every sign-in asks for the current code from the app.
+
+### My link expired or I changed PC  [s_link]
+For your security the invitation works only on the PC and browser where you first downloaded, and only until its expiry date. If it expired or you changed PC, use **Leave a message for IT** and IT will reset it or send a new invitation.
+
+### What do I need? Can I use my phone?  [s_req]
+Rasumi Apps runs on **Windows 10 or 11 PCs** with an internet connection. It does not run on phones, tablets or Mac. You can read this page on your phone, but download on your PC. Updates install by themselves the next time you open the app.
+
+### Dashboard  [p_dash]
+Your day at a glance the moment you sign in: today's totals for every app, the **notification bell** (deliveries, special requests, POs ready, even if they arrived while the app was closed), and Quick Rename / PDF Studio one click away.
+
+### PDF Renamer  [p_renamer]
+Reads each scanned invoice and DO and renames the file in the format your team files it, ready for DocuShare.
+- **HQ**: document number + ID, both pages checked; anything below 75% confidence is held for review instead of being renamed wrongly.
+- **FV branch**: the DO number is read at 300 dpi and doubtful digits (1/7, 0/8) are read again before renaming.You see the file being read and the time left.
+
+### PDF Splitter  [p_splitter]
+One long claim scan in, separate documents out. Each page is recognised (invoice, DO, prescription, IC, BQBP, service book and more), pages of the same document are kept together, and each part is saved as its own file.
+
+### Scanify  [p_scanify]
+Turns phone photos of forms and ID cards into a clean PDF: drag the corners, rotate or auto-align, and put the IC front and back on one page. Branch counters use it to complete claim documents before they go to the HQ claim team.
+
+### Doc Manager  [p_docmgr]
+Works with the VIMS claim list (New, Approved, Big batch, Sent, Completed): it gathers and checks the documents of each claim batch so the claim team can send complete claims.
+
+### Store Management  [p_store]
+Branch stock at a glance: stock in, stock out, transfers between branches, out-of-stock items, and fast and slow movers.
+
+### Store Portal (pharmacists)  [p_portal]
+The branch store system: products and bin card, receiving stock (AutoCount GRNs appear by themselves), transfers, delivery, stock count, and **Special Request**: pick the item and quantity, submit, and the purchaser turns it into a PO carrying your signature and stamp. Supplier invoices are ready for every delivered order.
+
+### PO Mailer (purchasers)  [p_po]
+From stock alert to purchase order: the Stock Alert suggests quantity and supplier for each item (from a nightly min/max plan), you create the PO in AutoCount in one click for FVKL, FVT, FVL, FVG or RSA, and it is e-mailed to the supplier. Delivery status and supplier invoices are tracked on the same screen.
+
+### Vibes Agent (claims)  [p_vibes]
+Uploads claim documents into the JHEV claim (tuntutan) on the Vibes portal, DO by DO, and records each upload so Accounts can see which DOs have been sent to JHEV.
+
+### Admin Monitor  [p_admin]
+For admins: machines running Rasumi Apps, activity logs, errors and their fixes, all in one place.
+
+### Insights (BOD, Accounts)  [p_exec]
+For the Board and Accounts: sales, medicine cost and margin, collections, purchases and what customers owe; the **JHEV claims** tracker (every DO month: issued, sent, paid, carried forward); branch operations; and staff workload and KPI measured against each branch's own normal. Reports export to PDF and Excel.
+
+### Settings  [p_settings]
+Your account, your way: sign-in methods (password, Google, Microsoft), two-step verification, light / dark / auto theme, and signing out other devices.
+
+### The 20 AI agents  [agents]
+Ah, the agents! Yes, Rasumi Apps has **20 of them** working quietly in the background, day and night. No dummies: each one has a real job, from pulling VIMS and AutoCount data to sending POs and tracking JHEV claims. Which group do you want to peek at?
+
+### Show all 20 agents  [g_all]
+- **VIMS Sync**: Pulls sales, DOs and indents from VIMS every 10 minutes (7:30 am–10 pm) with a full check at 4:40 pm, detects public holidays and fills in up to 12 months of history.
+- **VIMS Claim Batch**: Reads the VIMS claim list (New → Completed): who batched each claim and which DOs are in it.
+- **AutoCount Bridge**: Keeps every AutoCount book in sync: invoices, DOs, POs, GRNs, payments, customer ageing and the audit trail.
+- **Vibes Agent**: Uploads claim documents into JHEV claims on the Vibes portal and records each DO it sends.
+- **Store Sync**: Keeps Store Portal stock, transfers, bin card and stock counts in step across branches.
+- **Finance Snapshot**: Every 10 minutes: sales, medicine cost, collections, supplier payments, JHEV billed and paid, and ageing per branch.
+- **Workload & KPI**: Builds each staff member's daily work from VIMS, AutoCount, Rasumi Apps and Store Portal, links names to staff IDs, and works out monthly station and KPI.
+- **JHEV Claim Tracker**: Every 10 minutes: each DO from issued → sent to JHEV → paid, with balances carried to the next month until done.
+- **Report Builder**: Builds the Insights reports (PDF and Excel) when someone presses Generate report.
+- **Reorder Planner**: Every night: a suggested minimum and maximum stock for every item, used by the Stock Alert.
+- **PO Agent**: Turns stock alerts and special requests into AutoCount POs and e-mails them to suppliers.
+- **Supplier Portal**: Downloads supplier invoices and checks delivery status on supplier portals.
+- **DocuShare Uploader**: Uploads supplier invoices to the right DocuShare folder when an order is delivered.
+- **GRN Auto-receive**: Puts AutoCount GRNs onto the Store Portal bin card by themselves.
+- **Renamer**: Reads and renames invoices and DOs in HQ and FV branch formats, re-checking doubtful digits.
+- **Splitter**: Splits claim scans into separate documents by type.
+- **Scanify**: Straightens document photos and puts the IC front and back on one page.
+- **Notifier**: The notification bell plus every noreply e-mail: invitations, 2FA codes, password resets and IT tickets.
+- **Sentinel**: Watches security events and suspicious sign-in attempts on its own server.
+- **Support Desk**: Takes "Leave a message for IT" from this chat, sends it to IT and keeps the ratings.
+
+### How do I sign out?  [a_logout]
+Press **Log Out** in the profile menu (top right). Closing the window with **X** keeps you signed in for the day, which is fine on your own PC; on a shared PC always use Log Out.
+
+### Why a personal account?  [a_personal]
+Every action you take is recorded under your own name, so your work is credited to you (for example in the staff workload and KPI) and nobody can act as you. On a shared PC, press **Log Out** when you finish; closing with **X** keeps you signed in for the day.
+
+### I forgot my password  [a_forgot]
+On the sign-in screen press **Forgot password**. We e-mail a reset link from noreply@rasumi.com.my. Open it, choose a new password and, if two-step is on, type the 6-digit code from your authenticator app.
+
+### I lost my phone / authenticator  [a_lostphone]
+No problem. IT can reset your two-step verification. Use **Leave a message for IT** from your invited e-mail; after the reset you set up the authenticator again on your next sign-in.
+
+### Can I sign in with Google or Microsoft?  [a_google]
+Yes. Tap the **Google** or **Microsoft** icon on the sign-in screen, as long as the account uses your invited e-mail. You can add or remove sign-in methods later in **Settings**.
+
+### Sign out other devices / change e-mail  [a_devices]
+**Settings → My Profile** lists your signed-in devices; you can sign out the others there. To change your sign-in e-mail, ask IT; the change is confirmed through both addresses.
+
+### Where does my data go?  [a_privacy]
+Your account and work data stay inside Rasumi systems. Sign-in uses encrypted connections (HTTPS), passwords are never stored in plain text, invitation links are stored only as hashes and locked to your PC, and patient details from VIMS are never copied into reports.
+
+### The download fails or stops  [x_dlfail]
+- Press **Download for Windows** again: each press gives a fresh link (old links stop after 10 minutes).
+- Use the **same browser** on the same PC you opened the invitation with.
+- If the browser or antivirus removed the file, choose **Keep** in the browser's downloads list.If it says the download limit is reached, leave a message for IT to reset it.
+
+### The app does not open or shows a blank screen  [x_open]
+- Wait a few seconds: the first start after install or update takes a little longer.
+- Close it fully (also from the icons next to the clock), then open **Rasumi Apps** again from the Start menu.
+- Restart the PC.
+- Still blank? Run the installer again over the top: your settings stay.If none of this works, leave a message for IT with a photo of the screen.
+
+### I cannot sign in  [x_signin]
+- Use the invited e-mail; other e-mails are not allowed.
+- New account? Open the confirmation e-mail from noreply@rasumi.com.my first.
+- Wrong password? Press **Forgot password**.
+- Too many tries? Wait a few minutes before trying again.
+- With Google or Microsoft, pick the account with the invited e-mail.
+
+### I did not get the e-mail  [x_email]
+Our e-mails come from **noreply@rasumi.com.my**.
+- Wait 2–3 minutes.
+- Check **Spam** or **Junk**, and in Gmail the **Promotions** or **Updates** tab.
+- Make sure you typed the invited e-mail.
+- Ask for it again (for example press Forgot password again).Still nothing after 10 minutes? Leave a message for IT.
+
+### The 6-digit code is not accepted  [x_code]
+- Type the **newest** code; each one changes every 30 seconds.
+- Make sure the phone's date and time are set to **automatic**; a clock that is a minute off makes codes fail.
+- Use the Rasumi entry in the authenticator app, not another account.Changed or lost your phone? Leave a message for IT to reset two-step.
+
+### It is slow or numbers look old  [x_slow]
+Rasumi Apps needs a working internet connection. Data from VIMS and AutoCount refreshes every few minutes, so very new entries can take up to about 10 minutes to appear. If a screen seems stuck, close and reopen the app; if it stays slow for everyone at the branch, tell IT.
+
+### I see an error message  [x_error]
+Take a screenshot (**Windows + Shift + S**) or a photo, then use **Leave a message for IT** and type what you were doing and the error text. Most errors are also logged automatically, so IT can find them quickly.
+
+### How do I uninstall it?  [x_uninstall]
+Open Windows **Settings → Apps → Installed apps**, find **Rasumi Apps** and choose **Uninstall**. No administrator rights are needed. To reinstall later you need a new invitation from IT.
+
+### Which languages and engine?  [t_lang]
+- **Desktop app**: Python with an HTML, CSS and JavaScript interface running in Microsoft Edge WebView2.
+- **Vibes Agent**: Rust.
+- **AutoCount bridge**: C# on .NET with the AutoCount SDK.
+- **Server functions**: TypeScript on Deno; database logic in PostgreSQL (SQL / PL/pgSQL).
+- **Sentinel**: Python FastAPI on Debian.
+- Scripts in PowerShell and Bash; packaged with PyInstaller and Inno Setup.
+
+### Which database?  [t_db]
+**PostgreSQL** on Supabase (with its authentication, storage and edge functions). AutoCount runs on **Microsoft SQL Server** at the office and is synced by the AutoCount Bridge; the desktop app keeps small local caches in SQLite.
+
+### How does it read documents (AI / OCR)?  [t_ai]
+Digital text is read directly from the PDF. Scans go through OCR (Google OCR) after image clean-up with OpenCV and Pillow: deskew, sharpen and, for doubtful digits, a second read with a sharper or eroded image. Results are checked against rules (both pages agree, number formats, confidence ≥ 75%) before a file is renamed or split.
+
+### Where is it hosted?  [t_host]
+The database and server functions run on **Supabase**; web pages such as this one on **Cloudflare**; the AutoCount Bridge on the office server; Sentinel on its own Debian server; and VIMS / supplier portals are reached with Selenium and ChromeDriver.
+
+### How do updates work?  [t_update]
+Rasumi Apps checks for a newer version when it opens and updates itself. There is nothing to download again and your settings stay.
+
+### How is it secured?  [t_sec]
+Personal accounts with two-step verification; row-level security and short-lived sessions on the database; invitation links locked to one PC and stored only as hashes; installers served from a private bucket with 10-minute links; Sentinel watching for suspicious sign-ins; and every action logged under the person who did it.
+
+### Contact IT  [it]
+I can pass your question to IT. Leave a message here and IT will reply to your e-mail as soon as possible. You can also e-mail it@rasumi.com.my.
+
+### When will IT reply?  [it_when]
+IT replies by e-mail as soon as possible during office hours. Your message has a reference number (RA-…) and a copy goes to your inbox; reply to that e-mail to add details.
+
+### Company figures and staff data  [secret]
+Sorry, this page cannot see or share company data such as sales, costs, claim amounts, prices, stock levels, staff KPI or staff lists. Those figures are only inside Rasumi Apps for staff whose role allows it (for example the **Insights** app for BOD and Accounts). If you need access, use **Leave a message for IT**.
+
+### Facts about this invitation page
+- Rasumi Agent is the assistant on the Rasumi Apps invitation page (invite.rasumigroup.my).
+- IT e-mail: it@rasumi.com.my. Automated e-mails come from noreply@rasumi.com.my.
+- Rasumi Apps is made by the IT / AI team of Rasumi Medipharma Sdn. Bhd. for its staff. Branches and company books: FVKL, FVT, FVL, FVG and RSA.
