@@ -151,7 +151,26 @@
   function close() { el.w.classList.remove('ra-open'); el.fab.classList.remove('ra-hide'); }
   function now() { return new Date().toLocaleTimeString(LANG === 'ms' ? 'ms-MY' : 'en-GB', { hour: '2-digit', minute: '2-digit' }); }
   function scroll() { el.ms.scrollTop = el.ms.scrollHeight; }
+  // soft two-note chime when the agent replies (Web Audio, no sound file); quiet, and never before the user has clicked
+  var actx = null;
+  function chime() {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+      var t0 = actx.currentTime;
+      [[880, 0], [1318.5, 0.09]].forEach(function (n) {
+        var o = actx.createOscillator(), g = actx.createGain();
+        o.type = 'sine'; o.frequency.value = n[0];
+        g.gain.setValueAtTime(0.0001, t0 + n[1]);
+        g.gain.exponentialRampToValueAtTime(0.06, t0 + n[1] + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + 0.22);
+        o.connect(g); g.connect(actx.destination);
+        o.start(t0 + n[1]); o.stop(t0 + n[1] + 0.25);
+      });
+    } catch (e) { }
+  }
   function bubble(html, me) {
+    if (!me) chime();
     var r = document.createElement('div'); r.className = 'ra-row' + (me ? ' ra-me' : '');
     r.innerHTML = (me ? '' : AV) + '<div class="ra-b">' + html + '</div>';
     el.ms.appendChild(r);

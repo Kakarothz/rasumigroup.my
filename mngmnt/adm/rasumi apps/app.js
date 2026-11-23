@@ -13759,6 +13759,84 @@
     bar.innerHTML = '<i class="fa-solid fa-filter"></i> Invitation: <b>' + esc(lbl) + '</b> <a href="#" onclick="rInvFilter(\'\');return false;"><i class="fa-solid fa-xmark"></i> Clear</a>';
   }
   var _huStoreProfiles = [], _huUsers = [], _huStoreCaps = {};
+  // ---- App Users grouped by branch -> department, with one-click app access per group (app_group_defaults_v1.sql) ----
+  var _HU_BR_ORDER = ['HQ', 'FVKL', 'FVT', 'FVL', 'FVG', 'RSA'];
+  var _HU_BR_NAME = { HQ: 'HQ Rasumi', FVKL: 'Farmasi Veteran Kuala Lumpur', FVT: 'Farmasi Veteran Terendak', FVL: 'Farmasi Veteran Lumut',
+                      FVG: 'Farmasi Veteran Gemas', RSA: 'Rasumi Shah Alam' };
+  var _HU_DP_NAME = { PURCHASING: 'Purchasing', STORE: 'Store', FINANCE: 'Finance', OPERATIONS: 'Operations', COUNTER: 'Counter', COURIER: 'Courier',
+                      CLAIM: 'Claim (HQ)', IT: 'IT', BOARD: 'Board' };
+  var _HU_DP_ORDER = ['BOARD', 'PURCHASING', 'FINANCE', 'CLAIM', 'STORE', 'COUNTER', 'COURIER', 'OPERATIONS', 'IT'];
+  var _huClosed = {};
+  function _huGroupCss() {
+    if (document.getElementById('rh-grp-css')) return;
+    var st = document.createElement('style'); st.id = 'rh-grp-css';
+    st.textContent = '.rh-gbr{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:700;margin:18px 2px 10px}.rh-gbr small{font-weight:500;font-size:11.5px;color:var(--rc-text-dim,#9ca3af)}' +
+      '.rh-gbr i{color:var(--rc-cyan,#D97757)}.rh-gbr.warn i{color:#fbbf24}.rh-gbr.mute{opacity:.75}' +
+      '.rh-grp{border:1px solid var(--rc-border,#374151);border-radius:14px;margin-bottom:14px;overflow:hidden;background:rgba(255,255,255,.015)}' +
+      '.rh-gh{padding:12px 16px;background:rgba(217,119,87,.06);border-bottom:1px solid var(--rc-border,#374151)}.rh-grp.closed .rh-gh{border-bottom:0}' +
+      '.rh-gt{display:flex;align-items:center;gap:9px;font-weight:700;font-size:13.5px;cursor:pointer;user-select:none}.rh-gt i{font-size:11px;color:var(--rc-text-dim,#9ca3af);width:12px}' +
+      '.rh-gn{font-size:10.5px;font-weight:600;padding:1px 9px;border-radius:99px;background:rgba(255,255,255,.08);color:var(--rc-text-dim,#c4c7d0)}' +
+      '.rh-gx{margin-left:auto;font-size:10.5px;font-weight:500;color:var(--rc-text-dim,#9ca3af)}' +
+      '.rh-gchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.rh-grp.closed .rh-gchips,.rh-grp.closed .rh-gm{display:none}' +
+      '.rh-gchip{font-family:inherit;font-size:11px;font-weight:600;padding:5px 11px;border-radius:99px;border:1px solid var(--rc-border,#374151);background:rgba(255,255,255,.03);color:var(--rc-text-dim,#9ca3af);cursor:pointer}' +
+      '.rh-gchip b{font-weight:600;opacity:.7;margin-left:3px}.rh-gchip:hover{border-color:var(--rc-cyan,#D97757);color:#fff}' +
+      '.rh-gchip.on{background:linear-gradient(135deg,rgba(217,119,87,.35),rgba(124,58,237,.3));border-color:var(--rc-cyan,#D97757);color:#fff}' +
+      '.rh-gchip.part{border-style:dashed;border-color:var(--rc-cyan,#D97757);color:#f0c9b8}' +
+      '.rh-gm{padding:12px 14px 0}.rh-gm .rh-user{margin-bottom:12px}';
+    document.head.appendChild(st);
+  }
+  function _huGrouped(rows) {
+    _huGroupCss();
+    var out = [], own = rows.filter(function (r) { return r.owner; }), team = rows.filter(function (r) { return r.team && !r.owner; });
+    var rest = rows.filter(function (r) { return !r.owner && !r.team; });
+    var unset = rest.filter(function (r) { return !r.dp; });
+    own.forEach(function (r) { out.push(r.html); });
+    if (unset.length) {
+      out.push('<div class="rh-gbr warn"><i class="fa-solid fa-circle-exclamation"></i> Department not set <small>' + unset.length + ' account(s) · set a department so they join a group</small></div>');
+      unset.forEach(function (r) { out.push(r.html); });
+    }
+    var brs = {};
+    rest.filter(function (r) { return r.dp; }).forEach(function (r) { (brs[r.br] = brs[r.br] || {}); (brs[r.br][r.dp] = brs[r.br][r.dp] || []).push(r); });
+    var bl = _HU_BR_ORDER.filter(function (b) { return brs[b]; }).concat(Object.keys(brs).filter(function (b) { return _HU_BR_ORDER.indexOf(b) === -1; }).sort());
+    bl.forEach(function (b) {
+      var dps = brs[b], dl = _HU_DP_ORDER.filter(function (d) { return dps[d]; }).concat(Object.keys(dps).filter(function (d) { return _HU_DP_ORDER.indexOf(d) === -1; }).sort());
+      var n = dl.reduce(function (a, d) { return a + dps[d].length; }, 0);
+      out.push('<div class="rh-gbr"><i class="fa-solid fa-building"></i> ' + esc(b) + ' · ' + esc(_HU_BR_NAME[b] || b) + ' <small>' + dl.length + ' department(s) · ' + n + ' staff</small></div>');
+      dl.forEach(function (d) {
+        var m = dps[d], key = b + '|' + d, closed = !!_huClosed[key];
+        var chips = _HOSPITAL_APPS.concat([]).map(function (app) {
+          var c = m.filter(function (r) { return r.apps.indexOf(app) !== -1; }).length;
+          var cls = c === m.length ? 'on' : c ? 'part' : '';
+          return '<button type="button" class="rh-gchip ' + cls + '" title="' + (c === m.length ? 'Click to remove ' : 'Click to give ') + esc(app) + ' to everyone in ' + esc(b + ' ' + (_HU_DP_NAME[d] || d)) +
+            ' (new sign-ups in this group get the same)" onclick="rGroupApp(\'' + b + '\',\'' + d + '\',\'' + app.replace(/'/g, "\\'") + '\',' + (c !== m.length) + ')">' +
+            (c === m.length ? '<i class="fa-solid fa-check"></i> ' : '') + esc(app) + ' <b>' + c + '/' + m.length + '</b></button>';
+        }).join('');
+        out.push('<div class="rh-grp' + (closed ? ' closed' : '') + '" data-g="' + esc(key) + '"><div class="rh-gh"><div class="rh-gt" onclick="rToggleGroup(\'' + esc(key) + '\')">' +
+          '<i class="fa-solid fa-chevron-' + (closed ? 'right' : 'down') + '"></i> ' + esc(_HU_DP_NAME[d] || d) + ' <span class="rh-gn">' + m.length + ' staff</span>' +
+          '<span class="rh-gx">Group apps · new sign-ups in this group get them automatically</span></div><div class="rh-gchips">' + chips + '</div></div>' +
+          '<div class="rh-gm">' + m.map(function (r) { return r.html; }).join('') + '</div></div>');
+      });
+    });
+    if (team.length) {
+      out.push('<div class="rh-gbr mute"><i class="fa-solid fa-users"></i> Shared IDs (legacy) <small>' + team.length + ' · retire after the invitation phase</small></div>');
+      team.forEach(function (r) { out.push(r.html); });
+    }
+    return out.join('');
+  }
+  window.rToggleGroup = function (key) {
+    _huClosed[key] = !_huClosed[key];
+    var g = document.querySelector('.rh-grp[data-g="' + key.replace(/"/g, '') + '"]');
+    if (g) { g.classList.toggle('closed', !!_huClosed[key]); var i = g.querySelector('.rh-gt i'); if (i) i.className = 'fa-solid fa-chevron-' + (_huClosed[key] ? 'right' : 'down'); }
+  };
+  window.rGroupApp = function (br, dp, app, on) {
+    if (!RS.supa) return;
+    var label = br + ' ' + (_HU_DP_NAME[dp] || dp);
+    if (!confirm((on ? 'Give ' : 'Remove ') + app + (on ? ' to' : ' from') + ' everyone in ' + label + '?\nNew sign-ups in this group get the same.')) return;
+    RS.supa.rpc('admin_console_group_app', { p_branch: br, p_department: dp, p_app: app, p_on: !!on }).then(function (r) {
+      if (r.error) { alert('Could not update the group: ' + r.error.message); return; }
+      var list = document.getElementById('r-husers-list'); if (list) _renderHospitalUsers(list);
+    });
+  };
   function _renderHospitalUsers(list) {
     list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--rc-text-dim,#9ca3af);font-size:12px;"><span class="r-spin"></span> Loading…</div>';
     RS.supa.rpc('rpc_user_devices').then(function (dr) {
@@ -13945,9 +14023,10 @@
           row += '<button class="rh-btn danger sm" onclick="rDeleteHospitalUser(\'' + q(uname) + '\')" title="Remove this ID"><i class="fa-regular fa-trash-can"></i> Remove ID</button></div>';
         }
         row += '</div>';
-        rows.push(row);
+        rows.push({ html: row, br: (uname === 'mustaqim') ? '_OWNER' : (u.account_type === 'team' ? '_TEAM' : String(storeBranch || '').toUpperCase() || 'HQ'),
+                    dp: String(u.department_id || '').toUpperCase(), apps: apps, owner: uname === 'mustaqim', team: u.account_type === 'team' });
       });
-      list.innerHTML = rows.join('');
+      list.innerHTML = _huGrouped(rows);
       _huDirtyInit(list);
       var _c = document.getElementById('r-hu-cnt'); if (_c) _c.textContent = String(rows.length);
       _invSummary();
