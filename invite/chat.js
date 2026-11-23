@@ -57,11 +57,11 @@
     min: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14"/></svg>',
     redo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>'
   };
-  var AV = '<span class="ra-av"><img src="assets/favicon-r.png?v=2" alt=""></span>';
+  var AV = '<span class="ra-av"><img src="assets/agent.webp?v=1" alt=""></span>';
   function build() {
     var fab = document.createElement('button');
     fab.className = 'ra-fab'; fab.type = 'button'; fab.setAttribute('aria-label', 'Rasumi Agent');
-    fab.innerHTML = AV + '<i class="ra-dot"></i><span class="ra-lbl"></span>';
+    fab.innerHTML = '<i class="ra-ring"></i>' + AV + '<i class="ra-dot"></i>';
     var w = document.createElement('div');
     w.className = 'ra-win'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', 'Rasumi Agent');
     w.innerHTML = '<div class="ra-hd">' + AV + '<div><b>Rasumi Agent</b><small><i></i><span class="ra-on"></span></small></div><span class="ra-sp"></span>' +
@@ -84,7 +84,7 @@
     labels();
   }
   function labels() {
-    el.fab.querySelector('.ra-lbl').textContent = T('Ask Rasumi Agent', 'Tanya Rasumi Agent');
+    el.fab.title = T('Ask Rasumi Agent', 'Tanya Rasumi Agent'); el.fab.setAttribute('aria-label', el.fab.title);
     el.w.querySelector('.ra-on').textContent = T('Online', 'Online');
     el.w.querySelector('.ra-itl').textContent = 'IT';
     el.w.querySelector('.ra-it').title = T('Leave a message for IT', 'Tinggalkan mesej untuk IT');
@@ -125,7 +125,8 @@
     var w = document.createElement('div'); w.className = 'ra-qr';
     items.forEach(function (it) {
       var b = document.createElement('button'); b.type = 'button'; b.className = 'ra-q' + (it.cls ? ' ' + it.cls : ''); b.textContent = it.label;
-      b.onclick = function () { if (busy || w.classList.contains('ra-used')) return; w.classList.add('ra-used'); b.classList.add('ra-pick'); it.go(); };
+      // quick replies disappear once one is picked; the choice shows as the user's own message
+      b.onclick = function () { if (busy || w.classList.contains('ra-used')) return; w.classList.add('ra-used'); w.remove(); it.go(); };
       w.appendChild(b);
     });
     el.ms.appendChild(w); scroll(); return w;
@@ -136,8 +137,8 @@
   // ---------------------------------------------------------------- flow
   function greet() {
     var name = info && info.first_name ? ' ' + esc(info.first_name) : '';
-    agentSay(T('Hi' + name + '! I\'m <b>Rasumi Agent</b>. I can help you install Rasumi Apps, sign in, use the apps, or tell you about our 20 agents. What do you need help with?',
-               'Hai' + name + '! Saya <b>Rasumi Agent</b>. Saya boleh bantu anda pasang Rasumi Apps, log masuk, guna aplikasi, atau terangkan 20 agent kami. Apa yang anda perlukan?'), topicChips);
+    agentSay(T('Hi' + name + '! I\'m <b>Rasumi Agent</b>, here to help with anything about Rasumi Apps, from installing and signing in to using the apps every day. What can I help you with?',
+               'Hai' + name + '! Saya <b>Rasumi Agent</b>, sedia membantu apa sahaja tentang Rasumi Apps, dari pemasangan dan log masuk hingga penggunaan harian. Apa yang boleh saya bantu?'), topicChips);
   }
   function topicChips() {
     quick(KB.TOPICS.map(function (id) {
@@ -178,8 +179,7 @@
         var b = document.createElement('button'); b.type = 'button'; b.textContent = '★'; b.setAttribute('aria-label', s + ' / 5');
         b.onmouseenter = function () { w.querySelectorAll('button').forEach(function (x, j) { x.classList.toggle('on', j < s); }); };
         b.onclick = function () {
-          if (w.classList.contains('ra-used')) return; w.classList.add('ra-used');
-          w.querySelectorAll('button').forEach(function (x, j) { x.classList.toggle('on', j < s); });
+          if (w.classList.contains('ra-used')) return; w.classList.add('ra-used'); w.remove();
           call({ action: 'rate', topic: lastTopic, question: lastQ, resolved: resolved, stars: s, ticket_no: ticket || '', lang: LANG });
           userSay('★'.repeat(s));
           agentSay(s >= 4 ? T('Thank you for the ' + s + '-star rating! Anything else about Rasumi Apps?', 'Terima kasih atas rating ' + s + ' bintang! Ada apa-apa lagi tentang Rasumi Apps?')
@@ -246,6 +246,7 @@
       n.kw.forEach(function (k) { var kk = norm(k); if (t.indexOf(kk) >= 0) s += kk.length > 6 ? 3 : 2; });
       norm(n.q[0] + ' ' + n.q[1]).trim().split(' ').forEach(function (wd) { if (wd.length > 4 && t.indexOf(' ' + wd + ' ') >= 0) s += 1; });
       if (KB.TOPICS.indexOf(id) >= 0) s -= 1;                 // prefer a precise answer over a topic menu
+      if (s > 0 && /^g_/.test(id) && / (agent|agents|ejen|bot|robot) /.test(t)) s += 3;   // "which agent …" -> the agents answer, not the app
       if (s > score) { score = s; best = id; }
     });
     return score >= 2 ? best : null;

@@ -125,11 +125,11 @@ window.RA_KB = (function () {
   function grp(id, en, ms, keys, kw) {
     n(id, [en, ms], [function (c) { return c.agentList(keys, 'en'); }, function (c) { return c.agentList(keys, 'ms'); }], kw, [], { live: true });
   }
-  grp('g_data', 'Who pulls the data (VIMS, AutoCount, Vibes)?', 'Siapa tarik data (VIMS, AutoCount, Vibes)?', ['vims_sync', 'vims_batch', 'ac_bridge', 'vibes', 'store_sync'], ['pull data', 'tarik data', 'sync', 'vims', 'autocount', 'ac', 'data source', 'sumber data']);
-  grp('g_exec', 'Who builds the Executive reports and KPI?', 'Siapa bina laporan Eksekutif dan KPI?', ['finance', 'workload', 'claims', 'reports'], ['who builds report', 'siapa buat laporan', 'siapa siapkan report', 'report agent', 'kpi agent', 'claim tracker']);
-  grp('g_buy', 'Purchasing and store agents', 'Agent purchasing dan stor', ['reorder', 'po', 'supplier', 'docushare', 'grn'], ['purchasing agent', 'po agent', 'grn agent', 'supplier agent', 'docushare agent']);
-  grp('g_docs', 'Document agents', 'Agent dokumen', ['renamer', 'splitter', 'scanify'], ['document agent', 'agent dokumen', 'ocr agent']);
-  grp('g_sys', 'System and security agents', 'Agent sistem dan keselamatan', ['notifier', 'sentinel', 'support'], ['security agent', 'sentinel', 'notifier', 'support desk']);
+  grp('g_data', 'Who pulls the data (VIMS, AutoCount, Vibes)?', 'Siapa tarik data (VIMS, AutoCount, Vibes)?', ['vims_sync', 'vims_batch', 'ac_bridge', 'vibes', 'store_sync'], ['pull data', 'tarik data', 'sync', 'vims', 'autocount', 'ac', 'data source', 'sumber data', 'vibes', 'store']);
+  grp('g_exec', 'Who builds the Executive reports and KPI?', 'Siapa bina laporan Eksekutif dan KPI?', ['finance', 'workload', 'claims', 'reports'], ['who builds report', 'siapa buat laporan', 'siapa siapkan report', 'report agent', 'kpi agent', 'claim tracker', 'report', 'laporan', 'kpi', 'executive', 'eksekutif', 'finance', 'kewangan']);
+  grp('g_buy', 'Purchasing and store agents', 'Agent purchasing dan stor', ['reorder', 'po', 'supplier', 'docushare', 'grn'], ['purchasing agent', 'po agent', 'grn agent', 'supplier agent', 'docushare agent', 'purchase order', 'reorder', 'grn', 'docushare', 'supplier', 'pembekal', 'invoice', 'invois']);
+  grp('g_docs', 'Document agents', 'Agent dokumen', ['renamer', 'splitter', 'scanify'], ['document agent', 'agent dokumen', 'ocr agent', 'renamer', 'splitter', 'scanify', 'rename', 'ocr']);
+  grp('g_sys', 'System and security agents', 'Agent sistem dan keselamatan', ['notifier', 'sentinel', 'support'], ['security agent', 'sentinel', 'notifier', 'support desk', 'notification', 'notifikasi', 'email', 'e-mel', 'security', 'keselamatan']);
   grp('g_all', 'Show all 20 agents', 'Tunjuk semua 20 agent', AG.map(function (x) { return x[0]; }), ['all agents', 'semua agent', 'list agent', 'senarai agent', '20 agents']);
 
   // ---------------------------------------------------------------- 4. account & security
@@ -202,14 +202,14 @@ window.RA_KB = (function () {
       a: ['Hello! How can I help with Rasumi Apps today?', 'Hai! Apa yang boleh saya bantu tentang Rasumi Apps hari ini?'] },
     { kw: ['thank', 'thanks', 'terima kasih', 'tq', 'thx'], a: ['You\'re welcome! Anything else about Rasumi Apps?', 'Sama-sama! Ada apa-apa lagi tentang Rasumi Apps?'] },
     { kw: ['who are you', 'siapa kamu', 'siapa awak', 'are you human', 'kau siapa', 'are you a bot'],
-      a: ['I\'m Rasumi Agent, the assistant for Rasumi Apps. I answer questions about installing, signing in, the apps and our 20 agents, and I can pass your message to IT.',
-          'Saya Rasumi Agent, pembantu Rasumi Apps. Saya jawab soalan tentang pemasangan, log masuk, aplikasi dan 20 agent kami, dan boleh hantar mesej anda kepada IT.'] },
+      a: ['I\'m Rasumi Agent, the assistant for Rasumi Apps. I answer questions about Rasumi Apps, from installing and signing in to using each app, and I can pass your message to IT.',
+          'Saya Rasumi Agent, pembantu Rasumi Apps. Saya jawab soalan tentang Rasumi Apps, dari pemasangan dan log masuk hingga penggunaan setiap app, dan boleh hantar mesej anda kepada IT.'] },
     { kw: ['what is rasumi apps', 'apa itu rasumi apps', 'rasumi apps apa', 'about rasumi apps'],
-      a: ['Rasumi Apps is Rasumi Medipharma\'s own Windows app: document tools (Renamer, Splitter, Scanify), Store Portal, PO Mailer, Vibes Agent, Admin Monitor and Executive, with 20 agents running in the background for every branch.',
-          'Rasumi Apps ialah app Windows milik Rasumi Medipharma: alat dokumen (Renamer, Splitter, Scanify), Store Portal, PO Mailer, Vibes Agent, Admin Monitor dan Eksekutif, dengan 20 agent berjalan di belakang untuk setiap cawangan.'] }
+      a: ['Rasumi Apps is Rasumi Medipharma\'s own Windows app: document tools (Renamer, Splitter, Scanify), Store Portal, PO Mailer, Vibes Agent, Admin Monitor and Executive, with automation running in the background for every branch.',
+          'Rasumi Apps ialah app Windows milik Rasumi Medipharma: alat dokumen (Renamer, Splitter, Scanify), Store Portal, PO Mailer, Vibes Agent, Admin Monitor dan Eksekutif, dengan automasi berjalan di belakang untuk setiap cawangan.'] }
   ];
-  var OFF = ['I can only help with Rasumi Apps. That question is outside what I\'m here for. Ask me about installing, signing in, the apps, the 20 agents or our technology.',
-             'Saya hanya boleh membantu tentang Rasumi Apps. Soalan itu di luar skop saya. Tanya saya tentang pemasangan, log masuk, aplikasi, 20 agent atau teknologi kami.'];
+  var OFF = ['I can only help with Rasumi Apps. That question is outside what I\'m here for. Ask me about installing, signing in, using the apps or our technology.',
+             'Saya hanya boleh membantu tentang Rasumi Apps. Soalan itu di luar skop saya. Tanya saya tentang pemasangan, log masuk, penggunaan aplikasi atau teknologi kami.'];
   var CATS = [['Install / download', 'Pasang / muat turun'], ['Sign-in / 2FA', 'Log masuk / 2FA'], ['Using the apps', 'Guna aplikasi'], ['Invitation link', 'Link jemputan'], ['Other', 'Lain-lain']];
   return { N: N, TOPICS: TOPICS, AG: AG, SMALL: SMALL, OFF: OFF, CATS: CATS };
 })();
