@@ -379,10 +379,11 @@
           }
         }
       });
+      var kwS = s;
       qwords(id).forEach(function (w) { if (tw.indexOf(w) >= 0) s += 1; });
       if (!s) return;
       if (KB.TOPICS.indexOf(id) >= 0) s -= 2;               // prefer a precise answer over a topic menu
-      if (/^g_/.test(id) && agentWord) s += 3;             // "which agent …" -> the agents answer, not the app
+      if (/^g_/.test(id) && agentWord && kwS > 0) s += 3;  // "which agent sends PO" -> that group; a plain "what agents" stays on the overview
       if (s > 0) out.push({ id: id, s: s });
     });
     return out.sort(function (a, b) { return b.s - a.s; });

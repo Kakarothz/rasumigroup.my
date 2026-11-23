@@ -6,12 +6,12 @@ window.RA_KB = (function () {
   function n(id, q, a, kw, next, extra) { N[id] = Object.assign({ id: id, q: q, a: a, kw: kw || [], next: next || [] }, extra || {}); }
 
   // ---------------------------------------------------------------- topics (first menu)
-  var TOPICS = ['about', 'start', 'apps', 'agents', 'account', 'trouble', 'tech', 'it'];
+  var TOPICS = ['about', 'start', 'apps', 'account', 'trouble', 'tech', 'it'];   // the agents are answered only when someone asks
 
   // ---------------------------------------------------------------- 0. about Rasumi Apps
   n('about', ['What is Rasumi Apps?', 'Apa itu Rasumi Apps?'],
-    ['<b>Rasumi Apps</b> is Rasumi Medipharma\'s own Windows app for staff. It puts daily work in one place:<ul><li><b>Documents</b>: rename, split and clean up scanned invoices, DOs and claim papers (Renamer, Splitter, Scanify, Doc Manager).</li><li><b>Store and purchasing</b>: branch stock, Store Portal, Special Request and PO Mailer linked to AutoCount.</li><li><b>Claims</b>: Vibes Agent sends claim documents to JHEV.</li><li><b>Management</b>: Admin Monitor and Executive reports.</li></ul>Behind it, 20 agents keep the data from VIMS and AutoCount up to date for every branch. You only see the apps your role needs.',
-     '<b>Rasumi Apps</b> ialah app Windows milik Rasumi Medipharma untuk staf. Ia himpunkan kerja harian dalam satu tempat:<ul><li><b>Dokumen</b>: namakan, pecahkan dan kemaskan scan invois, DO dan kertas claim (Renamer, Splitter, Scanify, Doc Manager).</li><li><b>Stor dan pembelian</b>: stok cawangan, Store Portal, Special Request dan PO Mailer yang disambung ke AutoCount.</li><li><b>Claim</b>: Vibes Agent hantar dokumen claim ke JHEV.</li><li><b>Pengurusan</b>: Admin Monitor dan laporan Eksekutif.</li></ul>Di belakangnya, 20 agent memastikan data dari VIMS dan AutoCount sentiasa terkini untuk setiap cawangan. Anda hanya nampak app yang diperlukan oleh peranan anda.'],
+    ['<b>Rasumi Apps</b> is Rasumi Medipharma\'s own Windows app for staff. It puts daily work in one place:<ul><li><b>Documents</b>: rename, split and clean up scanned invoices, DOs and claim papers (Renamer, Splitter, Scanify, Doc Manager).</li><li><b>Store and purchasing</b>: branch stock, Store Portal, Special Request and PO Mailer linked to AutoCount.</li><li><b>Claims</b>: Vibes Agent sends claim documents to JHEV.</li><li><b>Management</b>: Admin Monitor and Executive reports.</li></ul>In the background, automation keeps the data from VIMS and AutoCount up to date for every branch. You only see the apps your role needs.',
+     '<b>Rasumi Apps</b> ialah app Windows milik Rasumi Medipharma untuk staf. Ia himpunkan kerja harian dalam satu tempat:<ul><li><b>Dokumen</b>: namakan, pecahkan dan kemaskan scan invois, DO dan kertas claim (Renamer, Splitter, Scanify, Doc Manager).</li><li><b>Stor dan pembelian</b>: stok cawangan, Store Portal, Special Request dan PO Mailer yang disambung ke AutoCount.</li><li><b>Claim</b>: Vibes Agent hantar dokumen claim ke JHEV.</li><li><b>Pengurusan</b>: Admin Monitor dan laporan Eksekutif.</li></ul>Di belakang tabir, automasi memastikan data dari VIMS dan AutoCount sentiasa terkini untuk setiap cawangan. Anda hanya nampak app yang diperlukan oleh peranan anda.'],
     ['what is rasumi', 'apa itu rasumi', 'about rasumi', 'tentang rasumi', 'rasumi apps ni', 'rasumi apps tu', 'introduce', 'perkenalkan', 'explain rasumi', 'terangkan rasumi', 'overview', 'gambaran'], ['b_who', 'b_role', 'b_why', 'b_cost', 'b_maker', 'w_terms']);
   n('b_who', ['Who uses it?', 'Siapa yang guna?'],
     ['Rasumi staff who are invited by IT: HQ claim and document teams, branch counters and pharmacists, purchasers, Accounts, HR and management. Each person signs in with their own account, so the app shows the right tools and credits the work to the right person.',
@@ -178,8 +178,8 @@ window.RA_KB = (function () {
     ['support', 'Support Desk', 'Takes "Leave a message for IT" from this chat, sends it to IT and keeps the ratings.', 'Menerima "Tinggalkan mesej untuk IT" dari chat ini, menghantar kepada IT dan menyimpan rating.']
   ];
   n('agents', ['The 20 AI agents', '20 AI agent'],
-    ['Rasumi Apps runs <b>20 agents</b> non-stop. Each one does a real job in the system. Which area are you curious about?',
-     'Rasumi Apps menjalankan <b>20 agent</b> tanpa henti. Setiap satu membuat kerja sebenar dalam sistem. Bahagian mana yang anda mahu tahu?'],
+    ['Ah, the agents! Yes, Rasumi Apps has <b>20 of them</b> working quietly in the background, day and night. No dummies: each one has a real job, from pulling VIMS and AutoCount data to sending POs and tracking JHEV claims. Which group do you want to peek at?',
+     'Ah, agent-agent tu! Ya, Rasumi Apps ada <b>20 agent</b> yang bekerja senyap-senyap di belakang tabir, siang dan malam. Bukan hiasan: setiap satu ada kerja sebenar, dari tarik data VIMS dan AutoCount hingga hantar PO dan jejak tuntutan JHEV. Kumpulan mana yang anda nak tengok?'],
     ['agent', 'agents', 'ai', 'bot', 'automation', 'automasi', 'robot', '20 agent'], ['g_data', 'g_exec', 'g_buy', 'g_docs', 'g_sys', 'g_all']);
   function grp(id, en, ms, keys, kw) {
     n(id, [en, ms], [function (c) { return c.agentList(keys, 'en'); }, function (c) { return c.agentList(keys, 'ms'); }], kw, [], { live: true });
