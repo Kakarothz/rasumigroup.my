@@ -110,6 +110,7 @@
           $('dl-left').textContent = r.downloads_left + ' download' + (r.downloads_left === 1 ? '' : 's') + ' left on this invitation';
           if ($('o-left')) $('o-left').textContent = r.downloads_left;
           if (window.RA_INFO) window.RA_INFO.downloads_left = r.downloads_left;
+          gdShow(0);
           $('dl').classList.add('on');
           var a = $('st2'), c = $('st3'); a.classList.remove('now'); a.classList.add('done'); a.querySelector('.d').textContent = '✓'; a.querySelector('.ob-s').textContent = 'Done'; c.classList.add('now'); c.querySelector('.ob-s').textContent = 'Now'; document.querySelector('.onb').classList.add('p2');
         } else if (r && r.reason === 'download_limit') {
@@ -127,6 +128,31 @@
     });
   });
   $('dl-done').addEventListener('click', function () { $('dl').classList.remove('on'); });
+
+  // setup guide in the download modal: real screenshots, one instruction per step
+  var GD = [
+    ['g1', 'Open the installer', 'When the download finishes, open <b>Rasumi_Apps_Setup</b> from your browser\'s download list (or your <b>Downloads</b> folder).'],
+    ['g2', 'Allow it to run', 'Windows asks if you want to run the software: click <b>Run</b>. If you see <b>Windows protected your PC</b> instead, click <b>More info</b>, then <b>Run anyway</b>.'],
+    ['g3', 'Desktop shortcut', 'Keep <b>Create a desktop shortcut</b> ticked and click <b>Next</b>.'],
+    ['g4', 'Install', 'Click <b>Install</b> and wait about a minute while the files are copied.'],
+    ['g6', 'Finish', 'Leave <b>Launch Rasumi Apps</b> ticked and click <b>Finish</b>. Rasumi Apps opens by itself.'],
+    [null, 'Sign up', '']
+  ], gdI = 0;
+  function gdShow(n) {
+    gdI = Math.max(0, Math.min(GD.length - 1, n));
+    var g = GD[gdI], img = $('gd-img'), last = gdI === GD.length - 1;
+    if (g[0]) { img.src = 'assets/guide/' + g[0] + '.webp'; img.parentNode.classList.remove('gd-app'); }
+    else { img.src = 'assets/agent.webp?v=1'; img.parentNode.classList.add('gd-app'); }
+    $('gd-stp').textContent = 'Step ' + (gdI + 1) + ' of ' + GD.length + ' · ' + g[1];
+    $('gd-ins').innerHTML = last ? 'In Rasumi Apps press <b>Sign up</b> with <b>' + esc((info && info.email) || 'your invited e-mail') +
+      '</b>, confirm the e-mail we send you, then set up <b>two-step verification</b> with an authenticator app. Questions? Ask Rasumi Agent at the bottom right.' : g[2];
+    $('gd-dots').innerHTML = GD.map(function (_, k) { return '<i class="' + (k === gdI ? 'on' : '') + '"></i>'; }).join('');
+    $('gd-back').disabled = gdI === 0;
+    $('gd-next').textContent = last ? 'Done' : 'Next';
+  }
+  $('gd-back').addEventListener('click', function () { gdShow(gdI - 1); });
+  $('gd-next').addEventListener('click', function () { if (gdI === GD.length - 1) $('dl').classList.remove('on'); else gdShow(gdI + 1); });
+  GD.forEach(function (g) { if (g[0]) { var im = new Image(); im.src = 'assets/guide/' + g[0] + '.webp'; } });   // preload
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') $('dl').classList.remove('on'); });
 
   // product tour

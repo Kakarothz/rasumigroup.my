@@ -5,7 +5,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <meta name="referrer" content="no-referrer">
 <title>Rasumi Apps · Your invitation</title>
-<link rel="stylesheet" href="style.css?v=18">
+<link rel="stylesheet" href="style.css?v=19">
 <link rel="stylesheet" href="chat.css?v=3">
 </head><body>
 <canvas id="bg" aria-hidden="true"></canvas>
@@ -134,14 +134,18 @@
  <div class="dl" id="dl" role="dialog" aria-modal="true" aria-labelledby="dlh"><div class="dlc">
   <div class="ok"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 4.5 4.5L19 7"/></svg></div>
   <h3 id="dlh">Your download has started</h3><p id="dl-file"></p>
-  <ol><li>Open the file from your browser's downloads.<span>Usually the Downloads folder.</span></li><li>Run the installer.<span>Rasumi Apps opens when it finishes.</span></li><li>Choose Sign up with <b class="o-mail"></b>.<span>Then turn on two-step verification.</span></li></ol>
+  <div class="gd" id="gd">
+   <div class="gd-shot"><img id="gd-img" src="assets/guide/g1.webp" alt="" draggable="false"></div>
+   <div class="gd-stp" id="gd-stp"></div>
+   <div class="gd-ins" id="gd-ins"></div>
+   <div class="gd-nav"><button type="button" class="btn btn-s btn-sm" id="gd-back">Back</button><div class="gd-dots" id="gd-dots"></div><button type="button" class="btn btn-p btn-sm" id="gd-next">Next</button></div>
+  </div>
   <div class="lockn">This invitation now works in this browser on this PC only.</div>
-  <div class="tip">If Windows shows "Windows protected your PC", click <b>More info</b> → <b>Run anyway</b>.</div>
-  <div class="act"><span id="dl-left"></span><button class="btn btn-s btn-sm" id="dl-done">Done</button></div>
+  <div class="act"><span id="dl-left"></span><button class="btn btn-s btn-sm" id="dl-done">Close</button></div>
  </div></div>
 </div>
-<script src="app.js?v=8"></script>
-<script src="chat-kb.js?v=8"></script>
+<script src="app.js?v=9"></script>
+<script src="chat-kb.js?v=9"></script>
 <script src="chat.js?v=12"></script>
 <script src="flows.js?v=2"></script>
 <script src="bg.js?v=1"></script>
