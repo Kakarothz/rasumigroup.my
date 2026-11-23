@@ -74,7 +74,7 @@
   function render(r) {
     info = r;
     window.RA_INFO = { first_name: r.first_name, email: r.email, expires_at: r.expires_at, downloads_left: r.downloads_left,
-      version: r.installer && r.installer.version, size: r.installer && r.installer.size };   // Rasumi Agent chat (chat.js)
+      version: r.installer && r.installer.version, size: r.installer && r.installer.size, honorific: r.honorific || null };   // Rasumi Agent chat (chat.js)
     try { document.dispatchEvent(new CustomEvent('ra:info')); } catch (e) { }
     var first = r.first_name || 'there';
     $('o-name').textContent = first;

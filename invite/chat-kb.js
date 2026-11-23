@@ -336,6 +336,76 @@ window.RA_KB = (function () {
     'to of in on at for from with by about as into how what when where which who whom why please pls plz hi hello hey thanks thank ok okay rasumi apps app ' +
     'saya aku awak kau anda kita kami ini itu ni tu nak mahu hendak boleh ke kah tak tidak ada apa bagaimana macam mana camne cmne siapa bila kenapa mengapa yang dan atau untuk dengan ' +
     'di dalam pada dari kepada tolong sila je jer lah la pun sahaja saja tu ni tell me explain').split(' ');
+  // ---------------------------------------------------------------- small talk with variety (fixed answers, no AI)
+  // {you} = how to address the user (Puan Filzah / awak / anda / you), {name} = first name or title + name.
+  // Each topic: re (lower-case, after shortforms), en[] / ms[] answers picked at random, then a redirect line.
+  var CHAT = [
+    { id: 'food', re: /\b(makan|minum|lapar|haus|sarapan|breakfast|lunch|dinner|supper|eat|ate|eating|drink|hungry|thirsty|kopi|coffee|teh|nasi|lunch break)\b/,
+      en: ['I don\'t eat or drink, but I never say no to fresh data 😄', 'No meals for me. I run on electricity and a steady internet connection!', 'I skip every meal, being a virtual agent has its perks. Hope {you} have had yours!'],
+      ms: ['Saya tak makan dan minum, cuma "makan" data yang segar sahaja 😄', 'Saya tak perlu makan, cukup elektrik dan internet yang laju!', 'Saya pembantu maya, jadi tak pernah lapar. Harap {you} dah makan, ya!'] },
+    { id: 'sleep', re: /\b(tidur|sleep|sleeping|penat|letih|tired|rehat|rest|mengantuk|sleepy)\b/,
+      en: ['I never sleep. As long as the server is on, I\'m on duty 24/7.', 'No sleep, no breaks, no coffee needed. I\'m here around the clock.', 'Tired? Never! Virtual agents don\'t need rest, but I hope {you} get some.'],
+      ms: ['Saya tak pernah tidur. Selagi server hidup, saya bertugas 24 jam.', 'Tiada tidur, tiada rehat, tiada kopi. Saya sentiasa ada.', 'Penat? Tak pernah! Pembantu maya tak perlu rehat, tapi {you} jangan lupa rehat, ya.'] },
+    { id: 'ai', re: /\b(ai|robot|bot|manusia|human|real person|orang betul|orang sebenar|chatgpt|gemini|artificial)\b/,
+      en: ['Yes, I\'m Rasumi Agent, a virtual assistant for Rasumi Apps. Not human, but always happy to help.', 'I\'m a virtual agent built by the Rasumi IT / AI team. If you need a real person, IT is one tap away.', 'Guilty as charged: I\'m an AI assistant, made to help with Rasumi Apps.'],
+      ms: ['Ya, saya Rasumi Agent, pembantu maya untuk Rasumi Apps. Bukan manusia, tapi sentiasa sedia membantu.', 'Saya pembantu maya yang dibina oleh pasukan IT / AI Rasumi. Kalau {you} perlukan manusia, IT boleh dihubungi bila-bila masa.', 'Betul, saya AI. Dicipta khas untuk membantu tentang Rasumi Apps.'] },
+    { id: 'age', re: /\b(umur|age|how old|berapa tahun|lahir|birthday|hari jadi|old are you)\b/,
+      en: ['Age is just a version number for me 😄', 'I\'m as young as the latest update of Rasumi Apps.', 'Old enough to know Rasumi Apps inside out!'],
+      ms: ['Umur saya ikut nombor versi sahaja 😄', 'Saya semuda kemas kini terbaru Rasumi Apps.', 'Cukup "dewasa" untuk tahu selok-belok Rasumi Apps!'] },
+    { id: 'gender', re: /\b(lelaki|perempuan|male|female|girl|boy|gender|jantina|awek|pakwe)\b/,
+      en: ['I\'m a virtual agent, so no gender, just here to help.', 'Neither, I\'m software with a friendly face 😊'],
+      ms: ['Saya pembantu maya, jadi tiada jantina. Tugas saya cuma membantu.', 'Bukan lelaki, bukan perempuan, saya perisian dengan wajah yang mesra 😊'] },
+    { id: 'howareyou', re: /\b(apa khabar|how are you|how r you|sihat|sihat tak|how is it going|how\'s it going|camne hari ni)\b/,
+      en: ['I\'m great, thank you for asking! All systems running smoothly.', 'Doing well, every system is green today. How about {you}?', 'Very well, thanks! Ready to help.'],
+      ms: ['Saya sihat, terima kasih kerana bertanya! Semua sistem berjalan lancar.', 'Baik sekali, semua sistem hijau hari ini. {you} pula macam mana?', 'Sihat, terima kasih! Sedia untuk membantu.'] },
+    { id: 'where', re: /\b(duduk mana|tinggal mana|where are you|where do you live|kat mana awak|kat mana kau)\b/,
+      en: ['I live in the cloud, on Rasumi\'s servers, but I\'m always right here in this chat.', 'Home for me is a server; my office is this chat window 😄'],
+      ms: ['Saya "tinggal" di awan, di server Rasumi, tapi sentiasa ada dalam chat ini.', 'Rumah saya server, pejabat saya tetingkap chat ini 😄'] },
+    { id: 'love', re: /\b(kahwin|couple|single|girlfriend|boyfriend|marry|crush|suka saya|love you|i love|cintakan|sayang kau|sayang awak)\b/,
+      en: ['That\'s kind, but I\'m fully committed to Rasumi Apps 😄', 'I\'m flattered! My heart belongs to helping users, though.'],
+      ms: ['Terima kasih, tapi saya dah "berkahwin" dengan Rasumi Apps 😄', 'Saya terharu! Tapi hati saya hanya untuk membantu pengguna.'] },
+    { id: 'joke', re: /\b(lawak|joke|funny|kelakar|cerita lucu|buat lawak|tell me a joke)\b/,
+      en: ['Why did the PDF go to the Renamer? It wanted a fresh start 😄', 'I tried a joke about the database, but it had too many relations.'],
+      ms: ['Kenapa PDF pergi jumpa Renamer? Sebab nak tukar nama baru 😄', 'Saya cuba buat lawak pasal database, tapi terlalu banyak "hubungan".'] },
+    { id: 'name', re: /\b(nama kau|nama awak|siapa nama|your name|what is your name|nama apa)\b/,
+      en: ['I\'m Rasumi Agent, your assistant for Rasumi Apps.'],
+      ms: ['Nama saya Rasumi Agent, pembantu untuk Rasumi Apps.'] },
+    { id: 'creator', re: /\b(siapa buat kau|siapa cipta kau|who made you|who created you|who built you|siapa bina kau|siapa buat awak)\b/,
+      en: ['I was built by the IT / AI team at Rasumi Medipharma.'],
+      ms: ['Saya dibina oleh pasukan IT / AI Rasumi Medipharma.'] },
+    { id: 'bored', re: /\b(bosan|boring|bored|takde kerja|tiada kerja)\b/,
+      en: ['Bored? Exploring Rasumi Apps might help, there\'s a lot in there!'],
+      ms: ['Bosan? Cuba terokai Rasumi Apps, banyak yang menarik di dalamnya!'] },
+    { id: 'praise', re: /\b(pandai|bijak|smart|clever|good job|terbaik|hebat|bagus|awesome|great job|well done|mantap)\b/,
+      en: ['Thank you, that made my day! 😊', 'Thanks! I\'m always learning to help better.'],
+      ms: ['Terima kasih, gembira saya mendengarnya! 😊', 'Terima kasih! Saya sentiasa belajar untuk membantu dengan lebih baik.'] },
+    { id: 'rude', re: /\b(bodoh|bangang|bengap|bebal|stupid|idiot|useless|sial|dumb)\b/,
+      en: ['Sorry if I didn\'t get it right. Tell me what you need about Rasumi Apps and I\'ll do my best.', 'I understand the frustration. Let\'s try again: what do you need help with in Rasumi Apps?'],
+      ms: ['Maaf jika saya tersilap faham. Beritahu saya apa yang {you} perlukan tentang Rasumi Apps dan saya akan cuba sebaiknya.', 'Saya faham {you} kecewa. Mari cuba sekali lagi: apa yang boleh saya bantu tentang Rasumi Apps?'] }
+  ];
+  // after a small-talk answer: bring the chat back to Rasumi Apps (level 1 friendly, level 2 firmer)
+  var REDIRECT = {
+    en: [['What can I help you with in Rasumi Apps?', 'Anything about Rasumi Apps I can help with?', 'Shall we get back to Rasumi Apps? Ask me anything about it.'],
+         ['I can only help with Rasumi Apps, so please ask me about installing, signing in or using the apps.', 'Let\'s keep to Rasumi Apps: installing, signing in, the apps or our technology.']],
+    ms: [['Ada apa-apa tentang Rasumi Apps yang boleh saya bantu?', 'Apa yang boleh saya bantu tentang Rasumi Apps?', 'Jom kita kembali kepada Rasumi Apps. Tanya saya apa sahaja tentangnya.'],
+         ['Saya hanya boleh membantu tentang Rasumi Apps. Sila tanya tentang pemasangan, log masuk atau penggunaan aplikasi.', 'Kita fokus pada Rasumi Apps, ya: pemasangan, log masuk, aplikasi atau teknologi kami.']]
+  };
+  // questions outside Rasumi Apps: level 1 polite, level 2 firm, level 3 closing (offers to end the chat)
+  var OFFL = {
+    en: [['I can only help with Rasumi Apps. That one is outside what I\'m here for. Ask me about installing, signing in, using the apps or our technology.',
+          'That\'s outside Rasumi Apps, so I can\'t help with it. I\'m happy to help with anything about Rasumi Apps, though.',
+          'Sorry, I only know Rasumi Apps. Try asking me about the apps, signing in or installing.'],
+         ['I\'m sorry, I can\'t answer questions outside Rasumi Apps. Please ask me something about Rasumi Apps.',
+          'Again, that\'s outside my scope. I can only help with Rasumi Apps.'],
+         ['Sorry, {name}, I can\'t answer questions outside Rasumi Apps. If you have no other questions about Rasumi Apps, I can end this conversation for you.']],
+    ms: [['Saya hanya boleh membantu tentang Rasumi Apps. Soalan itu di luar skop saya. Tanya saya tentang pemasangan, log masuk, penggunaan aplikasi atau teknologi kami.',
+          'Itu di luar Rasumi Apps, jadi saya tak dapat membantu. Tapi saya sedia bantu apa sahaja tentang Rasumi Apps.',
+          'Maaf, saya hanya tahu tentang Rasumi Apps. Cuba tanya saya tentang aplikasi, log masuk atau pemasangan.'],
+         ['Maaf, saya tak dapat menjawab soalan di luar Rasumi Apps. Sila tanya sesuatu tentang Rasumi Apps.',
+          'Sekali lagi, itu di luar skop saya. Saya hanya boleh membantu tentang Rasumi Apps.'],
+         ['Maaf, {name}, saya tak dapat menjawab soalan di luar skop Rasumi Apps. Jika tiada pertanyaan lain tentang Rasumi Apps, saya boleh bantu tamatkan perbualan ini.']]
+  };
+
   // company data is never shown on this page (fixed answer, the AI is not asked)
   n('secret', ['Company figures and staff data', 'Angka syarikat dan data staf'],
     ['Sorry, this page cannot see or share company data such as sales, costs, claim amounts, prices, stock levels, staff KPI or staff lists. Those figures are only inside Rasumi Apps for staff whose role allows it (for example the <b>Executive</b> app for BOD, HR and Accounts). If you need access, use <b>Leave a message for IT</b>.',
@@ -365,5 +435,5 @@ window.RA_KB = (function () {
   var OFF = ['I can only help with Rasumi Apps. That question is outside what I\'m here for. Ask me about installing, signing in, using the apps or our technology.',
              'Saya hanya boleh membantu tentang Rasumi Apps. Soalan itu di luar skop saya. Tanya saya tentang pemasangan, log masuk, penggunaan aplikasi atau teknologi kami.'];
   var CATS = [['Install / download', 'Pasang / muat turun'], ['Sign-in / 2FA', 'Log masuk / 2FA'], ['Using the apps', 'Guna aplikasi'], ['Invitation link', 'Link jemputan'], ['Other', 'Lain-lain']];
-  return { N: N, TOPICS: TOPICS, AG: AG, SMALL: SMALL, OFF: OFF, CATS: CATS, INTENTS: INTENTS, STOP: STOP, DOMAIN: DOMAIN, SECRET: SECRET, OFFTOPIC: OFFTOPIC };
+  return { N: N, TOPICS: TOPICS, AG: AG, SMALL: SMALL, OFF: OFF, CATS: CATS, INTENTS: INTENTS, STOP: STOP, DOMAIN: DOMAIN, SECRET: SECRET, OFFTOPIC: OFFTOPIC, CHAT: CHAT, REDIRECT: REDIRECT, OFFL: OFFL };
 })();

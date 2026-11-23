@@ -13,7 +13,7 @@
   var LANG = 'en', L = function () { return LANG === 'ms' ? 1 : 0; };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var T = function (en, ms) { return LANG === 'ms' ? ms : en; };
-  var awaitSolved = false, lastAI = false, userIssue = '', info = null, el = {}, transcript = [], busy = false, started = false, status = null, statusAt = 0, lastTopic = '', lastQ = '';
+  var offCount = 0, REG = null, idleT = null, lastPick = {}, awaitSolved = false, lastAI = false, userIssue = '', info = null, el = {}, transcript = [], busy = false, started = false, status = null, statusAt = 0, lastTopic = '', lastQ = '';
 
   function call(body) {
     body.token = ls.get('rasumi_inv_t'); body.device = ls.get('rasumi_inv_d');
@@ -59,6 +59,57 @@
     min: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14"/></svg>',
     redo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>'
   };
+  // how to address the user: BOD title from the server (Puan Filzah …), else the user's own style (awak / anda / you)
+  function hon() { var i = window.RA_INFO || info || {}; return i.honorific && i.honorific.title ? i.honorific.title + ' ' + i.honorific.name : ''; }
+  function nameOf() { return hon() || (info && info.first_name) || T('there', 'anda'); }
+  function youOf() { if (hon()) return hon(); if (LANG === 'en') return 'you'; return REG === 'casual' ? 'awak' : 'anda'; }
+  function capS(s) { return s.replace(/(^|[.!?]\s+|<br>)([a-z])/g, function (m, a, b) { return a + b.toUpperCase(); }); }
+  function fill(s) { return capS(String(s).replace(/\{you\}/g, esc(youOf())).replace(/\{name\}/g, esc(nameOf()))); }
+  function pick(key, arr) {                                   // random, never the same line twice in a row
+    if (arr.length < 2) return arr[0];
+    var i; do { i = Math.floor(Math.random() * arr.length); } while (i === lastPick[key]);
+    lastPick[key] = i; return arr[i];
+  }
+  function regOf(raw) {
+    var t = ' ' + String(raw).toLowerCase() + ' ';
+    if (/[^a-z](kau|ko|aku|engkau|hang|weh|bro|beb)[^a-z]/.test(t)) return 'casual';
+    if (/[^a-z](anda|saya|tuan|puan|encik)[^a-z]/.test(t)) return 'formal';
+    return null;
+  }
+  // 5 minutes without anything from the user: close the chat and start again next time (old messages are wiped)
+  function bump() { clearTimeout(idleT); if (started) idleT = setTimeout(onIdle, 5 * 60 * 1000); }
+  function onIdle() {
+    var ta = el.ms && el.ms.querySelector('.ra-form textarea');
+    if (busy || (ta && ta.value.trim())) return bump();      // never lose a message being written to IT
+    resetChat(true);
+  }
+  function resetChat(collapse) {
+    clearTimeout(idleT);
+    el.ms.innerHTML = ''; transcript = []; started = false; offCount = 0; awaitSolved = false; lastQ = ''; lastAI = false; REG = null;
+    if (collapse) close();
+  }
+  function endChat() {
+    userSay(T('End the conversation', 'Tamatkan perbualan'));
+    agentSay(fill(T('Thank you for chatting with Rasumi Agent, {name}. Have a great day!', 'Terima kasih kerana berbual dengan Rasumi Agent, {name}. Semoga hari {you} menyenangkan!')),
+      function () { setTimeout(function () { resetChat(true); }, 2500); });
+  }
+  // outside Rasumi Apps: small talk gets a real answer first; repeats get firmer, the 3rd in a row offers to end the chat
+  function outOfScope(topic, text) {
+    offCount++;
+    var lv = Math.min(offCount, 3) - 1, k = LANG === 'ms' ? 'ms' : 'en', html;
+    if (text && !topic) logMiss(text);
+    if (lv === 2) {
+      html = fill(pick('close', KB.OFFL[k][2]));
+      return agentSay(html, function () {
+        quick([{ label: T('End the conversation', 'Tamatkan perbualan'), cls: 'ra-mut', go: endChat },
+               { label: T('I have a Rasumi Apps question', 'Saya ada soalan Rasumi Apps'), go: function () { userSay(T('I have a Rasumi Apps question', 'Saya ada soalan Rasumi Apps')); offCount = 0; topics(); } }]);
+      });
+    }
+    html = topic ? fill(pick('t_' + topic.id, topic[k])) + '<br>' + fill(pick('r' + lv, KB.REDIRECT[k][lv])) : fill(pick('o' + lv, KB.OFFL[k][lv]));
+    agentSay(html, function () { quick(topic ? [menuChip()] : [menuChip(), itChip()]); });
+  }
+  function chatTopic(text) { var t = norm(text); for (var i = 0; i < (KB.CHAT || []).length; i++) if (KB.CHAT[i].re.test(t)) return KB.CHAT[i]; return null; }
+
   var AV = '<span class="ra-av"><img src="assets/agent.webp?v=1" alt=""></span>';
   function build() {
     var fab = document.createElement('button');
@@ -80,8 +131,9 @@
     w.querySelector('.ra-close').onclick = close;
     w.querySelector('.ra-it').onclick = function () { if (!busy) { userSay(T('Contact IT', 'Hubungi IT')); showNode('it'); } };
     w.querySelector('.ra-lang').onclick = function () { LANG = LANG === 'en' ? 'ms' : 'en'; ls.set('ra_chat_lang', LANG); labels(); };
-    w.querySelector('.ra-new').onclick = function () { if (busy) return; el.ms.innerHTML = ''; transcript = []; greet(); };
+    w.querySelector('.ra-new').onclick = function () { if (busy) return; resetChat(false); started = true; greet(); };
     el.form.onsubmit = function (e) { e.preventDefault(); typed(); };
+    el.input.addEventListener('input', bump); w.addEventListener('click', bump);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && w.classList.contains('ra-open')) close(); });
     labels();
   }
@@ -95,7 +147,7 @@
     el.input.placeholder = T('Type a question about Rasumi Apps…', 'Taip soalan tentang Rasumi Apps…');
     el.w.querySelector('.ra-ft').textContent = T('Rasumi Agent answers about Rasumi Apps only.', 'Rasumi Agent hanya menjawab tentang Rasumi Apps.');
   }
-  function open() { el.w.classList.add('ra-open'); el.fab.classList.add('ra-hide'); if (!started) { started = true; greet(); } setTimeout(function () { el.input.focus(); }, 200); }
+  function open() { el.w.classList.add('ra-open'); el.fab.classList.add('ra-hide'); if (!started) { started = true; greet(); } bump(); setTimeout(function () { el.input.focus(); }, 200); }
   function close() { el.w.classList.remove('ra-open'); el.fab.classList.remove('ra-hide'); }
   function now() { return new Date().toLocaleTimeString(LANG === 'ms' ? 'ms-MY' : 'en-GB', { hour: '2-digit', minute: '2-digit' }); }
   function scroll() { el.ms.scrollTop = el.ms.scrollHeight; }
@@ -107,7 +159,7 @@
     scroll(); return r;
   }
   function plain(html) { var d = document.createElement('div'); d.innerHTML = html; return (d.textContent || '').replace(/\s+/g, ' ').trim(); }
-  function userSay(text) { bubble(esc(text), true); transcript.push({ who: 'user', text: text }); }
+  function userSay(text) { bubble(esc(text), true); transcript.push({ who: 'user', text: text }); bump(); }
   // the agent "thinks" for about 3 s before every reply, like a live agent
   function agentSay(html, after) {
     busy = true;
@@ -138,7 +190,7 @@
 
   // ---------------------------------------------------------------- flow
   function greet() {
-    var name = info && info.first_name ? ' ' + esc(info.first_name) : '';
+    var name = hon() ? ' ' + esc(hon()) : (info && info.first_name ? ' ' + esc(info.first_name) : '');
     agentSay(T('Hi' + name + '! I\'m <b>Rasumi Agent</b>, here to help with anything about Rasumi Apps, from installing and signing in to using the apps every day. What can I help you with?',
                'Hai' + name + '! Saya <b>Rasumi Agent</b>, sedia membantu apa sahaja tentang Rasumi Apps, dari pemasangan dan log masuk hingga penggunaan harian. Apa yang boleh saya bantu?'), topicChips);
   }
@@ -151,7 +203,7 @@
   function topics() { agentSay(T('Sure. What else can I help you with?', 'Baik. Apa lagi yang boleh saya bantu?'), topicChips); }
   function showNode(id) {
     var n = KB.N[id]; if (!n) return;
-    lastAI = false;
+    lastAI = false; if (id !== 'secret') offCount = 0;
     if (KB.TOPICS.indexOf(id) >= 0) lastTopic = qText(n);
     if (n.form) return agentSay(answerText(n), ticketForm);
     var go = function () {
@@ -409,6 +461,7 @@
     var text = el.input.value.trim(); if (!text || busy) return;
     el.input.value = '';
     var last = el.ms.lastElementChild, open = last && last.classList.contains('ra-qr') ? last : null;
+    var rg = regOf(text); if (rg) REG = rg;
     var lg = langOf(text);
     var other = lg === 'other';
     setLang(other ? 'en' : lg);
@@ -439,9 +492,9 @@
     // company figures / people's data: fixed answer, never the AI (a price question about the app itself is fine)
     var appPrice = top && top.id === 'b_cost' && /\b(app|apps|aplikasi|rasumi|licence|license|lesen|langganan|subscription|percuma|free)\b/.test(norm(text));
     if (isSecret(text) && !appPrice) { lastQ = text; return showNode('secret'); }
-    if ((KB.OFFTOPIC || []).some(function (re) { return re.test(norm(text)); })) {   // clearly another subject: fixed answer, no AI
-      logMiss(text); return agentSay(KB.OFF[L()], function () { quick([menuChip(), itChip()]); });
-    }
+    var tp = (!top || top.s < 3) ? chatTopic(text) : null;   // "dah makan?", "kau AI ke?": a real answer, then back to Rasumi Apps
+    if (tp) return outOfScope(tp);
+    if ((KB.OFFTOPIC || []).some(function (re) { return re.test(norm(text)); })) return outOfScope(null, text);   // clearly another subject, no AI
     if ((!top || top.s < 3) && STILL.test(norm(text))) { userIssue = text; return showNode('trouble'); }
     var tw = words(norm(text));
     var sure = top && top.s >= 3 && (!second || second.s < top.s);
@@ -458,7 +511,7 @@
     if ((!top || top.s < 3) && NO.test(nt)) return notSolved();
     var s = small(text);
     if (s && (!top || words(norm(text)).length <= 2)) return agentSay(s, topicChips);
-    var offTopic = function () { logMiss(text); agentSay(KB.OFF[L()], function () { quick([menuChip(), itChip()]); }); };
+    var offTopic = function () { outOfScope(null, text); };
     // outside Rasumi Apps: fixed answer, no AI call
     if (!inScope(text)) return offTopic();
     // about Rasumi Apps but not in the fixed answers (rojak, shortforms, new phrasing): ask the AI, else the old flow
@@ -493,7 +546,8 @@
           return fallback();
         }
         if (r.lang === 'ms' || r.lang === 'en') setLang(r.lang);
-        if (r.kind === 'offtopic') return agentSay(KB.OFF[L()], function () { quick([menuChip(), itChip()]); });
+        if (r.kind === 'offtopic') return outOfScope(null);
+        offCount = 0;
         var h = safeHtml(r.reply);
         bubble(h); transcript.push({ who: 'agent', text: plain(h) });
         lastQ = text; lastTopic = 'AI'; lastAI = true;
