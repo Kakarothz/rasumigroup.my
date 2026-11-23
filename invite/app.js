@@ -73,6 +73,8 @@
   var info = null;
   function render(r) {
     info = r;
+    window.RA_INFO = { first_name: r.first_name, email: r.email };            // Rasumi Agent chat (chat.js)
+    try { document.dispatchEvent(new CustomEvent('ra:info')); } catch (e) { }
     var first = r.first_name || 'there';
     $('o-name').textContent = first;
     $('who-mail').textContent = 'Invitation for ' + r.email; $('who-pill').hidden = false; $('who-help').hidden = false;
