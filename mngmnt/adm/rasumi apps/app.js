@@ -13764,8 +13764,8 @@
   var _HU_BR_NAME = { HQ: 'HQ Rasumi', FVKL: 'Farmasi Veteran Kuala Lumpur', FVT: 'Farmasi Veteran Terendak', FVL: 'Farmasi Veteran Lumut',
                       FVG: 'Farmasi Veteran Gemas', RSA: 'Rasumi Shah Alam' };
   var _HU_DP_NAME = { PURCHASING: 'Purchasing', STORE: 'Store', FINANCE: 'Finance', OPERATIONS: 'Operations', COUNTER: 'Counter', COURIER: 'Courier',
-                      CLAIM: 'Claim (HQ)', IT: 'IT', BOARD: 'Board' };
-  var _HU_DP_ORDER = ['BOARD', 'PURCHASING', 'FINANCE', 'CLAIM', 'STORE', 'COUNTER', 'COURIER', 'OPERATIONS', 'IT'];
+                      CLAIM: 'Claim (HQ)', IT: 'IT', BOARD: 'Board', PHARMACIST: 'Pharmacist', DEVELOPER: 'Developer' };
+  var _HU_DP_ORDER = ['BOARD', 'PHARMACIST', 'PURCHASING', 'FINANCE', 'CLAIM', 'STORE', 'COUNTER', 'COURIER', 'OPERATIONS', 'IT', 'DEVELOPER'];
   var _huClosed = {};
   function _huGroupCss() {
     if (document.getElementById('rh-grp-css')) return;
@@ -13897,14 +13897,15 @@
         if (u.invite_status === 'invited') row += _invChip(uname);
         // Store Portal has its OWN role / branch (store_user_profiles) - show it so it is never a surprise; click = edit it
         var _sp = _huStoreProfiles.filter(function (p) { return String(p.app_username || '').toLowerCase() === String(uname).toLowerCase(); })[0];
-        if (_sp) {
+        // Super Admin already has every function: no separate Store Portal tag
+        if (_sp && role !== 'SUPER_ADMIN') {
           row += '<a href="#" class="rh-role" style="text-decoration:none;border-color:#38bdf8;color:#38bdf8" title="Store Portal profile ' + esc(_sp.id) + ' (separate from the Rasumi Apps role). Click to edit."'
             + ' onclick="rOpenStoreStaffFor(\'' + q(_sp.id) + '\');return false;"><i class="fa-solid fa-store"></i> Store: ' + esc(_sp.role || '-') + ' · ' + esc(_sp.home_branch_code || '-') + '</a>';
         }
         row += '</div>';
         var _fails = u.failed_login_count || 0;
         var _lastLg = u.last_login_utc ? new Date(u.last_login_utc).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
-        row += '<div class="rh-umeta">' + (u.full_name ? '<span title="Full name (as per IC)"><i class="fa-regular fa-id-card"></i> ' + esc(u.full_name) + '</span>' : '') + (u.email ? '<span><i class="fa-regular fa-envelope"></i> ' + esc(u.email) + '</span>' : '') + (u.department_id ? '<span><i class="fa-regular fa-building"></i> ' + esc(u.department_id) + '</span>' : '') +
+        row += '<div class="rh-umeta">' + (u.full_name ? '<span title="Full name (as per IC)"><i class="fa-regular fa-id-card"></i> ' + esc(u.full_name) + '</span>' : '') + (u.email ? '<span><i class="fa-regular fa-envelope"></i> ' + esc(u.email) + '</span>' : '') + (u.department_id ? '<span><i class="fa-regular fa-building"></i> ' + esc(_HU_DP_NAME[u.department_id] || u.department_id) + '</span>' : '') +
           '<span title="Last login"><i class="fa-regular fa-clock"></i> ' + esc(_lastLg) + '</span>' +
           '<span title="Failed logins since the last successful login"' + (_fails ? ' style="color:#f59e0b"' : '') + '><i class="fa-solid fa-triangle-exclamation"></i> ' + _fails + ' failed</span></div>';
         row += '</div><div class="rh-uside">';
@@ -13918,7 +13919,10 @@
         }
         row += '</div></div>';
         // ---- app access: tags (click toggles; selected tag shows a check) ----
-        row += '<div class="rh-sec"><i class="fa-solid fa-grip"></i> App Access</div><div class="rh-tags">';
+        // the owner (Super Admin) opens every app: one line instead of the app tags
+        row += isMaster
+          ? '<div class="rh-sec"><i class="fa-solid fa-grip"></i> App Access <span style="margin-left:8px;font-weight:600;color:#f59e0b">All apps</span></div><div class="rh-tags" style="display:none">'
+          : '<div class="rh-sec"><i class="fa-solid fa-grip"></i> App Access</div><div class="rh-tags">';
         _HOSPITAL_APPS.forEach(function (app) {
           var appId = 'uapp_' + safeId + '_' + app.replace(/[^a-z0-9]/gi, '_');
           var checked = apps.indexOf(app) !== -1;

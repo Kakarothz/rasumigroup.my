@@ -1,0 +1,28 @@
+/* Admin Console: the same open list as Rasumi Apps (dropdowns.css), in the console's accent colour.
+   Only the OPEN LIST is replaced (rdd.js); every select keeps its own box. */
+:root { --rdd-acc: 249, 115, 22; }                  /* console orange (Rasumi Apps uses its purple) */
+.rdd-menu {
+    position: fixed; z-index: 100000; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;
+    padding: 6px; display: flex; flex-direction: column; gap: 2px;
+    background: rgba(12, 10, 20, .96);
+    -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%);
+    border: 1px solid rgba(var(--rdd-acc), .55); border-top: 0; border-radius: 0 0 10px 10px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .45);
+    font-family: 'Poppins', 'Inter', 'Segoe UI', system-ui, sans-serif;
+    scrollbar-width: thin; scrollbar-color: rgba(var(--rdd-acc), .45) transparent;
+}
+.rdd-menu.rdd-up { border-top: 1px solid rgba(var(--rdd-acc), .55); border-bottom: 0; border-radius: 10px 10px 0 0; }
+.rdd-opt { flex: 0 0 auto; padding: 7px 12px; border-radius: 6px; color: #ece6f5; font-weight: 500; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: background .12s, color .12s; }
+.rdd-opt.rdd-hi { background: rgba(var(--rdd-acc), .16); color: #fff; }
+.rdd-opt.rdd-sel { background: linear-gradient(135deg, rgba(var(--rdd-acc), .28), rgba(var(--rdd-acc), .16)); color: #fff; font-weight: 700; }
+.rdd-opt.rdd-dis { opacity: .4; cursor: default; }
+.rdd-group { flex: 0 0 auto; padding: 6px 12px 2px; color: #a59cb8; font-size: .82em; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+select.rdd-open { border-color: rgba(var(--rdd-acc), .6) !important; border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+select.rdd-open-up { border-color: rgba(var(--rdd-acc), .6) !important; border-top-left-radius: 0 !important; border-top-right-radius: 0 !important; }
+.rdd-search-wrap { position: sticky; top: -6px; z-index: 1; flex: 0 0 auto; margin: -6px -6px 4px; padding: 6px; background: rgba(12, 10, 20, .98); }
+.rdd-search { width: 100%; box-sizing: border-box; height: 28px; padding: 0 10px; border: 1px solid rgba(var(--rdd-acc), .35); border-radius: 6px;
+    background: rgba(255, 255, 255, .06); color: #fff; font: 500 1em 'Poppins', 'Inter', 'Segoe UI', system-ui, sans-serif; outline: none; }
+.rdd-search:focus { border-color: rgba(var(--rdd-acc), .75); }
+.rdd-search::placeholder { color: #8f86a3; }
+.rdd-empty { flex: 0 0 auto; padding: 8px 12px; color: #a59cb8; font-style: italic; }
