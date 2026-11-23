@@ -106,11 +106,11 @@
         Array.prototype.forEach.call(btns, function (x) { x.disabled = false; });
         if (r && r.ok && r.url) {
           window.location.href = r.url;                  // signed URL, valid 10 minutes, forces download
-          $('dl-file').textContent = (r.name || '') + (r.size ? ' · ' + fmtSize(r.size) : '');
+          $('dl-file').textContent = (r.name || '') + (r.size ? '\n' + fmtSize(r.size) : '');
           $('dl-left').textContent = r.downloads_left + ' download' + (r.downloads_left === 1 ? '' : 's') + ' left on this invitation';
           if ($('o-left')) $('o-left').textContent = r.downloads_left;
           if (window.RA_INFO) window.RA_INFO.downloads_left = r.downloads_left;
-          gdShow(0);
+          gdShow(0); vidPreload();
           $('dl').classList.add('on');
           var a = $('st2'), c = $('st3'); a.classList.remove('now'); a.classList.add('done'); a.querySelector('.d').textContent = '✓'; a.querySelector('.ob-s').textContent = 'Done'; c.classList.add('now'); c.querySelector('.ob-s').textContent = 'Now'; document.querySelector('.onb').classList.add('p2');
         } else if (r && r.reason === 'download_limit') {
@@ -127,33 +127,71 @@
       });
     });
   });
-  $('dl-done').addEventListener('click', function () { $('dl').classList.remove('on'); });
-
-  // setup guide in the download modal: real screenshots, one instruction per step
+  // setup guide in the download modal: real screenshots, one instruction per step; last step = agent thank-you video (plays once)
   var GD = [
     ['g1', 'Open the installer', 'When the download finishes, open <b>Rasumi_Apps_Setup</b> from your browser\'s download list (or your <b>Downloads</b> folder).'],
     ['g2', 'Allow it to run', 'Windows asks if you want to run the software: click <b>Run</b>. If you see <b>Windows protected your PC</b> instead, click <b>More info</b>, then <b>Run anyway</b>.'],
     ['g3', 'Desktop shortcut', 'Keep <b>Create a desktop shortcut</b> ticked and click <b>Next</b>.'],
     ['g4', 'Install', 'Click <b>Install</b> and wait about a minute while the files are copied.'],
     ['g6', 'Finish', 'Leave <b>Launch Rasumi Apps</b> ticked and click <b>Finish</b>. Rasumi Apps opens by itself.'],
-    [null, 'Sign up', '']
-  ], gdI = 0;
+    [null, 'You\'re all set', '']
+  ], gdI = 0, vidDone = false, vidT = 0, VID = 'assets/guide/thanks.mp4?v=2', vidLoaded = false;
+  function dlClose() { vidStop(); $('dl').classList.remove('on'); }
+  function vidStop() {
+    var v = $('gd-vid'); clearTimeout(vidT);
+    if (v && !v.paused) { v.pause(); vidDone = true; }
+  }
+  function vidOff() {                                   // screen switches off, then the card disappears
+    if (vidDone && $('gd-shot').classList.contains('gone')) return;
+    vidDone = true; clearTimeout(vidT);
+    var sh = $('gd-shot'); sh.classList.add('off');
+    setTimeout(function () { if (gdI === GD.length - 1) { sh.className = 'gx-shot gone'; $('gd-ins').classList.add('big'); } $('gd-vid').pause(); }, 560);
+  }
+  function vidAvatar() {                                // no video file yet: talking avatar for 10 s
+    var sh = $('gd-shot'); sh.className = 'gx-shot av'; $('gd-img').src = 'assets/agent.webp?v=1';
+    vidT = setTimeout(vidOff, 10000);
+  }
+  function vidPreload() {                              // start fetching the video as soon as the modal opens (~1.2 MB)
+    if (vidLoaded || vidDone) return; vidLoaded = true;
+    var v = $('gd-vid'); v.preload = 'auto'; v.poster = 'assets/guide/thanks.webp?v=2';
+    v.setAttribute('src', VID); try { v.load(); } catch (e) {}
+  }
+  function vidPlay() {
+    var v = $('gd-vid'), sh = $('gd-shot');
+    sh.className = 'gx-shot vid';
+    v.onended = vidOff; v.onerror = vidAvatar;
+    if (v.getAttribute('src') !== VID) vidPreload();
+    try { v.currentTime = 0; } catch (e) {}
+    var p = v.play();
+    if (p && p.catch) p.catch(function () { v.muted = true; v.play().catch(vidAvatar); });
+    vidT = setTimeout(vidOff, 20000);                   // safety: never stays on screen (video is 15 s)
+  }
   function gdShow(n) {
+    var prev = gdI;
     gdI = Math.max(0, Math.min(GD.length - 1, n));
-    var g = GD[gdI], img = $('gd-img'), last = gdI === GD.length - 1;
-    if (g[0]) { img.src = 'assets/guide/' + g[0] + '.webp'; img.parentNode.classList.remove('gd-app'); }
-    else { img.src = 'assets/agent.webp?v=1'; img.parentNode.classList.add('gd-app'); }
-    $('gd-stp').textContent = 'Step ' + (gdI + 1) + ' of ' + GD.length + ' · ' + g[1];
-    $('gd-ins').innerHTML = last ? 'In Rasumi Apps press <b>Sign up</b> with <b>' + esc((info && info.email) || 'your invited e-mail') +
-      '</b>, confirm the e-mail we send you, then set up <b>two-step verification</b> with an authenticator app. Questions? Ask Rasumi Agent at the bottom right.' : g[2];
+    if (prev === GD.length - 1 && gdI !== prev) vidStop();
+    var g = GD[gdI], img = $('gd-img'), sh = $('gd-shot'), last = gdI === GD.length - 1;
+    $('gd-ins').classList.remove('big');
+    if (g[0]) { sh.className = 'gx-shot'; img.src = 'assets/guide/' + g[0] + '.webp'; }
+    else if (!vidDone) vidPlay();
+    else { sh.className = 'gx-shot gone'; $('gd-ins').classList.add('big'); }
+    $('gd-stp').textContent = 'Step ' + (gdI + 1) + ' of ' + GD.length;
+    $('gd-tt').textContent = g[1];
+    $('gd-ins').innerHTML = last ? 'Thank you for downloading Rasumi Apps. When it opens, press <b>Sign up</b> with <b>' +
+      esc((info && info.email) || 'your invited e-mail') + '</b>. Questions? Ask Rasumi Agent at the bottom right.' : g[2];
+    $('gd-list').innerHTML = GD.map(function (s, k) {
+      return '<li data-k="' + k + '" class="' + (k === gdI ? 'on' : k < gdI ? 'dn' : '') + '"><b>' + (k < gdI ? '&#10003;' : k + 1) + '</b>' + esc(s[1]) + '</li>';
+    }).join('');
     $('gd-dots').innerHTML = GD.map(function (_, k) { return '<i class="' + (k === gdI ? 'on' : '') + '"></i>'; }).join('');
-    $('gd-back').disabled = gdI === 0;
+    $('gd-back').classList.toggle('hid', gdI === 0);
     $('gd-next').textContent = last ? 'Done' : 'Next';
   }
+  $('gd-list').addEventListener('click', function (e) { var li = e.target.closest('li'); if (li) gdShow(+li.getAttribute('data-k')); });
   $('gd-back').addEventListener('click', function () { gdShow(gdI - 1); });
-  $('gd-next').addEventListener('click', function () { if (gdI === GD.length - 1) $('dl').classList.remove('on'); else gdShow(gdI + 1); });
+  $('gd-next').addEventListener('click', function () { if (gdI === GD.length - 1) dlClose(); else gdShow(gdI + 1); });
+  $('dl-done').addEventListener('click', dlClose);
   GD.forEach(function (g) { if (g[0]) { var im = new Image(); im.src = 'assets/guide/' + g[0] + '.webp'; } });   // preload
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') $('dl').classList.remove('on'); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('dl').classList.contains('on')) dlClose(); });
 
   // product tour
   var S = 'assets/shots/', I = 'assets/icons/';
