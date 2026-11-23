@@ -152,7 +152,7 @@ window.RA_KB = (function () {
   n('p_settings', ['Settings', 'Settings'],
     ['Your account, your way: sign-in methods (password, Google, Microsoft), two-step verification, light / dark / auto theme, and signing out other devices.',
      'Akaun anda, cara anda: kaedah log masuk (password, Google, Microsoft), pengesahan dua langkah, tema cerah / gelap / auto, dan log keluar peranti lain.'],
-    ['settings', 'tetapan', 'theme', 'tema', 'dark mode', 'profile', 'profil', 'devices', 'peranti'], []);
+    ['tukar tema', 'change theme', 'mod gelap', 'gelap', 'light mode', 'settings', 'tetapan', 'theme', 'tema', 'dark mode', 'profile', 'profil', 'devices', 'peranti'], []);
 
   // ---------------------------------------------------------------- 3. the 20 agents (real processes)
   var AG = [
@@ -247,7 +247,7 @@ window.RA_KB = (function () {
   n('x_code', ['The 6-digit code is not accepted', 'Kod 6 digit tidak diterima'],
     ['<ol><li>Type the <b>newest</b> code; each one changes every 30 seconds.</li><li>Make sure the phone\'s date and time are set to <b>automatic</b>; a clock that is a minute off makes codes fail.</li><li>Use the Rasumi entry in the authenticator app, not another account.</li></ol>Changed or lost your phone? Leave a message for IT to reset two-step.',
      '<ol><li>Taip kod <b>terbaru</b>; setiap kod bertukar setiap 30 saat.</li><li>Pastikan tarikh dan masa telefon ditetapkan <b>automatik</b>; jam yang lari seminit menyebabkan kod gagal.</li><li>Guna entri Rasumi dalam app authenticator, bukan akaun lain.</li></ol>Tukar atau hilang telefon? Tinggalkan mesej untuk IT untuk reset dua langkah.'],
-    ['otp not working', 'code not working', 'kod tak jalan', 'kod tak boleh', 'code wrong', 'kod salah', 'tak dapat kod', 'cannot get code', 'no code', 'tiada kod', 'code not accepted', 'kod tak diterima', 'invalid code', 'kod tidak sah', 'otp salah', 'otp tak jalan', 'code expired', 'kod tamat', 'authenticator not working', 'authenticator tak jalan'], ['a_lostphone']);
+    ['otp', 'otp expired', 'kod expired', 'otp tamat', 'otp not working', 'code not working', 'kod tak jalan', 'kod tak boleh', 'code wrong', 'kod salah', 'tak dapat kod', 'cannot get code', 'no code', 'tiada kod', 'code not accepted', 'kod tak diterima', 'invalid code', 'kod tidak sah', 'otp salah', 'otp tak jalan', 'code expired', 'kod tamat', 'authenticator not working', 'authenticator tak jalan'], ['a_lostphone']);
   n('x_slow', ['It is slow or numbers look old', 'Lambat atau angka nampak lama'],
     ['Rasumi Apps needs a working internet connection. Data from VIMS and AutoCount refreshes every few minutes, so very new entries can take up to about 10 minutes to appear. If a screen seems stuck, close and reopen the app; if it stays slow for everyone at the branch, tell IT.',
      'Rasumi Apps perlukan sambungan internet. Data dari VIMS dan AutoCount dikemas kini setiap beberapa minit, jadi entri sangat baharu boleh ambil sehingga lebih kurang 10 minit untuk muncul. Jika skrin nampak tersekat, tutup dan buka semula app; jika kekal lambat untuk semua di cawangan, beritahu IT.'],
@@ -336,8 +336,34 @@ window.RA_KB = (function () {
     'to of in on at for from with by about as into how what when where which who whom why please pls plz hi hello hey thanks thank ok okay rasumi apps app ' +
     'saya aku awak kau anda kita kami ini itu ni tu nak mahu hendak boleh ke kah tak tidak ada apa bagaimana macam mana camne cmne siapa bila kenapa mengapa yang dan atau untuk dengan ' +
     'di dalam pada dari kepada tolong sila je jer lah la pun sahaja saja tu ni tell me explain').split(' ');
+  // company data is never shown on this page (fixed answer, the AI is not asked)
+  n('secret', ['Company figures and staff data', 'Angka syarikat dan data staf'],
+    ['Sorry, this page cannot see or share company data such as sales, costs, claim amounts, prices, stock levels, staff KPI or staff lists. Those figures are only inside Rasumi Apps for staff whose role allows it (for example the <b>Executive</b> app for BOD, HR and Accounts). If you need access, use <b>Leave a message for IT</b>.',
+     'Maaf, page ini tidak boleh melihat atau berkongsi data syarikat seperti jualan, kos, jumlah tuntutan, harga, stok, KPI staf atau senarai staf. Angka tersebut hanya ada dalam Rasumi Apps untuk staf yang peranannya dibenarkan (contohnya app <b>Eksekutif</b> untuk BOD, HR dan Akaun). Jika anda perlukan akses, guna <b>Tinggalkan mesej untuk IT</b>.'],
+    [], []);
+  // words that show a question is about Rasumi Apps (only these questions may go to the AI)
+  var DOMAIN = ('rasumi app apps aplikasi install pasang download muat turun installer setup log masuk login sign signup daftar register password kata laluan ' +
+    '2fa otp authenticator kod code qr email jemputan invitation invite link pautan akaun account profil profile setting settings tetapan tema theme dark ' +
+    'update kemas kini versi version windows pc komputer computer laptop telefon phone mac android iphone tablet error ralat crash hang lambat slow skrin screen ' +
+    'agent ejen bot vims autocount docushare jhev vibes renamer rename splitter split scanify scan imbas pdf ocr store stor portal stok stock po grn do invois invoice ' +
+    'claim tuntutan executive eksekutif kpi report laporan dashboard notifikasi notification loceng bell admin monitor it sentinel supabase database server cloudflare ' +
+    'branch cawangan special request supplier pembekal sync keselamatan security privasi privacy uninstall nyahpasang buang reinstall doc manager bin card transfer ' +
+    'pindahan delivery penghantaran smartscreen antivirus logout keluar google microsoft').split(' ');
+  // asks for company figures or people's data
+  var SECRET = [
+    /\b(sales|jualan|revenue|pendapatan|hasil|untung|profit|margin|kos|cost|gaji|salary|elaun|bonus|kutipan|collection|hutang|outstanding|tunggakan|harga|price|amount|nilai|value|kpi|markah|score|prestasi|performance|ranking)\b[\s\S]*\b(berapa|how much|how many|total|jumlah|senarai|list|show|tunjuk|bagi|give|siapa|who|top|worst|best|terbaik|teruk|paling|estimate|anggaran|ballpark|figure|angka|bulan|month|tahun|year|semalam|yesterday|hari ini|today)\b/,
+    /\b(berapa|how much|how many|total|jumlah|senarai|list|show me|tunjuk|bagi|give me|siapa|who is|estimate|anggaran)\b[\s\S]*\b(sales|jualan|revenue|pendapatan|untung|profit|margin|gaji|salary|kutipan|collection|hutang|outstanding|tunggakan|kpi|markah|score|ranking)\b/,
+    /\b(gaji|salary|salaries|elaun|allowance)\b/,
+    /\b(how much|berapa banyak|berapa)\b[\s\S]*\b(make|makes|earn|earns|income|pendapatan|untung|duit|money|wang|jual|sell|sold)\b/,
+    /\b(senarai|list|semua|all)\b[\s\S]*\b(staf|staff|pekerja|employee|pesakit|patient|pelanggan|customer|pembekal|supplier|email|emel|nombor telefon|phone number|ic)\b/
+  ];
+  // clearly not about Rasumi Apps even if a tech word appears ("write a python script", "weather"): fixed answer, no AI
+  var OFFTOPIC = [
+    /\b(write|tulis|buatkan|create|generate|karang)\b[\s\S]*\b(script|program|essay|karangan|poem|puisi|pantun|lagu|song|story|cerita|surat cinta|caption)\b/,
+    /\b(weather|cuaca|resepi|recipe|bola sepak|football|politik|politics|lawak|joke|crypto|bitcoin|saham|stock market|forex|movie|filem|drama|horoscope|zodiak)\b/
+  ];
   var OFF = ['I can only help with Rasumi Apps. That question is outside what I\'m here for. Ask me about installing, signing in, using the apps or our technology.',
              'Saya hanya boleh membantu tentang Rasumi Apps. Soalan itu di luar skop saya. Tanya saya tentang pemasangan, log masuk, penggunaan aplikasi atau teknologi kami.'];
   var CATS = [['Install / download', 'Pasang / muat turun'], ['Sign-in / 2FA', 'Log masuk / 2FA'], ['Using the apps', 'Guna aplikasi'], ['Invitation link', 'Link jemputan'], ['Other', 'Lain-lain']];
-  return { N: N, TOPICS: TOPICS, AG: AG, SMALL: SMALL, OFF: OFF, CATS: CATS, INTENTS: INTENTS, STOP: STOP };
+  return { N: N, TOPICS: TOPICS, AG: AG, SMALL: SMALL, OFF: OFF, CATS: CATS, INTENTS: INTENTS, STOP: STOP, DOMAIN: DOMAIN, SECRET: SECRET, OFFTOPIC: OFFTOPIC };
 })();

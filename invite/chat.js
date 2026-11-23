@@ -13,7 +13,7 @@
   var LANG = 'en', L = function () { return LANG === 'ms' ? 1 : 0; };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var T = function (en, ms) { return LANG === 'ms' ? ms : en; };
-  var awaitSolved = false, userIssue = '', info = null, el = {}, transcript = [], busy = false, started = false, status = null, statusAt = 0, lastTopic = '', lastQ = '';
+  var awaitSolved = false, lastAI = false, userIssue = '', info = null, el = {}, transcript = [], busy = false, started = false, status = null, statusAt = 0, lastTopic = '', lastQ = '';
 
   function call(body) {
     body.token = ls.get('rasumi_inv_t'); body.device = ls.get('rasumi_inv_d');
@@ -151,6 +151,7 @@
   function topics() { agentSay(T('Sure. What else can I help you with?', 'Baik. Apa lagi yang boleh saya bantu?'), topicChips); }
   function showNode(id) {
     var n = KB.N[id]; if (!n) return;
+    lastAI = false;
     if (KB.TOPICS.indexOf(id) >= 0) lastTopic = qText(n);
     if (n.form) return agentSay(answerText(n), ticketForm);
     var go = function () {
@@ -183,7 +184,7 @@
         b.onmouseenter = function () { w.querySelectorAll('button').forEach(function (x, j) { x.classList.toggle('on', j < s); }); };
         b.onclick = function () {
           if (w.classList.contains('ra-used')) return; w.classList.add('ra-used'); w.remove();
-          call({ action: 'rate', topic: lastTopic, question: lastQ, resolved: resolved, stars: s, ticket_no: ticket || '', lang: LANG });
+          call({ action: 'rate', topic: lastTopic, question: lastQ, resolved: resolved, stars: s, ticket_no: ticket || '', lang: LANG, ai: lastAI });
           userSay('★'.repeat(s));
           agentSay(s >= 4 ? T('Thank you for the ' + s + '-star rating! Anything else about Rasumi Apps?', 'Terima kasih atas rating ' + s + ' bintang! Ada apa-apa lagi tentang Rasumi Apps?')
                           : T('Thank you for the feedback. We will use it to improve. Would you like to tell IT more?', 'Terima kasih atas maklum balas. Kami akan gunakan untuk penambahbaikan. Mahu beritahu IT dengan lebih lanjut?'),
@@ -196,7 +197,7 @@
     });
   }
   function notSolved() {
-    call({ action: 'rate', topic: lastTopic, question: lastQ, resolved: false, lang: LANG });
+    call({ action: 'rate', topic: lastTopic, question: lastQ, resolved: false, lang: LANG, ai: lastAI });
     agentSay(T('Sorry about that. Let IT take a look: leave a message and IT will reply to your e-mail as soon as possible, or pick another question.',
                'Maaf tentang itu. Biar IT semak: tinggalkan mesej dan IT akan membalas ke e-mel anda secepat mungkin, atau pilih soalan lain.'),
       function () { quick([{ label: T('Leave a message for IT', 'Tinggalkan mesej untuk IT'), cls: 'ra-it', go: function () { userSay(T('Leave a message for IT', 'Tinggalkan mesej untuk IT')); ticketForm(); } }, menuChip()]); });
@@ -360,31 +361,31 @@
     if (!tw.length) return out;
     var agentWord = / (agent|agents|ejen|bot|robot) /.test(t);
     Object.keys(KB.N).forEach(function (id) {
-      var n = KB.N[id], s = 0, used = {};                  // each typed word earns points once per answer
+      var n = KB.N[id], s = 0, used = {}, cov = {};        // each typed word earns points once per answer; cov = words this answer covers
       n.kw.forEach(function (k) {
         var kk = norm(k).trim(); if (!kk) return;
         if (kk.indexOf(' ') >= 0) {
-          if (t.indexOf(' ' + kk + ' ') >= 0) s += 4 + (kk.split(' ').length > 2 ? 2 : 0);
+          if (t.indexOf(' ' + kk + ' ') >= 0) { s += 4 + (kk.split(' ').length > 2 ? 2 : 0); words(' ' + kk + ' ').forEach(function (w) { cov[w] = 1; }); }
           else {                                              // same words in another order ("telefon saya hilang" = "hilang telefon")
             var kws = words(' ' + kk + ' ');
-            if (kws.length >= 2 && kws.every(function (w) { return tw.indexOf(w) >= 0; })) s += 3;
+            if (kws.length >= 2 && kws.every(function (w) { return tw.indexOf(w) >= 0; })) { s += 3; kws.forEach(function (w) { cov[w] = 1; }); }
           }
         }
         else {
           var sk = stem(kk), hit = tw.indexOf(sk) >= 0 ? sk : (t.indexOf(' ' + kk + ' ') >= 0 && !STOP[kk] ? kk : null);
-          if (hit) { if (!used[hit]) { used[hit] = 1; s += kk.length >= 5 ? 3 : 2; } }
+          if (hit) { cov[hit] = 1; if (!used[hit]) { used[hit] = 1; s += kk.length >= 5 ? 3 : 2; } }
           else if (sk.length >= 5) {
             var f = tw.filter(function (w) { return !used[w] && near(w, sk); })[0];
-            if (f) { used[f] = 1; s += sk.length >= 6 ? 3 : 2; }
+            if (f) { used[f] = 1; cov[f] = 1; s += sk.length >= 6 ? 3 : 2; }
           }
         }
       });
       var kwS = s;
-      qwords(id).forEach(function (w) { if (tw.indexOf(w) >= 0) s += 1; });
+      qwords(id).forEach(function (w) { if (tw.indexOf(w) >= 0) { s += 1; cov[w] = 1; } });
       if (!s) return;
       if (KB.TOPICS.indexOf(id) >= 0) s -= 2;               // prefer a precise answer over a topic menu
       if (/^g_/.test(id) && agentWord && kwS > 0) s += 3;  // "which agent sends PO" -> that group; a plain "what agents" stays on the overview
-      if (s > 0) out.push({ id: id, s: s });
+      if (s > 0) out.push({ id: id, s: s, cov: tw.filter(function (w) { return cov[w]; }).length / tw.length });
     });
     return out.sort(function (a, b) { return b.s - a.s; });
   }
@@ -426,21 +427,80 @@
     });
     else answerTyped(text);
   }
+  // is the question about Rasumi Apps at all? (only such questions may go to the AI)
+  var DOM = {}; (KB.DOMAIN || []).forEach(function (w) { DOM[stem(w)] = 1; });
+  function inScope(text) {
+    var tw = norm(text).trim().split(' ').map(stem);
+    return tw.some(function (w) { return DOM[w] || (w.length >= 5 && Object.keys(DOM).some(function (d) { return d.length >= 5 && near(w, d); })); });
+  }
+  function isSecret(text) { var t = norm(text); return (KB.SECRET || []).some(function (re) { return re.test(t); }); }
   function answerTyped(text) {
     var r = rank(text), top = r[0], second = r[1];
+    // company figures / people's data: fixed answer, never the AI (a price question about the app itself is fine)
+    var appPrice = top && top.id === 'b_cost' && /\b(app|apps|aplikasi|rasumi|licence|license|lesen|langganan|subscription|percuma|free)\b/.test(norm(text));
+    if (isSecret(text) && !appPrice) { lastQ = text; return showNode('secret'); }
+    if ((KB.OFFTOPIC || []).some(function (re) { return re.test(norm(text)); })) {   // clearly another subject: fixed answer, no AI
+      logMiss(text); return agentSay(KB.OFF[L()], function () { quick([menuChip(), itChip()]); });
+    }
     if ((!top || top.s < 3) && STILL.test(norm(text))) { userIssue = text; return showNode('trouble'); }
-    if (top && top.s >= 3 && (!second || second.s < top.s)) { lastQ = text; return showNode(top.id); }
-    if (top && top.s >= 3) {                                  // two answers fit equally well: let the user pick
-      return suggest(r.filter(function (x) { return x.s === top.s; }).slice(0, 4));
+    var tw = words(norm(text));
+    var sure = top && top.s >= 3 && (!second || second.s < top.s);
+    // a long, specific question that only touches one keyword is better understood by the AI ("print the report on A3")
+    var thin = top && top.s >= 3 && top.s < 99 && tw.length >= 4 && top.cov < 0.6;
+    if (sure && !thin) { lastQ = text; return showNode(top.id); }
+    if (sure && thin) return aiAsk(text, function () { lastQ = text; showNode(top.id); });   // matched a Rasumi keyword, so in scope
+    if (top && top.s >= 3) {                                  // two answers fit equally well: AI first, else let the user pick
+      var tied = r.filter(function (x) { return x.s === top.s; }).slice(0, 4);
+      return aiAsk(text, function () { suggest(tied); });
     }
     var nt = norm(text).trim();
     if ((!top || top.s < 3) && YES.test(nt)) return agentSay(T('Great! Anything else about Rasumi Apps?', 'Baik! Ada apa-apa lagi tentang Rasumi Apps?'), function () { quick([menuChip()]); });
     if ((!top || top.s < 3) && NO.test(nt)) return notSolved();
     var s = small(text);
     if (s && (!top || words(norm(text)).length <= 2)) return agentSay(s, topicChips);
-    if (top) { logMiss(text); return suggest(r.slice(0, 3)); }
-    logMiss(text);
-    agentSay(KB.OFF[L()], function () { quick([menuChip(), itChip()]); });
+    var offTopic = function () { logMiss(text); agentSay(KB.OFF[L()], function () { quick([menuChip(), itChip()]); }); };
+    // outside Rasumi Apps: fixed answer, no AI call
+    if (!inScope(text)) return offTopic();
+    // about Rasumi Apps but not in the fixed answers (rojak, shortforms, new phrasing): ask the AI, else the old flow
+    aiAsk(text, function () {
+      if (top) { logMiss(text); return suggest(r.slice(0, 3)); }
+      offTopic();
+    });
+  }
+
+  // ---------------------------------------------------------------- AI fallback (invite-download action "ask")
+  var aiOff = false;
+  function safeHtml(h) {
+    return String(h || '').replace(/<(\/?)(b|ul|ol|li|br|code)\s*\/?>/gi, '\u0001$1$2\u0002').replace(/<[^>]*>/g, '').replace(/[<>]/g, '')
+      .replace(/\u0001(\/?)(\w+)\u0002/g, function (m, sl, t) { return '<' + sl + t.toLowerCase() + '>'; });
+  }
+  function aiAsk(text, fallback) {
+    if (aiOff) return fallback();
+    busy = true;
+    var row = document.createElement('div'); row.className = 'ra-row';
+    row.innerHTML = AV + '<div class="ra-b ra-think"><i></i><i></i><i></i><span>' + T('Rasumi Agent is thinking…', 'Rasumi Agent sedang berfikir…') + '</span></div>';
+    el.ms.appendChild(row); scroll();
+    var i = window.RA_INFO || {};
+    var hist = transcript.slice(-9, -1).map(function (m) { return { who: m.who, text: String(m.text || '').slice(0, 600) }; });
+    var minWait = new Promise(function (res) { setTimeout(res, 1800 + Math.random() * 700); });
+    Promise.all([call({ action: 'ask', question: text, lang: LANG, history: hist, ctx: { expires_at: i.expires_at, downloads_left: i.downloads_left } }), minWait])
+      .then(function (x) { return x[0]; }, function () { return { ok: false }; })
+      .then(function (r) {
+        row.remove(); busy = false;
+        if (!r || !r.ok) {
+          if (r && (r.reason === 'off' || r.reason === 'busy')) aiOff = true;
+          if (r && r.reason === 'limit') aiOff = true;
+          return fallback();
+        }
+        if (r.lang === 'ms' || r.lang === 'en') setLang(r.lang);
+        if (r.kind === 'offtopic') return agentSay(KB.OFF[L()], function () { quick([menuChip(), itChip()]); });
+        var h = safeHtml(r.reply);
+        bubble(h); transcript.push({ who: 'agent', text: plain(h) });
+        lastQ = text; lastTopic = 'AI'; lastAI = true;
+        if (r.kind === 'it') return quick([itChip(), menuChip()]);
+        if (r.kind === 'unknown') return quick([itChip(), menuChip()]);
+        askSolved();
+      });
   }
 
   // ---------------------------------------------------------------- start once the invitation is open
