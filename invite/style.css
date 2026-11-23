@@ -260,7 +260,7 @@ body{background:radial-gradient(1100px 560px at 78% -8%,rgba(224,33,138,.18),tra
 .tk-row:before{left:0;background:linear-gradient(90deg,#07040c,rgba(7,4,12,0))}
 .tk-row:after{right:0;background:linear-gradient(270deg,#07040c,rgba(7,4,12,0))}
 .tk-row+.tk-row{margin-top:18px}
-.tk-track{display:flex;align-items:center;gap:46px;padding:0 23px;margin:0;list-style:none;flex:0 0 auto;will-change:transform;
+.tk-track{display:flex;align-items:center;gap:46px;padding:0 23px;margin:0;list-style:none;flex:0 0 auto;min-width:100%;justify-content:space-around;will-change:transform;
  -webkit-animation:tk-mv 60s linear infinite;animation:tk-mv 60s linear infinite}
 .tk-row.r2 .tk-track{-webkit-animation-duration:75s;animation-duration:75s;-webkit-animation-direction:reverse;animation-direction:reverse}
 .tk-row:hover .tk-track{-webkit-animation-play-state:paused;animation-play-state:paused}
