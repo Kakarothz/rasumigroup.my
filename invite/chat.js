@@ -98,8 +98,17 @@
     offCount++;
     var lv = Math.min(offCount, 3) - 1, k = LANG === 'ms' ? 'ms' : 'en', html;
     if (text && !topic) logMiss(text);
+    if (offCount >= 7) {                                   // still going after many tries: close politely and start fresh
+      return agentSay(fill(pick('end', LANG === 'ms'
+        ? ['Saya tamatkan perbualan ini dulu, ya, {name}. Bila ada soalan tentang Rasumi Apps, buka chat semula. Terima kasih!',
+           'Kita berhenti di sini dulu, {name}. Saya sentiasa ada untuk soalan Rasumi Apps. Jumpa lagi!']
+        : ['I\'ll close this chat for now, {name}. Open it again any time you have a Rasumi Apps question. Thank you!',
+           'Let\'s stop here for now, {name}. I\'m always here for Rasumi Apps questions. See you!'])),
+        function () { setTimeout(function () { resetChat(true); }, 2500); });
+    }
     if (lv === 2) {
-      html = fill(pick('close', KB.OFFL[k][2]));
+      var pool = offCount >= 4 && KB.OFFL[k][3] ? KB.OFFL[k][3] : KB.OFFL[k][2];
+      html = (topic ? fill(pick('t_' + topic.id, topic[k])) + '<br>' : '') + fill(pick(offCount >= 4 ? 'close2' : 'close', pool));
       return agentSay(html, function () {
         quick([{ label: T('End the conversation', 'Tamatkan perbualan'), cls: 'ra-mut', go: endChat },
                { label: T('I have a Rasumi Apps question', 'Saya ada soalan Rasumi Apps'), go: function () { userSay(T('I have a Rasumi Apps question', 'Saya ada soalan Rasumi Apps')); offCount = 0; topics(); } }]);
@@ -396,6 +405,7 @@
     var ms = 0, en = 0;
     norm(text).trim().split(' ').forEach(function (w) { if (MSW[w]) ms++; if (ENW[w]) en++; });
     if (/\b(nak|tak|x|xde|nk|mcm|camne|sy|tlg|dpt|blh|knp|lah|kah|ke)\b/.test(raw)) ms += 2;        // strong Malay chat markers
+    if (/\b(sayang|syg|awak|kau|aku|jom|cantik|comel|hensem|rindu|sombong|garang|merajuk|tolong|terima kasih|boleh|kenapa|macam mana|tidak|ada|takde|dah|belum|saya|kita)\b/.test(raw)) ms += 2;   // everyday Malay words (one-word messages too)
     if (ms > en) return 'ms';
     if (en > ms) return 'en';
     return null;                                                   // not sure: keep the current language

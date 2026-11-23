@@ -407,3 +407,15 @@ footer .ft-note{display:block;margin-top:6px;font-size:11px;color:var(--mut2);op
 .gx-nav{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:16px}
 .gx-nav .btn.hid{visibility:hidden}
 @media (max-width:760px){.dlc.dlx{grid-template-columns:1fr}.gx-rail{display:none}.gx-dots{display:flex}.gx-main{padding:22px 18px 18px}.gx-tt{font-size:19px}}
+
+/* footer: legal block left, "Contact IT" block right, both aligned to the top */
+footer .wrap{align-items:flex-start}
+footer .ft-ct{display:flex;flex-direction:column;align-items:flex-end;text-align:right;gap:2px}
+footer .ft-h{font-size:13.5px;font-weight:700;color:var(--tx);letter-spacing:.2px}
+footer .ft-sub{font-size:11.5px;color:var(--mut2);margin-bottom:8px}
+footer .ft-ct .soc{gap:16px;align-self:flex-end}
+.soc-i{display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:0;padding:0;cursor:pointer;color:var(--mut);text-decoration:none;font:inherit}
+.soc-i small{font-size:11px;color:var(--mut2);transition:color .2s}
+.soc-i:hover small{color:#fff}
+.soc-i:hover .soc-b{transform:translateY(-3px) scale(1.05)}
+@media(max-width:640px){footer .ft-ct{align-items:flex-start;text-align:left;margin-top:8px}footer .ft-ct .soc{align-self:flex-start}}
