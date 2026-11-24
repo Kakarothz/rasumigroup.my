@@ -687,3 +687,6 @@ canvas { display: block; }
 #r-profile-trigger img {
   background-color: #8b5cf6;
 }
+
+/* nav menu: picture icons (assets/menu) instead of font icons */
+.dropdown-item .r-menu-ic { width: 24px; height: 24px; object-fit: contain; flex: none; vertical-align: middle; margin-right: 4px; }

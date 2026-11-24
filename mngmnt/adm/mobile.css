@@ -195,3 +195,6 @@
         font-size: 9px;
     }
 }
+
+/* hub cards: picture icons fit the small mobile icon box */
+.app-icon img { max-width: 100%; height: auto; }
