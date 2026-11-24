@@ -1065,6 +1065,7 @@
       '            <select id="r-hinv-role" onchange="rHinvRolePick()" style="' + _HINV_SEL + '"><option value="VIEWER">VIEWER</option><option value="OPERATOR">OPERATOR</option><option value="BRANCH_USER">BRANCH_USER</option><option value="DEPT_ADMIN">DEPT_ADMIN</option><option value="BOD">BOD (read-only overview)</option><option value="ADMIN">ADMIN</option><option value="SUPER_ADMIN">SUPER_ADMIN</option><option value="PHARMACIST">Pharmacist</option></select>',
       '            <select id="r-hinv-pharm" onchange="rHinvPharmPick()" style="display:none;flex:1 1 100%;' + _HINV_SEL + '"><option value="">- pharmacist -</option></select>',
       '            <select id="r-hinv-dept" style="' + _HINV_SEL + '"><option value="">- department -</option></select>',
+      '            <select id="r-hinv-priv" title="Privilege: opens Insights (BOD / HR / Accounts)" style="' + _HINV_SEL + '"><option value="">- no privilege -</option><option value="BOD">BOD</option><option value="HR">HR</option><option value="ACCOUNTANT">Accounts</option></select>',
       '          </div>',
       '          <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;font-size:10px;color:var(--rc-text-dim,#d1d5db);">',
       '            <label id="r-hinv-store-lbl"><input id="r-hinv-store" type="checkbox"> Store access (Authenticator code)</label>',
@@ -14359,6 +14360,7 @@
     var f = document.getElementById('r-huser-invite-form'); if (f) f.style.display = 'none';
     ['r-hinv-name', 'r-hinv-email', 'r-hinv-email2', 'r-hinv-un'].forEach(function (id) { var e = document.getElementById(id); if (e) { e.value = ''; e.disabled = false; delete e.dataset.touched; } });
     var lg = document.getElementById('r-hinv-legacy'); if (lg) lg.value = '';
+    var pv = document.getElementById('r-hinv-priv'); if (pv && !_hbBusy) pv.value = '';
     var rl = document.getElementById('r-hinv-role'); if (rl && rl.value === 'PHARMACIST') { rl.value = 'VIEWER'; rHinvRolePick(); }
     if (!_hbBusy) { _hbReset(); if (_hbOn) rHinvMode(false); }
   };
@@ -14393,7 +14395,13 @@
   function _hinvIsPharm() { var r = document.getElementById('r-hinv-role'); return !!(r && r.value === 'PHARMACIST'); }
   window.rHinvRolePick = function () {
     var ph = _hinvIsPharm(), show = function (id, on) { var e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none'; };
-    ['r-hinv-dept', 'r-hinv-apps', 'r-hinv-apps-ttl', 'r-hinv-store-lbl'].forEach(function (id) { show(id, !ph); });
+    ['r-hinv-dept', 'r-hinv-priv', 'r-hinv-apps', 'r-hinv-apps-ttl', 'r-hinv-store-lbl'].forEach(function (id) { show(id, !ph); });
+    var _rl = document.getElementById('r-hinv-role'), _pv = document.getElementById('r-hinv-priv'), _dp = document.getElementById('r-hinv-dept');
+    if (ph && _pv) _pv.value = '';
+    if (_rl && _rl.value === 'BOD') {
+      if (_pv && !_pv.value) _pv.value = 'BOD';
+      if (_dp && !_dp.value && Array.prototype.some.call(_dp.options, function (o) { return o.value === 'BOARD'; })) _dp.value = 'BOARD';
+    }
     show('r-hinv-legacy', !ph && !_hbOn);
     show('r-hinv-pharm', ph && !_hbOn);
     if (ph) {
@@ -14547,6 +14555,16 @@
     var em = e.target && e.target.getAttribute && e.target.getAttribute('data-hbp');
     if (em) { _hbPick[em] = e.target.value; _hbRender(); }
   });
+  // Privilege chosen in the invite form (BOD / HR / Accounts): set right after the account is created
+  function _hinvSetPriv(uname) {
+    var pv = document.getElementById('r-hinv-priv');
+    var v = pv && !_hinvIsPharm() ? pv.value : '';
+    if (!v || !uname || !RS.supa) return Promise.resolve(true);
+    return RS.supa.rpc('admin_console_set_privilege', { p_username: uname, p_privilege: v }).then(function (r) {
+      if (r.error) { rToast(uname + ': privilege not set (' + r.error.message + ')', 'error'); return false; }
+      return true;
+    }, function () { return false; });
+  }
   function _hbSend() {
     if (_hbBusy) return;
     var g = function (id) { return document.getElementById(id); };
@@ -14577,6 +14595,7 @@
       call.then(function (res) {
         if (res.error) throw new Error(res.error.message);
         ok++; _hbStatus[em] = { ok: true, username: res.data && res.data.username };
+        if (!ph) _hinvSetPriv(res.data && res.data.username);
         var c = document.querySelector('#r-hinv-chips .rh-hb-chip[data-em="' + em + '"]'); if (c) c.classList.add('done');
         if (ph && _hbPick[em]) _hinvPharms = _hinvPharms.filter(function (p) { return String(p.id) !== _hbPick[em]; });
         _huUsers.push({ username: res.data && res.data.username, email: em });
@@ -14622,8 +14641,9 @@
     call.then(function (res) {
       if (res.error) throw new Error(res.error.message);
       var uname = (res.data && res.data.username) || legacy || un;
+      return _hinvSetPriv(pharm ? '' : uname).then(function () {
       rHuserInviteClose();
-      return _sendInviteNow(uname).then(function (sent) {
+      return _sendInviteNow(uname); }).then(function (sent) {
         rToast((legacy ? 'Linked ' + legacy + ' to ' : 'Invited ') + email + (sent ? ' — invitation e-mail sent' : ' — e-mail not sent, use Resend e-mail'), sent ? 'success' : 'error');
         _flushInvites();
         _loadHospitalUsers();

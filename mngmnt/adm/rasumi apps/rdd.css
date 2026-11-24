@@ -26,3 +26,13 @@ select.rdd-open-up { border-color: rgba(var(--rdd-acc), .6) !important; border-t
 .rdd-search:focus { border-color: rgba(var(--rdd-acc), .75); }
 .rdd-search::placeholder { color: #8f86a3; }
 .rdd-empty { flex: 0 0 auto; padding: 8px 12px; color: #a59cb8; font-style: italic; }
+
+/* v2: box and list read as ONE piece, same colour, no browser focus ring (the console's own styles must not win) */
+select.rdd-open, select.rdd-open-up, select.rdd-open:focus, select.rdd-open-up:focus {
+    outline: none !important; box-shadow: none !important;
+    border: 1px solid rgba(var(--rdd-acc), .6) !important;
+}
+select.rdd-open { border-bottom-color: transparent !important; border-radius: 8px 8px 0 0 !important; }
+select.rdd-open-up { border-top-color: transparent !important; border-radius: 0 0 8px 8px !important; }
+.rdd-menu { border: 1px solid rgba(var(--rdd-acc), .6) !important; border-top: 0 !important; border-radius: 0 0 10px 10px !important; margin: 0 !important; }
+.rdd-menu.rdd-up { border-top: 1px solid rgba(var(--rdd-acc), .6) !important; border-bottom: 0 !important; border-radius: 10px 10px 0 0 !important; }
