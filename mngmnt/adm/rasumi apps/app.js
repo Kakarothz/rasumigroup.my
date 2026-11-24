@@ -756,9 +756,9 @@
       '    <div id="r-nav-dropdown" class="nav-dropdown hidden" style="top:60px; right:20px; position:absolute; z-index:9999;">',
       '      <div class="dropdown-item" onclick="window.location.href=\'../\'"><img class="r-menu-ic" src="assets/menu/main_menu.webp?v=1" alt=""> MAIN MENU</div>',
       '      <div class="dropdown-sep"></div>',
-      '      <div class="dropdown-item" onclick="window.location.href=\'./\'"><img class="r-menu-ic" src="assets/menu/rasumi_apps.webp?v=1" alt=""> RASUMI APPS</div>',
+      '      <div class="dropdown-item" onclick="window.location.href=\'./\'"><img class="r-menu-ic" src="assets/menu/rasumi_apps.webp?v=2" alt=""> RASUMI APPS</div>',
       '      <div class="dropdown-item" onclick="window.location.href=\'../sales report/\'"><img class="r-menu-ic" src="assets/menu/sales_report.webp?v=1" alt=""> SALES REPORT</div>',
-      '      <div class="dropdown-item" onclick="window.location.href=\'../camscanner/camscanner_admin/\'"><img class="r-menu-ic" src="assets/menu/camscanner.webp?v=1" alt=""> CAMSCANNER ADMIN</div>',
+      '      <div class="dropdown-item" onclick="window.location.href=\'../camscanner/camscanner_admin/\'"><img class="r-menu-ic" src="assets/menu/camscanner.webp?v=2" alt=""> CAMSCANNER ADMIN</div>',
       // Rasumi Sentinel: separate service with its own login - opened in a new tab,
       // never proxied through this console (no Sentinel credentials in this JS).
       '      <div class="dropdown-item" onclick="window.open(\'https://sentinel.rasumigroup.my/admin\',\'_blank\',\'noopener\')"><img class="r-menu-ic" src="assets/menu/sentinel.webp?v=1" alt=""> RASUMI SENTINEL</div>',

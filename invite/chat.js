@@ -1,7 +1,7 @@
 /* Rasumi Agent · guided support chat on the invitation page
    - topics and follow-up questions are quick-reply buttons inside the conversation
    - every final answer asks "Did this solve it?" -> Yes: 1-5 stars (saved) / No: leave a message for IT
-   - "Contact IT" is always one tap away; the message is e-mailed to it@rasumi.com.my (reply goes to the user)
+   - "Contact IT" is always one tap away; the message is e-mailed to support@rasumi.com.my (reply goes to the user)
    - typed questions are matched to the knowledge base (EN + BM); anything outside Rasumi Apps gets a firm "out of scope"
    - agents answers show the real last run of each agent (invite-download action "agents")
    Backend: invite-download edge function (same invitation token + device key as the page). */
@@ -285,7 +285,7 @@
   function ticketForm() {
     var f = document.createElement('div'); f.className = 'ra-form';
     var cat = '';
-    f.innerHTML = '<label>' + T('TO', 'KEPADA') + '</label><div class="ra-to">IT · it@rasumi.com.my</div>' +
+    f.innerHTML = '<label>' + T('TO', 'KEPADA') + '</label><div class="ra-to">IT · support@rasumi.com.my</div>' +
       '<label>' + T('REPLY GOES TO', 'BALASAN KE') + '</label><div class="ra-to">' + esc((info && info.email) || '-') + '</div>' +
       '<label>' + T('WHAT IS IT ABOUT?', 'TENTANG APA?') + '</label><div class="ra-cats"></div>' +
       '<label>' + T('YOUR MESSAGE', 'MESEJ ANDA') + '</label><textarea maxlength="4000"></textarea><div class="ra-err" hidden></div>' +
@@ -308,7 +308,7 @@
         if (!r || !r.ok) {
           bs[0].disabled = bs[1].disabled = false; ta.disabled = false; bs[1].textContent = T('Send to IT', 'Hantar kepada IT');
           err.textContent = r && r.reason === 'limit' ? T('You have sent the daily limit of messages. IT will reply to the earlier ones.', 'Anda sudah mencapai had mesej harian. IT akan membalas mesej terdahulu.')
-            : T('Could not send right now. Try again, or e-mail it@rasumi.com.my.', 'Tidak dapat dihantar sekarang. Cuba lagi, atau e-mel it@rasumi.com.my.');
+            : T('Could not send right now. Try again, or e-mail support@rasumi.com.my.', 'Tidak dapat dihantar sekarang. Cuba lagi, atau e-mel support@rasumi.com.my.');
           err.hidden = false; return;
         }
         f.remove(); userSay(msg);

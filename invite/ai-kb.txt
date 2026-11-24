@@ -220,7 +220,7 @@ Rasumi Apps checks for a newer version when it opens and updates itself. There i
 Personal accounts with two-step verification; row-level security and short-lived sessions on the database; invitation links locked to one PC and stored only as hashes; installers served from a private bucket with 10-minute links; Sentinel watching for suspicious sign-ins; and every action logged under the person who did it.
 
 ### Contact IT  [it]
-I can pass your question to IT. Leave a message here and IT will reply to your e-mail as soon as possible. You can also e-mail it@rasumi.com.my.
+I can pass your question to IT. Leave a message here and IT will reply to your e-mail as soon as possible. You can also e-mail support@rasumi.com.my.
 
 ### When will IT reply?  [it_when]
 IT replies by e-mail as soon as possible during office hours. Your message has a reference number (RA-…) and a copy goes to your inbox; reply to that e-mail to add details.
@@ -230,5 +230,5 @@ Sorry, this page cannot see or share company data such as sales, costs, claim am
 
 ### Facts about this invitation page
 - Rasumi Agent is the assistant on the Rasumi Apps invitation page (invite.rasumigroup.my).
-- IT e-mail: it@rasumi.com.my. Automated e-mails come from noreply@rasumi.com.my.
+- IT e-mail: support@rasumi.com.my. Automated e-mails come from noreply@rasumi.com.my.
 - Rasumi Apps is made by the IT / AI team of Rasumi Medipharma Sdn. Bhd. for its staff. Branches and company books: FVKL, FVT, FVL, FVG and RSA.

@@ -292,8 +292,8 @@ window.RA_KB = (function () {
 
   // ---------------------------------------------------------------- 6. contact IT
   n('it', ['Contact IT', 'Hubungi IT'],
-    ['I can pass your question to IT. Leave a message here and IT will reply to your e-mail as soon as possible. You can also e-mail <a href="mailto:it@rasumi.com.my">it@rasumi.com.my</a>.',
-     'Saya boleh hantar soalan anda kepada IT. Tinggalkan mesej di sini dan IT akan membalas ke e-mel anda secepat mungkin. Anda juga boleh e-mel <a href="mailto:it@rasumi.com.my">it@rasumi.com.my</a>.'],
+    ['I can pass your question to IT. Leave a message here and IT will reply to your e-mail as soon as possible. You can also e-mail <a href="mailto:support@rasumi.com.my">support@rasumi.com.my</a>.',
+     'Saya boleh hantar soalan anda kepada IT. Tinggalkan mesej di sini dan IT akan membalas ke e-mel anda secepat mungkin. Anda juga boleh e-mel <a href="mailto:support@rasumi.com.my">support@rasumi.com.my</a>.'],
     ['contact', 'hubungi', 'it support', 'human', 'manusia', 'staff it', 'talk to', 'cakap dengan', 'leave message', 'tinggal mesej', 'report problem', 'lapor masalah', 'it team', 'pasukan it', 'live agent', 'real person', 'orang sebenar'], [], { form: true });
   n('it_when', ['When will IT reply?', 'Bila IT akan balas?'],
     ['IT replies by e-mail as soon as possible during office hours. Your message has a reference number (RA-…) and a copy goes to your inbox; reply to that e-mail to add details.',
