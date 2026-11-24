@@ -14944,6 +14944,31 @@
     });
   }
 
+  // WhatsApp number + alerts switch per Store Portal staff (GRN alerts of their home branch) — store_staff_wa_set
+  var _sstaffWa = {};
+  function _sstaffWaHtml(safeId, id) {
+    var w = _sstaffWa[String(id).toLowerCase()] || {};
+    var on = !!w.wa_opt_in;
+    return '<span style="display:inline-flex;align-items:center;gap:6px;" title="WhatsApp for GRN alerts of this staff\'s branch">' +
+      '<i class="fa-brands fa-whatsapp" style="color:' + (on ? '#25d366' : 'var(--rc-text-dim,#6b7280)') + ';font-size:13px;"></i>' +
+      '<input id="swa_' + safeId + '" type="tel" inputmode="numeric" placeholder="60123456789" value="' + esc(w.wa_phone || '') + '" ' +
+      'style="width:118px;background:var(--rc-bg-2,#1f2937);border:1px solid var(--rc-border,#374151);color:var(--rc-text,#fff);font-size:10px;border-radius:4px;padding:3px 6px;font-family:inherit;">' +
+      '<label style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--rc-text-dim,#9ca3af);cursor:pointer;">' +
+      '<input id="swaon_' + safeId + '" type="checkbox"' + (on ? ' checked' : '') + ' style="accent-color:#22c55e;margin:0;"> Alerts</label></span>';
+  }
+  function _sstaffWaSave(userId, safeId) {
+    var ph = document.getElementById('swa_' + safeId), on = document.getElementById('swaon_' + safeId);
+    if (!ph || !on) return Promise.resolve(null);
+    var w = _sstaffWa[String(userId).toLowerCase()] || {};
+    var phone = ph.value.trim(), want = !!on.checked;
+    if ((w.wa_phone || '') === phone.replace(/\D/g, '') && !!w.wa_opt_in === want) return Promise.resolve(null);
+    return RS.supa.rpc('store_staff_wa_set', { p_user_id: userId, p_phone: phone, p_on: want }).then(function (r) {
+      if (r.error) throw new Error(r.error.message);
+      if (!r.data || !r.data.success) throw new Error((r.data && r.data.reason) || 'WhatsApp not saved');
+      return r.data;
+    });
+  }
+
   function _loadStoreStaff() {
     var list = document.getElementById('r-sstaff-list');
     if (!list || !RS.supa) return;
@@ -14957,9 +14982,12 @@
       // here is small (single pharmacy operation), same "fetch once,
       // group client-side" approach as the rest of this admin panel.
       RS.supa.rpc('store_totp_list_devices', {}),
-      RS.supa.rpc('store_pic_list', {})
+      RS.supa.rpc('store_pic_list', {}),
+      RS.supa.rpc('store_staff_wa_list', {})
     ]).then(function (results) {
         var res = results[0];
+        _sstaffWa = {};
+        ((results[3] && !results[3].error && results[3].data) || []).forEach(function (w) { _sstaffWa[String(w.id).toLowerCase()] = w; });
         var devicesRes = results[1];
         _sstaffPics = (results[2] && !results[2].error && results[2].data) || [];
         if (res.error) throw new Error(res.error.message);
@@ -15031,6 +15059,7 @@
             row += '</select>';
             row += _sstaffBranchSelectHtml('sbranch_' + safeId, u.home_branch_code || 'ALL');
             row += _sstaffPicSelectHtml('spic_' + safeId, u);
+            row += _sstaffWaHtml(safeId, u.id);
             row += '<button onclick="rSaveStoreStaffProfile(\'' + u.id.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:var(--rc-cyan,#D97757);color:#000;font-weight:700;border:none;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;">SAVE</button>';
             row += '<button onclick="rDeleteStoreStaff(\'' + u.id.replace(/'/g, "\\'") + '\')" style="padding:4px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);color:#ef4444;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;margin-left:auto;">DELETE</button>';
             row += '</div>';
@@ -15121,6 +15150,10 @@
       p_capabilities: capabilities
     }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
+      return _sstaffWaSave(userId, safeId).then(function () { return res; }, function (e) {
+        rToast('Saved, but WhatsApp: ' + (e.message || e), 'error', 6000); return res;
+      });
+    }).then(function (res) {
       var picSel = document.getElementById('spic_' + safeId);
       var link = picSel ? (role === 'PHARMACIST' ? (picSel.value || null) : null) : undefined;
       var after = function (extra) { rToast(userId + ' — role/branch/capabilities saved' + (extra || ''), 'success'); _loadStoreStaff(); };
