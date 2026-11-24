@@ -2424,7 +2424,7 @@
   // admin role changes…) survive refresh and are written even while the console
   // is closed. P1 = red, P2 = amber, P3 = info.
   var _nt = { items: [], unread: 0, p1: 0, started: false, seen: null, ch: null, timer: null };
-  var _NT_ICON = { security: 'fa-user-lock', provider: 'fa-key', system: 'fa-envelope-circle-check', device: 'fa-desktop', account: 'fa-user-plus' };
+  var _NT_ICON = { security: 'fa-user-lock', provider: 'fa-key', system: 'fa-envelope-circle-check', device: 'fa-desktop', account: 'fa-user-plus', connection: 'fa-plug-circle-exclamation' };
 
   function _ntAgo(ts) {
     var s = Math.max(0, (Date.now() - new Date(ts).getTime()) / 1000);
