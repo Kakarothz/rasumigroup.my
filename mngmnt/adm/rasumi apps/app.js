@@ -2466,7 +2466,35 @@
         .subscribe();
     } catch (e) { }
     _nt.timer = setInterval(_ntLoad, 60 * 1000);   // fallback if realtime drops
+    _ntWaLoad();
   }
+
+  // WhatsApp on/off for the system (connection) alerts — store_app_settings.sys_alert_wa
+  function _ntWaHtml() {
+    if (_nt.wa === undefined || _nt.wa === null) return '';
+    var on = !!_nt.wa;
+    return '<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:500;color:var(--text-muted)" title="WhatsApp for system alerts. Off: alerts still show here, no WhatsApp is sent.">' +
+      '<i class="fa-brands fa-whatsapp" style="font-size:13px;color:' + (on ? '#25d366' : 'var(--text-muted)') + '"></i>' +
+      'WhatsApp ' + (on ? 'on' : 'off') +
+      '<button type="button" onclick="event.stopPropagation();window._rNtWaToggle()" aria-label="WhatsApp system alerts" style="width:32px;height:18px;border-radius:9px;border:none;padding:0;cursor:pointer;position:relative;background:' + (on ? '#22c55e' : 'rgba(148,163,184,.45)') + '">' +
+      '<span style="position:absolute;top:2px;left:' + (on ? '16px' : '2px') + ';width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s"></span></button></span>';
+  }
+  function _ntWaPaint() { var el = document.getElementById('r-nt-wa'); if (el) el.innerHTML = _ntWaHtml(); }
+  function _ntWaLoad() {
+    if (!RS.supa) return;
+    RS.supa.rpc('rpc_sys_alert_wa_get').then(function (r) {
+      var d = r && r.data; if (d && d.success) { _nt.wa = !!d.on; _ntWaPaint(); }
+    }).catch(function () { });
+  }
+  window._rNtWaToggle = function () {
+    if (!RS.supa || _nt.wa === undefined || _nt.wa === null) return;
+    var want = !_nt.wa;
+    RS.supa.rpc('rpc_sys_alert_wa_set', { p_on: want }).then(function (r) {
+      var d = r && r.data;
+      if (d && d.success) { _nt.wa = !!d.on; _ntWaPaint(); rToast(want ? 'WhatsApp system alerts on' : 'WhatsApp system alerts off', want ? 'success' : 'warn', 3000); }
+      else rToast('Could not change the WhatsApp setting', 'error', 4000);
+    }).catch(function () { rToast('Could not change the WhatsApp setting', 'error', 4000); });
+  };
 
   function _ntRows(max, big) {
     if (!_nt.items.length) return '<div style="padding:10px;text-align:center;font-size:11px;color:var(--text-muted)">No open notifications</div>';
@@ -11261,7 +11289,8 @@
 
     // ── PERSISTENT ADMIN NOTIFICATIONS ──
     html += '<div class="r-alert-section"><div class="r-alert-section-title ' + (_nt.p1 ? 'err' : 'warn') + '">' +
-      '<i class="fa-solid fa-bell"></i> Admin Notifications (' + _nt.items.length + ' open' + (_nt.p1 ? ', ' + _nt.p1 + ' critical' : '') + ')</div>' +
+      '<i class="fa-solid fa-bell"></i> Admin Notifications (' + _nt.items.length + ' open' + (_nt.p1 ? ', ' + _nt.p1 + ' critical' : '') + ')' +
+      '<span id="r-nt-wa" style="margin-left:auto;display:inline-flex">' + _ntWaHtml() + '</span></div>' +
       '<div id="r-nt-page">' + _ntRows(30, true) + '</div></div>';
 
     // ── SYSTEM ALERTS (proactive monitoring) ──
