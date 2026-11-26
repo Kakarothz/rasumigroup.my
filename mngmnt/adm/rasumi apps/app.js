@@ -13703,6 +13703,58 @@
   }
   // ---- Invitation progress (rpc_admin_invite_progress): one chip on the card, details in a side panel ----
   var _huInv = {}, _invFilter = '';
+  // ── WhatsApp alerts per user (sql/po_mailer/wa_alerts_split_v1.sql). Same columns as PO Mailer > Settings, so a
+  // change here applies to the next alert at once, and the user's app shows it within 30 s. ──
+  var _huWa = {}, _HU_WA_BR = ['FVKL', 'FVT', 'FVL', 'FVG', 'RSA'];
+  function _huWaHtml(uname, sid, role) {
+    var w = _huWa[String(uname).toLowerCase()] || {};
+    var br = Array.isArray(w.wa_branches) ? w.wa_branches : [];
+    var sa = (role === 'SUPER_ADMIN');
+    var on = !!(w.wa_purchaser || w.wa_store);
+    var q = function (x) { return String(x).replace(/'/g, "\\'"); };
+    var h = '<div class="rh-sec"><i class="fa-brands fa-whatsapp" style="color:' + (on ? '#25d366' : 'inherit') + '"></i> WhatsApp alerts' +
+      '<span class="rh-sec-n" id="uwastat_' + sid + '" style="' + (on ? 'color:#25d366' : '') + '">' + (on ? [w.wa_purchaser ? 'Purchaser' : '', w.wa_store ? 'Store' : ''].filter(Boolean).join(' + ') + ' on' : 'Off') + '</span></div>';
+    h += '<div class="rh-tags" style="align-items:center">';
+    h += '<input id="uwaph_' + sid + '" class="rh-in" type="tel" inputmode="numeric" placeholder="60123456789" value="' + esc(w.wa_phone || '') + '" style="width:140px">';
+    h += '<label class="rh-tag" title="Stock alert, confirm qty, PO created, items rejected, TNB GRN ready"><input type="checkbox" id="uwap_' + sid + '"' + (w.wa_purchaser ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Purchaser alerts</span></label>';
+    if (sa) h += '<label class="rh-tag" title="Goods delivered, GRN waiting for approval, delivery on hold (copy of the store staff alerts; first answer wins)"><input type="checkbox" id="uwas_' + sid + '"' + (w.wa_store ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Store alerts</span></label>';
+    h += '<span style="font-size:11px;color:var(--rc-text-dim,#9ca3af);margin-left:6px">Branch</span>';
+    h += '<label class="rh-tag sm"><input type="checkbox" id="uwab_' + sid + '_ALL"' + (br.length ? '' : ' checked') + ' onchange="rHuWaBr(\'' + sid + '\',\'ALL\')"><span>All</span></label>';
+    _HU_WA_BR.forEach(function (b) {
+      h += '<label class="rh-tag sm"><input type="checkbox" id="uwab_' + sid + '_' + b + '"' + (br.indexOf(b) !== -1 ? ' checked' : '') + ' onchange="rHuWaBr(\'' + sid + '\',\'' + b + '\')"><span>' + b + '</span></label>';
+    });
+    h += '<button class="rh-btn primary sm" id="uwasave_' + sid + '" onclick="rHuWaSave(\'' + q(uname) + '\',\'' + sid + '\')"><i class="fa-solid fa-floppy-disk"></i> Save WhatsApp</button>';
+    h += '</div>';
+    return h;
+  }
+  window.rHuWaBr = function (sid, b) {
+    var all = document.getElementById('uwab_' + sid + '_ALL');
+    if (b === 'ALL') { if (all.checked) _HU_WA_BR.forEach(function (x) { var c = document.getElementById('uwab_' + sid + '_' + x); if (c) c.checked = false; }); else all.checked = true; return; }
+    var any = _HU_WA_BR.some(function (x) { var c = document.getElementById('uwab_' + sid + '_' + x); return c && c.checked; });
+    all.checked = !any;
+  };
+  window.rHuWaSave = function (uname, sid) {
+    if (RS.userRole !== 'superadmin' || !RS.supa) return;
+    var g = function (p) { return document.getElementById(p + sid); };
+    var btn = g('uwasave_');
+    var br = _HU_WA_BR.filter(function (x) { var c = document.getElementById('uwab_' + sid + '_' + x); return c && c.checked; });
+    var st = g('uwas_');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving…'; }
+    RS.supa.rpc('admin_wa_user_set', { p_username: uname, p_phone: (g('uwaph_') || {}).value || '',
+      p_purchaser: !!(g('uwap_') && g('uwap_').checked), p_store: !!(st && st.checked), p_branches: br.length ? br : null })
+      .then(function (r) {
+        if (r.error) throw new Error(r.error.message);
+        var d = r.data || {};
+        if (!d.ok) throw new Error(d.message || 'Not saved');
+        _huWa[String(uname).toLowerCase()] = { username: uname, wa_phone: d.wa_phone, wa_purchaser: !!d.wa_purchaser, wa_store: !!d.wa_store, wa_branches: d.wa_branches };
+        var on = !!(d.wa_purchaser || d.wa_store), s = g('uwastat_');
+        if (s) { s.textContent = on ? [d.wa_purchaser ? 'Purchaser' : '', d.wa_store ? 'Store' : ''].filter(Boolean).join(' + ') + ' on' : 'Off'; s.style.color = on ? '#25d366' : ''; }
+        if (g('uwaph_')) g('uwaph_').value = d.wa_phone || '';
+        rToast('WhatsApp saved for ' + uname + (on ? '' : ' (off)'), 'success', 3000);
+      })
+      .catch(function (e) { rToast('WhatsApp: ' + (e.message || e), 'error', 5000); })
+      .then(function () { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save WhatsApp'; } });
+  };
   var _INV_STEPS = [['sent', 'E-mail sent'], ['opened', 'Link opened'], ['downloaded', 'Downloaded'], ['installed', 'Installed'], ['signed', 'Signed up']];
   function _invUa(ua) {
     ua = String(ua || '');
@@ -13888,6 +13940,12 @@
         ((ir && Array.isArray(ir.data)) ? ir.data : []).forEach(function (p) { _huInv[String(p.username || '').toLowerCase()] = p; });
       }, function () { _huInv = {}; });
     }).then(function () {
+      // WhatsApp alerts per user (Purchaser / Store / branches) - same columns the user sets in PO Mailer > Settings
+      return RS.supa.rpc('admin_wa_users_list').then(function (wr) {
+        _huWa = {};
+        ((wr && Array.isArray(wr.data)) ? wr.data : []).forEach(function (w) { _huWa[String(w.username || '').toLowerCase()] = w; });
+      }, function () { _huWa = {}; });
+    }).then(function () {
       return RS.supa.from('users').select('username,role,status,allowed_apps,store_branch,account_type,email,display_name,full_name,department_id,invite_status,auth_id,store_access,google_ok,microsoft_ok,avatar_url,ops_access,failed_login_count,last_login_utc,privilege').order('username');
     }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
@@ -14015,6 +14073,8 @@
           row += '<button class="rh-btn primary sm" onclick="rSaveStorePortal(\'' + q(uname) + '\')"><i class="fa-solid fa-floppy-disk"></i> Save</button>';
           row += '</div><div style="font-size:11px;color:var(--rc-text-dim,#9ca3af);margin-top:6px">' + (_indiv ? 'Profile linked: opens the Store Portal with the Rasumi Apps account (no Store Portal login, 2FA required).' : 'Team ID: the Store Portal button opens the normal Store Portal login.') + '</div></div>';
         }
+        // ---- WhatsApp alerts (remote setup; the user's PO Mailer > Settings shows the same within 30 s) ----
+        row += _huWaHtml(uname, safeId, role);
         // ---- devices (from login sessions + live heartbeat) ----
         row += '<div class="rh-sec"><i class="fa-solid fa-laptop"></i> Devices <span class="rh-sec-n">' + devs.length + '</span></div><div class="rh-devs">';
         if (!devs.length) row += '<span class="rh-dev-none">No device activity yet.</span>';
