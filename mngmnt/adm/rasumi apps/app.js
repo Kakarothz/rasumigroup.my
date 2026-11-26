@@ -2509,7 +2509,9 @@
         '<div style="font-size:' + (big ? 12 : 10.5) + 'px;font-weight:' + (unread ? 700 : 500) + ';color:' + col + '">' + esc(it.title) + '</div>' +
         (it.body ? '<div style="font-size:' + (big ? 11 : 9.5) + 'px;color:var(--text-muted);margin-top:1px;' + (big ? '' : 'white-space:normal') + '">' + esc(it.body) + '</div>' : '') +
         '<div style="display:flex;gap:6px;margin-top:4px;align-items:center">' +
-        (it.action ? '<button onclick="window._rNtAction(' + it.id + ')" style="background:' + col + ';color:#fff;border:0;border-radius:4px;padding:2px 9px;font-size:9.5px;font-weight:600;cursor:pointer">' + (String(it.action).indexOf('revoke_signup:') === 0 ? '<i class="fa-solid fa-user-xmark"></i> Revoke' : '<i class="fa-solid fa-lock-open"></i> Unlock') + '</button>' : '') +
+        // only real actions (unlock_* / revoke_signup:) get a button; system alerts carry a hint text in "action"
+        (_ntDoable(it.action) ? '<button onclick="window._rNtAction(' + it.id + ')" style="background:' + col + ';color:#fff;border:0;border-radius:4px;padding:2px 9px;font-size:9.5px;font-weight:600;cursor:pointer">' + (String(it.action).indexOf('revoke_signup:') === 0 ? '<i class="fa-solid fa-user-xmark"></i> Revoke' : '<i class="fa-solid fa-lock-open"></i> Unlock') + '</button>'
+          : (it.action ? '<span style="font-size:9.5px;color:var(--text-muted);flex:1;min-width:0" title="' + esc(it.action) + '"><i class="fa-solid fa-wrench"></i> ' + esc(it.action) + '</span>' : '')) +
         '<button onclick="window._rNtResolve(' + it.id + ')" style="background:none;border:1px solid var(--glass-border);color:var(--text-muted);border-radius:4px;padding:2px 8px;font-size:9.5px;cursor:pointer">Resolve</button>' +
         '</div></div>' +
         '<span style="font-size:9px;color:var(--text-muted);opacity:.7;flex-shrink:0">' + _ntAgo(it.created_at) + '</span></div>';
@@ -2536,6 +2538,7 @@
     _nt.items = _nt.items.filter(function (x) { return x.id !== id; });
     updateAlertBadge();
   }
+  function _ntDoable(a) { return /^(unlock_store|unlock_po2fa|unlock_user|unlock_mfa|revoke_signup)(:|$)/.test(String(a || '')); }
   window._rNtAction = function (id) {
     RS.supa.rpc('rpc_notif_action', { p_id: id }).then(function (r) {
       if (r.data && r.data.success) { rToast('Unlocked', 'ok'); _ntSlideOut(id, function () { _ntDropLocal(id); _ntLoad(); }); }
