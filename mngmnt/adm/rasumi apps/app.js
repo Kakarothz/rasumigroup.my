@@ -14067,17 +14067,28 @@
           row += '<div style="font-size:12px;color:#38bdf8;margin-bottom:8px"><i class="fa-solid fa-store"></i> Store Portal options</div>';
           row += '<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center">';
           row += '<label class="rh-tag"><input type="checkbox" id="ustore_' + safeId + '"' + (u.store_access ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Store Portal button</span></label>';
-          var _srOn = !!(_linked && (_huStoreCaps[String(_linked).toLowerCase()] || {}).sr_create);
-          row += '<label class="rh-tag" title="Opens the Special Request page in the Store Portal (needs a linked profile)"><input type="checkbox" id="ussr_' + safeId + '"' + (_srOn ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> Special Request</span></label>';
-          row += '<span style="font-size:12px;color:var(--rc-text-dim,#9ca3af)">Profile</span><select id="ustoreprof_' + safeId + '" class="rh-in"' + (_indiv ? '' : ' disabled title="Team (shared) IDs always use the Store Portal login"') + '>';
-          row += '<option value="">None (Store Portal login)</option>';
-          _huStoreProfiles.forEach(function (p) {
-            var taken = p.app_username && String(p.app_username).toLowerCase() !== String(uname).toLowerCase();
-            row += '<option value="' + esc(p.id) + '"' + (p.id === _linked ? ' selected' : '') + (taken ? ' disabled' : '') + '>' + esc(p.id) + ' — ' + esc(p.role || '') + ' · ' + esc(p.home_branch_code || '-') + (taken ? ' (linked to ' + esc(p.app_username) + ')' : '') + (p.is_active === false ? ' (inactive)' : '') + '</option>';
-          });
-          row += '</select>';
+          if (_indiv) {
+            // one place: role + branch + permissions here -> profile created / updated, linked, sign-in allowed (no password)
+            var _lp = _huStoreProfiles.filter(function (p) { return String(p.app_username || '').toLowerCase() === String(uname).toLowerCase(); })[0] || {};
+            var _lc = _huStoreCaps[String(_lp.id || '').toLowerCase()] || {};
+            var _rl = _lp.role || '', _brs = ['ALL', 'HQ', 'FVKL', 'FVT', 'FVL', 'FVG', 'RSA', 'TNB'];
+            row += '<span style="font-size:12px;color:var(--rc-text-dim,#9ca3af)">Role</span><select id="usprole_' + safeId + '" class="rh-in">'
+              + '<option value="">— choose —</option>'
+              + [['PHARMACIST', 'Pharmacist'], ['STOREKEEPER', 'Storekeeper'], ['STORE_ADMIN', 'Store Admin'], ['ADMIN', 'Admin']].map(function (o) {
+                  return '<option value="' + o[0] + '"' + (_rl === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>';
+            row += '<span style="font-size:12px;color:var(--rc-text-dim,#9ca3af)">Branch</span><select id="uspbr_' + safeId + '" class="rh-in">'
+              + '<option value="">— choose —</option>'
+              + _brs.map(function (b) { return '<option value="' + b + '"' + ((_lp.home_branch_code || '') === b ? ' selected' : '') + '>' + (b === 'ALL' ? 'All branches (HQ)' : b) + '</option>'; }).join('') + '</select>';
+            row += '</div><div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:8px">';
+            [['sr_create', 'Special Request', 'Branch pharmacists always can; HQ pharmacists / others only when ticked'],
+             ['vims_sync', 'VIMS Sync', ''], ['dispatch_confirm', 'Dispatch Confirmation', ''], ['bincard_edit', 'Bin Card Correction', '']].forEach(function (c) {
+              row += '<label class="rh-tag"' + (c[2] ? ' title="' + esc(c[2]) + '"' : '') + '><input type="checkbox" id="uspc_' + c[0] + '_' + safeId + '"' + (_lc[c[0]] ? ' checked' : '') + '><span><i class="fa-solid fa-circle-check"></i> ' + c[1] + '</span></label>';
+            });
+          }
           row += '<button class="rh-btn primary sm" onclick="rSaveStorePortal(\'' + q(uname) + '\')"><i class="fa-solid fa-floppy-disk"></i> Save</button>';
-          row += '</div><div style="font-size:11px;color:var(--rc-text-dim,#9ca3af);margin-top:6px">' + (_indiv ? 'Profile linked: opens the Store Portal with the Rasumi Apps account (no Store Portal login, 2FA required).' : 'Team ID: the Store Portal button opens the normal Store Portal login.') + '</div></div>';
+          row += '</div><div style="font-size:11px;color:var(--rc-text-dim,#9ca3af);margin-top:6px">' + (_indiv
+            ? (_lp.id ? 'Store Portal profile: ' + esc(_lp.id) + '. ' : 'Save creates the Store Portal profile. ') + 'Opens from Rasumi Apps with this account (no Store Portal password; 2FA on first use).'
+            : 'Team ID: the Store Portal button opens the normal Store Portal login.') + '</div></div>';
         }
         // ---- WhatsApp alerts (remote setup; the user's PO Mailer > Settings shows the same within 30 s) ----
         row += _huWaHtml(uname, safeId, role);
@@ -14267,24 +14278,16 @@
   window.rSaveStorePortal = function (username) {
     if (RS.userRole !== 'superadmin') return;
     if (!RS.supa) { rToast('Supabase not available', 'error'); return; }
-    var sid = _sidU(username);
-    var cb = document.getElementById('ustore_' + sid), sel = document.getElementById('ustoreprof_' + sid);
-    var on = !!(cb && cb.checked), prof = (sel && !sel.disabled) ? sel.value : '';
-    var srEl = document.getElementById('ussr_' + sid), sr = !!(srEl && srEl.checked);
-    if (sr && !prof) { rToast('Special Request needs a Store Portal profile: pick one first', 'info'); return; }
-    RS.supa.rpc('rpc_set_store_portal', { p_username: username, p_store_access: on, p_store_id: prof || null }).then(function (res) {
+    var sid = _sidU(username), g = function (id) { return document.getElementById(id + sid); };
+    var on = !!(g('ustore_') && g('ustore_').checked), role = g('usprole_') ? g('usprole_').value : '', br = g('uspbr_') ? g('uspbr_').value : '';
+    var caps = {};
+    ['sr_create', 'vims_sync', 'dispatch_confirm', 'bincard_edit'].forEach(function (k) { var e = document.getElementById('uspc_' + k + '_' + sid); caps[k] = !!(e && e.checked); });
+    if (on && g('usprole_') && (!role || !br)) { rToast('Choose the Store Portal role and branch first', 'info'); return; }
+    RS.supa.rpc('rpc_store_portal_setup', { p_username: username, p_store_access: on, p_role: role || null, p_branch: br || null, p_caps: caps }).then(function (res) {
       if (res.error) throw new Error(res.error.message);
-      // Special Request = capability sr_create on the linked Store Portal profile (other capabilities kept)
-      if (!prof) return null;
-      var caps = Object.assign({}, _huStoreCaps[String(prof).toLowerCase()] || {});
-      if (!!caps.sr_create === sr) return null;
-      caps.sr_create = sr;
-      return RS.supa.rpc('store_update_profile', { p_user_id: prof, p_full_name: null, p_capabilities: caps }).then(function (r2) {
-        if (r2.error) throw new Error('Special Request: ' + r2.error.message);
-      });
-    }).then(function () {
+      var d = res.data || {};
       var ico = document.getElementById('uspico_' + sid); if (ico) ico.style.display = on ? '' : 'none';
-      rToast(username + ' — Store Portal button ' + (on ? 'ON' : 'OFF') + (prof ? ' · profile ' + prof : '') + (prof ? ' · Special Request ' + (sr ? 'ON' : 'OFF') : ''), 'success');
+      rToast(username + ' — Store Portal ' + (on ? 'ON' + (d.profile ? ' · ' + d.role + ' · ' + d.branch + ' (profile ' + d.profile + ')' : '') : 'OFF') + (d.note ? ' · ' + d.note : ''), 'success');
       _loadHospitalUsers();
     }).catch(function (e) { rToast('Error: ' + (e.message || String(e)), 'error'); });
   };
