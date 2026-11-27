@@ -13984,7 +13984,9 @@
         // ---- head: avatar, name, badges, e-mail line, status ----
         var av = (u.avatar_url && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/]+=*$/.test(u.avatar_url)) ? u.avatar_url : '';
         row += '<div class="rh-uhead"><div class="rh-av">' + (av ? '<img src="' + esc(av) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '<span>' + esc(initial) + '</span></div><div class="rh-uinfo">';
-        row += '<div class="rh-uname"><span>' + esc(uname) + '</span><span class="rh-role ' + roleCls + '">' + esc(role) + '</span>';
+        // Admin Console shows the full name as per IC (sign-up); the nickname is what the app greets the user with
+        var _ttl = (u.full_name || '').trim() || (u.display_name || '').trim() || uname;
+        row += '<div class="rh-uname"><span title="' + esc(u.full_name ? 'Full name (as per IC)' : 'No IC name yet: showing the nickname / user ID') + '">' + esc(_ttl) + '</span><span class="rh-role ' + roleCls + '">' + esc(role) + '</span>';
         if (u.invite_status === 'invited') row += _invChip(uname);
         // Store Portal has its OWN role / branch (store_user_profiles) - show it so it is never a surprise; click = edit it
         var _sp = _huStoreProfiles.filter(function (p) { return String(p.app_username || '').toLowerCase() === String(uname).toLowerCase(); })[0];
@@ -13996,7 +13998,8 @@
         row += '</div>';
         var _fails = u.failed_login_count || 0;
         var _lastLg = u.last_login_utc ? new Date(u.last_login_utc).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
-        row += '<div class="rh-umeta">' + (u.full_name ? '<span title="Full name (as per IC)"><i class="fa-regular fa-id-card"></i> ' + esc(u.full_name) + '</span>' : '') + (u.email ? '<span><i class="fa-regular fa-envelope"></i> ' + esc(u.email) + '</span>' : '') + (u.department_id ? '<span><i class="fa-regular fa-building"></i> ' + esc(_HU_DP_NAME[u.department_id] || u.department_id) + '</span>' : '') +
+        row += '<div class="rh-umeta">' + '<span title="User ID (log-in name)"><i class="fa-regular fa-user"></i> ' + esc(uname) + '</span>'
+          + ((u.display_name || '').trim() && (u.display_name || '').trim() !== _ttl ? '<span title="Nickname shown in the app (what we call the user)"><i class="fa-regular fa-face-smile"></i> ' + esc(u.display_name) + '</span>' : '') + (u.email ? '<span><i class="fa-regular fa-envelope"></i> ' + esc(u.email) + '</span>' : '') + (u.department_id ? '<span><i class="fa-regular fa-building"></i> ' + esc(_HU_DP_NAME[u.department_id] || u.department_id) + '</span>' : '') +
           '<span title="Last login"><i class="fa-regular fa-clock"></i> ' + esc(_lastLg) + '</span>' +
           '<span title="Failed logins since the last successful login"' + (_fails ? ' style="color:#f59e0b"' : '') + '><i class="fa-solid fa-triangle-exclamation"></i> ' + _fails + ' failed</span></div>';
         row += '</div><div class="rh-uside">';
