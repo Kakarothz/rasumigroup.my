@@ -14311,8 +14311,9 @@
     var apps = Array.prototype.map.call(card.querySelectorAll('input[id^="uapp_' + sid + '_"]'), function (c) { return c.checked ? '1' : '0'; }).join('');
     var storeOn = card.querySelector('input[id="uapp_' + sid + '_Store_Mngmnt"]');
     var ops = g('uops_'), typ = g('utype_'), br = g('ubranchsel_'), rl = g('urole_');
+    var acpo = g('uacpo_');   // PO Mailer option "Create PO in AutoCount" (saved by Save changes; was not tracked, so no button)
     return [apps, ops && !ops.disabled && ops.checked ? '1' : '0', typ ? typ.value : '',
-      (storeOn && storeOn.checked && br) ? br.value : '', rl ? rl.value : ''].join('|');
+      (storeOn && storeOn.checked && br) ? br.value : '', rl ? rl.value : '', acpo && acpo.checked ? '1' : '0'].join('|');
   }
   // Ops Centre chip follows the Role + Account Type currently selected (not only the saved ones).
   function _huOpsSync(card) {
