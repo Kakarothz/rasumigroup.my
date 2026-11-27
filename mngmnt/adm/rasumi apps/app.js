@@ -2479,9 +2479,43 @@
       '<button type="button" onclick="event.stopPropagation();window._rNtWaToggle()" aria-label="WhatsApp system alerts" style="width:32px;height:18px;border-radius:9px;border:none;padding:0;cursor:pointer;position:relative;background:' + (on ? '#22c55e' : 'rgba(148,163,184,.45)') + '">' +
       '<span style="position:absolute;top:2px;left:' + (on ? '16px' : '2px') + ';width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s"></span></button></span>';
   }
+  // Store auto settings (owner 27/11/2026): WhatsApp send window + branches with auto key-in of receipts OFF
+  function _ntAutoHtml() {
+    if (!_nt.auto) return '';
+    var off = (_nt.auto.autokeyin_off || '').toUpperCase().split(/[,; ]+/).filter(Boolean);
+    var chips = ['FVKL', 'FVL', 'FVT', 'FVG', 'RSA'].map(function (b) {
+      var on = off.indexOf(b) < 0;
+      return '<button type="button" onclick="event.stopPropagation();window._rAutoKey(\'' + b + '\')" title="Auto key-in receive at ' + b + ': ' + (on ? 'on' : 'off') + '" style="border:none;border-radius:8px;padding:1px 6px;margin-left:3px;font-size:10px;font-weight:700;cursor:pointer;background:' + (on ? 'rgba(34,197,94,.22)' : 'rgba(148,163,184,.25)') + ';color:' + (on ? '#16a34a' : 'var(--text-muted)') + '">' + b + '</button>';
+    }).join('');
+    var w = _nt.auto.wa_window || '24h';
+    return '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--text-muted);padding:4px 10px">' +
+      '<span title="4:40 pm, Mon-Fri. Off = the store staff key in their own receipts">Auto key-in</span>' + chips +
+      '<span style="margin-left:auto">WhatsApp window</span><select onclick="event.stopPropagation()" onchange="window._rWaWin(this.value)" style="font-size:11px">' +
+      [['24h', '24 hours'], ['12h', '12 h (8am-8pm)'], ['9h', '9 h (8am-5pm)']].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === w ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div>';
+  }
+  function _ntAutoPaint() { var el = document.getElementById('r-nt-auto'); if (el) el.innerHTML = _ntAutoHtml(); }
+  function _ntAutoLoad() {
+    if (!RS.supa) return;
+    RS.supa.rpc('rpc_store_auto_settings_get').then(function (r) { var d = r && r.data; if (d && d.success) { _nt.auto = d; _ntAutoPaint(); } }).catch(function () { });
+  }
+  function _ntAutoSave(args, msg) {
+    RS.supa.rpc('rpc_store_auto_settings_set', args).then(function (r) {
+      var d = r && r.data;
+      if (d && d.success) { _nt.auto = d; _ntAutoPaint(); rToast(msg, 'success', 2500); } else rToast('Could not save: ' + ((d && d.reason) || 'error'), 'error', 4000);
+    }).catch(function () { rToast('Could not save the setting', 'error', 4000); });
+  }
+  window._rAutoKey = function (b) {
+    if (!_nt.auto) return;
+    var off = (_nt.auto.autokeyin_off || '').toUpperCase().split(/[,; ]+/).filter(Boolean);
+    var i = off.indexOf(b); if (i >= 0) off.splice(i, 1); else off.push(b);
+    _ntAutoSave({ p_autokeyin_off: off }, 'Auto key-in ' + b + ' ' + (i >= 0 ? 'on' : 'off'));
+  };
+  window._rWaWin = function (w) { _ntAutoSave({ p_wa_window: w }, 'WhatsApp window: ' + w); };
+
   function _ntWaPaint() { var el = document.getElementById('r-nt-wa'); if (el) el.innerHTML = _ntWaHtml(); }
   function _ntWaLoad() {
     if (!RS.supa) return;
+    _ntAutoLoad();
     RS.supa.rpc('rpc_sys_alert_wa_get').then(function (r) {
       var d = r && r.data; if (d && d.success) { _nt.wa = !!d.on; _ntWaPaint(); }
     }).catch(function () { });
@@ -11294,6 +11328,7 @@
     html += '<div class="r-alert-section"><div class="r-alert-section-title ' + (_nt.p1 ? 'err' : 'warn') + '">' +
       '<i class="fa-solid fa-bell"></i> Admin Notifications (' + _nt.items.length + ' open' + (_nt.p1 ? ', ' + _nt.p1 + ' critical' : '') + ')' +
       '<span id="r-nt-wa" style="margin-left:auto;display:inline-flex">' + _ntWaHtml() + '</span></div>' +
+      '<div id="r-nt-auto">' + _ntAutoHtml() + '</div>' +
       '<div id="r-nt-page">' + _ntRows(30, true) + '</div></div>';
 
     // ── SYSTEM ALERTS (proactive monitoring) ──
