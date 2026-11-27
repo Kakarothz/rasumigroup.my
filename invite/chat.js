@@ -94,11 +94,15 @@
       function () { setTimeout(function () { resetChat(true); }, 2500); });
   }
   // outside Rasumi Apps: small talk gets a real answer first; repeats get firmer, the 3rd in a row offers to end the chat
+  var OFF_MAX = 5;
   function outOfScope(topic, text) {
     offCount++;
     var lv = Math.min(offCount, 3) - 1, k = LANG === 'ms' ? 'ms' : 'en', html;
     if (text && !topic) logMiss(text);
-    if (offCount >= 7) {                                   // still going after many tries: close politely and start fresh
+    if (offCount === OFF_MAX - 1) return agentSay(fill(T('This is my last reminder, {name}: I can only help with Rasumi Apps. If the next message is not about Rasumi Apps, I will end this conversation.',
+      'Ini peringatan terakhir, {name}: saya hanya boleh bantu tentang Rasumi Apps. Jika mesej seterusnya bukan tentang Rasumi Apps, saya akan tamatkan perbualan ini.')),
+      function () { quick([{ label: T('End the conversation', 'Tamatkan perbualan'), cls: 'ra-mut', go: endChat }, menuChip()]); });
+    if (offCount >= OFF_MAX) {                                   // still going after many tries: close politely and start fresh
       return agentSay(fill(pick('end', LANG === 'ms'
         ? ['Saya tamatkan perbualan ini dulu, ya, {name}. Bila ada soalan tentang Rasumi Apps, buka chat semula. Terima kasih!',
            'Kita berhenti di sini dulu, {name}. Saya sentiasa ada untuk soalan Rasumi Apps. Jumpa lagi!']
@@ -107,11 +111,10 @@
         function () { setTimeout(function () { resetChat(true); }, 2500); });
     }
     if (lv === 2) {
-      var pool = offCount >= 4 && KB.OFFL[k][3] ? KB.OFFL[k][3] : KB.OFFL[k][2];
-      html = (topic ? fill(pick('t_' + topic.id, topic[k])) + '<br>' : '') + fill(pick(offCount >= 4 ? 'close2' : 'close', pool));
+      html = (topic ? fill(pick('t_' + topic.id, topic[k])) + '<br>' : '') + fill(pick('close', KB.OFFL[k][2]));
       return agentSay(html, function () {
         quick([{ label: T('End the conversation', 'Tamatkan perbualan'), cls: 'ra-mut', go: endChat },
-               { label: T('I have a Rasumi Apps question', 'Saya ada soalan Rasumi Apps'), go: function () { userSay(T('I have a Rasumi Apps question', 'Saya ada soalan Rasumi Apps')); offCount = 0; topics(); } }]);
+               { label: T('I have a Rasumi Apps question', 'Saya ada soalan Rasumi Apps'), go: function () { userSay(T('I have a Rasumi Apps question', 'Saya ada soalan Rasumi Apps')); topics(); } }]);
       });
     }
     html = topic ? fill(pick('t_' + topic.id, topic[k])) + '<br>' + fill(pick('r' + lv, KB.REDIRECT[k][lv])) : fill(pick('o' + lv, KB.OFFL[k][lv]));
@@ -231,7 +234,7 @@
   function topics() { agentSay(T('Sure. What else can I help you with?', 'Baik. Apa lagi yang boleh saya bantu?'), topicChips); }
   function showNode(id) {
     var n = KB.N[id]; if (!n) return;
-    lastAI = false; if (id !== 'secret') offCount = 0;
+    lastAI = false;   // off-topic count stays for the whole conversation (limit 5, Owner 27/11/2026)
     if (KB.TOPICS.indexOf(id) >= 0) lastTopic = qText(n);
     if (n.form) return agentSay(answerText(n), ticketForm);
     var go = function () {
@@ -521,32 +524,28 @@
     // company figures / people's data: fixed answer, never the AI (a price question about the app itself is fine)
     var appPrice = top && top.id === 'b_cost' && /\b(app|apps|aplikasi|rasumi|licence|license|lesen|langganan|subscription|percuma|free)\b/.test(norm(text));
     if (isSecret(text) && !appPrice) { lastQ = text; return showNode('secret'); }
-    var tp = (!top || top.s < 3) ? chatTopic(text) : null;   // "dah makan?", "kau AI ke?": a real answer, then back to Rasumi Apps
-    if (tp) return outOfScope(tp);
-    if ((KB.OFFTOPIC || []).some(function (re) { return re.test(norm(text)); })) return outOfScope(null, text);   // clearly another subject, no AI
-    if ((!top || top.s < 3) && STILL.test(norm(text))) { userIssue = text; return showNode('trouble'); }
-    var tw = words(norm(text));
-    var sure = top && top.s >= 3 && (!second || second.s < top.s);
-    // a long, specific question that only touches one keyword is better understood by the AI ("print the report on A3")
-    var thin = top && top.s >= 3 && top.s < 99 && tw.length >= 4 && top.cov < 0.6;
-    if (sure && !thin) { lastQ = text; return showNode(top.id); }
-    if (sure && thin) return aiAsk(text, function () { lastQ = text; showNode(top.id); });   // matched a Rasumi keyword, so in scope
-    if (top && top.s >= 3) {                                  // two answers fit equally well: AI first, else let the user pick
-      var tied = r.filter(function (x) { return x.s === top.s; }).slice(0, 4);
-      return aiAsk(text, function () { suggest(tied); });
-    }
-    var nt = norm(text).trim();
+    // an exact phrase rule (KB.INTENTS, score 99) is certain: answer at once
+    if (top && top.s >= 99) { lastQ = text; return showNode(top.id); }
+    var nt = norm(text).trim(), tw = words(nt);
     if ((!top || top.s < 3) && YES.test(nt)) return agentSay(T('Great! Anything else about Rasumi Apps?', 'Baik! Ada apa-apa lagi tentang Rasumi Apps?'), function () { quick([menuChip()]); });
-    if ((!top || top.s < 3) && NO.test(nt)) return notSolved();
+    if ((!top || top.s < 3) && NO.test(nt) && !STILL.test(' ' + nt + ' ')) return notSolved();
     var s = small(text);
-    if (s && (!top || words(norm(text)).length <= 2)) return agentSay(s, topicChips);
-    var offTopic = function () { outOfScope(null, text); };
-    // outside Rasumi Apps: fixed answer, no AI call
-    if (!inScope(text)) return offTopic();
-    // about Rasumi Apps but not in the fixed answers (rojak, shortforms, new phrasing): ask the AI, else the old flow
+    if (s && tw.length <= 2 && (!top || top.s < 3)) return agentSay(s, topicChips);     // "hi", "thanks"
+    var sure = top && top.s >= 3 && (!second || second.s < top.s);
+    // Owner (27/11/2026): the keyword matcher cannot follow a conversation ("details, roadmap" after an answer is a
+    // follow-up, not off-topic). Everything else goes to the AI with the conversation so far; the AI decides whether it
+    // is a Rasumi Apps question, a follow-up, or off-topic (and writes the off-topic reply for the current warning level).
+    // The fixed rules below are only the fallback when the AI is off / busy / over its limit.
     aiAsk(text, function () {
+      var tp = (!top || top.s < 3) ? chatTopic(text) : null;
+      if (tp) return outOfScope(tp);
+      if ((KB.OFFTOPIC || []).some(function (re) { return re.test(nt); })) return outOfScope(null, text);
+      if ((!top || top.s < 3) && STILL.test(' ' + nt + ' ')) { userIssue = text; return showNode('trouble'); }
+      if (s && !top) return agentSay(s, topicChips);
+      if (sure) { lastQ = text; return showNode(top.id); }
+      if (top && top.s >= 3) return suggest(r.filter(function (x) { return x.s === top.s; }).slice(0, 4));
       if (top) { logMiss(text); return suggest(r.slice(0, 3)); }
-      offTopic();
+      outOfScope(null, text);
     });
   }
 
@@ -563,9 +562,9 @@
     row.innerHTML = AV + '<div class="ra-b ra-think"><i></i><i></i><i></i><span>' + T('Rasumi Agent is thinking…', 'Rasumi Agent sedang berfikir…') + '</span></div>';
     el.ms.appendChild(row); scroll();
     var i = window.RA_INFO || {};
-    var hist = transcript.slice(-9, -1).map(function (m) { return { who: m.who, text: String(m.text || '').slice(0, 600) }; });
+    var hist = transcript.slice(-13, -1).map(function (m) { return { who: m.who, text: String(m.text || '').slice(0, 900) }; });
     var minWait = new Promise(function (res) { setTimeout(res, 1800 + Math.random() * 700); });
-    Promise.all([call({ action: 'ask', question: text, lang: LANG, history: hist, ctx: { expires_at: i.expires_at, downloads_left: i.downloads_left } }), minWait])
+    Promise.all([call({ action: 'ask', question: text, lang: LANG, history: hist, off: offCount, ctx: { expires_at: i.expires_at, downloads_left: i.downloads_left } }), minWait])
       .then(function (x) { return x[0]; }, function () { return { ok: false }; })
       .then(function (r) {
         row.remove(); busy = false;
@@ -575,8 +574,7 @@
           return fallback();
         }
         if (r.lang === 'ms' || r.lang === 'en') setLang(r.lang);
-        if (r.kind === 'offtopic') return outOfScope(null);
-        offCount = 0;
+        if (r.kind === 'offtopic') return aiOffTopic(safeHtml(r.reply), text);
         var h = safeHtml(r.reply);
         bubble(h); transcript.push({ who: 'agent', text: plain(h) });
         lastQ = text; lastTopic = 'AI'; lastAI = true;
@@ -584,6 +582,18 @@
         if (r.kind === 'unknown') return quick([itChip(), menuChip()]);
         askSolved();
       });
+  }
+
+  // off-topic written by the AI for the current level: 1-2 friendly + reminder, 3 firm + offer to end, 4 last warning,
+  // 5 closing thanks, then the chat closes (Owner 27/11/2026: limit 5 off-topic replies)
+  function aiOffTopic(h, text) {
+    offCount++;
+    if (text) logMiss(text);
+    bubble(h); transcript.push({ who: 'agent', text: plain(h) }); lastAI = true;
+    if (offCount >= OFF_MAX) { el.input.disabled = true; return setTimeout(function () { el.input.disabled = false; resetChat(true); }, 4500); }
+    if (offCount >= 3) return quick([{ label: T('End the conversation', 'Tamatkan perbualan'), cls: 'ra-mut', go: endChat },
+      { label: T('I have a Rasumi Apps question', 'Saya ada soalan Rasumi Apps'), go: function () { userSay(T('I have a Rasumi Apps question', 'Saya ada soalan Rasumi Apps')); topics(); } }]);
+    quick([menuChip()]);
   }
 
   // ---------------------------------------------------------------- start once the invitation is open

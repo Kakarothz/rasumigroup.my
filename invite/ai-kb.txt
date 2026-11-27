@@ -64,6 +64,11 @@ Use the e-mail this invitation was sent to. Other e-mails cannot sign up.
 - Enter this e-mail and choose a password, or tap **Google** or **Microsoft**.
 - Confirm the e-mail we send you (from noreply@rasumi.com.my).
 
+### What name do I enter when I sign up?  [s_names]
+Sign up asks for two names:
+- **Full name (as per IC)**: your real name exactly as on your MyKad. It is used by management in the Admin Console and in Insights reports (shown without bin / binti), so your work is recorded under your real name.
+- **What should we call you**: your nickname, for example "Jul". It is only shown on your own Rasumi Apps profile and greetings.Typed the wrong full name? Use **Leave a message for IT**; the nickname you can change yourself in **Settings → My Profile**.
+
 ### How do I turn on two-step verification?  [s_2fa]
 After your first sign-in, Rasumi Apps shows a QR code. Scan it once with an authenticator app (**Google Authenticator** or **Microsoft Authenticator**), then type the 6-digit code. From then on, every sign-in asks for the current code from the app.
 
@@ -156,6 +161,18 @@ Yes. Tap the **Google** or **Microsoft** icon on the sign-in screen, as long as 
 
 ### Where does my data go?  [a_privacy]
 Your account and work data stay inside Rasumi systems. Sign-in uses encrypted connections (HTTPS), passwords are never stored in plain text, invitation links are stored only as hashes and locked to your PC, and patient details from VIMS are never copied into reports.
+
+### A button or app is missing (e.g. Create PO)  [x_access]
+Buttons and apps follow the access management gives your account. If **Create PO**, **Special Request**, an app tab or a page is missing or greyed out, you have not been given that access yet; a short note next to the button usually says so.
+- Ask your manager or IT to grant the access (it is set per person in the Admin Console).
+- After it is given, press **Log Out** and sign in again so the app reloads your access.
+- Still missing? Check you signed in with **your own** account, not an old shared ID, then use **Leave a message for IT** with the button name and a screenshot.
+
+### How do I open the Store Portal?  [a_portal]
+Open it from **Rasumi Apps**: press **Store Portal** in the app list. You are signed in with your Rasumi Apps account, so there is no separate Store Portal password or staff ID to create.
+- The first time, the portal asks you to confirm with your **two-step verification** code, so turn on two-step first.
+- What you can do there (receive, transfer, Special Request, bin card) follows the role and branch set for you in the Admin Console.
+- If the Store Portal button is missing, you have not been given Store Portal access yet: ask your manager or IT.
 
 ### The download fails or stops  [x_dlfail]
 - Press **Download for Windows** again: each press gives a fresh link (old links stop after 10 minutes).
