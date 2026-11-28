@@ -802,6 +802,7 @@
       '  <div class="r-hn-item" id="rni-r-scanify"    onclick="rNav(\'r-scanify\')"><i class="fa-solid fa-camera"></i><span class="r-hn-short">Scanify</span><span class="r-hn-full">Scanify</span></div>',
       '  <div class="r-hn-item" id="rni-r-vibes"      onclick="rNav(\'r-vibes\')"><i class="fa-solid fa-file-arrow-up"></i><span class="r-hn-short">VIBES</span><span class="r-hn-full">VIBES Agent</span> <span class="r-nb err" id="r-nb-vibes" style="display:none"></span></div>',
       '  <div class="r-hn-item" id="rni-r-vims"       onclick="rNav(\'r-vims\')"><i class="fa-solid fa-magnifying-glass-chart"></i><span class="r-hn-short">VIMS</span><span class="r-hn-full">VIMS Agent</span> <span class="r-nb warn" id="r-nb-vims" style="display:none"></span></div>',
+      '  <div class="r-hn-item" id="rni-r-etender" onclick="rNav(\'r-etender\')"><i class="fa-solid fa-gavel"></i><span class="r-hn-short">e-Tender</span><span class="r-hn-full">e-Tender</span></div>',
       '  <div class="r-hn-item" id="rni-r-po-auto-email" onclick="rNav(\'r-po-auto-email\')"><i class="fa-solid fa-envelope-circle-check"></i><span class="r-hn-short">PO Mail</span><span class="r-hn-full">PO Auto Email</span></div>',
       '  <div class="r-hn-sep"></div>',
       '  <div class="r-hn-item" id="rni-r-logs"      onclick="rNav(\'r-logs\')"><i class="fa-solid fa-scroll"></i><span class="r-hn-short">Logs</span><span class="r-hn-full">Log Explorer</span></div>',
@@ -2893,6 +2894,7 @@
     'r-vibes': 'VIBES Agent',
     'r-vims': 'VIMS Scrape',
     'r-po-auto-email': 'PO Auto Email',
+    'r-etender': 'e-Tender',
     'r-logs': 'Log Explorer',
     'r-commands': 'Commands',
     'r-alerts': 'Alerts',
@@ -2953,6 +2955,7 @@
       case 'r-vibes': renderVibes(); break;
       case 'r-vims': renderVims(); break;
       case 'r-po-auto-email': renderPoAutoEmail(); break;
+      case 'r-etender': renderEtender(); break;
       case 'r-logs': renderLogs(); break;
       case 'r-commands': renderCommands(); break;
       case 'r-alerts': renderAlerts(); break;
@@ -6751,6 +6754,163 @@
   } catch (e) { }
   var _poOrdersCache = [];
   var _poDeliveryCache = [];
+
+  // ── e-Tender (28/11/2026) ───────────────────────────────────
+  // Admin side of the e-Tender portal (Rasumi Apps > Tender > e-Tender Portal). Everything an admin controls lives here,
+  // not in the portal: public sources on/off, scan runs + "Scan now", the company profile used for eligibility checks,
+  // who has the Tender app, the audit trail of portal actions and the integrations status. RPCs: etender_admin_data /
+  // etender_admin_action (Admin Console Super Admin only).
+  var _etTab = 'sources';
+  try { var _etSaved = localStorage.getItem('rs_et_tab'); if (['sources', 'runs', 'profile', 'users', 'audit', 'integ'].indexOf(_etSaved) !== -1) _etTab = _etSaved; } catch (e) { }
+  var _etData = null;
+  function _etDt(ts) { return ts ? esc(_fmtDate(ts)) + ' ' + esc(_fmtTime(ts)) : '—'; }
+  function _etAgo(ts) { if (!ts) return 'never'; var m = Math.round((Date.now() - new Date(ts)) / 60000); if (m < 1) return 'just now'; if (m < 60) return m + ' min ago'; if (m < 1440) return Math.round(m / 60) + ' h ago'; return Math.round(m / 1440) + ' d ago'; }
+  function _etB(cls, t, title) { return '<span class="r-badge ' + cls + '"' + (title ? ' title="' + esc(title) + '"' : '') + '>' + esc(t) + '</span>'; }
+
+  function renderEtender() {
+    var view = $r('r-view-area'); if (!view) return;
+    var tabs = [['sources', 'Sources'], ['runs', 'Scan Runs'], ['profile', 'Company Profile'], ['users', 'Users & Access'], ['audit', 'Audit Trail'], ['integ', 'Integrations']];
+    view.innerHTML = '<div class="r-tab-bar" id="r-et-tabs">' +
+      tabs.map(function (t) { return '<div class="r-tab" id="rettab-' + t[0] + '" onclick="rEtTab(\'' + t[0] + '\')">' + t[1] + '</div>'; }).join('') +
+      '<div style="margin-left:auto;display:flex;gap:6px;align-items:center"><button class="r-btn-sm" onclick="rEtScan()" id="r-et-scan"><i class="fa-solid fa-satellite-dish"></i> Scan now</button>' +
+      '<button class="r-btn-sm" onclick="rEtLoad()"><i class="fa-solid fa-rotate"></i> Refresh</button></div></div>' +
+      '<div id="r-et-sum" style="margin:10px 0"></div><div id="r-et-body" class="r-dd-content">' + _poLoading() + '</div>';
+    window.rEtLoad();
+  }
+  window.rEtLoad = function () {
+    RS.supa.rpc('etender_admin_data', {}).then(function (res) {
+      var b = $r('r-et-body'); if (!b) return;
+      if (res.error) return _poErr(b, res.error);
+      _etData = res.data || {};
+      if (_etData.error) return _poErr(b, { message: _etData.error });
+      _etSummary();
+      window.rEtTab(_etTab);
+    }).catch(function (e) { _poErr($r('r-et-body'), e); });
+  };
+  function _etSummary() {
+    var s = _etData.stats || {}, src = _etData.sources || [], r = (_etData.runs || [])[0];
+    var act = src.filter(function (x) { return x.active; }).length, bad = src.filter(function (x) { return x.active && x.last_error; }).length;
+    var chip = function (v, l, c) { return '<div class="r-panel" style="padding:10px 14px;margin:0;min-width:140px"><div style="font-size:20px;font-weight:800;' + (c ? 'color:' + c : '') + '">' + v + '</div><div style="font-size:11px;opacity:.7">' + l + '</div></div>'; };
+    $r('r-et-sum').innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+      chip(s.open || 0, 'open notices') + chip(s.relevant || 0, 'pharma / medical open') +
+      chip(act + ' / ' + src.length, 'active sources') + chip(bad, 'failed last scan', bad ? '#f87171' : '') +
+      chip(r ? _etAgo(r.finished_at || r.started_at) : 'never', 'last scan' + (r && r.host ? ' · ' + esc(r.host) : '')) +
+      chip(s.detail_read || 0, 'notice pages read' + (s.detail_err ? ' · ' + s.detail_err + ' failed' : '')) +
+      chip(s.catalog_words || 0, 'catalog words') + '</div>';
+    var sb = $r('r-et-scan'); if (sb) { sb.disabled = !!_etData.pending_request; sb.innerHTML = _etData.pending_request ? '<span class="r-spin"></span> Scan queued' : '<i class="fa-solid fa-satellite-dish"></i> Scan now'; }
+  }
+  window.rEtTab = function (t) {
+    _etTab = t; try { localStorage.setItem('rs_et_tab', t); } catch (e) { }
+    ['sources', 'runs', 'profile', 'users', 'audit', 'integ'].forEach(function (k) { var el = $r('rettab-' + k); if (el) el.classList.toggle('active', k === t); });
+    var b = $r('r-et-body'); if (!b || !_etData) return;
+    if (t === 'sources') return _etSources(b);
+    if (t === 'runs') return _etRuns(b);
+    if (t === 'profile') return _etProfile(b);
+    if (t === 'users') return _etUsers(b);
+    if (t === 'audit') return _etAudit(b);
+    return _etInteg(b);
+  };
+  window.rEtScan = function () {
+    RS.supa.rpc('etender_admin_action', { p_action: 'SCAN', p_data: {} }).then(function (res) {
+      if (res.error) { rToast('Scan request failed: ' + res.error.message, 'error'); return; }
+      rToast('Scan queued — the RasumiWorker picks it up within a minute', 'success'); window.rEtLoad();
+    });
+  };
+  function _etSources(b) {
+    var h = '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-globe"></i> Public tender sources</h3></div>' +
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Only public notice pages are read (robots.txt respected, no log-in). A source that blocks automated readers is switched off, never bypassed. Turning a source off skips it from the next scan.</div></div>' +
+      '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Source</th><th>Sector</th><th>Method</th><th>Open</th><th>Stored</th><th>Last result</th><th>Last run</th><th style="text-align:center">Active</th></tr></thead><tbody>';
+    (_etData.sources || []).forEach(function (s) {
+      var res = !s.active ? _etB('r-badge-muted', 'Disabled', s.disabled_reason || '') + (s.disabled_reason ? '<div style="font-size:10px;opacity:.7;max-width:260px">' + esc(s.disabled_reason) + '</div>' : '')
+        : s.last_error ? _etB('r-badge-err', 'Failed') + '<div style="font-size:10px;color:#f87171;max-width:260px;word-break:break-word">' + esc(s.last_error) + '</div>'
+        : s.last_ok_at ? _etB('r-badge-ok', 'OK · ' + (s.last_count || 0) + ' rows') : _etB('r-badge-warn', 'Not scanned');
+      h += '<tr><td><strong>' + esc(s.name) + '</strong><div style="font-size:10px;opacity:.7"><a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.url) + '</a></div></td>' +
+        '<td>' + esc(s.sector || '—') + (s.state ? '<div style="font-size:10px;opacity:.7">' + esc(s.state) + '</div>' : '') + '</td>' +
+        '<td>' + _etB(s.render === 'browser' ? 'r-badge-warn' : 'r-badge-info', s.render === 'browser' ? 'Browser' : 'HTML') + '</td>' +
+        '<td>' + (s.open_count || 0) + '</td><td>' + (s.total_count || 0) + '</td><td>' + res + '</td><td>' + _etDt(s.last_run_at) + '</td>' +
+        '<td style="text-align:center"><input type="checkbox" ' + (s.active ? 'checked' : '') + ' onchange="rEtSource(\'' + esc(s.code) + '\',this.checked)" style="width:18px;height:18px;cursor:pointer"></td></tr>';
+    });
+    b.innerHTML = h + '</tbody></table></div></div>';
+  }
+  window.rEtSource = function (code, on) {
+    var reason = on ? null : prompt('Reason for turning ' + code + ' off (shown in the portal):', 'Turned off by admin');
+    if (!on && reason === null) { window.rEtLoad(); return; }
+    RS.supa.rpc('etender_admin_action', { p_action: 'SOURCE', p_data: on ? { code: code, active: true } : { code: code, active: false, reason: reason } }).then(function (res) {
+      if (res.error) { rToast('Save failed: ' + res.error.message, 'error'); return; }
+      rToast(code + (on ? ' enabled' : ' disabled'), 'success'); window.rEtLoad();
+    });
+  };
+  function _etRuns(b) {
+    var h = '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-satellite-dish"></i> Scan runs</h3></div>' +
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Automatic scans at 08:00 and 14:00 MYT on the RasumiWorker (MYOB-SVR01). "Scan now" from here or from the portal queues an extra run.</div></div>' +
+      '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>#</th><th>Started</th><th>Duration</th><th>Host</th><th>Trigger</th><th>Sources</th><th>Found</th><th>New</th><th>Changed</th><th>Errors</th></tr></thead><tbody>';
+    (_etData.runs || []).forEach(function (r) {
+      var dur = r.finished_at ? Math.max(0, Math.round((new Date(r.finished_at) - new Date(r.started_at)) / 1000)) + ' s' : '<span class="r-spin"></span> running';
+      var errs = r.errors || [];
+      h += '<tr><td>' + r.id + '</td><td>' + _etDt(r.started_at) + '</td><td>' + dur + '</td><td>' + esc(r.host || '—') + '</td><td>' + esc(r.trigger || '—') + '</td><td>' + (r.sources || 0) + '</td><td>' + (r.found || 0) + '</td><td>' + (r.new_count || 0) + '</td><td>' + (r.changed || 0) + '</td>' +
+        '<td>' + (errs.length ? _etB('r-badge-err', errs.length + ' failed', errs.map(function (e) { return e.source + ': ' + e.error; }).join('\n')) : _etB('r-badge-ok', '0')) + '</td></tr>';
+    });
+    if (!(_etData.runs || []).length) h += '<tr><td colspan="10" class="r-empty">No scan has run yet</td></tr>';
+    b.innerHTML = h + '</tbody></table></div></div>';
+  }
+  var _ET_PROF = [['mof_codes', 'MOF field codes held', 'text', '220101, 220102 …'], ['cidb', 'CIDB grade (if any)', 'text', 'G1 … G7'], ['states', 'Delivery states (comma separated)', 'text', 'Selangor, WP Kuala Lumpur …'],
+    ['min_days', 'Minimum days needed to prepare a bid', 'number', '5'], ['bumi', 'Bumiputera company', 'bool'], ['spkk', 'SPKK held', 'bool'], ['npra', 'Products PBKD / NPRA registered', 'bool'], ['gdp', 'GDP / poison licence Type A', 'bool'], ['sst', 'SST registered', 'bool']];
+  function _etProfile(b) {
+    var p = (_etData.profile || {}).data || {}, pr = _etData.profile || {};
+    var h = '<div class="r-panel" style="max-width:760px"><div class="r-panel-hdr"><h3><i class="fa-solid fa-building-shield"></i> Company profile</h3></div>' +
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Every tender\'s requirements (read from the notice page) are checked against this profile in the portal\'s Eligibility page and bid score. ' + (pr.updated_by ? 'Last updated by <strong>' + esc(pr.updated_by) + '</strong> · ' + _etDt(pr.updated_at) : 'Not filled in yet.') + '</div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;padding:6px 2px">';
+    _ET_PROF.forEach(function (f) {
+      if (f[2] === 'bool') h += '<label style="display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="et-p-' + f[0] + '" ' + (p[f[0]] ? 'checked' : '') + ' style="width:17px;height:17px"> ' + esc(f[1]) + '</label>';
+      else h += '<div><div style="font-size:11px;opacity:.75;margin-bottom:4px">' + esc(f[1]) + '</div><input class="r-filter-input" id="et-p-' + f[0] + '" type="' + f[2] + '" value="' + esc(p[f[0]] == null ? '' : p[f[0]]) + '" placeholder="' + esc(f[3] || '') + '" style="width:100%;box-sizing:border-box"></div>';
+    });
+    b.innerHTML = h + '</div><div style="padding:10px 2px"><button class="r-btn-sm" onclick="rEtProfileSave()" style="background:rgba(52,211,153,.2)"><i class="fa-solid fa-floppy-disk"></i> Save profile</button></div></div>';
+  }
+  window.rEtProfileSave = function () {
+    var p = {};
+    _ET_PROF.forEach(function (f) { var el = $r('et-p-' + f[0]); if (!el) return; if (f[2] === 'bool') p[f[0]] = el.checked; else if (el.value.trim() !== '') p[f[0]] = el.value.trim(); });
+    RS.supa.rpc('etender_admin_action', { p_action: 'PROFILE', p_data: { profile: p } }).then(function (res) {
+      if (res.error) { rToast('Save failed: ' + res.error.message, 'error'); return; }
+      rToast('Company profile saved', 'success'); window.rEtLoad();
+    });
+  };
+  function _etUsers(b) {
+    var h = '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-users"></i> Users & access</h3></div>' +
+      '<div class="r-info-box"><i class="fa-solid fa-circle-info"></i><div>Access to Tender (dashboard + e-Tender portal) is the <strong>Tender</strong> app tick on each user in Users. Super Admin always has it. New-tender digests are e-mailed to every user with access. Level 1 bid approval: any user with access; Level 2 (final): Super Admin.</div></div>' +
+      '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>User</th><th>Role</th><th>Tender access</th><th>Last login</th></tr></thead><tbody>';
+    (_etData.users || []).forEach(function (u) {
+      h += '<tr><td><strong>' + esc(u.full_name || u.username) + '</strong><div style="font-size:10px;opacity:.7">' + esc(u.username) + '</div></td><td>' + esc(u.role || '') + '</td><td>' +
+        (u.has_access ? _etB('r-badge-ok', u.role === 'SUPER_ADMIN' ? 'Yes (Super Admin)' : 'Yes') : _etB('r-badge-muted', 'No')) + '</td><td>' + _etDt(u.last_login_utc) + '</td></tr>';
+    });
+    b.innerHTML = h + '</tbody></table></div></div>';
+  }
+  function _etAudit(b) {
+    var h = '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-clipboard-list"></i> Audit trail (last 500)</h3></div><div class="r-table-wrap"><table class="r-table"><thead><tr><th>When</th><th>User</th><th>Action</th><th>Tender</th><th>Detail</th></tr></thead><tbody>';
+    (_etData.activity || []).forEach(function (a) {
+      var d = a.detail || {}; var txt = Object.keys(d).map(function (k) { var v = d[k]; return k + ': ' + (typeof v === 'object' ? JSON.stringify(v) : v); }).join(' · ');
+      h += '<tr><td>' + _etDt(a.at) + '</td><td>' + esc(a.username || '') + '</td><td>' + _etB(/^ADMIN_/.test(a.action) ? 'r-badge-warn' : 'r-badge-info', a.action) + '</td><td>' + esc(a.title || (a.notice_id ? '#' + a.notice_id : '—')) + '</td><td style="font-size:11px;word-break:break-word">' + esc(txt) + '</td></tr>';
+    });
+    if (!(_etData.activity || []).length) h += '<tr><td colspan="5" class="r-empty">No activity yet</td></tr>';
+    b.innerHTML = h + '</tbody></table></div></div>';
+  }
+  function _etInteg(b) {
+    var i = _etData.integrations || {}, w = i.worker || {}, s = _etData.stats || {}, r = (_etData.runs || [])[0];
+    var row = function (n, p, st, d) { return '<tr><td><strong>' + esc(n) + '</strong></td><td>' + esc(p) + '</td><td>' + st + '</td><td style="font-size:11px">' + d + '</td></tr>'; };
+    var h = '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-plug"></i> Integrations</h3></div><div class="r-table-wrap"><table class="r-table"><thead><tr><th>Integration</th><th>Purpose</th><th>Status</th><th>Detail</th></tr></thead><tbody>' +
+      row('RasumiWorker (MYOB-SVR01)', 'Runs the scans 08:00 / 14:00', w.ok ? _etB('r-badge-ok', 'Running') : _etB('r-badge-err', 'Not reporting'), w.checked_at ? 'Heartbeat ' + _etAgo(w.checked_at) + ' · ' + esc(w.host || '') : '—') +
+      row('Public tender portals', 'Notice pages', r ? ((r.errors || []).length ? _etB('r-badge-warn', 'Partial') : _etB('r-badge-ok', 'Connected')) : _etB('r-badge-warn', 'Awaiting scan'), r ? 'Last run ' + _etDt(r.finished_at || r.started_at) : '—') +
+      row('AutoCount', 'Prices, suppliers, GRN / DO for matching & costing', i.ac_last_ok ? _etB('r-badge-ok', 'Connected') : _etB('r-badge-warn', 'Unknown'), i.ac_last_ok ? 'Last sync ' + _etDt(i.ac_last_ok) + (i.ac_errors ? ' · ' + i.ac_errors + ' entity errors' : '') : '—') +
+      row('E-mail (send-alert-emails)', 'New-tender / change digests', i.mail_last_sent ? _etB('r-badge-ok', 'Sending') : _etB('r-badge-muted', 'No digest yet'), (i.mail_last_sent ? 'Last sent ' + _etDt(i.mail_last_sent) : '') + (i.mail_pending ? ' · ' + i.mail_pending + ' waiting' : '')) +
+      row('Medicine catalog', 'Words used to flag pharma tenders', _etB('r-badge-ok', (s.catalog_words || 0) + ' words'), 'Built ' + _etDt(s.catalog_built) + ' · <a href="#" onclick="rEtCatalog();return false">rebuild now</a>') +
+      '</tbody></table></div></div>';
+    var rules = _etData.rules || [];
+    h += '<div class="r-panel"><div class="r-panel-hdr"><h3><i class="fa-solid fa-bell"></i> Alert keywords (added by users in the portal)</h3></div>' +
+      (rules.length ? '<div class="r-table-wrap"><table class="r-table"><thead><tr><th>Keyword</th><th>Added by</th><th>When</th><th></th></tr></thead><tbody>' + rules.map(function (k) {
+        return '<tr><td><strong>' + esc(k.keyword) + '</strong></td><td>' + esc(k.created_by || '') + '</td><td>' + _etDt(k.created_at) + '</td><td style="text-align:center"><button class="r-ico-btn" title="Remove" style="color:#f87171" onclick="rEtRuleDel(' + k.id + ')"><i class="fa-solid fa-trash"></i></button></td></tr>';
+      }).join('') + '</tbody></table></div>' : '<div class="r-empty">No extra keywords</div>') + '</div>';
+    b.innerHTML = h;
+  }
+  window.rEtCatalog = function () { RS.supa.rpc('etender_admin_action', { p_action: 'CATALOG', p_data: {} }).then(function (res) { if (res.error) { rToast(res.error.message, 'error'); return; } rToast('Catalog rebuilt', 'success'); window.rEtLoad(); }); };
+  window.rEtRuleDel = function (id) { if (!confirm('Remove this keyword?')) return; RS.supa.rpc('etender_admin_action', { p_action: 'RULE_DEL', p_data: { id: id } }).then(function (res) { if (res.error) { rToast(res.error.message, 'error'); return; } rToast('Keyword removed', 'success'); window.rEtLoad(); }); };
 
   function renderPoAutoEmail() {
     var view = $r('r-view-area');
@@ -13351,7 +13511,7 @@
   };
 
   // ── Hospital Users Management ──────────────────────────────────
-  var _HOSPITAL_APPS = ['Scanify', 'Renamer HQ', 'FV Branch', 'PDF Splitter', 'PDF Studio', 'Quick Rename', 'Vibes Automation', 'Store Mngmnt', 'PO Auto Email', 'Doc Assembler'];
+  var _HOSPITAL_APPS = ['Scanify', 'Renamer HQ', 'FV Branch', 'PDF Splitter', 'PDF Studio', 'Quick Rename', 'Vibes Automation', 'Store Mngmnt', 'PO Auto Email', 'Doc Assembler', 'Tender'];   // Tender (28/11/2026): Tender dashboard + e-Tender portal, off for everyone except Super Admin
   // Not an app: a PO Auto Email option (chip arrow) - create POs / suppliers / items in the live AutoCount books.
   // Saved inside allowed_apps like the apps, so the desktop app reads it with check_permission('AutoCount PO').
   var _AC_PO_PERM = 'AutoCount PO';
